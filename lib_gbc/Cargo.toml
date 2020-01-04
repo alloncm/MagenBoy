@@ -1,9 +1,9 @@
 [package]
-name = "game_boy_color"
+name = "lib_gbc"
 version = "0.1.0"
 authors = ["alloncm <alloncm@gmail.com>"]
 edition = "2018"
 [lib]
-crate-type=["staticlib"]
+crate-type=["staticlib","rlib"]
 
 [dependencies]
