@@ -1,9 +1,11 @@
 [package]
-name = "lib_gbc"
+name = "gbc"
 version = "0.1.0"
 authors = ["alloncm <alloncm@gmail.com>"]
 edition = "2018"
-[lib]
-crate-type=["staticlib","rlib"]
+build = "build.rs"
 
 [dependencies]
+winapi = {version = "0.3.8", features = ["minwindef"]}
+libc = "*"
+wchar = "*"
