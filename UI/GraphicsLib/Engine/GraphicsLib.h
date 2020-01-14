@@ -7,7 +7,7 @@ extern "C"
 
 void InitLib();
 
-int DrawCycle(unsigned int* dwords, unsigned int height, unsigned int width);
+int DrawCycle();
 
 #ifdef __cplusplus
 }

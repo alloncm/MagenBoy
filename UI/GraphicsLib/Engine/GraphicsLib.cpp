@@ -12,8 +12,14 @@ extern "C" void InitLib()
 	game = new Game(*window);
 }
 
-extern "C" int DrawCycle(unsigned int* dwords, unsigned int height, unsigned int width)
+extern "C" int DrawCycle()
 {
+
+	unsigned int colors[50 * 50];
+	memset(colors, 0x50505050, 50 * 50 * 4);
+	unsigned int* dwords = colors;
+	unsigned int height = 50;
+	unsigned int width = 50;
 	std::vector<std::vector<Color>> screen(height);
 	for (int y = 0; y < height; y++)
 	{
