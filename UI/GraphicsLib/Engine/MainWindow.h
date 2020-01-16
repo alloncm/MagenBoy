@@ -50,7 +50,7 @@ public:
 		virtual std::wstring GetExceptionType() const override { return L"Windows Exception"; }
 	};
 public:
-	MainWindow( HINSTANCE hInst,wchar_t* pArgs );
+	MainWindow( HINSTANCE hInst,const wchar_t* pArgs );
 	MainWindow( const MainWindow& ) = delete;
 	MainWindow& operator=( const MainWindow& ) = delete;
 	~MainWindow();

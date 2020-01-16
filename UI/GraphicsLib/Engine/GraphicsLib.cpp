@@ -6,20 +6,14 @@ static Game* game;
 
 static MainWindow* window;
 	
-extern "C" void InitLib()
+extern "C" void InitLib(HINSTANCE instance, wchar_t* name)
 {
-	window = new MainWindow(NULL, L"");
+	window = new MainWindow(instance, name);
 	game = new Game(*window);
 }
 
-extern "C" int DrawCycle()
+extern "C" int DrawCycle(const unsigned int* dwords,const unsigned int height,const unsigned int width)
 {
-
-	unsigned int colors[50 * 50];
-	memset(colors, 0x50505050, 50 * 50 * 4);
-	unsigned int* dwords = colors;
-	unsigned int height = 50;
-	unsigned int width = 50;
 	std::vector<std::vector<Color>> screen(height);
 	for (int y = 0; y < height; y++)
 	{

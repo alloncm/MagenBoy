@@ -25,7 +25,7 @@
 #include "Game.h"
 #include <assert.h>
 
-MainWindow::MainWindow( HINSTANCE hInst,wchar_t * pArgs )
+MainWindow::MainWindow( HINSTANCE hInst,const wchar_t * pArgs )
 	:
 	args( pArgs ),
 	hInst( hInst )

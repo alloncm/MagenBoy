@@ -5,9 +5,9 @@ extern "C"
 
 #include<Windows.h>
 
-void InitLib();
+void InitLib(HINSTANCE instance, wchar_t* name);
 
-int DrawCycle();
+int DrawCycle(const unsigned int* dwords,const unsigned int height,const unsigned int width);
 
 #ifdef __cplusplus
 }
