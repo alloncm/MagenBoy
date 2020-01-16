@@ -9,3 +9,4 @@ build = "build.rs"
 [dependencies]
 winapi = {version = "0.3.8", features=["minwindef"]}
 wchar = "0.6"
+lib_gbc = {path = "../lib_gbc/"}

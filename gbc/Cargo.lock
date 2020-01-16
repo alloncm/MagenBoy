@@ -4,9 +4,14 @@
 name = "gbc"
 version = "0.1.0"
 dependencies = [
+ "lib_gbc 0.1.0",
  "wchar 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "lib_gbc"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro-hack"
