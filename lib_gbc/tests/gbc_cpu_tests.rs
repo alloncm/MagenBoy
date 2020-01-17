@@ -1,5 +1,5 @@
 extern crate lib_gbc;
-use lib_gbc::cpu::GbcCpu::GbcCpu;
+use lib_gbc::cpu::gbc_cpu::GbcCpu;
 
 #[test]
 fn test_af() {

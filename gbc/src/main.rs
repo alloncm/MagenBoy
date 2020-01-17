@@ -1,11 +1,11 @@
+extern crate lib_gbc;
 extern crate wchar;
 extern crate winapi;
-extern crate lib_gbc;
+use lib_gbc::cpu::gbc_cpu::GbcCpu;
 use std::ptr;
 use wchar::wch_c;
 use winapi::ctypes::wchar_t;
 use winapi::shared::minwindef::HINSTANCE;
-use lib_gbc::cpu::GbcCpu::GbcCpu;
 
 extern "C" {
     fn InitLib(instance: HINSTANCE, name: *const wchar_t);
@@ -13,10 +13,8 @@ extern "C" {
 }
 
 fn main() {
-
-    let cpu:GbcCpu = GbcCpu::default();
+    let cpu: GbcCpu = GbcCpu::default();
     cpu.af();
-
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();

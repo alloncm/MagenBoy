@@ -1,1 +1,1 @@
-pub mod GbcCpu;
+pub mod gbc_cpu;
