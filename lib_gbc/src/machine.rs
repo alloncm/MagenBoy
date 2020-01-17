@@ -7,6 +7,6 @@ const SCREEN_WIDTH: u8 = 160;
 
 pub struct Machine {
     pub cpu: GbcCpu,
-    pub memory: [u8;MEMORY_SIZE],
-    pub video_memory: [u8;]
+    pub memory: [u8; MEMORY_SIZE],
+    pub video_memory: [u8; VIDEO_MEMORY_SIZE],
 }

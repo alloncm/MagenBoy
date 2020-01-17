@@ -9,3 +9,10 @@ fn test_ld_r_r() {
     load_8bit_instructions::ld_r_r(&mut cpu, 0, 7);
     assert_eq!(cpu.a, cpu.b);
 }
+
+#[test]
+fn test_ld_r_n() {
+    let mut cpu = GbcCpu::default();
+    load_8bit_instructions::ld_r_n(&mut cpu, 0, 120);
+    assert_eq!(cpu.b, 120);
+}
