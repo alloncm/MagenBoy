@@ -56,4 +56,17 @@ impl GbcCpu {
         value += self.l as u16;
         return value;
     }
+
+    pub fn get_register(&mut self, registerIndex: u8) -> &mut u8 {
+        return match registerIndex {
+            0b000 => &mut self.b,
+            0b001 => &mut self.c,
+            0b010 => &mut self.d,
+            0b011 => &mut self.e,
+            0b100 => &mut self.h,
+            0b101 => &mut self.l,
+            0b111 => &mut self.a,
+            _ => std::panic!("No matching register for:{}", registerIndex),
+        };
+    }
 }

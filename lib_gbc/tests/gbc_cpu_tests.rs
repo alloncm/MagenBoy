@@ -32,3 +32,11 @@ fn test_hl() {
     cpu.l = 0x6;
     assert_eq!(cpu.hl(), 0x0506);
 }
+
+#[test]
+fn test_get_register() {
+    let mut cpu = GbcCpu::default();
+    cpu.a = 6;
+    let value = *cpu.get_register(0b111);
+    assert_eq!(value, cpu.a);
+}
