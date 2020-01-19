@@ -1,4 +1,5 @@
 use crate::cpu::gbc_cpu::GbcCpu;
+use crate::machine::memory::Memory;
 
 //load src register value into dest register
 pub fn ld_r_r(cpu: &mut GbcCpu, dest: u8, src: u8) {
@@ -8,6 +9,10 @@ pub fn ld_r_r(cpu: &mut GbcCpu, dest: u8, src: u8) {
 }
 
 //load src value into dest register
-pub fn ld_r_n(cpu: &mut GbcCpu, dest: u8, src: u8){
+pub fn ld_r_n(cpu: &mut GbcCpu, dest: u8, src: u8) {
     *cpu.get_register(dest) = src;
 }
+
+pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&Memory, dest:u8){
+    *cpu.get_register(dest) = memory.read(cpu.af());
+}   
