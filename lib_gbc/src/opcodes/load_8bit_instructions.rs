@@ -13,6 +13,6 @@ pub fn ld_r_n(cpu: &mut GbcCpu, dest: u8, src: u8) {
     *cpu.get_register(dest) = src;
 }
 
-pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&Memory, dest:u8){
+pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&dyn Memory, dest:u8){
     *cpu.get_register(dest) = memory.read(cpu.af());
 }   

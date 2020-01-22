@@ -2,11 +2,11 @@ use machine::memory;
 
 const MEMORY_SIZE:u16 = 0xFFFF;
 
-pub struct GbcMemory{
+pub struct GbcMmu{
     memory: [u8;MEMORY_SIZE]
 }
 
-impl Memory for GbcMemory{
+impl Memory for GbcMmu{
     pub fn read(&self, address:u16)->u8{
         return memory[address];
     }
