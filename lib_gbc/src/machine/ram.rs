@@ -10,14 +10,13 @@ pub struct Ram{
 }
 
 impl Ram{
-    pub fn get_memory_bank0(&self, address:u16)->u8{
-        let ram_address = address - RAM_POS_BANK0;
-        return self.memory[ram_address];
+    pub fn read_bank0(&self, address:u16)->u8{
+        return self.memory[address as usize];
     }
 
-    pub fn get_memory_banks(&self, address:u16)->u8{
-        let ram_address = (address - RAM_POS_BANKS ) + (BANK_SIZE*self.ram_bank_register);
-        return self.memory[ram_address];
+    pub fn read_current_bank(&self, address:u16)->u8{
+        let ram_address = BANK_SIZE*(self.ram_bank_register as u16);
+        return self.memory[ram_address as usize];
     }
 
     pub fn set_bank(&mut self, bank:u8){
