@@ -1,4 +1,4 @@
-use cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gbc_cpu::GbcCpu;
 
 const MEMORY_SIZE: usize = 0x8000;
 const VIDEO_MEMORY_SIZE: usize = 0x4000;
