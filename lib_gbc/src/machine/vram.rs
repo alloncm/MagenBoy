@@ -6,11 +6,20 @@ pub struct VRam{
 }
 
 impl VRam{
-    pub fn read_bank0(&self, address:u16)->u8{
-        return memory[address as usize];
+    pub fn set_bank(&mut self, bank:u8)
+    {
+        self.current_bank_register = bank;
     }
 
     pub fn read_current_bank(&self, address:u16)->u8{
-        
+        return self.memory[self.get_valid_address(address)];
+    }
+
+    pub fn write_current_bank(&mut self, address:u16, value:u8){
+        self.memory[self.get_valid_address(address)] = value;
+    }
+
+    fn get_valid_address(&self, address:u16)->usize{
+        return (address as usize) + ((self.current_bank_register as usize)*VRAM_BANK_SIZE);
     }
 }

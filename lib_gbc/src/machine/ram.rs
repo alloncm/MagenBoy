@@ -1,8 +1,6 @@
 
 const RAM_SZIE:usize = 0x8000;
-const RAM_POS_BANK0:u16 = 0xC000;
-const RAM_POS_BANKS:u16 = 0xD000;
-const BANK_SIZE:u16 = 0x1000;
+const BANK_SIZE:usize = 0x1000;
 
 pub struct Ram{
     memory: [u8;RAM_SZIE],
@@ -15,14 +13,26 @@ impl Ram{
     }
 
     pub fn read_current_bank(&self, address:u16)->u8{
-        let ram_address = BANK_SIZE*(self.ram_bank_register as u16);
-        return self.memory[ram_address as usize];
+        return self.memory[self.get_valid_address(address)];
     }
 
-    pub fn set_bank(&mut self, bank:u8){
+    pub fn write_bank0(&mut self, address:u16,value:u8){
+        self.memory[address as usize] = value;
+    }
+
+    pub fn write_current_bank(&mut self, address:u16, value:u8){
+        self.memory[self.get_valid_address(address)] = value;
+    }
+
+    pub fn set_bank(&mut self, mut bank:u8){
         if bank == 0{
             bank = 1;
         }
+        
         self.ram_bank_register = bank;
+    }
+
+    fn get_valid_address(&self, address:u16)->usize{
+        return BANK_SIZE*(self.ram_bank_register as usize);
     }
 }

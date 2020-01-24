@@ -1,12 +1,11 @@
 use crate::machine::memory::Memory;
 use crate::machine::rom::Rom;
 use crate::machine::ram::Ram;
-
-const VRAM_SIZE:usize = 0x4000;
+use crate::machine::vram::VRam;
 
 pub struct GbcMmu{
     ram: Ram,
-    vram: [u8;VRAM_SIZE],
+    vram: VRam,
     rom: Rom
 }
 
@@ -14,10 +13,10 @@ pub struct GbcMmu{
 impl Memory for GbcMmu{
     fn read(&self, address:u16)->u8{
         return match address{
-            0x0..=0x3FFF=>self.rom.get_bank0(address),
-            0x4000..=0x7FFF=>self.rom.get_current_bank(address),
-            0x8000..=0x9FFF=>self.vram[address],
-            0xA000..=0xBFFF=>self.rom.get_external_ram(address),
+            0x0..=0x3FFF=>self.rom.read_bank0(address),
+            0x4000..=0x7FFF=>self.rom.read_current_bank(address-0x4000),
+            0x8000..=0x9FFF=>self.vram.read_current_bank(address-0x8000),
+            0xA000..=0xBFFF=>self.rom.read_external_ram(address-0xA000),
             0xC000..=0xCFFF =>self.ram.read_bank0(address - 0xC000), 
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             0xD000..=0xDFFF=>self.ram.read_current_bank(address-0xD000),
@@ -27,6 +26,13 @@ impl Memory for GbcMmu{
     }
 
     fn write(&mut self, address:u16, value:u8){
-        memory[address] = value;
+        match address{
+            0x8000..=0x9FFF=>self.vram.write_current_bank(address-0x8000, value),
+            0xA000..=0xBFFF=>self.rom.write_external_ram(address-0xA000,value),
+            0xC000..=0xCFFF =>self.ram.write_bank0(address - 0xC000,value), 
+            0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000,value),
+            0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
+            _=>std::panic!("not implemented yet")
+        }
     }
 }
