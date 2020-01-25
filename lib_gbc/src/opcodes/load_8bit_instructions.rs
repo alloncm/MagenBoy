@@ -38,7 +38,51 @@ pub fn ld_a_de(cpu: &mut GbcCpu, memory:&dyn Memory){
     cpu.a = memory.read(cpu.de());
 }
 
-//
+//load the value at address NN into register A
 pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&dyn Memory, address:u16){
+    cpu.a = memory.read(address);
+}
+
+//load the value in register A into the address of BC
+pub fn ld_bc_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    memory.write(cpu.bc(), cpu.a);
+}
+
+//load the value in register A into the address of DE
+pub fn ld_de_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    memory.write(cpu.de(), cpu.a);
+}
+
+//load the value in register A into the address of NN
+pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, address:u16){
+    memory.write(address, cpu.a);
+}
+
+//load value in register A into address HL and then increment register HL value
+pub fn ldi_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    memory.write(cpu.hl(), cpu.a);
+    cpu.inc_hl();
+}
+
+//load into register A the value in address HL and then increment register HL value
+pub fn ldi_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    cpu.a = memory.read(cpu.hl());
+    cpu.inc_hl();
+}
+
+//load value in register A into address HL and then decrement register HL value
+pub fn ldd_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    memory.write(cpu.hl(), cpu.a);
+    cpu.dec_hl();
+}
+
+//load into register A the value in address HL and then decrement register HL value
+pub fn ldd_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
+    cpu.a = memory.read(cpu.hl());
+    cpu.dec_hl();
+}
+
+//load into register A the value in io port N
+pub fn ld_a_ioport_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, address:u16){
     cpu.a = memory.read(address);
 }

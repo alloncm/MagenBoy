@@ -69,4 +69,32 @@ impl GbcCpu {
             _ => std::panic!("No matching register for:{}", register_index),
         };
     }
+
+    pub fn inc_hl(&mut self){
+        if self.l < 0xFF{
+            self.l += 1;
+        }
+        else if self.h < 0xFF{
+            self.h += 1;
+            self.l = 0;
+        }
+        else{
+            self.l = 0;
+            self.h = 0;
+        }
+    }
+
+    pub fn dec_hl(&mut self){
+        if self.l > 0{
+            self.l -= 1;
+        }
+        else if self.h > 0{
+            self.h -= 1;
+            self.l = 0xFF;
+        }
+        else{
+            self.l = 0xFF;
+            self.h = 0xFF;
+        }
+    }
 }
