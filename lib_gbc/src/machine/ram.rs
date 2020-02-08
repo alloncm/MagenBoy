@@ -33,6 +33,6 @@ impl Ram{
     }
 
     fn get_valid_address(&self, address:u16)->usize{
-        return BANK_SIZE*(self.ram_bank_register as usize);
+        return BANK_SIZE*(self.ram_bank_register as usize) + (address as usize);
     }
 }

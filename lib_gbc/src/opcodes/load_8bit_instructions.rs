@@ -1,6 +1,8 @@
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::machine::memory::Memory;
 
+const IO_PORTS_ADDRESS:u16 = 0xFF00;
+
 //load src register value into dest register
 pub fn ld_r_r(cpu: &mut GbcCpu, dest: u8, src: u8) {
     let src_register_value: u8 = *cpu.get_register(src);
@@ -83,6 +85,20 @@ pub fn ldd_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
 }
 
 //load into register A the value in io port N
-pub fn ld_a_ioport_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, address:u16){
-    cpu.a = memory.read(address);
+pub fn ld_a_ioport_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, io_port:u8){
+    cpu.a = memory.read(IO_PORTS_ADDRESS + (io_port as u16));
+}
+
+//load into io port N the value in register A
+pub fn ld_ioport_n_a(cpu: &mut GbcCpu, memory: &mut dyn Memory, io_port:u8){
+    memory.write(IO_PORTS_ADDRESS + (io_port as u16), cpu.a);
+}
+
+//load into io port C the value in register A
+pub fn ld_ioport_c_a(cpu: &mut GbcCpu, memory: &mut dyn Memory){
+    memory.write(IO_PORTS_ADDRESS + (cpu.c as u16), cpu.a);
+}
+
+pub fn ld_a_ioport_c(cpu: &mut GbcCpu, memory: &mut dyn Memory){
+    cpu.a = memory.read(IO_PORTS_ADDRESS + (cpu.c as u16));
 }
