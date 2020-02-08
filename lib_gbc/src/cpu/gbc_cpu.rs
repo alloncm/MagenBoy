@@ -66,7 +66,38 @@ impl GbcCpu {
             0b100 => &mut self.h,
             0b101 => &mut self.l,
             0b111 => &mut self.a,
-            _ => std::panic!("No matching register for:{}", register_index),
+            _ => std::panic!("No matching register for:{}", register_index)
+        };
+    }
+
+    pub fn get_16bit_register(&mut self, register_index:u8)-> u16{
+        return match register_index{
+            0b00=>self.bc(),
+            0b01=>self.de(),
+            0b10=>self.hl(),
+            0b11=>self.stack_pointer,
+            _=>std::panic!("no matching 16bit register for:{}",register_index)
+        };
+    }
+
+    pub fn set_16bit_register(&mut self, register_index:u8, value:u16){
+        let first:u8 = (value & 0xFF) as u8;
+        let second:u8 = ((value & 0xFF00) >> 8) as u8;
+        match register_index{
+            0b00=> {
+                self.b = first;
+                self.c = second;
+            }
+            0b01=>{
+                self.d = first;
+                self.e = second;
+            }
+            0b10=>{
+                self.h = first;
+                self.l = second;
+            }
+            0b11=>self.stack_pointer = value,
+            _=>std::panic!("no matching 16bit register for:{}",register_index)
         };
     }
 

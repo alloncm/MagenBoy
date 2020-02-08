@@ -40,3 +40,11 @@ fn test_get_register() {
     let value = *cpu.get_register(0b111);
     assert_eq!(value, cpu.a);
 }
+
+#[test]
+fn test_set_16bit_register(){
+    let mut cpu = GbcCpu::default();
+    cpu.set_16bit_register(0, 0x1111);
+    assert_eq!(cpu.b, 0x11);
+    assert_eq!(cpu.c, 0x11);
+}
