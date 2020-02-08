@@ -57,6 +57,19 @@ impl GbcCpu {
         return value;
     }
 
+    pub fn mut_af(&mut self)->&mut u16{
+        let value:*const u8;
+        unsafe
+        {
+            let a:u8 = 7;
+            value = &self.a;
+            value.offset(1) = &self.f;
+        }
+
+
+        return 
+    }
+
     pub fn get_register(&mut self, register_index: u8) -> &mut u8 {
         return match register_index {
             0b000 => &mut self.b,

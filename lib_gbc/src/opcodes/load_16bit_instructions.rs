@@ -9,3 +9,4 @@ pub fn load_rr_nn(cpu:&mut GbcCpu, register_index:u8, value:u16){
 pub fn load_sp_hl(cpu:&mut GbcCpu){
     cpu.stack_pointer = cpu.hl();
 }
+
