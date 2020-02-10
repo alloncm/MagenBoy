@@ -13,11 +13,11 @@ impl Default for Reg{
 }
 
 impl Reg{
-    pub fn get_low(&mut self)->&mut u8{
+    pub fn low(&mut self)->&mut u8{
         self.get_offset_byte(LOW_POSITION)
     }
 
-    pub fn get_high(&mut self)->&mut u8{
+    pub fn high(&mut self)->&mut u8{
         self.get_offset_byte(HIGH_POSITION)
     }
 
