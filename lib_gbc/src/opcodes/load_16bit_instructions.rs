@@ -1,5 +1,6 @@
-use crate::cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::machine::memory::Memory;
+use crate::opcodes::opcodes_utils::check_for_half_carry_third_nible;
 
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
@@ -55,8 +56,22 @@ pub fn push(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 
 //load into hl sp + rr
 pub fn ld_hl_spnn(cpu:&mut GbcCpu, opcode:u16){
-    let value = opcode & 0xFF;
-    cpu.hl.value = cpu.stack_pointer + value;
+    let nn = opcode & 0xFF;
+    let (value,overflow) = cpu.stack_pointer.overflowing_add(nn);
+    cpu.hl.value = value;
+
+    //check for carry
+    if overflow{
+        cpu.set_flag(Flag::Carry);
+    }
+
+    //check for half carry
+    if check_for_half_carry_third_nible(cpu.stack_pointer,nn as u8){
+        cpu.set_flag(Flag::HalfCarry);
+    }
+
+    cpu.unset_flag(Flag::Zero);
+    cpu.unset_flag(Flag::Subtraction);
 }
 
 //load sp into memory

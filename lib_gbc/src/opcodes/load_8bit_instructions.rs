@@ -1,21 +1,10 @@
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::machine::memory::Memory;
+use crate::opcodes::opcodes_utils::get_src_register;
 
 const IO_PORTS_ADDRESS:u16 = 0xFF00;
 
-fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
-    let reg_num = opcode & 0b111;
-    return match reg_num{
-        0x0=>cpu.bc.low(),
-        0x1=>cpu.bc.high(),
-        0x2=>cpu.de.low(),
-        0x3=>cpu.de.high(),
-        0x4=>cpu.hl.low(),
-        0x5=>cpu.hl.high(),
-        0x7=>cpu.af.low(),
-        _=>panic!("no register: {}",reg_num)
-    };
-}
+
 
 fn get_dest_register(cpu: &mut GbcCpu, opcode:u8)->&mut u8{
     let reg_num = opcode & 0b11111000;

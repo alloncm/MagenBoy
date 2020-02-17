@@ -1,5 +1,12 @@
 use crate::cpu::register::Reg;
 
+pub enum Flag{
+    Carry = 0b00010000,
+    HalfCarry = 0b00100000,
+    Subtraction = 0b01000000,
+    Zero = 0b10000000
+}
+
 pub struct GbcCpu {
     pub af: Reg,
     pub bc: Reg,
@@ -23,7 +30,18 @@ impl Default for GbcCpu {
 }
 
 impl GbcCpu {
+    pub fn set_flag(&mut self, flag:Flag){
+        *self.af.high() |= flag as u8;
+    }
 
+    pub fn unset_flag(&mut self, flag:Flag){
+        let f = !(flag as u8);
+        *self.af.high() &= f;
+    }
+
+    pub fn set_by_value(&mut self, flag:Flag, value:bool){
+        //impl
+    }
 
     pub fn inc_hl(&mut self){
         self.hl.value = self.hl.value.wrapping_add(1);
