@@ -40,7 +40,12 @@ impl GbcCpu {
     }
 
     pub fn set_by_value(&mut self, flag:Flag, value:bool){
-        //impl
+        if value{
+            self.set_flag(flag);
+        }
+        else{
+            self.unset_flag(flag);
+        }
     }
 
     pub fn inc_hl(&mut self){

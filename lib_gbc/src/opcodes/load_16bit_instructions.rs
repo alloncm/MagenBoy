@@ -55,20 +55,19 @@ pub fn push(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 }
 
 //load into hl sp + rr
-pub fn ld_hl_spnn(cpu:&mut GbcCpu, opcode:u16){
-    let nn = opcode & 0xFF;
-    let (value,overflow) = cpu.stack_pointer.overflowing_add(nn);
-    cpu.hl.value = value;
+pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
+    let dd = (opcode & 0xFF) as i8;
+    let temp:i32 = cpu.stack_pointer as i32;
+    let value = temp.wrapping_add(dd as i32);
+
+    cpu.hl.value = value as u16;
 
     //check for carry
-    if overflow{
-        cpu.set_flag(Flag::Carry);
-    }
+    cpu.set_by_value(Flag::Carry, value<0);
 
     //check for half carry
-    if check_for_half_carry_third_nible(cpu.stack_pointer,nn as u8){
-        cpu.set_flag(Flag::HalfCarry);
-    }
+    //todo check for bugs
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(cpu.stack_pointer,dd as u8));
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
