@@ -1,13 +1,17 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::machine::memory::Memory;
-use crate::opcodes::opcodes_utils::{get_src_register,check_for_half_carry_first_nible};
+use crate::opcodes::opcodes_utils::{
+    get_src_register, 
+    check_for_half_carry_first_nible_add,
+    check_for_half_carry_first_nible_sub
+};
 
 fn add(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
     let (value, overflow) = dest.overflowing_add(src);
 
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(src,dest));
     cpu.unset_flag(Flag::Subtraction);
 
     return value;
@@ -20,7 +24,7 @@ fn adc(cpu:&mut GbcCpu, dest:u8, src:u8 ) -> u8{
 
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(src,dest));
 
     return value;
 }
@@ -30,7 +34,7 @@ fn sub(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
 
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(src,dest));
     cpu.set_flag(Flag::Subtraction);
 
     return value;
@@ -43,7 +47,7 @@ fn subc(cpu:&mut GbcCpu, dest:u8, src:u8 ) -> u8{
 
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(src,dest));
 
     return value;
 }
@@ -252,42 +256,25 @@ pub fn cp_a_hl(cpu:&mut GbcCpu,memory:&dyn Memory){
     sub(cpu, dest, src);
 }
 
-fn inc_set_flags(cpu:&mut GbcCpu, reg:u8){
-    cpu.unset_flag(Flag::Subtraction);
-    cpu.set_by_value(Flag::Zero, reg.wrapping_add(1) == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible(reg, 1));
-}
-
 pub fn inc_r(cpu:&mut GbcCpu, opcode:u8){
-    let reg_value:u8;
-    {
-        let reg = opcode&(0b11111000);
-        let reg = match reg{
-            0x00=>cpu.bc.low(),
-            0x01=>cpu.bc.high(),
-            0x10=>cpu.de.low(),
-            0x11=>cpu.de.high(),
-            0x20=>cpu.hl.low(),
-            0x21=>cpu.hl.high(),
-            0x31=>cpu.af.low(),
-            _=>panic!("no register")
-        };
-        
-        reg_value = *reg;
-        *reg = (*reg).wrapping_add(1);
-    }
+    let reg = opcode&(0b11111000);
+    let reg = match reg{
+        0x00=>cpu.bc.low(),
+        0x01=>cpu.bc.high(),
+        0x10=>cpu.de.low(),
+        0x11=>cpu.de.high(),
+        0x20=>cpu.hl.low(),
+        0x21=>cpu.hl.high(),
+        0x31=>cpu.af.low(),
+        _=>panic!("no register")
+    };
 
-    inc_set_flags(cpu, reg_value);
+    *reg = (*reg).wrapping_add(1);
 }
 
 pub fn inc_hl(cpu:&mut GbcCpu,memory:&mut dyn Memory){
     let value = memory.read(cpu.hl.value);
     memory.write(cpu.hl.value, value.wrapping_add(1));
-    inc_set_flags(cpu, value);
-}
-
-pub fn dec_hl(cpu:&mut GbcCpu,memory:&mut dyn Memory){
-    memory.write(cpu.hl.value, memory.read(cpu.hl.value)-1);
 }
 
 pub fn dec_r(cpu:&mut GbcCpu, opcode:u8){
@@ -302,5 +289,12 @@ pub fn dec_r(cpu:&mut GbcCpu, opcode:u8){
         0x31=>cpu.af.low(),
         _=>panic!("no register")
     };
-    *reg-=1;
+
+    *reg = (*reg).wrapping_sub(1);
+
+}
+
+pub fn dec_hl(cpu:&mut GbcCpu,memory:&mut dyn Memory){
+    let value = memory.read(cpu.hl.value);
+    memory.write(cpu.hl.value, value.wrapping_sub(1));
 }
