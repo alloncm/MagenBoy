@@ -298,3 +298,34 @@ pub fn dec_hl(cpu:&mut GbcCpu,memory:&mut dyn Memory){
     let value = memory.read(cpu.hl.value);
     memory.write(cpu.hl.value, value.wrapping_sub(1));
 }
+
+pub fn cpl(cpu:&mut GbcCpu){
+    *cpu.af.high() ^= 0xFF;
+    cpu.set_flag(Flag::HalfCarry);
+    cpu.set_flag(Flag::Subtraction);
+}
+
+pub fn daa(cpu:&mut GbcCpu){
+    let mut added_value = 0;
+    let mut a = *cpu.af.high();
+    let mut carry = false;
+    if cpu.get_flag(Flag::HalfCarry) || (a & 0xF) > 0x9{
+        added_value|=0x6;
+    }
+    if cpu.get_flag(Flag::Carry) || (a & 0xF0)>0x90{
+        added_value|=0x60;
+        carry = true;
+    }
+
+    if cpu.get_flag(Flag::Subtraction){
+        a-=added_value;
+    }
+    else{
+        a+=added_value;
+    }
+
+    *cpu.af.high() = a;
+    cpu.set_by_value(Flag::Carry, carry);
+    cpu.set_by_value(Flag::Zero, a==0);
+    cpu.unset_flag(Flag::HalfCarry);
+}

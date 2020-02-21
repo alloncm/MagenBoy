@@ -31,12 +31,12 @@ impl Default for GbcCpu {
 
 impl GbcCpu {
     pub fn set_flag(&mut self, flag:Flag){
-        *self.af.high() |= flag as u8;
+        *self.af.low() |= flag as u8;
     }
 
     pub fn unset_flag(&mut self, flag:Flag){
         let f = !(flag as u8);
-        *self.af.high() &= f;
+        *self.af.low() &= f;
     }
 
     pub fn set_by_value(&mut self, flag:Flag, value:bool){
@@ -46,6 +46,10 @@ impl GbcCpu {
         else{
             self.unset_flag(flag);
         }
+    }
+
+    pub fn get_flag(&mut self, flag:Flag)->bool{
+        (*self.af.low() & flag as u8) != 0
     }
 
     pub fn inc_hl(&mut self){

@@ -23,5 +23,7 @@ pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{
 }
 
 pub fn check_for_half_carry_first_nible_sub(a:u8, b:u8)->bool{
-    ((a & 0xF) - (b & 0xF)) < 0
+    let sa = a as i16;
+    let sb = b as i16;
+    ((sa & 0xF) - (sb & 0xF)) < 0
 }
