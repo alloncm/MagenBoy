@@ -1,18 +1,15 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::machine::memory::Memory;
-use crate::opcodes::opcodes_utils::check_for_half_carry_third_nible;
+use crate::opcodes::opcodes_utils::{
+    check_for_half_carry_third_nible,
+    get_arithmetic_16reg
+};
 
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
-    let reg = (opcode>>16) & 0xF;
+    let reg = ((opcode>>16) & 0xF) as u8;
     let nn = (opcode&0xFFFF) as u16;
-    let reg = match reg{
-        0x0=>&mut cpu.bc.value,
-        0x1=>&mut cpu.de.value,
-        0x2=>&mut cpu.hl.value,
-        0x3=>&mut cpu.stack_pointer,
-        _=>panic!("no register")
-    };
+    let reg = get_arithmetic_16reg(cpu, reg);
 
     *reg = nn;
 }
@@ -67,7 +64,7 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
 
     //check for half carry
     //todo check for bugs
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(cpu.stack_pointer,dd as u8));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(cpu.stack_pointer,dd as u16));
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);

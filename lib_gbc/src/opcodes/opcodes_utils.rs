@@ -1,4 +1,4 @@
-use crate::cpu::gbc_cpu::{GbcCpu, Flag};
+use crate::cpu::gbc_cpu::{GbcCpu};
 
 pub fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
     let reg_num = opcode & 0b111;
@@ -14,8 +14,18 @@ pub fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
     };
 }
 
-pub fn check_for_half_carry_third_nible(a:u16, b:u8)->bool{
-    ((a & 0xFFF) + (b as u16)) & 0x1000 == 0x1000
+pub fn get_arithmetic_16reg(cpu:&mut GbcCpu, reg:u8)->&mut u16{
+    return match reg{
+        0x0=>&mut cpu.bc.value,
+        0x1=>&mut cpu.de.value,
+        0x2=>&mut cpu.hl.value,
+        0x3=>&mut cpu.stack_pointer,
+        _=>panic!("no register")
+    };
+}
+
+pub fn check_for_half_carry_third_nible(a:u16, b:u16)->bool{
+    ((a & 0xFFF) + (b & 0xFFF)) & 0x1000 == 0x1000
 }
 
 pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{
