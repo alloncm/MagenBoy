@@ -8,6 +8,7 @@ fn test_add_sp_dd_positive_dd(){
     let opcode:u16 = 88;
     arithmetic_16bit_instructions::add_sp_dd(&mut cpu, opcode);
     assert_eq!(cpu.stack_pointer, 88);
+    assert_eq!(cpu.get_flag(Flag::Carry),false);
 }
 
 #[test]
@@ -17,4 +18,5 @@ fn test_add_sp_dd_negative_dd(){
     let opcode:u16 = 0xCE; //signed is -50
     arithmetic_16bit_instructions::add_sp_dd(&mut cpu, opcode);
     assert_eq!(cpu.stack_pointer, 50);
+    assert_eq!(cpu.get_flag(Flag::Carry),false);
 }
