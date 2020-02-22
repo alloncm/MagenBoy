@@ -3,3 +3,4 @@ pub mod load_16bit_instructions;
 pub mod opcodes_utils;
 pub mod arithmetic_8bit_instructions;
 pub mod arithmetic_16bit_instructions;
+pub mod jump_instructions; 
