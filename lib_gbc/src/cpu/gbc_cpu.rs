@@ -14,6 +14,9 @@ pub struct GbcCpu {
     pub hl: Reg,
     pub stack_pointer: u16,
     pub program_counter: u16,
+    pub mie: bool,
+    pub halt:bool,
+    pub stop:bool
 }
 
 impl Default for GbcCpu {
@@ -24,7 +27,10 @@ impl Default for GbcCpu {
             de: Reg::default(),
             hl: Reg::default(),
             stack_pointer: 0,
-            program_counter: 0
+            program_counter: 0,
+            mie: false,
+            halt:false,
+            stop:false
         }
     }
 }

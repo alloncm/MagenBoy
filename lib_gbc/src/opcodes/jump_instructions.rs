@@ -78,7 +78,12 @@ pub fn rst(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     
 }
 
-fn jump_if_true(cpu:&mut GbcCpu, opcode:u32, flag:bool){
+pub fn reti(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
+    ret(cpu, memory, opcode);
+    cpu.mie = true;
+}
+
+pub fn jump_if_true(cpu:&mut GbcCpu, opcode:u32, flag:bool){
     if flag{
         jump(cpu, opcode);
     }
