@@ -11,6 +11,10 @@ pub struct GameBoy {
 
 impl GameBoy{
     fn fetch_first_byte(&mut self)->u8{
-        self.mmu.read
+        self.mmu.read(self.cpu.program_counter)
+    }
+
+    pub fn cycle(&mut self){
+        let opcode = self.fetch_first_byte();
     }
 }
