@@ -6,3 +6,4 @@ pub mod arithmetic_16bit_instructions;
 pub mod jump_instructions; 
 pub mod cpu_control_instructions;
 pub mod rotate_shift_instructions;
+pub mod single_bit_sintructions;
