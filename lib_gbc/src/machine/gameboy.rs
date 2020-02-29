@@ -8,3 +8,9 @@ pub struct GameBoy {
     pub cpu: GbcCpu,
     pub mmu:dyn Memory
 }
+
+impl GameBoy{
+    fn fetch_first_byte(&mut self)->u8{
+        self.mmu.read
+    }
+}
