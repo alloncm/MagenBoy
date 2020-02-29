@@ -60,3 +60,6 @@ pub fn rra(cpu:&mut GbcCpu, opcode:u8){
     a_rotate_flags(cpu, carry);
 }   
 
+fn get_cb_opcode(cb_opcode:u16)->u8{
+    (cb_opcode & 0xFF) as u8
+}
