@@ -16,7 +16,9 @@ pub struct GbcCpu {
     pub program_counter: u16,
     pub mie: bool,
     pub halt:bool,
-    pub stop:bool
+    pub stop:bool,
+    pub gbc_mode:bool,
+    pub double_speed:bool
 }
 
 impl Default for GbcCpu {
@@ -30,7 +32,9 @@ impl Default for GbcCpu {
             program_counter: 0,
             mie: false,
             halt:false,
-            stop:false
+            stop:false,
+            gbc_mode:false,
+            double_speed:false
         }
     }
 }
