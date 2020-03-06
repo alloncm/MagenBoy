@@ -3,11 +3,6 @@ use crate::opcodes::opcodes_utils::*;
 use crate::machine::memory::Memory;
 
 
-
-fn check_bit(byte:u8, bit_mask:u8)->bool{
-    byte & bit_mask != 0
-}
-
 fn get_bit_number(opcode:u8)->u8{
     let bit_number:u8 = opcode & 0b00111000;
     return 1<<bit_number;

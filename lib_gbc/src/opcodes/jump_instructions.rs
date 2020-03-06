@@ -34,16 +34,16 @@ pub fn call_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
     }
 }
 
-pub fn ret(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
+pub fn ret(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let mut pc:u16 = memory.read(cpu.stack_pointer) as u16;
     pc |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
     cpu.program_counter = pc;
     cpu.stack_pointer+=2;
 }
 
-fn ret_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8, flag:bool){
+fn ret_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, flag:bool){
     if flag{
-        ret(cpu, memory, opcode);
+        ret(cpu, memory);
     }
 }
 
@@ -52,10 +52,10 @@ pub fn ret_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
-        0b00=>ret_if_true(cpu, memory, opcode, !zero),
-        0b01=>ret_if_true(cpu, memory, opcode, zero),
-        0b10=>ret_if_true(cpu, memory, opcode, !carry),
-        0b11=>ret_if_true(cpu, memory, opcode, carry),
+        0b00=>ret_if_true(cpu, memory, !zero),
+        0b01=>ret_if_true(cpu, memory, zero),
+        0b10=>ret_if_true(cpu, memory, !carry),
+        0b11=>ret_if_true(cpu, memory, carry),
         _=>std::panic!("error call opcode {}",opcode)
     }
 }
@@ -78,12 +78,12 @@ pub fn rst(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     
 }
 
-pub fn reti(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    ret(cpu, memory, opcode);
+pub fn reti(cpu:&mut GbcCpu, memory:&mut dyn Memory){
+    ret(cpu, memory);
     cpu.mie = true;
 }
 
-pub fn jump_if_true(cpu:&mut GbcCpu, opcode:u32, flag:bool){
+fn jump_if_true(cpu:&mut GbcCpu, opcode:u32, flag:bool){
     if flag{
         jump(cpu, opcode);
     }
@@ -107,7 +107,7 @@ pub fn jump_cc(cpu:&mut GbcCpu, opcode:u32){
     }
 }
 
-pub fn jump_hl(cpu:&mut GbcCpu, opcode:u8){
+pub fn jump_hl(cpu:&mut GbcCpu){
     cpu.program_counter = cpu.hl.value;
 }
 
