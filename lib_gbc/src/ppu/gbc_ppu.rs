@@ -24,20 +24,34 @@ pub struct GbcPpu<'a>{
 }
 
 impl<'a> GbcPpu<'a>{
-    pub fn get_screen_buffer(&self)->[u8;SCREEN_BUFFER_SIZE]{
-        let sprite_size = SPRITE_NORMAL_SIZE + (SPRITE_NORMAL_SIZE * self.sprite_extended as u8);
-        let mut screen:[u8;SCREEN_BUFFER_SIZE] = [0;SCREEN_BUFFER_SIZE];
-        for i in (VRAM_START_ADDRESS..=VRAM_END_ADDRESS).step_by(2){
-            let screen_index:u16 = i-VRAM_START_ADDRESS;
-            let first_byte:u8 = self.memory.read(i);
-            let second_byte:u8 = self.memory.read(i+1);
+
+    fn fill_sprite(&self, vram:[u8;16])->Sprite{
+        let mut sprite:Sprite = Sprite{pixels:[0;64]};
+        for i in (0..16).step_by(2){
+            let first_byte:u8 = vram[i];
+            let second_byte:u8 = vram[i+1];
             for j in 0..8{
                 let mask:u8 = 1<<(7-j);
-                screen[(screen_index+j) as usize] = (first_byte & mask)>>7-j;
-                screen[(screen_index+j) as usize] |= ((second_byte & mask)>>7-j)<<1;
-            } 
+                sprite.pixels[i+j] = (first_byte & mask)>>7-j;
+                sprite.pixels[i+j] = ((second_byte & mask)>>7-j)<<1;
+            }
         }
 
-        return screen;
+        return sprite;
+    }
+
+    fn get_screen_buffer(&self)->Vec<Sprite>{
+        let sprite_size = SPRITE_NORMAL_SIZE + (SPRITE_NORMAL_SIZE * self.sprite_extended as u8);
+        let sprites:Vec<Sprite> = Vec::with_capacity(256);
+        for i in (VRAM_START_ADDRESS..=VRAM_END_ADDRESS).step_by(16){
+            let mut array:[u8;16] = [0;16];
+            for j in 0u16..16{
+                array[j as usize] = self.memory.read(i+j);
+            }
+
+            self.fill_sprite(array);
+        }
+
+        return sprites;
     }
 }
