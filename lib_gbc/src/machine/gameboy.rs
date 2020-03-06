@@ -39,7 +39,6 @@ impl GameBoy{
                     0x00=>|cpu|{},
                     0x07=>rlca,
                     0x0F=>rrca,
-                    
                     0x17=>rla,
                     0x1F=>rra,
                     0x2F=>cpl,
@@ -49,9 +48,12 @@ impl GameBoy{
                     0x76=>halt,
                     0xE9=>jump_hl,
                     0xF3=>di,
+                    0xF9=>load_sp_hl,
                     0xFB=>ei,
-                    
-                }
+                    _=>std::panic!("no opcode: {}",op)
+                },
+                OpcodeType::U16(op)=>std::panic!("no opcode type with bigger than u8 opcode: {}",op),
+                OpcodeType::U24(op)=>std::panic!("no opcode type with bigger than u8 opcode: {}",op)
             }
         }
     }
