@@ -40,3 +40,14 @@ impl Memory for GbcMmu{
         }
     }
 }
+
+impl Default for GbcMmu{
+    fn default()->GbcMmu{
+        GbcMmu{
+            ram:Ram::default(),
+            io_ports:IoPorts::default(),
+            rom:Rom::default(),
+            vram:VRam::default()
+        }
+    }
+}

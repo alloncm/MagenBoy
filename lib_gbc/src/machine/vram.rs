@@ -23,3 +23,12 @@ impl VRam{
         return (address as usize) + ((self.current_bank_register as usize)*VRAM_BANK_SIZE);
     }
 }
+
+impl Default for VRam{
+    fn default()->VRam{
+        VRam{
+            memory:[0;VRAM_SIZE],
+            current_bank_register:0
+        }
+    }
+}

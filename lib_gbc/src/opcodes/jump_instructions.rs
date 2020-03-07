@@ -1,7 +1,7 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::machine::memory::Memory;
 
-fn push_pc(cpu:&mut GbcCpu, memory:&mut dyn Memory){
+fn push_pc(cpu:&mut GbcCpu, memory: &mut dyn Memory){
     let high = (cpu.program_counter & 0xFF00) as u8;
     let low = (cpu.program_counter & 0xFF) as u8;
     memory.write(cpu.stack_pointer-1, high);

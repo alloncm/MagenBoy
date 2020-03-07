@@ -45,7 +45,7 @@ pub fn ld_r_n(cpu: &mut GbcCpu, opcode:u16) {
 }
 
 //load the value in address of HL into dest register
-pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&dyn Memory, opcode:u8){
+pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     let reg = opcode&0b11111000;
     let hl_value = cpu.hl.value;
     let reg = match reg{
@@ -74,17 +74,17 @@ pub fn ld_hl_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
 }
 
 //load the value in address of BC into register A
-pub fn ld_a_bc(cpu: &mut GbcCpu, memory:&dyn Memory){
+pub fn ld_a_bc(cpu: &mut GbcCpu, memory:&mut dyn Memory){
     *cpu.af.low() = memory.read(cpu.bc.value);
 }
 
 //load the value in address of DE into register A
-pub fn ld_a_de(cpu: &mut GbcCpu, memory:&dyn Memory){
+pub fn ld_a_de(cpu: &mut GbcCpu, memory:&mut dyn Memory){
     *cpu.af.low() = memory.read(cpu.de.value);
 }
 
 //load the value at address NN into register A
-pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&dyn Memory, opcode:u32){
+pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
     let address = (0xFFFF & opcode) as u16;
     *cpu.af.low() = memory.read(address);
 }
@@ -100,7 +100,8 @@ pub fn ld_de_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
 }
 
 //load the value in register A into the address of NN
-pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, address:u16){
+pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
+    let address = (0xFFFF & opcode) as u16;
     memory.write(address, *cpu.af.low());
 }
 

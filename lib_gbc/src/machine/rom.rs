@@ -22,3 +22,11 @@ impl Rom{
     }
 
 }
+
+impl Default for Rom{
+    fn default()->Rom{
+        Rom{
+            program:Vec::new()
+        }
+    }
+}
