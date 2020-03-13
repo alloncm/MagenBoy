@@ -3,8 +3,6 @@ use crate::machine::memory::Memory;
 use crate::machine::gbc_memory::GbcMmu;
 use crate::opcodes::opcode_resolver::*;
 
-
-
 pub struct GameBoy<'a> {
     pub cpu: GbcCpu,
     pub mmu: GbcMmu,
