@@ -18,11 +18,14 @@ pub struct GbcPpu<'a>{
     pub window_cordinates: Vec2<u8>,
     pub screen_buffer:[u8;SCREEN_BUFFER_SIZE],
     pub screen_enable:bool,
-    pub windows_enable:bool,
+    pub window_enable:bool,
     pub sprite_extended:bool,
     pub background_enabled:bool,
     pub gbc_mode:bool,
-    pub gb_display_data:bool,
+    pub sprite_enable:bool,
+    pub window_tile_map_address:bool,
+    pub window_tile_background_map_data_address:bool,
+    pub background_tile_map_address:bool,
     memory:&'a dyn Memory,
     vram:&'a mut VRam
 }
@@ -71,7 +74,7 @@ impl<'a> GbcPpu<'a>{
 
     pub fn get_screen_buffer(&mut self)->Vec<u8>{
         let sprites:Vec<Sprite> = self.get_sprites();
-        let start:u16 = if self.gb_display_data {0x9800} else{0x9C00};
+        let start:u16 = if self.background_tile_map_address {0x9800} else{0x9C00};
         let mut screen_buffer:Vec<u8> = Vec::new();
         for i in start..start+0x400{
             let index:u8 = self.memory.read(i);

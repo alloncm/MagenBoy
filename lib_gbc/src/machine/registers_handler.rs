@@ -17,8 +17,12 @@ impl<'a> RegisterHandler<'a>{
 
     fn handle_lcdcontrol_register(&mut self, register:u8){
         self.ppu.screen_enable = (register & BIT_7_MASK) != 0;
-        self.ppu.windows_enable = (register & BIT_5_MASK) != 0;
+        self.ppu.window_tile_map_address = (register & BIT_6_MASK) != 0;
+        self.ppu.window_enable = (register & BIT_5_MASK) != 0;
+        self.ppu.window_tile_background_map_data_address = (register & BIT_4_MASK) != 0;
+        self.ppu.background_tile_map_address = (register & BIT_3_MASK) != 0;
+        self.ppu.sprite_extended = (register & BIT_2_MASK) != 0;
+        self.ppu.sprite_enable = (register & BIT_1_MASK) != 0;
         self.ppu.background_enabled = (register & BIT_0_MASK) != 0;
     }
-
 }
