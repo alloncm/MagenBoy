@@ -32,3 +32,12 @@ impl Default for VRam{
         }
     }
 }
+
+impl Clone for VRam{
+    fn clone(&self)->VRam{
+        VRam{
+            memory:self.memory,
+            current_bank_register:self.current_bank_register
+        }
+    }
+}

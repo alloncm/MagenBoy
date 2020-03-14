@@ -2,11 +2,13 @@ use crate::cpu::gbc_cpu::GbcCpu;
 use crate::machine::memory::Memory;
 use crate::machine::gbc_memory::GbcMmu;
 use crate::opcodes::opcode_resolver::*;
+use crate::ppu::gbc_ppu::GbcPpu;
 
 pub struct GameBoy<'a> {
     pub cpu: GbcCpu,
     pub mmu: GbcMmu,
-    opcode_resolver:OpcodeResolver<'a>
+    opcode_resolver:Option<OpcodeResolver<'a>>,
+    pub ppu:Option<GbcPpu<'a>>
 }
 
 impl<'a> GameBoy<'a>{
@@ -19,7 +21,7 @@ impl<'a> GameBoy<'a>{
 
     pub fn cycle(&mut self){
         let opcode:u8 = self.fetch_next_byte();
-        let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode);
+        let opcode_func:OpcodeFuncType = self.opcode_resolver.as_ref().unwrap().get_opcode(opcode);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
             OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu,&mut self.mmu),
@@ -49,13 +51,18 @@ impl<'a> GameBoy<'a>{
         }
     }
 
-    pub fn new(&self,resolver:OpcodeResolver<'a>)->GameBoy<'a>{
-        GameBoy{
-            cpu:GbcCpu::default(),
-            mmu:GbcMmu::default(),
-            opcode_resolver:resolver
-        }
+    pub fn new()->GameBoy<'a>{
+
+        let cpu = GbcCpu::default();
+        let mmu = GbcMmu::default();
+        let mut gb = GameBoy{
+            cpu:cpu,
+            mmu:mmu,
+            opcode_resolver:Option::None,
+            ppu:Option::None
+        };
+
+        gb.opcode_resolver = Option::Some(OpcodeResolver::<'a>new(&gb.mmu, &gb.cpu.program_counter));
+        return gb;
     }
 }
-
-

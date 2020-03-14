@@ -5,9 +5,9 @@ use crate::machine::vram::VRam;
 use crate::machine::io_ports::IoPorts;
 
 pub struct GbcMmu{
-    ram: Ram,
-    vram: VRam,
-    rom: Rom,
+    pub ram: Ram,
+    pub vram: VRam,
+    pub rom: Rom,
     io_ports: IoPorts
 }
 

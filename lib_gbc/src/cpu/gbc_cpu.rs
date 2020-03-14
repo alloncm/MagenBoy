@@ -17,7 +17,7 @@ pub struct GbcCpu {
     pub mie: bool,
     pub halt:bool,
     pub stop:bool,
-    pub gbc_mode:bool,
+    pub cgb_mode:bool,
     pub double_speed:bool
 }
 
@@ -33,7 +33,7 @@ impl Default for GbcCpu {
             mie: false,
             halt:false,
             stop:false,
-            gbc_mode:false,
+            cgb_mode:false,
             double_speed:false
         }
     }

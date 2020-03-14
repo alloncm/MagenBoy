@@ -13,7 +13,7 @@ pub enum OpcodeFuncType{
     U16MemoryOpcodeFunc(U16MemoryOpcodeFunc),
     U32MemoryOpcodeFunc(U32MemoryOpcodeFunc)
 }
-pub struct OpcodeResolver<'a>{
+pub struct  OpcodeResolver<'a>{
     memory:&'a dyn Memory,
     program_counter:&'a u16,
     opcode_func_resolver:fn(u8)->Option<OpcodeFunc>,

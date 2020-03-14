@@ -14,8 +14,6 @@ struct Sprite{
 }
 
 pub struct GbcPpu<'a>{
-    pub screen_cordinates: Vec2<u8>,
-    pub window_cordinates: Vec2<u8>,
     pub screen_buffer:[u8;SCREEN_BUFFER_SIZE],
     pub screen_enable:bool,
     pub window_enable:bool,
@@ -26,11 +24,30 @@ pub struct GbcPpu<'a>{
     pub window_tile_map_address:bool,
     pub window_tile_background_map_data_address:bool,
     pub background_tile_map_address:bool,
+    pub background_scroll:Vec2<u8>,
     memory:&'a dyn Memory,
-    vram:&'a mut VRam
+    vram:&'a VRam
 }
 
 impl<'a> GbcPpu<'a>{
+
+    pub fn new(mmu: &'a dyn Memory, vram: &'a VRam)->GbcPpu<'a>{
+        GbcPpu{
+            background_enabled:false,
+            background_scroll:Vec2::<u8>{x:0,y:0},
+            background_tile_map_address:false,
+            gbc_mode:false,
+            memory:mmu,
+            screen_buffer:[0;SCREEN_BUFFER_SIZE],
+            screen_enable:false,
+            sprite_enable:false,
+            sprite_extended:false,
+            vram:vram,
+            window_enable:false,
+            window_tile_background_map_data_address:false,
+            window_tile_map_address:false
+        }
+    }
 
     fn fill_sprite(&self, vram:[u8;16])->Sprite{
         let mut sprite:Sprite = Sprite{pixels:[0;64]};
@@ -50,10 +67,11 @@ impl<'a> GbcPpu<'a>{
     fn get_sprites(&mut self)->Vec<Sprite>{
         //let sprite_size = SPRITE_NORMAL_SIZE + (SPRITE_NORMAL_SIZE * self.sprite_extended as u8);
         let mut sprites:Vec<Sprite> = Vec::with_capacity(256);
-        self.vram.set_bank(0);
+        let mut vram = self.vram.clone();
+        vram.set_bank(0);
         self.fill_sprites(&mut sprites);
         if self.gbc_mode{
-            self.vram.set_bank(1);
+            vram.set_bank(1);
             self.fill_sprites(&mut sprites);
         }
 
