@@ -62,7 +62,7 @@ impl<'a> GameBoy<'a>{
             ppu:Option::None
         };
 
-        gb.opcode_resolver = Option::Some(OpcodeResolver::<'a>new(&gb.mmu, &gb.cpu.program_counter));
+        gb.opcode_resolver = Option::Some(OpcodeResolver::new(&gb.mmu, &gb.cpu.program_counter));
         return gb;
     }
 }
