@@ -1,11 +1,7 @@
 extern crate lib_gbc;
 extern crate wchar;
 extern crate winapi;
-use lib_gbc::cpu::gbc_cpu::GbcCpu;
-use lib_gbc::machine::gbc_memory::GbcMmu;
 use lib_gbc::machine::gameboy::GameBoy;
-use lib_gbc::opcodes::opcode_resolver::OpcodeResolver;
-use lib_gbc::ppu::gbc_ppu::GbcPpu;
 use std::ptr;
 use wchar::wch_c;
 use winapi::ctypes::wchar_t;
@@ -17,15 +13,7 @@ extern "C" {
 }
 
 fn main() {
-    
-    unsafe{
-        
-        let mut cpu: GbcCpu = GbcCpu::default();
-        let mut mmu: GbcMmu = GbcMmu::default();
-        let ppu: GbcPpu = GbcPpu::new(&mmu, &mmu.vram);
-        let opcode_resolver = OpcodeResolver::new(&mmu, &cpu.program_counter);
-        let gameboy = GameBoy::new(&mut cpu, &mut mmu, opcode_resolver, ppu);
-    }
+    let gameboy = GameBoy::default();
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();
