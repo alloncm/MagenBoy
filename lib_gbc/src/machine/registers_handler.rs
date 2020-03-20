@@ -8,7 +8,7 @@ use crate::opcodes::opcodes_utils::*;
 pub struct RegisterHandler<'a>{
     cpu:&'a mut GbcCpu,
     memory:&'a mut GbcMmu,
-    ppu:&'a mut GbcPpu<'a>,                                                                          
+    ppu:&'a mut GbcPpu,                                                                          
 }
 
 impl<'a> RegisterHandler<'a>{

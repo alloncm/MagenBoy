@@ -2,25 +2,24 @@ use crate::opcodes::opcodes_resolvers::*;
 use crate::machine::memory::Memory;
 
 
-pub enum OpcodeFuncType<'a>{
+pub enum OpcodeFuncType{
     OpcodeFunc(OpcodeFunc),
     U8OpcodeFunc(U8OpcodeFunc),
     U16OpcodeFunc(U16OpcodeFunc),
     U32OpcodeFunc(U32OpcodeFunc),
-    MemoryOpcodeFunc(MemoryOpcodeFunc<'a>),
+    MemoryOpcodeFunc(MemoryOpcodeFunc),
     MemoryOpcodeFunc2Bytes(MemoryOpcodeFunc2Bytes),
     U8MemoryOpcodeFunc(U8MemoryOpcodeFunc),
     U16MemoryOpcodeFunc(U16MemoryOpcodeFunc),
     U32MemoryOpcodeFunc(U32MemoryOpcodeFunc)
 }
-pub struct  OpcodeResolver<'a>{
-    memory:&'a dyn Memory,
-    program_counter:&'a u16,
+
+pub struct  OpcodeResolver{
     opcode_func_resolver:fn(u8)->Option<OpcodeFunc>,
     u8_opcode_func_resolver:fn(u8)->Option<U8OpcodeFunc>,
     u16_opcode_func_resolver:fn(u8)->Option<U16OpcodeFunc>,
     u32_opcode_func_resolver:fn(u8)->Option<U32OpcodeFunc>,
-    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc<'a>>,
+    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc>,
     memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc2Bytes>,
     u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc>,
     u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc>,
@@ -28,8 +27,8 @@ pub struct  OpcodeResolver<'a>{
 }
 
 
-impl<'a> OpcodeResolver<'a>{
-    pub fn get_opcode(&self, opcode:u8)->OpcodeFuncType<'a>{
+impl OpcodeResolver{
+    pub fn get_opcode(&self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
 
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{
@@ -67,7 +66,7 @@ impl<'a> OpcodeResolver<'a>{
             None=>{}
         }
 
-        let postfix:u8 = self.memory.read(*self.program_counter);
+        let postfix:u8 = memory.read(program_counter);
         let u16_memory_opcode_func = (self.u16_memory_opcode_func_resolver)(opcode, postfix);
         match u16_memory_opcode_func{
             Some(func)=>return OpcodeFuncType::U16MemoryOpcodeFunc(func),
@@ -81,11 +80,11 @@ impl<'a> OpcodeResolver<'a>{
         
         std::panic!("no opcode matching: {}",opcode)
     }
+}
 
-    pub fn new(memory:&'a dyn Memory, pc:&'a u16)->OpcodeResolver<'a>{
+impl Default for OpcodeResolver{
+    fn default()->OpcodeResolver{
         OpcodeResolver{
-            memory:memory,
-            program_counter:pc,
             opcode_func_resolver:get_opcode_func_resolver(),
             memory_opcode_func_resolver:get_memory_opcode_func_resolver(),
             memory_opcode_func_2bytes_resolver:get_memory_opcode_func_2bytes_resolver(),

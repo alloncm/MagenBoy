@@ -17,11 +17,15 @@ extern "C" {
 }
 
 fn main() {
-    let cpu: GbcCpu = GbcCpu::default();
-    let mmu: GbcMmu = GbcMmu::default();
-    let ppu: GbcPpu = GbcPpu::new(&mmu, &mmu.vram);
-    let opcode_resolver = OpcodeResolver::new(&mmu, &cpu.program_counter);
-    let gameboy = GameBoy::new(cpu, mmu, opcode_resolver, ppu);
+    
+    unsafe{
+        
+        let mut cpu: GbcCpu = GbcCpu::default();
+        let mut mmu: GbcMmu = GbcMmu::default();
+        let ppu: GbcPpu = GbcPpu::new(&mmu, &mmu.vram);
+        let opcode_resolver = OpcodeResolver::new(&mmu, &cpu.program_counter);
+        let gameboy = GameBoy::new(&mut cpu, &mut mmu, opcode_resolver, ppu);
+    }
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();

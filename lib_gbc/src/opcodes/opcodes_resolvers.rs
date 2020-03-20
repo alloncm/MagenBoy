@@ -17,7 +17,7 @@ pub type OpcodeFunc = fn(&mut GbcCpu);
 pub type U8OpcodeFunc = fn(&mut GbcCpu,u8);
 pub type U16OpcodeFunc = fn(&mut GbcCpu,u16);
 pub type U32OpcodeFunc = fn(&mut GbcCpu,u32);
-pub type MemoryOpcodeFunc<'a> = fn(&mut GbcCpu,&'a mut dyn Memory);
+pub type MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory);
 pub type MemoryOpcodeFunc2Bytes = fn(&mut GbcCpu,&mut dyn Memory);
 pub type U8MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u8);
 pub type U16MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u16);
@@ -127,7 +127,7 @@ pub fn get_u32_opcode_func_resolver()->fn(u8)->Option<U32OpcodeFunc>{
     }
 }
 
-pub fn get_memory_opcode_func_resolver<'a>()->fn(u8)->Option<MemoryOpcodeFunc<'a>>{
+pub fn get_memory_opcode_func_resolver()->fn(u8)->Option<MemoryOpcodeFunc>{
     |opcode:u8|->Option<MemoryOpcodeFunc>{
         match opcode{
             0x02=>Some(ld_bc_a),
