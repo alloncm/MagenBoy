@@ -2,12 +2,12 @@ use crate::opcodes::opcodes_resolvers::*;
 use crate::machine::memory::Memory;
 
 
-pub enum OpcodeFuncType{
+pub enum OpcodeFuncType<'a>{
     OpcodeFunc(OpcodeFunc),
     U8OpcodeFunc(U8OpcodeFunc),
     U16OpcodeFunc(U16OpcodeFunc),
     U32OpcodeFunc(U32OpcodeFunc),
-    MemoryOpcodeFunc(MemoryOpcodeFunc),
+    MemoryOpcodeFunc(MemoryOpcodeFunc<'a>),
     MemoryOpcodeFunc2Bytes(MemoryOpcodeFunc2Bytes),
     U8MemoryOpcodeFunc(U8MemoryOpcodeFunc),
     U16MemoryOpcodeFunc(U16MemoryOpcodeFunc),
@@ -20,7 +20,7 @@ pub struct  OpcodeResolver<'a>{
     u8_opcode_func_resolver:fn(u8)->Option<U8OpcodeFunc>,
     u16_opcode_func_resolver:fn(u8)->Option<U16OpcodeFunc>,
     u32_opcode_func_resolver:fn(u8)->Option<U32OpcodeFunc>,
-    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc>,
+    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc<'a>>,
     memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc2Bytes>,
     u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc>,
     u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc>,
@@ -29,7 +29,7 @@ pub struct  OpcodeResolver<'a>{
 
 
 impl<'a> OpcodeResolver<'a>{
-    pub fn get_opcode(&self, opcode:u8)->OpcodeFuncType{
+    pub fn get_opcode(&self, opcode:u8)->OpcodeFuncType<'a>{
 
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{

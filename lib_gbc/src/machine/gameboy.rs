@@ -5,8 +5,8 @@ use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 
 pub struct GameBoy<'a> {
-    pub cpu: GbcCpu,
-    pub mmu: GbcMmu,
+    pub cpu: &'a GbcCpu,
+    pub mmu: &'a GbcMmu,
     opcode_resolver:Option<OpcodeResolver<'a>>,
     pub ppu:Option<GbcPpu<'a>>
 }
@@ -51,18 +51,14 @@ impl<'a> GameBoy<'a>{
         }
     }
 
-    pub fn new()->GameBoy<'a>{
-
-        let cpu = GbcCpu::default();
-        let mmu = GbcMmu::default();
-        let mut gb = GameBoy{
+    pub fn new(cpu:&'a GbcCpu, mmu:&'a GbcMmu, resolver:OpcodeResolver<'a>, ppu:GbcPpu<'a>)->GameBoy<'a>{
+        let gb = GameBoy{
             cpu:cpu,
             mmu:mmu,
-            opcode_resolver:Option::None,
-            ppu:Option::None
+            opcode_resolver:Option::Some(resolver),
+            ppu:Option::Some(ppu)
         };
 
-        gb.opcode_resolver = Option::Some(OpcodeResolver::new(&gb.mmu, &gb.cpu.program_counter));
         return gb;
     }
 }

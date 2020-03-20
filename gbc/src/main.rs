@@ -2,6 +2,10 @@ extern crate lib_gbc;
 extern crate wchar;
 extern crate winapi;
 use lib_gbc::cpu::gbc_cpu::GbcCpu;
+use lib_gbc::machine::gbc_memory::GbcMmu;
+use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::opcodes::opcode_resolver;
+use lib_gbc::ppu::gbc_ppu::GbcPpu;
 use std::ptr;
 use wchar::wch_c;
 use winapi::ctypes::wchar_t;
@@ -14,7 +18,7 @@ extern "C" {
 
 fn main() {
     let cpu: GbcCpu = GbcCpu::default();
-    cpu.af();
+    let mmu: 
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();
