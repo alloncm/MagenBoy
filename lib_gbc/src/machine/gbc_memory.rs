@@ -6,7 +6,7 @@ use crate::machine::io_ports::IoPorts;
 
 const HRAM_SIZE:usize = 0x7E;
 const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
-const DMA_TRANSFER_REGISTER_ADDRESS:usize = 0xFF46;
+const DMA_TRANSFER_REGISTER_ADDRESS:u16 = 0xFF46;
 
 pub struct GbcMmu{
     pub ram: Ram,

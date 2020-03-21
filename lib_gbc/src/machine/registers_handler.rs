@@ -25,6 +25,7 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
     handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
     handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
+    handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
 }
 
 fn handle_lcdcontrol_register( register:u8, memory: &mut dyn Memory, ppu:&mut GbcPpu){
@@ -79,7 +80,9 @@ fn handle_dma_transfer_register(register:u8, mmu:&mut GbcMmu){
         let mut source:u16 = (register as u16) << 8;
         for i in 0..DMA_SIZE{
             source+=1;
-            mmu.write(DMA_DEST+i, mmu.read(source))
+            mmu.write(DMA_DEST+i, mmu.read(source));
         }
+
+        mmu.dma_trasfer_trigger = false;
     }
 }
