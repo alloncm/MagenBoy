@@ -41,12 +41,12 @@ impl Memory for GbcMmu{
     }
 }
 
-impl Default for GbcMmu{
-    fn default()->GbcMmu{
+impl GbcMmu{
+    pub fn new(rom:Rom)->GbcMmu{
         GbcMmu{
             ram:Ram::default(),
             io_ports:IoPorts::default(),
-            rom:Rom::default(),
+            rom:rom,
             vram:VRam::default()
         }
     }

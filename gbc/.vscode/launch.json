@@ -9,7 +9,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/gbc.exe",
-            "args": [],
+            "args": ["D:\\downloads\\compSc\\GameBoy\\dmg0_rom.bin"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -4,6 +4,7 @@ use crate::machine::gbc_memory::GbcMmu;
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
+use crate::machine::rom::Rom;
 
 pub struct GameBoy {
     cpu: GbcCpu,
@@ -12,18 +13,18 @@ pub struct GameBoy {
     ppu:GbcPpu
 }
 
-impl Default for GameBoy{
-    fn default()->GameBoy{
+
+
+impl GameBoy{
+
+    pub fn new(rom:Rom)->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
-            mmu:GbcMmu::default(),
+            mmu:GbcMmu::new(rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default()
         }
     }
-}
-
-impl GameBoy{
 
     pub fn cycle(&mut self){
         self.execute_opcode();
@@ -46,21 +47,21 @@ impl GameBoy{
             OpcodeFuncType::U8MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu, opcode),
             OpcodeFuncType::MemoryOpcodeFunc2Bytes(func)=>func(&mut self.cpu, &mut self.mmu),
             OpcodeFuncType::U16OpcodeFunc(func)=>{
-                let u16_opcode:u16 = ((opcode<<8)as u16) | (self.fetch_next_byte() as u16);
+                let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
                 func(&mut self.cpu, u16_opcode);
             },
             OpcodeFuncType::U16MemoryOpcodeFunc(func)=>{
-                let u16_opcode:u16 = ((opcode<<8)as u16) | (self.fetch_next_byte() as u16);
+                let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
                 func(&mut self.cpu, &mut self.mmu, u16_opcode);
             },
             OpcodeFuncType::U32OpcodeFunc(func)=>{
-                let mut u32_opcode:u32 = ((opcode<<8)as u32) | (self.fetch_next_byte() as u32);
+                let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
                 func(&mut self.cpu, u32_opcode);
             },
             OpcodeFuncType::U32MemoryOpcodeFunc(func)=>{
-                let mut u32_opcode:u32 = ((opcode<<8)as u32) | (self.fetch_next_byte() as u32);
+                let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
                 func(&mut self.cpu, &mut self.mmu, u32_opcode);

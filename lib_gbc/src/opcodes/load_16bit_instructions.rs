@@ -7,7 +7,7 @@ use crate::opcodes::opcodes_utils::{
 
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
-    let reg = ((opcode>>16) & 0xF) as u8;
+    let reg = (((opcode>>16) & 0xF0)>>4) as u8;
     let nn = (opcode&0xFFFF) as u16;
     let reg = get_arithmetic_16reg(cpu, reg);
 

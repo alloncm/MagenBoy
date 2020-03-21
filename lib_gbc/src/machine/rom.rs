@@ -1,10 +1,17 @@
 use std::vec::Vec;
 
 pub struct Rom{
-    program: Vec<u8>
+    pub program: Vec<u8>
 }
 
 impl Rom{
+
+    pub fn new(vec:Vec<u8>)->Rom{
+        Rom{
+            program:vec
+        }
+    }
+
     pub fn read_bank0(&self, address:u16)->u8{
         return self.program[address as usize];
     }
@@ -21,12 +28,4 @@ impl Rom{
         std::panic!("no ram supported");
     }
 
-}
-
-impl Default for Rom{
-    fn default()->Rom{
-        Rom{
-            program:Vec::new()
-        }
-    }
 }
