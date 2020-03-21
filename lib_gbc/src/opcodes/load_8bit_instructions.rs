@@ -42,13 +42,13 @@ pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     let reg = opcode&0b11111000;
     let hl_value = cpu.hl.value;
     let reg = match reg{
-        0x40=>cpu.bc.low(),
-        0x41=>cpu.bc.high(),
-        0x50=>cpu.de.low(),
-        0x51=>cpu.de.high(),
-        0x60=>cpu.hl.low(),
-        0x61=>cpu.hl.high(),
-        0x71=>cpu.af.low(),
+        0x40=>cpu.bc.high(),
+        0x41=>cpu.bc.low(),
+        0x50=>cpu.de.high(),
+        0x51=>cpu.de.low(),
+        0x60=>cpu.hl.high(),
+        0x61=>cpu.hl.low(),
+        0x71=>cpu.af.high(),
         _=>panic!("no register")
     };
 
