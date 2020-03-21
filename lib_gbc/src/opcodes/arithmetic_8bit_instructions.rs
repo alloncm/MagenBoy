@@ -3,7 +3,8 @@ use crate::machine::memory::Memory;
 use crate::opcodes::opcodes_utils::{
     get_src_register, 
     check_for_half_carry_first_nible_add,
-    check_for_half_carry_first_nible_sub
+    check_for_half_carry_first_nible_sub,
+    get_reg_two_rows
 };
 
 fn add(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
@@ -257,18 +258,7 @@ pub fn cp_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
 }
 
 pub fn inc_r(cpu:&mut GbcCpu, opcode:u8){
-    let reg = opcode&(0b11111000);
-    let reg = match reg{
-        0x00=>cpu.bc.low(),
-        0x01=>cpu.bc.high(),
-        0x10=>cpu.de.low(),
-        0x11=>cpu.de.high(),
-        0x20=>cpu.hl.low(),
-        0x21=>cpu.hl.high(),
-        0x31=>cpu.af.low(),
-        _=>panic!("no register")
-    };
-
+    let reg = get_reg_two_rows(cpu, opcode);
     *reg = (*reg).wrapping_add(1);
 }
 
@@ -278,18 +268,7 @@ pub fn inc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
 }
 
 pub fn dec_r(cpu:&mut GbcCpu, opcode:u8){
-    let reg = opcode&(0b11111000);
-    let reg = match reg{
-        0x00=>cpu.bc.low(),
-        0x01=>cpu.bc.high(),
-        0x10=>cpu.de.low(),
-        0x11=>cpu.de.high(),
-        0x20=>cpu.hl.low(),
-        0x21=>cpu.hl.high(),
-        0x31=>cpu.af.low(),
-        _=>panic!("no register")
-    };
-
+    let reg = get_reg_two_rows(cpu, opcode);
     *reg = (*reg).wrapping_sub(1);
 
 }

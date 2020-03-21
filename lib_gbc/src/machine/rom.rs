@@ -20,11 +20,11 @@ impl Rom{
         return self.program[address as usize];
     }
 
-    pub fn read_external_ram(&self, address:u16)->u8{
+    pub fn read_external_ram(&self, _address:u16)->u8{
         std::panic!("no ram supported");
     }
 
-    pub fn write_external_ram(&self, address:u16, value:u8){
+    pub fn write_external_ram(&self, _address:u16, _value:u8){
         std::panic!("no ram supported");
     }
 

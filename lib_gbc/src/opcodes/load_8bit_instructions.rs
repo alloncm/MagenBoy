@@ -1,6 +1,9 @@
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::machine::memory::Memory;
-use crate::opcodes::opcodes_utils::get_src_register;
+use crate::opcodes::opcodes_utils::{
+    get_src_register,
+    get_reg_two_rows
+};
 
 const IO_PORTS_ADDRESS:u16 = 0xFF00;
 
@@ -29,19 +32,8 @@ pub fn ld_r_r(cpu: &mut GbcCpu, opcode:u8) {
 
 //load src value into dest register
 pub fn ld_r_n(cpu: &mut GbcCpu, opcode:u16) {
-    let mut reg = ((opcode&0xFF00)>>8)&0b11111000;
-    reg >>= 3;
+    let reg = get_reg_two_rows(cpu,((opcode&0xFF00)>>8) as u8);
     let n = (opcode&0xFF) as u8;
-    let reg = match reg{
-        0b00=>cpu.bc.high(),
-        0b01=>cpu.bc.low(),
-        0b10=>cpu.de.high(),
-        0b11=>cpu.de.low(),
-        0b100=>cpu.hl.high(),
-        0b101=>cpu.hl.low(),
-        0b111=>cpu.af.high(),
-        _=>panic!("no register")
-    };
     *reg = n;
 }
 

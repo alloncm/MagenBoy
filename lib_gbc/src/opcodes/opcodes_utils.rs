@@ -50,3 +50,18 @@ pub fn check_for_half_carry_first_nible_sub(a:u8, b:u8)->bool{
 pub fn get_cb_opcode(cb_opcode:u16)->u8{
     (cb_opcode & 0xFF) as u8
 }
+
+pub fn get_reg_two_rows(cpu: &mut GbcCpu, mut reg:u8)->&mut u8{
+    reg &= 0b11111000;
+    reg >>= 3;
+    match reg{
+        0b00=>cpu.bc.high(),
+        0b01=>cpu.bc.low(),
+        0b10=>cpu.de.high(),
+        0b11=>cpu.de.low(),
+        0b100=>cpu.hl.high(),
+        0b101=>cpu.hl.low(),
+        0b111=>cpu.af.high(),
+        _=>panic!("no register")
+    }
+}
