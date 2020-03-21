@@ -36,14 +36,14 @@ pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
 }
 
 pub fn inc_rr(cpu:&mut GbcCpu, opcode:u8){
-    let reg = opcode & 0xF0;
+    let reg = (opcode & 0xF0)>>4;
     let reg = get_arithmetic_16reg(cpu, reg);
     *reg+=1;
 }
 
 
 pub fn dec_rr(cpu:&mut GbcCpu, opcode:u8){
-    let reg = opcode & 0xF0;
+    let reg = (opcode & 0xF0)>>4;
     let reg = get_arithmetic_16reg(cpu, reg);
     *reg-=1;
 }

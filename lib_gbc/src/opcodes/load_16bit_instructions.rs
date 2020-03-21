@@ -38,7 +38,7 @@ pub fn pop(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 
 //push to stack the register 
 pub fn push(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let reg = opcode&0xF0;
+    let reg = (opcode&0xF0)>>4;
     let reg = match reg{
         0xC=>&mut cpu.bc,
         0xD=>&mut cpu.de,

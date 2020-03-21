@@ -196,8 +196,8 @@ pub fn get_u16_memory_opcode_func_resolver()->fn(u8,u8)->Option<U16MemoryOpcodeF
     |opcode:u8, next_byte:u8|->Option<U16MemoryOpcodeFunc>{
         match opcode{
             0x36=>Some(ld_hl_n),
-            0xE1=>Some(ld_ioport_n_a),
-            0xF1=>Some(ld_a_ioport_n),
+            0xE0=>Some(ld_ioport_n_a),
+            0xF0=>Some(ld_a_ioport_n),
             0xCB=>match next_byte{
                 0x46|0x4E|0x56|0x5E|0x66|0x6E|0x76|0x7E=>Some(bit_hl),
                 0x86|0x8E|0x96|0x9E|0xA6|0xAE|0xB6|0xBE=>Some(res_hl),
