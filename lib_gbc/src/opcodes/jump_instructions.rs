@@ -120,7 +120,7 @@ fn jump_r_if_true(cpu:&mut GbcCpu, opcode:u16, flag:bool){
 pub fn jump_r(cpu:&mut GbcCpu, opcode:u16){
     let address = opcode&0xFF;
     let address = address as i8;
-    cpu.program_counter += address as u16;   
+    cpu.program_counter = cpu.program_counter.wrapping_add(address as u16);
 }
 
 pub fn jump_r_cc(cpu:&mut GbcCpu, opcode:u16){
