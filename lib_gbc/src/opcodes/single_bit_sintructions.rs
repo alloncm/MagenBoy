@@ -4,7 +4,7 @@ use crate::machine::memory::Memory;
 
 
 fn get_bit_number(opcode:u8)->u8{
-    let bit_number:u8 = opcode & 0b00111000;
+    let bit_number:u8 = (opcode & 0b00111000)>>3;
     return 1<<bit_number;
 }
 
@@ -19,7 +19,7 @@ pub fn bit_r(cpu:&mut GbcCpu, opcode:u16){
     let register:&mut u8 = get_src_register(cpu, opcode);
     let bit_number = get_bit_number(opcode);
     let bit = *register & bit_number;
-    set_flags_bit(cpu, bit != 0);
+    set_flags_bit(cpu, bit == 0);
 }
 
 pub fn bit_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
@@ -27,7 +27,7 @@ pub fn bit_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let byte = memory.read(cpu.hl.value);
     let bit_number = get_bit_number(opcode);
     let bit = byte & bit_number;
-    set_flags_bit(cpu, bit != 0);
+    set_flags_bit(cpu, bit == 0);
 }
 
 pub fn set_r(cpu:&mut GbcCpu, opcode:u16){

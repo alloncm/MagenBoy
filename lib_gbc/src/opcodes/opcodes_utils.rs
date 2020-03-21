@@ -12,13 +12,13 @@ pub const BIT_7_MASK:u8 = 0b10000000;
 pub fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
     let reg_num = opcode & 0b111;
     return match reg_num{
-        0x0=>cpu.bc.low(),
-        0x1=>cpu.bc.high(),
-        0x2=>cpu.de.low(),
-        0x3=>cpu.de.high(),
-        0x4=>cpu.hl.low(),
-        0x5=>cpu.hl.high(),
-        0x7=>cpu.af.low(),
+        0x0=>cpu.bc.high(),
+        0x1=>cpu.bc.low(),
+        0x2=>cpu.de.high(),
+        0x3=>cpu.de.low(),
+        0x4=>cpu.hl.high(),
+        0x5=>cpu.hl.low(),
+        0x7=>cpu.af.high(),
         _=>panic!("no register: {}",reg_num)
     };
 }
