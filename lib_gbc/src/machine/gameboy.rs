@@ -40,6 +40,7 @@ impl GameBoy{
     fn execute_opcode(&mut self){
         let opcode:u8 = self.fetch_next_byte();
         println!("handling opcode: {:#X?}", opcode);
+        println!("registers:\n af:{:#X?}\nhl:{:#X?}",self.cpu.af.value, self.cpu.hl.value);
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),

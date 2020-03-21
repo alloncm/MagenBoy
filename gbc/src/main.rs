@@ -29,14 +29,14 @@ fn main() {
     let mut gameboy = GameBoy::new(rom);
 
     unsafe {
-        let name: *const u16 = wch_c!("test").as_ptr();
-        InitLib(ptr::null_mut(), name);
-        let colors: [u32; 50 * 50] = [0x50505050; 50 * 50];
+        //let name: *const u16 = wch_c!("test").as_ptr();
+        //InitLib(ptr::null_mut(), name);
+        //let colors: [u32; 50 * 50] = [0x50505050; 50 * 50];
         loop {
             gameboy.cycle();
-            if DrawCycle(colors.as_ptr(), 50, 50) == 0 {
+            /*if DrawCycle(colors.as_ptr(), 50, 50) == 0 {
                 break;
-            }
+            }*/
         }
     }
 }

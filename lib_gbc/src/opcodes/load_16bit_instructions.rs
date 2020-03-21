@@ -8,7 +8,8 @@ use crate::opcodes::opcodes_utils::{
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
     let reg = (((opcode>>16) & 0xF0)>>4) as u8;
-    let nn = (opcode&0xFFFF) as u16;
+    let mut nn = ((opcode&0xFF)<<8) as u16;
+    nn |= ((opcode&0xFF00)>>8) as u16;
     let reg = get_arithmetic_16reg(cpu, reg);
 
     *reg = nn;
@@ -30,8 +31,8 @@ pub fn pop(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
         _=>panic!("no register")
     };
 
-    *reg.high() = memory.read(cpu.stack_pointer);
-    *reg.low() = memory.read(cpu.stack_pointer+1);
+    *reg.low() = memory.read(cpu.stack_pointer);
+    *reg.high() = memory.read(cpu.stack_pointer+1);
     cpu.stack_pointer+=2;
 }
 
@@ -46,8 +47,8 @@ pub fn push(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
         _=>panic!("no register")
     };
 
-    memory.write(cpu.stack_pointer, *reg.high());
-    memory.write(cpu.stack_pointer-1, *reg.low());
+    memory.write(cpu.stack_pointer-1, *reg.high());
+    memory.write(cpu.stack_pointer-2, *reg.low());
     cpu.stack_pointer-=2;
 }
 
@@ -76,5 +77,5 @@ pub fn ld_nn_sp(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
     let low = (cpu.stack_pointer & 0xFF) as u8;
     let high = ((cpu.stack_pointer & 0xFF)>>8) as u8;
     memory.write(address, low);
-    memory.write(address, high);
+    memory.write(address+1, high);
 }

@@ -55,7 +55,7 @@ fn prefix_cb_runner_u16_opcode(cpu:&mut GbcCpu, opcode:u16){
 pub fn get_opcode_func_resolver()->fn(u8)->Option<OpcodeFunc>{
     |opcode:u8|->Option<OpcodeFunc>{
         match opcode{
-            0x00=>Some(|cpu|{}),
+            0x00=>Some(|_|{}),
             0x07=>Some(rlca),
             0x0F=>Some(rrca),
             0x17=>Some(rla),
@@ -98,6 +98,7 @@ pub fn get_u8_opcode_func_resolver()->fn(u8)->Option<U8OpcodeFunc>{
 pub fn get_u16_opcode_func_resolver()->fn(u8)->Option<U16OpcodeFunc>{
     |opcode:u8|->Option<U16OpcodeFunc>{
         match opcode{
+            0x06|0x0E|0x16|0x1E|0x26|0x2E|0x36|0x3E=>Some(ld_r_n),
             0x18=>Some(jump_r),
             0x20|0x28|0x30|0x38=>Some(jump_r_cc),
             0xC6=>Some(add_a_nn),

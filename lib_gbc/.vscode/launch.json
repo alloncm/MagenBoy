@@ -8,7 +8,7 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/deps/arithmetic_8bit_instructions_tests-a7ac1ecd6a7319e8.exe",
+            "program": "${workspaceRoot}/target/debug/deps/test_8bit_load_opcodes-09b68830dc0a1c44.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

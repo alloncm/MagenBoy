@@ -9,13 +9,13 @@ const IO_PORTS_ADDRESS:u16 = 0xFF00;
 fn get_dest_register(cpu: &mut GbcCpu, opcode:u8)->&mut u8{
     let reg_num = opcode & 0b11111000;
     return match reg_num{
-        0x40=>cpu.bc.low(),
-        0x48=>cpu.bc.high(),
-        0x50=>cpu.de.low(),
-        0x58=>cpu.de.high(),
-        0x60=>cpu.hl.low(),
-        0x68=>cpu.hl.high(),
-        0x78=>cpu.af.low(),
+        0x40=>cpu.bc.high(),
+        0x48=>cpu.bc.low(),
+        0x50=>cpu.de.high(),
+        0x58=>cpu.de.low(),
+        0x60=>cpu.hl.high(),
+        0x68=>cpu.hl.low(),
+        0x78=>cpu.af.high(),
         _=>panic!("no register: {}",reg_num)
     };
 }
@@ -29,16 +29,17 @@ pub fn ld_r_r(cpu: &mut GbcCpu, opcode:u8) {
 
 //load src value into dest register
 pub fn ld_r_n(cpu: &mut GbcCpu, opcode:u16) {
-    let reg = opcode&(0b11111000 << 8);
+    let mut reg = ((opcode&0xFF00)>>8)&0b11111000;
+    reg >>= 3;
     let n = (opcode&0xFF) as u8;
     let reg = match reg{
-        0x00=>cpu.bc.low(),
-        0x01=>cpu.bc.high(),
-        0x10=>cpu.de.low(),
-        0x11=>cpu.de.high(),
-        0x20=>cpu.hl.low(),
-        0x21=>cpu.hl.high(),
-        0x31=>cpu.af.low(),
+        0b00=>cpu.bc.high(),
+        0b01=>cpu.bc.low(),
+        0b10=>cpu.de.high(),
+        0b11=>cpu.de.low(),
+        0b100=>cpu.hl.high(),
+        0b101=>cpu.hl.low(),
+        0b111=>cpu.af.high(),
         _=>panic!("no register")
     };
     *reg = n;
