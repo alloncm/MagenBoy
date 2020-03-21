@@ -10,9 +10,13 @@ const SCY_REGISTER_ADDRESS:u16  = 0xFF42;
 const SCX_REGISTER_ADDRESS:u16  = 0xFF43;
 const LY_REGISTER_ADDRESS:u16   = 0xFF44;
 const LYC_REGISTER_ADDRESS:u16  = 0xFF45;
+const DMA_REGISTER_ADDRESS:u16  = 0xFF46;
 const KEYI_REGISTER_ADDRESS:u16 = 0xFF4D;
 const VBK_REGISTER_ADDRESS:u16  = 0xFF4F;
 const SVBK_REGISTER_ADDRESS:u16 = 0xFF70;
+
+const DMA_SIZE:u16 = 0xA0;
+const DMA_DEST:u16 = 0xFE00;
 
 pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu){
     handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
@@ -68,4 +72,14 @@ fn handle_switch_mode_register( register:u8, memory: &mut dyn Memory, cpu:&mut G
 fn handle_wrambank_register( register:u8, memory: &mut GbcMmu){
     let bank:u8 = register & 0b00000111;
     memory.ram.set_bank(bank);
+}
+
+fn handle_dma_transfer_register(register:u8, mmu:&mut GbcMmu){
+    if mmu.dma_trasfer_trigger{
+        let mut source:u16 = (register as u16) << 8;
+        for i in 0..DMA_SIZE{
+            source+=1;
+            mmu.write(DMA_DEST+i, mmu.read(source))
+        }
+    }
 }
