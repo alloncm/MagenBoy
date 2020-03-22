@@ -9,7 +9,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/gbc.exe",
-            "args": ["D:\\downloads\\compSc\\GameBoy\\DMG_ROM.bin"],
+            "args": ["D:\\downloads\\compSc\\GameBoy\\PokemonRed.gb"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

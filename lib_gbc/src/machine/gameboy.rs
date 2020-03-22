@@ -5,6 +5,7 @@ use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
 use crate::machine::rom::Rom;
+use std::vec::Vec;
 
 pub struct GameBoy {
     cpu: GbcCpu,
@@ -29,6 +30,10 @@ impl GameBoy{
     pub fn cycle(&mut self){
         self.execute_opcode();
         update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
+    }
+
+    pub fn get_screen_buffer(&mut self)->Vec<u8>{
+        self.ppu.get_screen_buffer(&self.mmu, &self.mmu.vram)
     }
 
     fn fetch_next_byte(&mut self)->u8{
