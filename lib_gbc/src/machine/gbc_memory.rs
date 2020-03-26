@@ -3,10 +3,10 @@ use crate::machine::rom::Rom;
 use crate::machine::ram::Ram;
 use crate::machine::vram::VRam;
 use crate::machine::io_ports::IoPorts;
+use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
 
 const HRAM_SIZE:usize = 0x7E;
 const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
-const DMA_TRANSFER_REGISTER_ADDRESS:u16 = 0xFF46;
 
 pub struct GbcMmu{
     pub ram: Ram,
@@ -39,7 +39,7 @@ impl Memory for GbcMmu{
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if address == DMA_TRANSFER_REGISTER_ADDRESS{
+        if address == DMA_REGISTER_ADDRESS{
             self.dma_trasfer_trigger = true;
         }
 

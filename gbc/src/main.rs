@@ -19,19 +19,22 @@ extern "C" {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut file = match fs::read("Dependencies\\Init\\DMG_ROM.bin"){
+    let mut file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
         Result::Ok(val)=>val,
         Result::Err(why)=>panic!("could not read file {}",why)
     };
+    
     let mut program = match fs::read(&args[1]){
         Result::Ok(val)=>val,
         Result::Err(why)=>panic!("could not read file {}",why)
     };
     file.append(&mut program);
+    
     let rom = Rom::new(file);
     
 
     let mut gameboy = GameBoy::new(rom);
+    gameboy.cpu.program_counter = 0x150;
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();
@@ -43,7 +46,7 @@ fn main() {
                 gameboy.cycle();
             }
             let vec = gameboy.get_screen_buffer();
-            if DrawCycle(vec.as_ptr() as *const u32, 256, 256) == 0 {
+            if DrawCycle(vec.as_ptr() as *const u32/*colors.as_ptr()*/, 256, 256) == 0 {
                 break;
             }
         }

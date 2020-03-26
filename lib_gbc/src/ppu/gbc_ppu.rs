@@ -1,20 +1,30 @@
 use crate::utils::vec2::Vec2;
 use crate::machine::vram::VRam;
 use crate::machine::memory::Memory;
+use crate::utils::color::Color;
 
-//const SCREEN_HEIGHT: usize = 144;
-//const SCREEN_WIDTH: usize = 160;
-const SCREEN_BUFFER_SIZE: usize = 0xFFFF;
+const SCREEN_HEIGHT: usize = 144;
+const SCREEN_WIDTH: usize = 160;
+const FRAME_BUFFER_SIZE: usize = 0x10000;
 const VRAM_START_ADDRESS:u16 = 0x8000;
 const VRAM_END_ADDRESS:u16 = 0x97FF;
 //const SPRITE_NORMAL_SIZE:u8 = 8;
+const SPRITES_SIZE:usize = 32*32;
 
 struct Sprite{
     pixels:[u8;64]
 }
 
+impl Sprite{
+    pub fn new()->Sprite{
+        Sprite{
+            pixels:[0;64]
+        }
+    }
+}
+
 pub struct GbcPpu{
-    pub screen_buffer:[u8;SCREEN_BUFFER_SIZE],
+    pub screen_buffer:[u8;FRAME_BUFFER_SIZE],
     pub screen_enable:bool,
     pub window_enable:bool,
     pub sprite_extended:bool,
@@ -34,7 +44,7 @@ impl Default for GbcPpu{
             background_scroll:Vec2::<u8>{x:0,y:0},
             background_tile_map_address:false,
             gbc_mode:false,
-            screen_buffer:[0;SCREEN_BUFFER_SIZE],
+            screen_buffer:[0;FRAME_BUFFER_SIZE],
             screen_enable:false,
             sprite_enable:false,
             sprite_extended:false,
@@ -100,4 +110,95 @@ impl GbcPpu{
         return screen_buffer;
     }
 
+    pub fn get_gb_screen(&self,memory :&dyn Memory)->Vec<u32>{
+        let sprites = self.get_bg_sprites(memory);
+        let frame_buffer = self.get_bg_frame_buffer(sprites, memory);
+        let mut buffer = Vec::<u32>::new();
+        for color in frame_buffer.iter(){
+            let value:u32 = ((color.r as u32)<<16)|((color.g as u32)<<8)|(color.b as u32);
+            buffer.push(value);
+        }
+
+        return buffer;
+    }
+
+    fn get_bg_sprites(&self, memory:&dyn Memory)->Vec<Sprite>{
+        let mut sprites:Vec<Sprite> = Vec::with_capacity(SPRITES_SIZE);
+        let cap = sprites.capacity();
+        for i in 0..cap{
+            sprites.push(Sprite::new());
+        }
+        let address = if self.window_tile_background_map_data_address {0x8000} else {0x8800};
+
+        for i in (0..0x1000).step_by(16){
+            let mut byte_number = 0;
+            for j in (i..i+16).step_by(2){
+                let byte = memory.read(address + j);
+                let next = memory.read(address + j + 1);
+                for k in 0..8{
+                    let mut value = byte&(1<<k);
+                    value |= (next&(1<<k))<<1;
+                    sprites[(i/16) as usize].pixels[(byte_number*7+k) as usize] = value;
+                }
+
+                byte_number+=1;
+            }
+        }
+
+        return sprites;
+    }
+
+    fn get_bg_frame_buffer(&self, sprites:Vec<Sprite>, memory:&dyn Memory)->Vec<Color>{
+        let mut frame_buffer: Vec<Sprite>= Vec::with_capacity(sprites.len());
+        for _ in 0..frame_buffer.capacity(){
+            frame_buffer.push(Sprite::new());
+        }
+
+        let address = if self.background_tile_map_address {0x9C00} else {0x9800};
+
+        if self.window_tile_background_map_data_address{
+            for i in 0..0x400{
+                let chr:u8 = memory.read(address + i);
+                let sprite = Sprite{pixels:sprites[chr as usize].pixels};
+                frame_buffer[i as usize] = sprite;
+            }
+        }
+
+        let mut colors_buffer:Vec<Color> = Vec::with_capacity(FRAME_BUFFER_SIZE);
+        for _ in 0..colors_buffer.capacity(){
+            colors_buffer.push(Color::default());
+        }
+
+        for i in 0..frame_buffer.len(){
+            println!("{}",i);
+            for j in 0..8{
+                for k in 0..8{
+                    colors_buffer[i+(j*7+k)] = GbcPpu::get_color(frame_buffer[i].pixels[j*7+k]);
+                }
+            }
+        }
+
+        let mut frame_buffer:Vec<Color> = Vec::new();
+        for _ in 0..frame_buffer.capacity(){
+            frame_buffer.push(Color::default());
+        }
+
+        for i in self.background_scroll.y..self.background_scroll.x+SCREEN_HEIGHT as u8{
+            for j in self.background_scroll.x..self.background_scroll.x+SCREEN_WIDTH as u8{
+                frame_buffer.push(colors_buffer[((i as u16)*255 + j as u16) as usize].clone());
+            }
+        }
+
+        return frame_buffer;
+    }
+
+    fn get_color(color:u8)->Color{
+        match color{
+            0=>Color{r:255,g:255, b:255},
+            1=>Color{r:160,g:160, b:160},
+            2=>Color{r:64,g:64, b:64},
+            3=>Color{r:0,g:0, b:0},
+            _=>std::panic!("no color {}", color)
+        }
+    }
 }

@@ -8,7 +8,7 @@ use crate::machine::rom::Rom;
 use std::vec::Vec;
 
 pub struct GameBoy {
-    cpu: GbcCpu,
+    pub cpu: GbcCpu,
     mmu: GbcMmu,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu
@@ -32,8 +32,8 @@ impl GameBoy{
         update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
     }
 
-    pub fn get_screen_buffer(&mut self)->Vec<u8>{
-        self.ppu.get_screen_buffer(&self.mmu, &self.mmu.vram)
+    pub fn get_screen_buffer(&mut self)->Vec<u32>{
+        self.ppu.get_gb_screen(&self.mmu)
     }
 
     fn fetch_next_byte(&mut self)->u8{

@@ -3,17 +3,10 @@ use crate::machine::memory::Memory;
 use crate::machine::gbc_memory::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::opcodes::opcodes_utils::*;
+use crate::utils::memory_registers::*;
 
-const LCDC_REGISTER_ADDRESS:u16 = 0xFF40;
-const STAT_REGISTER_ADDRESS:u16 = 0xFF41;
-const SCY_REGISTER_ADDRESS:u16  = 0xFF42;
-const SCX_REGISTER_ADDRESS:u16  = 0xFF43;
-const LY_REGISTER_ADDRESS:u16   = 0xFF44;
-const LYC_REGISTER_ADDRESS:u16  = 0xFF45;
-const DMA_REGISTER_ADDRESS:u16  = 0xFF46;
-const KEYI_REGISTER_ADDRESS:u16 = 0xFF4D;
-const VBK_REGISTER_ADDRESS:u16  = 0xFF4F;
-const SVBK_REGISTER_ADDRESS:u16 = 0xFF70;
+
+
 
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
