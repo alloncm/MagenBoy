@@ -1,5 +1,5 @@
 use crate::opcodes::opcodes_resolvers::*;
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 
 
 pub enum OpcodeFuncType{

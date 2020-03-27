@@ -1,5 +1,5 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 use crate::opcodes::opcodes_utils::{
     get_src_register,
     get_reg_two_rows

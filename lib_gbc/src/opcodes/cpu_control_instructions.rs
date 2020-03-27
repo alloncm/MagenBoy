@@ -1,5 +1,5 @@
 use crate::cpu::gbc_cpu::{GbcCpu,Flag};
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 
 const IE:u16 = 0xFFFF;
 const P1:u16 = 0xFF00;

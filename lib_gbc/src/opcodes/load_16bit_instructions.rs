@@ -1,5 +1,5 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 use crate::opcodes::opcodes_utils::{
     check_for_half_carry_third_nible,
     get_arithmetic_16reg

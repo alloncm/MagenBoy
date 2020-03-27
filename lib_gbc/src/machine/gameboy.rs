@@ -1,14 +1,14 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use crate::machine::memory::Memory;
-use crate::machine::gbc_memory::GbcMmu;
+use crate::mmu::memory::Memory;
+use crate::mmu::gbc_memory::GbcMmu;
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
-use crate::machine::rom::Rom;
+use crate::mmu::rom::Rom;
 use std::vec::Vec;
 
 pub struct GameBoy {
-    pub cpu: GbcCpu,
+    cpu: GbcCpu,
     mmu: GbcMmu,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu

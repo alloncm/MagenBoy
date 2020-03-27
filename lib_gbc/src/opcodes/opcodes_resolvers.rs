@@ -1,5 +1,5 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 use std::option::Option;
 use crate::opcodes::{
     arithmetic_16bit_instructions::*,

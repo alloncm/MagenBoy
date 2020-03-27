@@ -1,5 +1,5 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 
 fn push_pc(cpu:&mut GbcCpu, memory: &mut dyn Memory){
     let high = (cpu.program_counter & 0xFF00) as u8;

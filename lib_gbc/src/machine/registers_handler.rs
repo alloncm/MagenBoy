@@ -1,6 +1,6 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use crate::machine::memory::Memory;
-use crate::machine::gbc_memory::GbcMmu;
+use crate::mmu::memory::Memory;
+use crate::mmu::gbc_memory::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::opcodes::opcodes_utils::*;
 use crate::utils::memory_registers::*;

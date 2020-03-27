@@ -34,7 +34,6 @@ fn main() {
     
 
     let mut gameboy = GameBoy::new(rom);
-    gameboy.cpu.program_counter = 0x150;
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();
@@ -46,7 +45,7 @@ fn main() {
                 gameboy.cycle();
             }
             let vec = gameboy.get_screen_buffer();
-            if DrawCycle(vec.as_ptr() as *const u32/*colors.as_ptr()*/, 256, 256) == 0 {
+            if DrawCycle(vec.as_ptr() as *const u32/*colors.as_ptr()*/, 144, 160) == 0 {
                 break;
             }
         }

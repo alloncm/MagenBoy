@@ -1,6 +1,6 @@
 use crate::utils::vec2::Vec2;
-use crate::machine::vram::VRam;
-use crate::machine::memory::Memory;
+use crate::mmu::vram::VRam;
+use crate::mmu::memory::Memory;
 use crate::utils::color::Color;
 
 const SCREEN_HEIGHT: usize = 144;

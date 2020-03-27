@@ -1,6 +1,6 @@
 use crate::cpu::gbc_cpu::*;
 use crate::opcodes::opcodes_utils::*;
-use crate::machine::memory::Memory;
+use crate::mmu::memory::Memory;
 
 
 fn get_bit_number(opcode:u8)->u8{

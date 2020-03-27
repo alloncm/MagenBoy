@@ -1,8 +1,8 @@
-use crate::machine::memory::Memory;
-use crate::machine::rom::Rom;
-use crate::machine::ram::Ram;
-use crate::machine::vram::VRam;
-use crate::machine::io_ports::IoPorts;
+use crate::mmu::memory::Memory;
+use crate::mmu::rom::Rom;
+use crate::mmu::ram::Ram;
+use crate::mmu::vram::VRam;
+use crate::mmu::io_ports::IoPorts;
 use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
 
 const HRAM_SIZE:usize = 0x7E;
