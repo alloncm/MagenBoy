@@ -125,7 +125,7 @@ impl GbcPpu{
     fn get_bg_sprites(&self, memory:&dyn Memory)->Vec<Sprite>{
         let mut sprites:Vec<Sprite> = Vec::with_capacity(SPRITES_SIZE);
         let cap = sprites.capacity();
-        for i in 0..cap{
+        for _ in 0..cap{
             sprites.push(Sprite::new());
         }
         let address = if self.window_tile_background_map_data_address {0x8000} else {0x8800};

@@ -1,4 +1,5 @@
 use std::vec::Vec;
+use super::mbc::Mbc;
 
 pub struct Rom{
     pub program: Vec<u8>
