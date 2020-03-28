@@ -78,7 +78,7 @@ impl OpcodeResolver{
             None=>{}
         }
         
-        std::panic!("no opcode matching: {}",opcode)
+        std::panic!("no opcode matching: {:#X?}, pc{:#X?}",opcode, program_counter);
     }
 }
 

@@ -5,3 +5,5 @@ pub mod ram;
 pub mod vram;
 pub mod io_ports;
 pub mod mbc;
+pub mod mbc1;
+pub mod mbc_initializer;

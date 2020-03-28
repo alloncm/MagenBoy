@@ -22,7 +22,7 @@ pub fn load_sp_hl(cpu:&mut GbcCpu){
 
 //pop from the stack pointer to one register
 pub fn pop(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let reg = opcode&0xF0;
+    let reg = (opcode&0xF0)>>4;
     let reg = match reg{
         0xC=>&mut cpu.bc,
         0xD=>&mut cpu.de,

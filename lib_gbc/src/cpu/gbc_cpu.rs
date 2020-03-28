@@ -1,4 +1,4 @@
-use crate::cpu::register::Reg;
+use super::register::Reg;
 
 pub enum Flag{
     Carry = 0b00010000,

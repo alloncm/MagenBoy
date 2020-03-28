@@ -10,7 +10,7 @@ use std::fs;
 use std::env;
 use std::result::Result;
 use std::vec::Vec;
-use lib_gbc::machine::rom::Rom;
+use lib_gbc::mmu::mbc_initializer::initialize_mbc;
 
 extern "C" {
     fn InitLib(instance: HINSTANCE, name: *const wchar_t);
@@ -28,12 +28,11 @@ fn main() {
         Result::Ok(val)=>val,
         Result::Err(why)=>panic!("could not read file {}",why)
     };
-    file.append(&mut program);
+    //file.append(&mut program);
     
-    let rom = Rom::new(file);
-    
+    let mbc = initialize_mbc(program);    
 
-    let mut gameboy = GameBoy::new(rom);
+    let mut gameboy = GameBoy::new(mbc);
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();

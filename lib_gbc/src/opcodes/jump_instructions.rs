@@ -10,7 +10,7 @@ fn push_pc(cpu:&mut GbcCpu, memory: &mut dyn Memory){
 }
 
 pub fn call(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
-    let address_to_jump = (opcode & 0xFFFF) as u16;
+    let address_to_jump = (((opcode & 0xFF) as u16)<<8) | (((opcode & 0xFF00)as u16)>>8);
     push_pc(cpu, memory);
     cpu.program_counter = address_to_jump;
 }

@@ -4,8 +4,9 @@ use crate::mmu::gbc_memory::GbcMmu;
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
-use crate::mmu::rom::Rom;
+use crate::mmu::mbc::Mbc;
 use std::vec::Vec;
+use std::boxed::Box;
 
 pub struct GameBoy {
     cpu: GbcCpu,
@@ -18,10 +19,10 @@ pub struct GameBoy {
 
 impl GameBoy{
 
-    pub fn new(rom:Rom)->GameBoy{
+    pub fn new(mbc:Box<dyn Mbc>)->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
-            mmu:GbcMmu::new(rom),
+            mmu:GbcMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default()
         }
@@ -43,8 +44,9 @@ impl GameBoy{
     }
 
     fn execute_opcode(&mut self){
+        let pc = self.cpu.program_counter;
         let opcode:u8 = self.fetch_next_byte();
-        println!("handling opcode: {:#X?}", opcode);
+        println!("handling opcode: {:#X?} at address {:#X?}", opcode, pc);
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),

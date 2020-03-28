@@ -170,7 +170,6 @@ impl GbcPpu{
         }
 
         for i in 0..frame_buffer.len(){
-            println!("{}",i);
             for j in 0..8{
                 for k in 0..8{
                     colors_buffer[i+(j*7+k)] = GbcPpu::get_color(frame_buffer[i].pixels[j*7+k]);
