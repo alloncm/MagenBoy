@@ -1,6 +1,6 @@
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::mmu::memory::Memory;
-use crate::mmu::gbc_memory::GbcMmu;
+use crate::mmu::gbc_mmu::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::opcodes::opcodes_utils::*;
 use crate::utils::memory_registers::*;
@@ -19,6 +19,11 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
     handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
     handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
+    handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory)
+}
+
+fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){
+    memory.finished_boot = register == 1;
 }
 
 fn handle_lcdcontrol_register( register:u8, memory: &mut dyn Memory, ppu:&mut GbcPpu){

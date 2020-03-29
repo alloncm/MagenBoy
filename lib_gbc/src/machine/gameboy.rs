@@ -1,6 +1,9 @@
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::mmu::memory::Memory;
-use crate::mmu::gbc_memory::GbcMmu;
+use crate::mmu::gbc_mmu::{
+    GbcMmu,
+    BOOT_ROM_SIZE
+};
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
@@ -19,10 +22,10 @@ pub struct GameBoy {
 
 impl GameBoy{
 
-    pub fn new(mbc:Box<dyn Mbc>)->GameBoy{
+    pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
-            mmu:GbcMmu::new(mbc),
+            mmu:GbcMmu::new(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default()
         }

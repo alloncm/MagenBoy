@@ -258,24 +258,51 @@ pub fn cp_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
 }
 
 pub fn inc_r(cpu:&mut GbcCpu, opcode:u8){
-    let reg = get_reg_two_rows(cpu, opcode);
-    *reg = (*reg).wrapping_add(1);
+    let original_reg:u8;
+    let finished_reg:u8;
+    {
+        let reg = get_reg_two_rows(cpu, opcode);
+        original_reg = *reg;
+        *reg = (*reg).wrapping_add(1);
+        finished_reg = *reg;
+    }
+    cpu.set_by_value(Flag::Zero, finished_reg == 0);
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(original_reg, finished_reg));
+    cpu.unset_flag(Flag::Subtraction);
 }
 
 pub fn inc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let value = memory.read(cpu.hl.value);
-    memory.write(cpu.hl.value, value.wrapping_add(1));
+    let altered_value = value.wrapping_add(1);
+    memory.write(cpu.hl.value, altered_value);
+    
+    cpu.set_by_value(Flag::Zero, altered_value == 0);
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(value, altered_value));
+    cpu.unset_flag(Flag::Subtraction);
 }
 
 pub fn dec_r(cpu:&mut GbcCpu, opcode:u8){
-    let reg = get_reg_two_rows(cpu, opcode);
-    *reg = (*reg).wrapping_sub(1);
-
+    let original_reg:u8;
+    let finished_reg:u8;
+    {
+        let reg = get_reg_two_rows(cpu, opcode);
+        original_reg = *reg;
+        *reg = (*reg).wrapping_sub(1);
+        finished_reg = *reg;
+    }
+    cpu.set_by_value(Flag::Zero, finished_reg == 0);
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(original_reg, finished_reg));
+    cpu.set_flag(Flag::Subtraction);
 }
 
 pub fn dec_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let value = memory.read(cpu.hl.value);
-    memory.write(cpu.hl.value, value.wrapping_sub(1));
+    let altered_value = value.wrapping_sub(1);
+    memory.write(cpu.hl.value, altered_value);
+    
+    cpu.set_by_value(Flag::Zero, altered_value == 0);
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(value, altered_value));
+    cpu.set_flag(Flag::Subtraction);
 }
 
 pub fn cpl(cpu:&mut GbcCpu){
