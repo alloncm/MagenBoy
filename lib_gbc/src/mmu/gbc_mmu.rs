@@ -5,7 +5,7 @@ use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
 use super::mbc::Mbc;
 use std::boxed::Box;
 
-pub const BOOT_ROM_SIZE:usize = 0xFF;
+pub const BOOT_ROM_SIZE:usize = 0x100;
 const HRAM_SIZE:usize = 0x7F;
 const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 const IO_PORTS_SIZE:usize = 0x80;

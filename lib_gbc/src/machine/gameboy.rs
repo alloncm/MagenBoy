@@ -15,29 +15,31 @@ pub struct GameBoy {
     cpu: GbcCpu,
     mmu: GbcMmu,
     opcode_resolver:OpcodeResolver,
-    ppu:GbcPpu
+    ppu:GbcPpu,
+    cycles_per_frame:u32
 }
 
 
 
 impl GameBoy{
 
-    pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
+    pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
             mmu:GbcMmu::new(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
-            ppu:GbcPpu::default()
+            ppu:GbcPpu::default(),
+            cycles_per_frame:cycles
         }
     }
 
-    pub fn cycle(&mut self){
-        self.execute_opcode();
-        update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
-    }
+    pub fn cycle_frame(&mut self)->Vec<u32>{
+        for i in 0..self.cycles_per_frame{
+            self.execute_opcode();
+            update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, i);
+        }
 
-    pub fn get_screen_buffer(&mut self)->Vec<u32>{
-        self.ppu.get_gb_screen(&self.mmu)
+        return self.ppu.get_gb_screen(&mut self.mmu);
     }
 
     fn fetch_next_byte(&mut self)->u8{
@@ -50,6 +52,7 @@ impl GameBoy{
         let pc = self.cpu.program_counter;
         let opcode:u8 = self.fetch_next_byte();
         println!("handling opcode: {:#X?} at address {:#X?}", opcode, pc);
+        //println!("{:#X?}", self.cpu.af.low());
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),

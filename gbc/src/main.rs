@@ -11,8 +11,7 @@ use std::env;
 use std::result::Result;
 use std::vec::Vec;
 use lib_gbc::mmu::mbc_initializer::initialize_mbc;
-
-const BOOT_ROM_SIZE:usize = 0xFF;
+use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
 
 extern "C" {
     fn InitLib(instance: HINSTANCE, name: *const wchar_t);
@@ -39,20 +38,16 @@ fn main() {
 
     let mbc = initialize_mbc(program);    
 
-    let mut gameboy = GameBoy::new(mbc, bootrom);
+    let mut gameboy = GameBoy::new(mbc, bootrom,17556);
 
     unsafe {
         let name: *const u16 = wch_c!("test").as_ptr();
         InitLib(ptr::null_mut(), name);
         loop {
-            
-            for _ in 0..17000{
-                gameboy.cycle();
-            }
-            let vec = gameboy.get_screen_buffer();
-            if DrawCycle(vec.as_ptr() as *const u32, 144, 160) == 0 {
-                break;
-            }
+            let vec = gameboy.cycle_frame();
+            //if DrawCycle(vec.as_ptr() as *const u32, 144, 160) == 0 {
+            //    break;
+            //}
         }
     }
 }
