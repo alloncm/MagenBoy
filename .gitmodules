@@ -1,0 +1,4 @@
+[submodule "rusty_gfx"]
+	path = rusty_gfx
+	url = https://github.com/alloncm/rusty_gfx.git
+	branch = master

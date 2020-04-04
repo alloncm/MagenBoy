@@ -24,8 +24,8 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
 }
 
 fn handle_ly_register(memory:&mut dyn Memory, current_cycle:u32){
-    const c:u32 = 114;
-    let mut value = current_cycle/c;
+    const C:u32 = 114;
+    let mut value = current_cycle/C;
     if value>153{
         value = 153;
     }

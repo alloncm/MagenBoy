@@ -1,24 +1,24 @@
 extern crate lib_gbc;
-extern crate wchar;
-extern crate winapi;
+extern crate rusty_gfx;
 use lib_gbc::machine::gameboy::GameBoy;
-use std::ptr;
-use wchar::wch_c;
-use winapi::ctypes::wchar_t;
-use winapi::shared::minwindef::HINSTANCE;
 use std::fs;
 use std::env;
 use std::result::Result;
 use std::vec::Vec;
 use lib_gbc::mmu::mbc_initializer::initialize_mbc;
 use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
+use rusty_gfx::{
+    event_handler::EventHandler,
+    graphics::Graphics,
+    initializer::Initializer
+};
 
-extern "C" {
-    fn InitLib(instance: HINSTANCE, name: *const wchar_t);
-    fn DrawCycle(colors: *const u32, height: u32, width: u32) -> i32;
-}
 
 fn main() {
+    let gfx_initializer: Initializer = Initializer::new();
+    let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600);
+    let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
+
     let args: Vec<String> = env::args().collect();
     let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
         Result::Ok(val)=>val,
@@ -40,14 +40,9 @@ fn main() {
 
     let mut gameboy = GameBoy::new(mbc, bootrom,17556);
 
-    unsafe {
-        let name: *const u16 = wch_c!("test").as_ptr();
-        InitLib(ptr::null_mut(), name);
-        loop {
-            let vec = gameboy.cycle_frame();
-            //if DrawCycle(vec.as_ptr() as *const u32, 144, 160) == 0 {
-            //    break;
-            //}
-        }
+    while event_handler.handle_events() {
+        graphics.clear();
+        let vec = gameboy.cycle_frame();
+        graphics.update();
     }
 }
