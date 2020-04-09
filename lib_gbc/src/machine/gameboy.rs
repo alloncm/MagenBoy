@@ -1,3 +1,5 @@
+extern crate log;
+
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::{
@@ -51,8 +53,8 @@ impl GameBoy{
     fn execute_opcode(&mut self){
         let pc = self.cpu.program_counter;
         let opcode:u8 = self.fetch_next_byte();
-        println!("handling opcode: {:#X?} at address {:#X?}", opcode, pc);
-        //println!("{:#X?}", self.cpu.af.low());
+        //log::info!("handling opcode: {:#X?} at address {:#X?}", opcode, pc);
+        //log::debug!("af: {:#X?} bc: {:#X?} de: {:#X?} hl: {:#X?}", self.cpu.af.value, self.cpu.bc.value, self.cpu.de.value, self.cpu.hl.value);
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),

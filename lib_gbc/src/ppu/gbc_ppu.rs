@@ -163,6 +163,13 @@ impl GbcPpu{
                 frame_buffer[i as usize] = sprite;
             }
         }
+        else{
+            for i in 0..0x400{
+                let chr:i8 = memory.read(address + i) as i8;
+                let sprite = Sprite{pixels:sprites[chr as usize].pixels};
+                frame_buffer[i as usize] = sprite;
+            }
+        }
 
         let mut colors_buffer:Vec<Color> = Vec::with_capacity(FRAME_BUFFER_SIZE);
         for _ in 0..colors_buffer.capacity(){
@@ -182,7 +189,7 @@ impl GbcPpu{
             frame_buffer.push(Color::default());
         }
 
-        for i in self.background_scroll.y..self.background_scroll.x+SCREEN_HEIGHT as u8{
+        for i in self.background_scroll.y..self.background_scroll.y+SCREEN_HEIGHT as u8{
             for j in self.background_scroll.x..self.background_scroll.x+SCREEN_WIDTH as u8{
                 frame_buffer.push(colors_buffer[((i as u16)*255 + j as u16) as usize].clone());
             }

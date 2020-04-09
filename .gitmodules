@@ -1,4 +1,4 @@
-[submodule "rusty_gfx"]
-	path = rusty_gfx
-	url = https://github.com/alloncm/rusty_gfx.git
+[submodule "stupid_gfx"]
+	path = stupid_gfx
+	url = https://github.com/alloncm/stupid_gfx.git
 	branch = master

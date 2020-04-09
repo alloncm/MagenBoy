@@ -1,5 +1,5 @@
 extern crate lib_gbc;
-extern crate rusty_gfx;
+extern crate stupid_gfx;
 use lib_gbc::machine::gameboy::GameBoy;
 use std::fs;
 use std::env;
@@ -7,16 +7,18 @@ use std::result::Result;
 use std::vec::Vec;
 use lib_gbc::mmu::mbc_initializer::initialize_mbc;
 use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
-use rusty_gfx::{
+use stupid_gfx::{
     event_handler::EventHandler,
     graphics::Graphics,
-    initializer::Initializer
+    initializer::Initializer,
+    surface::Surface,
+    event::*
 };
 
 
 fn main() {
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600,0);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
     let args: Vec<String> = env::args().collect();
@@ -38,11 +40,21 @@ fn main() {
 
     let mbc = initialize_mbc(program);    
 
-    let mut gameboy = GameBoy::new(mbc, bootrom,17556);
-
-    while event_handler.handle_events() {
+    let mut gameboy = GameBoy::new(mbc, bootrom, 17556);
+    let mut alive = true;
+    while alive {
         graphics.clear();
-        let vec = gameboy.cycle_frame();
+        for event in event_handler.poll_events(){
+            match event{
+                Event::Quit=>alive = false,
+                _=>{}
+            }
+        }
+        if alive{
+            let vec = gameboy.cycle_frame();
+            let surface = Surface::new_from_raw(vec, 160, 144);
+            graphics.draw_surface(0, 0, &surface);
+        }
         graphics.update();
     }
 }
