@@ -68,8 +68,8 @@ fn main() {
         }
         if alive{
             let vec = gameboy.cycle_frame();
-            let other_vec = extend_vec(vec, 2, 160, 144);
-            let surface = Surface::new_from_raw(other_vec, 160*2, 144*2);
+            let other_vec = extend_vec(vec, 4, 160, 144);
+            let surface = Surface::new_from_raw(other_vec, 160*4, 144*4);
             graphics.draw_surface(0, 0, &surface);
         }
         graphics.update();

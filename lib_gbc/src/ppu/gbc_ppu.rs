@@ -146,7 +146,8 @@ impl GbcPpu {
                     let mask = 1<<k;
                     let mut value = (byte & (mask)) >> k;
                     value |= (next & (mask) >> k) << 1;
-                    sprites[(sprite_number) as usize].pixels[(byte_number * 8 + k) as usize] = value;
+                    let swaped = 7-k;
+                    sprites[(sprite_number) as usize].pixels[(byte_number * 8 + swaped) as usize] = value;
                 }
 
                 byte_number += 1;
