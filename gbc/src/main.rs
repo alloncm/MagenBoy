@@ -15,6 +15,22 @@ use stupid_gfx::{
     event::*
 };
 
+fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
+    let mut new_vec = vec![0;vec.len()*scale*scale];
+    for y in 0..h{
+        let sy = y*scale;
+        for x in 0..w{
+            let sx = x*scale;
+            for i in 0..scale{
+                for j in 0..scale{
+                    new_vec[(sy+i)*(w*scale)+sx+j] = vec[y*w+x];
+                }
+            }
+        } 
+    }
+    return new_vec;
+}
+
 
 fn main() {
     let gfx_initializer: Initializer = Initializer::new();
@@ -52,7 +68,8 @@ fn main() {
         }
         if alive{
             let vec = gameboy.cycle_frame();
-            let surface = Surface::new_from_raw(vec, 160, 144);
+            let other_vec = extend_vec(vec, 2, 160, 144);
+            let surface = Surface::new_from_raw(other_vec, 160*2, 144*2);
             graphics.draw_surface(0, 0, &surface);
         }
         graphics.update();

@@ -136,19 +136,23 @@ impl GbcPpu {
             0x8800
         };
 
+        let mut sprite_number = 0;
         for i in (0..0x1000).step_by(16) {
             let mut byte_number = 0;
             for j in (i..i + 16).step_by(2) {
                 let byte = memory.read(address + j);
                 let next = memory.read(address + j + 1);
                 for k in 0..8 {
-                    let mut value = byte & (1 << k) >> k;
-                    value |= (next & (1 << k) >> k) << 1;
-                    sprites[(i / 16) as usize].pixels[(byte_number * 7 + k) as usize] = value;
+                    let mask = 1<<k;
+                    let mut value = (byte & (mask)) >> k;
+                    value |= (next & (mask) >> k) << 1;
+                    sprites[(sprite_number) as usize].pixels[(byte_number * 8 + k) as usize] = value;
                 }
 
                 byte_number += 1;
             }
+
+            sprite_number+=1;
         }
 
         return sprites;
