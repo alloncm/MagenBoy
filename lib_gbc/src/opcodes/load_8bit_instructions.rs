@@ -78,7 +78,8 @@ pub fn ld_a_de(cpu: &mut GbcCpu, memory:&mut dyn Memory){
 
 //load the value at address NN into register A
 pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
-    let address = (0xFFFF & opcode) as u16;
+    let mut address = ((0xFF & opcode) as u16)<<8;
+    address |= ((0xFF00&opcode) as u16)>>8;
     *cpu.af.high() = memory.read(address);
 }
 
@@ -94,7 +95,8 @@ pub fn ld_de_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
 
 //load the value in register A into the address of NN
 pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
-    let address = (0xFFFF & opcode) as u16;
+    let mut address = ((0xFF & opcode) as u16)<<8;
+    address |= ((0xFF00&opcode) as u16)>>8;
     memory.write(address, *cpu.af.high());
 }
 

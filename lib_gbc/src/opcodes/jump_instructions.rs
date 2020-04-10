@@ -95,7 +95,7 @@ pub fn jump(cpu:&mut GbcCpu, opcode:u32){
 }
 
 pub fn jump_cc(cpu:&mut GbcCpu, opcode:u32){
-    let flag:u8 = ((opcode &0xFF0000) & 0b00011000) as u8;
+    let flag:u8 = (((opcode &0xFF0000)>>16 & 0b00011000) as u8)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
@@ -124,7 +124,7 @@ pub fn jump_r(cpu:&mut GbcCpu, opcode:u16){
 }
 
 pub fn jump_r_cc(cpu:&mut GbcCpu, opcode:u16){
-    let flag:u8 = ((opcode &0xFF00) & 0b00011000) as u8;
+    let flag:u8 = (((opcode &0xFF00)>>8 & 0b00011000) as u8)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
