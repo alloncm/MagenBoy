@@ -174,17 +174,14 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..0x400 {
                 let chr: u8 = memory.read(address + i);
-                let sprite = Sprite {
-                    pixels: sprites[chr as usize].pixels,
-                };
+                let sprite = sprites[chr as usize].clone();
                 frame_buffer[i as usize] = sprite;
             }
         } else {
             for i in 0..0x400 {
-                let chr: i8 = memory.read(address + i) as i8;
-                let sprite = Sprite {
-                    pixels: sprites[chr as usize].pixels.clone(),
-                };
+                let mut chr: u8 = memory.read(address + i);
+                chr = chr.wrapping_add(0x80);
+                let sprite = sprites[chr as usize].clone();
                 frame_buffer[i as usize] = sprite;
             }
         }
@@ -198,7 +195,6 @@ impl GbcPpu {
             for k in 0..8{
                 for j in 0..32{
                     for n in 0..8{
-                        let f = i;
                         let colors_buffer_address = (i*32*64) + k*256 + j*8 + n;
                         let frame_buffer_address = i*32+j;
                         let pixel_index = k*8+n;
