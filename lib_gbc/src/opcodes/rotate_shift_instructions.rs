@@ -25,39 +25,47 @@ fn rotate_right(r:&mut u8)->bool{
     return temp != 0;
 }
 
-fn rotate_left_carry(r:&mut u8)->bool{
+fn rotate_left_carry(r:&mut u8, carry:bool)->bool{
     let temp:u8 = *r;
     *r = *r<<1;
-    return temp & BIT_7_MASK != 0;
+    if carry{
+        *r|=0x1
+    }
+    return (temp & BIT_7_MASK) != 0;
 }
 
-fn rotate_right_carry(r:&mut u8)->bool{
+fn rotate_right_carry(r:&mut u8, carry:bool)->bool{
     let temp:u8 = *r;
     *r = *r>>1;
-    return temp & BIT_0_MASK != 0;
+    if carry{
+        *r|=0x80;
+    }
+    return (temp & BIT_0_MASK) != 0;
 }
 
 pub fn rlca(cpu:&mut GbcCpu){
-    let carry:bool = rotate_left_carry(cpu.af.high());
+    let carry:bool = rotate_left(cpu.af.high());
 
     a_rotate_flags(cpu, carry);
 }
 
 pub fn rla(cpu:&mut GbcCpu){
-    let carry:bool = rotate_left(cpu.af.high());
+    let carry_flag = cpu.get_flag(Flag::Carry);
+    let carry:bool = rotate_left_carry(cpu.af.high(), carry_flag);
 
     a_rotate_flags(cpu, carry);
 }   
 
 pub fn rrca(cpu:&mut GbcCpu){
-    let carry:bool = rotate_right_carry(cpu.af.high());
+    let carry:bool = rotate_right(cpu.af.high());
 
     a_rotate_flags(cpu, carry);
 }
 
 
 pub fn rra(cpu:&mut GbcCpu){
-    let carry:bool = rotate_right(cpu.af.high());
+    let carry_flag = cpu.get_flag(Flag::Carry);
+    let carry:bool = rotate_right_carry(cpu.af.high(), carry_flag);
 
     a_rotate_flags(cpu, carry);
 }   
@@ -77,7 +85,7 @@ pub fn rlc_r(cpu:&mut GbcCpu, opcode:u16)
 
     {
         let register:&mut u8 = get_src_register(cpu, opcode);
-        carry = rotate_left_carry(register);
+        carry = rotate_left(register);
         register_value = *register;
     }
 
@@ -87,7 +95,7 @@ pub fn rlc_r(cpu:&mut GbcCpu, opcode:u16)
 pub fn rlc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(cpu.hl.value);
-    let carry:bool = rotate_left_carry(&mut byte);
+    let carry:bool = rotate_left(&mut byte);
     memory.write(cpu.hl.value, byte);
     rotate_shift_flags(cpu, carry, byte == 0);
 }
@@ -99,8 +107,9 @@ pub fn rl_r(cpu:&mut GbcCpu, opcode:u16)
     let carry:bool;
 
     {
+        let carry_flag = cpu.get_flag(Flag::Carry);
         let register:&mut u8 = get_src_register(cpu, opcode);
-        carry = rotate_left(register);
+        carry = rotate_left_carry(register, carry_flag);
         register_value = *register;
     }
 
@@ -110,35 +119,12 @@ pub fn rl_r(cpu:&mut GbcCpu, opcode:u16)
 pub fn rl_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(cpu.hl.value);
-    let carry:bool = rotate_left(&mut byte);
+    let carry:bool = rotate_left_carry(&mut byte, cpu.get_flag(Flag::Carry));
     memory.write(cpu.hl.value, byte);
     rotate_shift_flags(cpu, carry, byte == 0);
 }
 
 pub fn rrc_r(cpu:&mut GbcCpu, opcode:u16)
-{
-    let opcode:u8 = get_cb_opcode(opcode);
-    let register_value:u8;
-    let carry:bool;
-
-    {
-        let register:&mut u8 = get_src_register(cpu, opcode);
-        carry = rotate_right_carry(register);
-        register_value = *register;
-    }
-
-    rotate_shift_flags(cpu, carry, register_value == 0);
-}
-
-pub fn rrc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
-{
-    let mut byte: u8 = memory.read(cpu.hl.value);
-    let carry:bool = rotate_right_carry(&mut byte);
-    memory.write(cpu.hl.value, byte);
-    rotate_shift_flags(cpu, carry, byte == 0);
-}
-
-pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -153,10 +139,35 @@ pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn rr_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn rrc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(cpu.hl.value);
     let carry:bool = rotate_right(&mut byte);
+    memory.write(cpu.hl.value, byte);
+    rotate_shift_flags(cpu, carry, byte == 0);
+}
+
+pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
+{
+    let opcode:u8 = get_cb_opcode(opcode);
+    let register_value:u8;
+    let carry:bool;
+
+    {
+        let carry_flag = cpu.get_flag(Flag::Carry);
+        let register:&mut u8 = get_src_register(cpu, opcode);
+        carry = rotate_right_carry(register, carry_flag);
+        register_value = *register;
+    }
+
+    rotate_shift_flags(cpu, carry, register_value == 0);
+}
+
+pub fn rr_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+{
+    let mut byte: u8 = memory.read(cpu.hl.value);
+    let carry_flag = cpu.get_flag(Flag::Carry);
+    let carry:bool = rotate_right_carry(&mut byte, carry_flag);
     memory.write(cpu.hl.value, byte);
     rotate_shift_flags(cpu, carry, byte == 0);
 }

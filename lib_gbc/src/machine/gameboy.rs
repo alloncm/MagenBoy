@@ -1,5 +1,3 @@
-extern crate log;
-
 use crate::cpu::gbc_cpu::GbcCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::{
