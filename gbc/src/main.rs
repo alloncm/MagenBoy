@@ -58,6 +58,7 @@ fn main() {
 
     let mut gameboy = GameBoy::new(mbc, bootrom, 17556);
     let mut alive = true;
+    let scale:u32 = 4;
     while alive {
         graphics.clear();
         for event in event_handler.poll_events(){
@@ -66,12 +67,12 @@ fn main() {
                 _=>{}
             }
         }
-        if alive{
-            let vec = gameboy.cycle_frame();
-            let other_vec = extend_vec(vec, 4, 160, 144);
-            let surface = Surface::new_from_raw(other_vec, 160*4, 144*4);
-            graphics.draw_surface(0, 0, &surface);
-        }
+        
+        let vec = gameboy.cycle_frame();
+        let other_vec = extend_vec(vec, scale as usize, 160, 144);
+        let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
+
+        graphics.draw_surface(0, 0, &surface);
         graphics.update();
     }
 }

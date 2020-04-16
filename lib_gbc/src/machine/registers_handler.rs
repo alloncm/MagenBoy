@@ -4,6 +4,8 @@ use crate::mmu::gbc_mmu::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::opcodes::opcodes_utils::*;
 use crate::utils::memory_registers::*;
+use crate::utils::colors::*;
+use crate::utils::color::Color;
 
 
 
@@ -21,8 +23,25 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
     handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
     handle_ly_register(memory, current_cycle);
+    handle_bgp_register(memory.read(BGP_REGISTER_ADDRESS), ppu);
 }
 
+fn handle_bgp_register(register:u8, ppu:&mut GbcPpu){
+    ppu.colors_mapping[0] = get_matching_color(register&0b00000011);
+    ppu.colors_mapping[1] = get_matching_color((register&0b00001100)>>2);
+    ppu.colors_mapping[2] = get_matching_color((register&0b00110000)>>4);
+    ppu.colors_mapping[3] = get_matching_color((register&0b11000000)>>6);
+}
+
+fn get_matching_color(number:u8)->Color{
+    return match number{
+        0b00=>WHITE,
+        0b01=>LIGHT_GRAY,
+        0b10=>DARK_GRAY,
+        0b11=>BLACK,
+        _=>std::panic!("no macthing color for color number: {}", number)
+    };
+}
 fn handle_ly_register(memory:&mut dyn Memory, current_cycle:u32){
     const C:u32 = 114;
     let mut value = current_cycle/C;

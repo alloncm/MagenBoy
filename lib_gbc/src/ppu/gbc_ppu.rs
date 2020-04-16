@@ -1,6 +1,7 @@
 use crate::mmu::memory::Memory;
 use crate::utils::color::Color;
 use crate::utils::vec2::Vec2;
+use crate::utils::colors::*;
 
 const SCREEN_HEIGHT: usize = 144;
 const SCREEN_WIDTH: usize = 160;
@@ -31,6 +32,7 @@ pub struct GbcPpu {
     pub window_tile_background_map_data_address: bool,
     pub background_tile_map_address: bool,
     pub background_scroll: Vec2<u8>,
+    pub colors_mapping:[Color;4]
 }
 
 impl Default for GbcPpu {
@@ -47,6 +49,7 @@ impl Default for GbcPpu {
             window_enable: false,
             window_tile_background_map_data_address: false,
             window_tile_map_address: false,
+            colors_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK]
         }
     }
 }
@@ -140,7 +143,7 @@ impl GbcPpu {
                         let frame_buffer_address = i*32+j;
                         let pixel_index = k*8+n;
                         let color_index = frame_buffer[frame_buffer_address].pixels[pixel_index];
-                        let color = Self::get_color(color_index);
+                        let color = self.get_color(color_index);
                         colors_buffer[colors_buffer_address] = color;
                     }
                 }
@@ -162,25 +165,7 @@ impl GbcPpu {
         return other_frame_buffer;
     }
 
-    fn get_color(color: u8) -> Color {
-        match color {
-            0 => Color {
-                r: 255,
-                g: 255,
-                b: 255,
-            },
-            1 => Color {
-                r: 160,
-                g: 160,
-                b: 160,
-            },
-            2 => Color {
-                r: 64,
-                g: 64,
-                b: 64,
-            },
-            3 => Color { r: 0, g: 0, b: 0 },
-            _ => std::panic!("no color {}", color),
-        }
+    fn get_color(&self, color: u8) -> Color {
+        return self.colors_mapping[color as usize].clone();
     }
 }
