@@ -18,38 +18,9 @@ pub type U8OpcodeFunc = fn(&mut GbcCpu,u8);
 pub type U16OpcodeFunc = fn(&mut GbcCpu,u16);
 pub type U32OpcodeFunc = fn(&mut GbcCpu,u32);
 pub type MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory);
-pub type MemoryOpcodeFunc2Bytes = fn(&mut GbcCpu,&mut dyn Memory);
 pub type U8MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u8);
 pub type U16MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u16);
 pub type U32MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u32);
-
-
-fn prefix_cb_runner_u16_opcode(cpu:&mut GbcCpu, opcode:u16){
-    let cb_postfix=0xFF&opcode;
-    let opcode_to_run:U16OpcodeFunc = match cb_postfix{
-        0x00..=0x05 | 0x07=> rlc_r,
-        0x08..=0x0D | 0x0F=>rrc_r,
-        0x10..=0x15 | 0x17=>rl_r,
-        0x18..=0x1D | 0x1F=>rr_r,
-        0x20..=0x25 | 0x27=>sla_r,
-        0x28..=0x2D | 0x2F=>sra_r,
-        0x30..=0x35 | 0x37=>swap_r,
-        0x38..=0x3D | 0x3F=>srl_r,
-
-        0x40..=0x45 | 0x47..=0x4D | 0x4F..=0x55 | 0x57..=0x5D |
-        0x5F..=0x65 | 0x67..=0x6D | 0x6F..=0x75 | 0x77..=0x7D | 0x7F =>bit_r,
-
-        0x80..=0x85 | 0x87..=0x8D | 0x8F..=0x95 | 0x97..=0x9D |
-        0x9F..=0xA5 | 0xA7..=0xAD | 0xAF..=0xB5 | 0xB7..=0xBD | 0xBF =>res_r,
-
-        0xC0..=0xC5 | 0xC7..=0xCD | 0xCF..=0xD5 | 0xD7..=0xDD |
-        0xDF..=0xE5 | 0xE7..=0xED | 0xEF..=0xF5 | 0xF7..=0xFD | 0xFF =>set_r,
-        _=>std::panic!("no opcode matching in the cb prefix for u16 opcodes: {}",opcode)
-    };
-
-    opcode_to_run(cpu, opcode);
-}
-
 
 
 pub fn get_opcode_func_resolver()->fn(u8)->Option<OpcodeFunc>{
@@ -97,14 +68,30 @@ pub fn get_u8_opcode_func_resolver()->fn(u8)->Option<U8OpcodeFunc>{
     }
 }
 
-pub fn get_u16_opcode_func_resolver()->fn(u8)->Option<U16OpcodeFunc>{
-    |opcode:u8|->Option<U16OpcodeFunc>{
+pub fn get_u16_opcode_func_resolver()->fn(u8,u8)->Option<U16OpcodeFunc>{
+    |opcode:u8, next:u8|->Option<U16OpcodeFunc>{
         match opcode{
             0x06|0x0E|0x16|0x1E|0x26|0x2E|0x36|0x3E=>Some(ld_r_n),
             0x18=>Some(jump_r),
             0x20|0x28|0x30|0x38=>Some(jump_r_cc),
             0xC6=>Some(add_a_nn),
-            0xCB=>Some(prefix_cb_runner_u16_opcode),
+            0xCB=>match next{
+                0x00..=0x05 | 0x07=> Some(rlc_r),
+                0x08..=0x0D | 0x0F=>Some(rrc_r),
+                0x10..=0x15 | 0x17=>Some(rl_r),
+                0x18..=0x1D | 0x1F=>Some(rr_r),
+                0x20..=0x25 | 0x27=>Some(sla_r),
+                0x28..=0x2D | 0x2F=>Some(sra_r),
+                0x30..=0x35 | 0x37=>Some(swap_r),
+                0x38..=0x3D | 0x3F=>Some(srl_r),
+                0x40..=0x45 | 0x47..=0x4D | 0x4F..=0x55 | 0x57..=0x5D |
+                0x5F..=0x65 | 0x67..=0x6D | 0x6F..=0x75 | 0x77..=0x7D | 0x7F =>Some(bit_r),
+                0x80..=0x85 | 0x87..=0x8D | 0x8F..=0x95 | 0x97..=0x9D |
+                0x9F..=0xA5 | 0xA7..=0xAD | 0xAF..=0xB5 | 0xB7..=0xBD | 0xBF =>Some(res_r), 
+                0xC0..=0xC5 | 0xC7..=0xCD | 0xCF..=0xD5 | 0xD7..=0xDD |
+                0xDF..=0xE5 | 0xE7..=0xED | 0xEF..=0xF5 | 0xF7..=0xFD | 0xFF =>Some(set_r),
+                _=>None
+            },
             0xCE=>Some(adc_a_nn),
             0xD6=>Some(sub_a_nn),
             0xDE=>Some(sbc_a_nn),
@@ -160,8 +147,8 @@ pub fn get_memory_opcode_func_resolver()->fn(u8)->Option<MemoryOpcodeFunc>{
     } 
 }
 
-pub fn get_memory_opcode_func_2bytes_resolver()->fn(u8,u8)->Option<MemoryOpcodeFunc2Bytes>{
-    |opcode:u8,next_byte:u8|->Option<MemoryOpcodeFunc2Bytes>{
+pub fn get_memory_opcode_func_2bytes_resolver()->fn(u8,u8)->Option<MemoryOpcodeFunc>{
+    |opcode:u8,next_byte:u8|->Option<MemoryOpcodeFunc>{
         if opcode == 0x10 && next_byte == 0{
             return Some(stop);
         }

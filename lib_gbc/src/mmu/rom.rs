@@ -1,5 +1,6 @@
 use std::vec::Vec;
 use super::mbc::Mbc;
+use super::mbc::ROM_BANK_SIZE;
 
 const RAM_SZIE:usize = 0x2000;
 
@@ -18,7 +19,7 @@ impl Mbc for Rom{
     }
 
     fn read_current_bank(&self, address:u16)->u8{
-        return self.program[address as usize];
+        return self.program[(ROM_BANK_SIZE + address) as usize];
     }
 
     fn read_external_ram(&self, address:u16)->u8{

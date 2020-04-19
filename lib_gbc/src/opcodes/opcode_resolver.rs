@@ -8,7 +8,6 @@ pub enum OpcodeFuncType{
     U16OpcodeFunc(U16OpcodeFunc),
     U32OpcodeFunc(U32OpcodeFunc),
     MemoryOpcodeFunc(MemoryOpcodeFunc),
-    MemoryOpcodeFunc2Bytes(MemoryOpcodeFunc2Bytes),
     U8MemoryOpcodeFunc(U8MemoryOpcodeFunc),
     U16MemoryOpcodeFunc(U16MemoryOpcodeFunc),
     U32MemoryOpcodeFunc(U32MemoryOpcodeFunc)
@@ -17,19 +16,29 @@ pub enum OpcodeFuncType{
 pub struct  OpcodeResolver{
     opcode_func_resolver:fn(u8)->Option<OpcodeFunc>,
     u8_opcode_func_resolver:fn(u8)->Option<U8OpcodeFunc>,
-    u16_opcode_func_resolver:fn(u8)->Option<U16OpcodeFunc>,
+    u16_opcode_func_resolver:fn(u8,u8)->Option<U16OpcodeFunc>,
     u32_opcode_func_resolver:fn(u8)->Option<U32OpcodeFunc>,
     memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc>,
-    memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc2Bytes>,
+    memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc>,
     u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc>,
     u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc>,
     u32_memory_opcode_func_resolver:fn(u8)->Option<U32MemoryOpcodeFunc>,
+    pc_queue:Vec<u16>
 }
 
 
 impl OpcodeResolver{
-    pub fn get_opcode(&self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
 
+    fn update_current_pc(&mut self, pc:u16){
+
+        if self.pc_queue.len()> 300{
+            self.pc_queue.remove(0);
+        }
+        
+        self.pc_queue.push(pc);
+    }
+    pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
+        self.update_current_pc(program_counter);
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{
             Some(func)=> return OpcodeFuncType::OpcodeFunc(func),
@@ -50,7 +59,8 @@ impl OpcodeResolver{
             Some(func)=> return OpcodeFuncType::U8MemoryOpcodeFunc(func),
             None=>{}
         }
-        let u16_opcode_func=(self.u16_opcode_func_resolver)(opcode);
+        let postfix:u8 = memory.read(program_counter);
+        let u16_opcode_func=(self.u16_opcode_func_resolver)(opcode, postfix);
         match u16_opcode_func{
             Some(func)=> return OpcodeFuncType::U16OpcodeFunc(func),
             None=>{}
@@ -65,8 +75,6 @@ impl OpcodeResolver{
             Some(func)=> return OpcodeFuncType::U32MemoryOpcodeFunc(func),
             None=>{}
         }
-
-        let postfix:u8 = memory.read(program_counter);
         let u16_memory_opcode_func = (self.u16_memory_opcode_func_resolver)(opcode, postfix);
         match u16_memory_opcode_func{
             Some(func)=>return OpcodeFuncType::U16MemoryOpcodeFunc(func),
@@ -74,11 +82,16 @@ impl OpcodeResolver{
         }
         let memory_opcode_func = (self.memory_opcode_func_2bytes_resolver)(opcode, postfix);
         match memory_opcode_func{
-            Some(func)=>return OpcodeFuncType::MemoryOpcodeFunc2Bytes(func),
+            Some(func)=>return OpcodeFuncType::MemoryOpcodeFunc(func),
             None=>{}
         }
         
-        std::panic!("no opcode matching: {:#X?}, pc{:#X?}",opcode, program_counter);
+        let mut string:String = String::new();
+        for pc in self.pc_queue.iter(){
+            string.push_str(&pc.to_string());
+            string.push(' ');
+        }
+        std::panic!("no opcode matching: {:#X?}, c_pc{:#X?}, l_pc{:#X?}",opcode, program_counter, string);
     }
 }
 
@@ -93,7 +106,8 @@ impl Default for OpcodeResolver{
             u16_memory_opcode_func_resolver:get_u16_memory_opcode_func_resolver(),
             u16_opcode_func_resolver:get_u16_opcode_func_resolver(),
             u32_opcode_func_resolver:get_u32_opcode_func_resolver(),
-            u32_memory_opcode_func_resolver:get_u32_memory_opcode_func_resolver()
+            u32_memory_opcode_func_resolver:get_u32_memory_opcode_func_resolver(),
+            pc_queue:Vec::new()
         }
     }
 }

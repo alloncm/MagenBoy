@@ -9,7 +9,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/gbc.exe",
-            "args": ["D:\\downloads\\compSc\\GameBoy\\cpu_instrs.gb"],
+            "args": ["D:\\downloads\\compSc\\GameBoy\\dmg-acid2.gb"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

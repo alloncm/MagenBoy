@@ -33,7 +33,6 @@ fn test_rl_carry_set_r(){
 
 #[test]
 fn test_rla(){
-    let opcode:u16 = 0xCB10;
     let mut cpu = GbcCpu::default();
     *cpu.af.high() = 0x85;
     rla(&mut cpu);

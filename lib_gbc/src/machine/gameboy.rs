@@ -49,7 +49,7 @@ impl GameBoy{
     }
 
     fn execute_opcode(&mut self){
-        let pc = self.cpu.program_counter;
+        //let pc = self.cpu.program_counter;
         let opcode:u8 = self.fetch_next_byte();
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{
@@ -57,7 +57,6 @@ impl GameBoy{
             OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),
             OpcodeFuncType::U8OpcodeFunc(func)=>func(&mut self.cpu, opcode),
             OpcodeFuncType::U8MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu, opcode),
-            OpcodeFuncType::MemoryOpcodeFunc2Bytes(func)=>func(&mut self.cpu, &mut self.mmu),
             OpcodeFuncType::U16OpcodeFunc(func)=>{
                 let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
                 func(&mut self.cpu, u16_opcode);

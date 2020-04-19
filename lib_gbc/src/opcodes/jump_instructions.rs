@@ -2,7 +2,7 @@ use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::mmu::memory::Memory;
 
 fn push_pc(cpu:&mut GbcCpu, memory: &mut dyn Memory){
-    let high = (cpu.program_counter & 0xFF00) as u8;
+    let high = ((cpu.program_counter & 0xFF00)>>8) as u8;
     let low = (cpu.program_counter & 0xFF) as u8;
     memory.write(cpu.stack_pointer-1, high);
     memory.write(cpu.stack_pointer-2, low);
@@ -48,7 +48,7 @@ fn ret_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, flag:bool){
 }
 
 pub fn ret_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let flag:u8 = opcode & 0b00011000;
+    let flag:u8 = opcode & 0b00011000>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
@@ -90,7 +90,7 @@ fn jump_if_true(cpu:&mut GbcCpu, opcode:u32, flag:bool){
 }
 
 pub fn jump(cpu:&mut GbcCpu, opcode:u32){
-    let address = (opcode & 0xFFFF) as u16;
+    let address = (((opcode & 0xFF) as u16)<<8) | (((opcode & 0xFF00)as u16)>>8);
     cpu.program_counter = address;
 }
 
