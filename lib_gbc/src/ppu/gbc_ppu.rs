@@ -92,31 +92,30 @@ impl GbcPpu {
         if last_ly==self.current_line_drawn{
             return;
         }
-        let sprites = self.get_bg_and_window_sprites(memory);
-        let obj_sprites = self.get_objects_sprites(memory);
-        let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
-        let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
-        let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
-        let mut buffer = Vec::<u32>::new();
-        for color in bg_frame_buffer.iter() {
-            buffer.push(Self::color_as_uint(&color));
-        }
-        for i in 0..window_frame_buffer.len() {
-            match &window_frame_buffer[i] {
-                Some(color) => buffer[i] = Self::color_as_uint(color),
-                _ => {}
+        else if (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+            let sprites = self.get_bg_and_window_sprites(memory);
+            let obj_sprites = self.get_objects_sprites(memory);
+            let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
+            let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
+            let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
+            let mut buffer = Vec::<u32>::new();
+            for color in bg_frame_buffer.iter() {
+                buffer.push(Self::color_as_uint(&color));
             }
-        }
-        for i in 0..obj_buffer.len() {
-            match &obj_buffer[i] {
-                Some(color) => buffer[i] = Self::color_as_uint(color),
-                _ => {}
+            for i in 0..window_frame_buffer.len() {
+                match &window_frame_buffer[i] {
+                    Some(color) => buffer[i] = Self::color_as_uint(color),
+                    _ => {}
+                }
             }
-        }
+            for i in 0..obj_buffer.len() {
+                match &obj_buffer[i] {
+                    Some(color) => buffer[i] = Self::color_as_uint(color),
+                    _ => {}
+                }
+            }
 
-        let ly_register = self.current_line_drawn;
-        if (ly_register as usize) < SCREEN_HEIGHT{
-            let line_index = ly_register as usize * SCREEN_WIDTH;
+            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
 
             for i in line_index..line_index+SCREEN_WIDTH{
                 self.screen_buffer[i] = buffer[i];
