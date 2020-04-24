@@ -8,7 +8,10 @@ use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::update_registers_state;
 use crate::mmu::mbc::Mbc;
-use std::vec::Vec;
+use crate::ppu::gbc_ppu::{
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
+};
 use std::boxed::Box;
 
 pub struct GameBoy {
@@ -33,13 +36,14 @@ impl GameBoy{
         }
     }
 
-    pub fn cycle_frame(&mut self)->Vec<u32>{
+    pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         for i in 0..self.cycles_per_frame{
             self.execute_opcode();
-            update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, i);
+            self.ppu.update_gb_screen(&mut self.mmu, i);
+            update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
         }
 
-        return self.ppu.get_gb_screen(&mut self.mmu);
+        return self.ppu.get_frame_buffer();
     }
 
     fn fetch_next_byte(&mut self)->u8{

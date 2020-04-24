@@ -4,11 +4,13 @@ use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
 use std::cmp;
 
-const SCREEN_HEIGHT: usize = 144;
-const SCREEN_WIDTH: usize = 160;
+pub const SCREEN_HEIGHT: usize = 144;
+pub const SCREEN_WIDTH: usize = 160;
 const FRAME_BUFFER_SIZE: usize = 0x10000;
 //const SPRITE_NORMAL_SIZE:u8 = 8;
 const SPRITES_SIZE: usize = 32 * 32;
+const DRAWING_CYCLE_CLOCKS: u8 = 114;
+const LY_MAX_VALUE:u8 = 154;
 
 #[derive(Clone)]
 struct Sprite {
@@ -22,7 +24,7 @@ impl Sprite {
 }
 
 pub struct GbcPpu {
-    pub screen_buffer: [u8; FRAME_BUFFER_SIZE],
+    pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
     pub screen_enable: bool,
     pub window_enable: bool,
     pub sprite_extended: bool,
@@ -35,6 +37,7 @@ pub struct GbcPpu {
     pub background_scroll: Vec2<u8>,
     pub window_scroll: Vec2<u8>,
     pub colors_mapping: [Color; 4],
+    pub current_line_drawn: u8
 }
 
 impl Default for GbcPpu {
@@ -45,7 +48,7 @@ impl Default for GbcPpu {
             window_scroll: Vec2::<u8> { x: 0, y: 0 },
             background_tile_map_address: false,
             gbc_mode: false,
-            screen_buffer: [0; FRAME_BUFFER_SIZE],
+            screen_buffer: [0; SCREEN_HEIGHT*SCREEN_WIDTH],
             screen_enable: false,
             sprite_enable: false,
             sprite_extended: false,
@@ -53,6 +56,7 @@ impl Default for GbcPpu {
             window_tile_background_map_data_address: false,
             window_tile_map_address: false,
             colors_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            current_line_drawn:0
         }
     }
 }
@@ -61,10 +65,33 @@ impl GbcPpu {
     fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
-    pub fn get_gb_screen(&self, memory: &dyn Memory) -> Vec<u32> {
+
+    pub fn get_frame_buffer(&self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
+        return &self.screen_buffer;
+    }
+
+    fn update_ly(&mut self, cycle_counter:u32){
+        
+        let line = cycle_counter/DRAWING_CYCLE_CLOCKS as u32;
+        if line>LY_MAX_VALUE as u32{
+            self.current_line_drawn = LY_MAX_VALUE;
+        }
+        else{
+            self.current_line_drawn = line as u8;
+        }
+    }
+
+    pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
+        let last_ly = self.current_line_drawn;
+        self.update_ly(cycle_counter);
+        if last_ly==self.current_line_drawn{
+            return;
+        }
         let sprites = self.get_bg_and_window_sprites(memory);
+        let obj_sprites = self.get_objects_sprites(memory);
         let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
         let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
+        let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
         let mut buffer = Vec::<u32>::new();
         for color in bg_frame_buffer.iter() {
             buffer.push(Self::color_as_uint(&color));
@@ -75,8 +102,21 @@ impl GbcPpu {
                 _ => {}
             }
         }
+        for i in 0..obj_buffer.len() {
+            match &obj_buffer[i] {
+                Some(color) => buffer[i] = Self::color_as_uint(color),
+                _ => {}
+            }
+        }
 
-        return buffer;
+        let ly_register = self.current_line_drawn;
+        if (ly_register as usize) < SCREEN_HEIGHT{
+            let line_index = ly_register as usize * SCREEN_WIDTH;
+
+            for i in line_index..line_index+SCREEN_WIDTH{
+                self.screen_buffer[i] = buffer[i];
+            }
+        }
     }
 
     fn get_bg_and_window_sprites(&self, memory: &dyn Memory) -> Vec<Sprite> {
@@ -114,7 +154,7 @@ impl GbcPpu {
         return sprites;
     }
 
-    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory) -> Vec<Color> {
+    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory)-> Vec<Color> {
         let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
         for _ in 0..frame_buffer.capacity() {
             frame_buffer.push(Sprite::new());
@@ -172,11 +212,7 @@ impl GbcPpu {
         return screen_buffer;
     }
 
-    fn get_window_frame_buffer(
-        &self,
-        sprites: &Vec<Sprite>,
-        memory: &dyn Memory,
-    ) -> Vec<Option<Color>> {
+    fn get_window_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory,)-> Vec<Option<Color>> {
         let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
         for _ in 0..frame_buffer.capacity() {
             frame_buffer.push(Sprite::new());
@@ -236,12 +272,77 @@ impl GbcPpu {
         for i in start_y..end_y {
             for j in start_x..end_x {
                 let index = ((i - start_y) * SCREEN_WIDTH) + (j - start_x);
-                other_frame_buffer[index] =
-                    Option::Some(colors_buffer[((i as u16) * 256 + j as u16) as usize].clone());
+                other_frame_buffer[index] = Option::Some(colors_buffer[((i as u16) * 256 + j as u16) as usize].clone());
             }
         }
 
         return other_frame_buffer;
+    }
+
+    fn get_objects_sprites(&self, memory: &dyn Memory) -> Vec<Sprite> {
+        let mut sprites: Vec<Sprite> = Vec::with_capacity(SPRITES_SIZE);
+        for _ in 0..sprites.capacity() {
+            sprites.push(Sprite::new());
+        }
+        let address = 0x800;
+
+        let mut sprite_number = 0;
+        for i in (0..0x1000).step_by(16) {
+            let mut byte_number = 0;
+            for j in (i..i + 16).step_by(2) {
+                let byte = memory.read(address + j);
+                let next = memory.read(address + j + 1);
+                for k in 0..8 {
+                    let mask = 1 << k;
+                    let mut value = (byte & (mask)) >> k;
+                    value |= (next & (mask) >> k) << 1;
+                    let swaped = 7 - k;
+                    sprites[(sprite_number) as usize].pixels[(byte_number * 8 + swaped) as usize] =
+                        value;
+                }
+
+                byte_number += 1;
+            }
+
+            sprite_number += 1;
+        }
+
+        return sprites;
+    }
+
+    fn get_objects_frame_buffer(&self, memory:&dyn Memory, sprites:&Vec<Sprite>)->Vec<Option<Color>>{
+        let oam_address = 0xFE00;
+
+        let mut frame_buffer: Vec<Option<Color>> = Vec::with_capacity(FRAME_BUFFER_SIZE);
+        for _ in 0..frame_buffer.capacity() {
+            frame_buffer.push(Option::None);
+        }
+
+        for i in (0..0x100).step_by(4){
+            let end_y = memory.read(oam_address + i);
+            let end_x = memory.read(oam_address + i + 1);
+            let tile_number = memory.read(oam_address + i + 2);
+            let attributes = memory.read(oam_address + i + 3);
+            let sprite = &sprites[tile_number as usize];
+            let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
+            let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
+            for y in start_y..end_y-8{
+                for x in start_x..end_x{
+                    let color = self.get_color(sprite.pixels[((y-start_y)*8+(x-start_x)) as usize]);
+                    frame_buffer[(y as u16 *256 + x as u16) as usize] = Some(color);
+                }
+            }
+        }
+
+        let mut screen_buffer: Vec<Option<Color>> = Vec::with_capacity(SCREEN_HEIGHT*SCREEN_WIDTH);
+
+        for i in self.background_scroll.y..self.background_scroll.y + SCREEN_HEIGHT as u8 {
+            for j in self.background_scroll.x..self.background_scroll.x + SCREEN_WIDTH as u8 {
+                screen_buffer.push(frame_buffer[((i as u16) * 256 + j as u16) as usize].clone());
+            }
+        }
+
+        return screen_buffer;
     }
 
     fn get_color(&self, color: u8) -> Color {

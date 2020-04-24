@@ -68,7 +68,7 @@ fn main() {
             }
         }
         
-        let vec = gameboy.cycle_frame();
+        let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
         let other_vec = extend_vec(vec, scale as usize, 160, 144);
         let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
 

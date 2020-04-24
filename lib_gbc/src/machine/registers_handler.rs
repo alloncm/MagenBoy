@@ -13,7 +13,7 @@ use crate::utils::color::Color;
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
 
-pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, current_cycle:u32){
+pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu){
     handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
     handle_lcdstatus_register(memory.read(STAT_REGISTER_ADDRESS), memory);
     handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
@@ -22,7 +22,7 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
     handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
     handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
-    handle_ly_register(memory, current_cycle);
+    handle_ly_register(memory, ppu);
     handle_bgp_register(memory.read(BGP_REGISTER_ADDRESS), ppu);
 }
 
@@ -42,14 +42,9 @@ fn get_matching_color(number:u8)->Color{
         _=>std::panic!("no macthing color for color number: {}", number)
     };
 }
-fn handle_ly_register(memory:&mut dyn Memory, current_cycle:u32){
-    const C:u32 = 114;
-    let mut value = current_cycle/C;
-    if value>153{
-        value = 153;
-    }
-    
-    memory.write(LY_REGISTER_ADDRESS, value as u8);
+fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu){
+    let value = ppu.current_line_drawn;
+    memory.write(LY_REGISTER_ADDRESS, value);
 }
 
 fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){
