@@ -2,6 +2,7 @@ use crate::mmu::memory::Memory;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
+use crate::opcodes::opcodes_utils::BIT_4_MASK;
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -36,7 +37,9 @@ pub struct GbcPpu {
     pub background_tile_map_address: bool,
     pub background_scroll: Vec2<u8>,
     pub window_scroll: Vec2<u8>,
-    pub colors_mapping: [Color; 4],
+    pub bg_color_mapping: [Color; 4],
+    pub obj_color_mapping0: [Color;4],
+    pub obj_color_mapping1: [Color;4],
     pub current_line_drawn: u8
 }
 
@@ -55,7 +58,9 @@ impl Default for GbcPpu {
             window_enable: false,
             window_tile_background_map_data_address: false,
             window_tile_map_address: false,
-            colors_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            bg_color_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            obj_color_mapping0: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            obj_color_mapping1: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             current_line_drawn:0
         }
     }
@@ -194,7 +199,7 @@ impl GbcPpu {
                         let frame_buffer_address = i * 32 + j;
                         let pixel_index = k * 8 + n;
                         let color_index = frame_buffer[frame_buffer_address].pixels[pixel_index];
-                        let color = self.get_color(color_index);
+                        let color = self.get_bg_color(color_index);
                         colors_buffer[colors_buffer_address] = color;
                     }
                 }
@@ -252,7 +257,7 @@ impl GbcPpu {
                         let frame_buffer_address = i * 32 + j;
                         let pixel_index = k * 8 + n;
                         let color_index = frame_buffer[frame_buffer_address].pixels[pixel_index];
-                        let color = self.get_color(color_index);
+                        let color = self.get_bg_color(color_index);
                         colors_buffer[colors_buffer_address] = color;
                     }
                 }
@@ -328,7 +333,7 @@ impl GbcPpu {
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
             for y in start_y..end_y-8{
                 for x in start_x..end_x{
-                    let color = self.get_color(sprite.pixels[((y-start_y)*8+(x-start_x)) as usize]);
+                    let color = self.get_obj_color(sprite.pixels[((y-start_y)*8+(x-start_x)) as usize],(attributes & BIT_4_MASK) != 0);
                     frame_buffer[(y as u16 *256 + x as u16) as usize] = Some(color);
                 }
             }
@@ -345,7 +350,16 @@ impl GbcPpu {
         return screen_buffer;
     }
 
-    fn get_color(&self, color: u8) -> Color {
-        return self.colors_mapping[color as usize].clone();
+    fn get_bg_color(&self, color: u8) -> Color {
+        return self.bg_color_mapping[color as usize].clone();
+    }
+
+    fn get_obj_color(&self, color:u8, pallet_bit_set:bool)->Color{
+        return if pallet_bit_set{
+            self.obj_color_mapping1[color as usize].clone()
+        }
+        else{
+            self.obj_color_mapping0[color as usize].clone()
+        };
     }
 }
