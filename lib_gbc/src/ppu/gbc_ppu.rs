@@ -38,8 +38,8 @@ pub struct GbcPpu {
     pub background_scroll: Vec2<u8>,
     pub window_scroll: Vec2<u8>,
     pub bg_color_mapping: [Color; 4],
-    pub obj_color_mapping0: [Color;4],
-    pub obj_color_mapping1: [Color;4],
+    pub obj_color_mapping0: [Option<Color>;4],
+    pub obj_color_mapping1: [Option<Color>;4],
     pub current_line_drawn: u8
 }
 
@@ -59,8 +59,8 @@ impl Default for GbcPpu {
             window_tile_background_map_data_address: false,
             window_tile_map_address: false,
             bg_color_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
-            obj_color_mapping0: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
-            obj_color_mapping1: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
+            obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             current_line_drawn:0
         }
     }
@@ -288,7 +288,7 @@ impl GbcPpu {
         for _ in 0..sprites.capacity() {
             sprites.push(Sprite::new());
         }
-        let address = 0x800;
+        let address = 0x8000;
 
         let mut sprite_number = 0;
         for i in (0..0x1000).step_by(16) {
@@ -333,7 +333,7 @@ impl GbcPpu {
             for y in start_y..end_y-8{
                 for x in start_x..end_x{
                     let color = self.get_obj_color(sprite.pixels[((y-start_y)*8+(x-start_x)) as usize],(attributes & BIT_4_MASK) != 0);
-                    frame_buffer[(y as u16 *256 + x as u16) as usize] = Some(color);
+                    frame_buffer[(y as u16 *256 + x as u16) as usize] = color;
                 }
             }
         }
@@ -353,7 +353,7 @@ impl GbcPpu {
         return self.bg_color_mapping[color as usize].clone();
     }
 
-    fn get_obj_color(&self, color:u8, pallet_bit_set:bool)->Color{
+    fn get_obj_color(&self, color:u8, pallet_bit_set:bool)->Option<Color>{
         return if pallet_bit_set{
             self.obj_color_mapping1[color as usize].clone()
         }

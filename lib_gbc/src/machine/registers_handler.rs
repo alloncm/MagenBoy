@@ -23,16 +23,24 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
     handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
     handle_ly_register(memory, ppu);
-    handle_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
-    handle_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
-    handle_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
+    handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
+    handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
+    handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
 }
 
-fn handle_pallet_register(register:u8, pallet:&mut [Color;4] ){
+fn handle_bg_pallet_register(register:u8, pallet:&mut [Color;4] ){
     pallet[0] = get_matching_color(register&0b00000011);
     pallet[1] = get_matching_color((register&0b00001100)>>2);
     pallet[2] = get_matching_color((register&0b00110000)>>4);
     pallet[3] = get_matching_color((register&0b11000000)>>6);
+}
+
+
+fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
+    pallet[0] = None;
+    pallet[1] = Some(get_matching_color((register&0b00001100)>>2));
+    pallet[2] = Some(get_matching_color((register&0b00110000)>>4));
+    pallet[3] = Some(get_matching_color((register&0b11000000)>>6));
 }
 
 fn get_matching_color(number:u8)->Color{
