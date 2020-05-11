@@ -5,7 +5,7 @@ use crate::opcodes::opcodes_utils::{
 };
 
 pub fn add_hl_rr(cpu:&mut GbcCpu, opcode:u8){
-    let reg = opcode & 0xF0;
+    let reg = opcode >> 4;
     let reg = *get_arithmetic_16reg(cpu, reg);
 
     let (value,overflow) = cpu.hl.value.overflowing_add(reg);
@@ -38,12 +38,12 @@ pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
 pub fn inc_rr(cpu:&mut GbcCpu, opcode:u8){
     let reg = (opcode & 0xF0)>>4;
     let reg = get_arithmetic_16reg(cpu, reg);
-    *reg+=1;
+    *reg = (*reg).wrapping_add(1);
 }
 
 
 pub fn dec_rr(cpu:&mut GbcCpu, opcode:u8){
     let reg = (opcode & 0xF0)>>4;
     let reg = get_arithmetic_16reg(cpu, reg);
-    *reg-=1;
+    *reg = (*reg).wrapping_sub(1);
 }

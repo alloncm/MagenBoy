@@ -2,7 +2,7 @@ use crate::mmu::memory::Memory;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
-use crate::opcodes::opcodes_utils::BIT_4_MASK;
+use crate::utils::bit_masks::BIT_4_MASK;
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -207,8 +207,10 @@ impl GbcPpu {
 
         let mut screen_buffer: Vec<Color> = Vec::new();
 
-        for i in self.background_scroll.y..self.background_scroll.y + SCREEN_HEIGHT as u8 {
-            for j in self.background_scroll.x..self.background_scroll.x + SCREEN_WIDTH as u8 {
+        let end_y = cmp::min(self.background_scroll.y as u16 + SCREEN_HEIGHT as u16, 255) as u8;
+        let end_x = cmp::min(self.background_scroll.x as u16 + SCREEN_WIDTH as u16, 255) as u8;
+        for i in self.background_scroll.y..=end_y {
+            for j in self.background_scroll.x..end_x {
                 screen_buffer.push(colors_buffer[((i as u16) * 256 + j as u16) as usize].clone());
             }
         }
@@ -330,18 +332,22 @@ impl GbcPpu {
             let sprite = &sprites[tile_number as usize];
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
-            for y in start_y..end_y-8{
+            for y in start_y..end_y{
                 for x in start_x..end_x{
                     let color = self.get_obj_color(sprite.pixels[((y-start_y)*8+(x-start_x)) as usize],(attributes & BIT_4_MASK) != 0);
                     frame_buffer[(y as u16 *256 + x as u16) as usize] = color;
                 }
             }
+        
         }
 
         let mut screen_buffer: Vec<Option<Color>> = Vec::with_capacity(SCREEN_HEIGHT*SCREEN_WIDTH);
 
-        for i in self.background_scroll.y..self.background_scroll.y + SCREEN_HEIGHT as u8 {
-            for j in self.background_scroll.x..self.background_scroll.x + SCREEN_WIDTH as u8 {
+        
+        let end_y = cmp::min(self.background_scroll.y as u16 + SCREEN_HEIGHT as u16, 255) as u8;
+        let end_x = cmp::min(self.background_scroll.x as u16 + SCREEN_WIDTH as u16, 255) as u8;
+        for i in self.background_scroll.y..=end_y {
+            for j in self.background_scroll.x..=end_x {
                 screen_buffer.push(frame_buffer[((i as u16) * 256 + j as u16) as usize].clone());
             }
         }

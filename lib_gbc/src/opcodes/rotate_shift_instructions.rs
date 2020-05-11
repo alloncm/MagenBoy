@@ -1,6 +1,7 @@
 use crate::cpu::gbc_cpu::*;
 use crate::opcodes::opcodes_utils::*;
 use crate::mmu::memory::Memory;
+use crate::utils::bit_masks::*;
 
 fn a_rotate_flags(cpu:&mut GbcCpu, carry:bool){
     cpu.unset_flag(Flag::HalfCarry);

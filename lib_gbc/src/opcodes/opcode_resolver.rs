@@ -35,7 +35,7 @@ impl OpcodeResolver{
             self.pc_queue.remove(0);
         }
         
-        self.pc_queue.push(pc);
+        self.pc_queue.push(pc-1);
     }
     pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
         self.update_current_pc(program_counter);
@@ -91,7 +91,7 @@ impl OpcodeResolver{
             string.push_str(&pc.to_string());
             string.push(' ');
         }
-        std::panic!("no opcode matching: {:#X?}, c_pc{:#X?}, l_pc{:#X?}",opcode, program_counter, string);
+        std::panic!("no opcode matching: {:#X?}, nextb{:#X?}, c_pc{:#X?}, l_pc{}",opcode, postfix, program_counter, string);
     }
 }
 

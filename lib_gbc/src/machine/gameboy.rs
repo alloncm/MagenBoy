@@ -12,7 +12,10 @@ use crate::ppu::gbc_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
 };
+use super::interrupts_handler::handle_interrupts;
 use std::boxed::Box;
+
+
 
 pub struct GameBoy {
     cpu: GbcCpu,
@@ -21,8 +24,6 @@ pub struct GameBoy {
     ppu:GbcPpu,
     cycles_per_frame:u32
 }
-
-
 
 impl GameBoy{
 
@@ -41,6 +42,7 @@ impl GameBoy{
             self.execute_opcode();
             self.ppu.update_gb_screen(&mut self.mmu, i);
             update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
+            //handle_interrupts(&mut self.cpu);
         }
 
         return self.ppu.get_frame_buffer();
@@ -53,7 +55,10 @@ impl GameBoy{
     }
 
     fn execute_opcode(&mut self){
-        //let pc = self.cpu.program_counter;
+        let pc = self.cpu.program_counter;
+        if pc >= 0x8000{
+            println!("good");
+        }
         let opcode:u8 = self.fetch_next_byte();
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{

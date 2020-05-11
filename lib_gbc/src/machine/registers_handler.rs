@@ -2,12 +2,10 @@ use crate::cpu::gbc_cpu::GbcCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
-use crate::opcodes::opcodes_utils::*;
+use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
-
-
 
 
 const DMA_SIZE:u16 = 0xA0;
@@ -26,6 +24,12 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
     handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
     handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
+    handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
+}
+
+fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
+    cpu.interupt_enable = enable;
+    cpu.interupt_flag = flag;
 }
 
 fn handle_bg_pallet_register(register:u8, pallet:&mut [Color;4] ){

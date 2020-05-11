@@ -12,13 +12,13 @@ const IO_PORTS_ADDRESS:u16 = 0xFF00;
 fn get_dest_register(cpu: &mut GbcCpu, opcode:u8)->&mut u8{
     let reg_num = opcode & 0b11111000;
     return match reg_num{
-        0x40=>cpu.bc.high(),
-        0x48=>cpu.bc.low(),
-        0x50=>cpu.de.high(),
-        0x58=>cpu.de.low(),
-        0x60=>cpu.hl.high(),
-        0x68=>cpu.hl.low(),
-        0x78=>cpu.af.high(),
+        0x40=>cpu.bc.low(),
+        0x48=>cpu.bc.high(),
+        0x50=>cpu.de.low(),
+        0x58=>cpu.de.high(),
+        0x60=>cpu.hl.low(),
+        0x68=>cpu.hl.high(),
+        0x78=>cpu.af.low(),
         _=>panic!("no register: {}",reg_num)
     };
 }
@@ -39,16 +39,16 @@ pub fn ld_r_n(cpu: &mut GbcCpu, opcode:u16) {
 
 //load the value in address of HL into dest register
 pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let reg = opcode&0b11111000;
+    let reg = opcode>>3;
     let hl_value = cpu.hl.value;
     let reg = match reg{
-        0x40=>cpu.bc.high(),
-        0x41=>cpu.bc.low(),
-        0x50=>cpu.de.high(),
-        0x51=>cpu.de.low(),
-        0x60=>cpu.hl.high(),
-        0x61=>cpu.hl.low(),
-        0x71=>cpu.af.high(),
+        0x8=>cpu.bc.low(),
+        0x9=>cpu.bc.high(),
+        0xA=>cpu.de.low(),
+        0xB=>cpu.de.high(),
+        0xC=>cpu.hl.low(),
+        0xD=>cpu.hl.high(),
+        0xF=>cpu.af.low(),
         _=>panic!("no register")
     };
 
@@ -68,79 +68,79 @@ pub fn ld_hl_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
 
 //load the value in address of BC into register A
 pub fn ld_a_bc(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.bc.value);
+    *cpu.af.low() = memory.read(cpu.bc.value);
 }
 
 //load the value in address of DE into register A
 pub fn ld_a_de(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.de.value);
+    *cpu.af.low() = memory.read(cpu.de.value);
 }
 
 //load the value at address NN into register A
 pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
     let mut address = ((0xFF & opcode) as u16)<<8;
     address |= ((0xFF00&opcode) as u16)>>8;
-    *cpu.af.high() = memory.read(address);
+    *cpu.af.low() = memory.read(address);
 }
 
 //load the value in register A into the address of BC
 pub fn ld_bc_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.bc.value, *cpu.af.high());
+    memory.write(cpu.bc.value, *cpu.af.low());
 }
 
 //load the value in register A into the address of DE
 pub fn ld_de_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.de.value, *cpu.af.high());
+    memory.write(cpu.de.value, *cpu.af.low());
 }
 
 //load the value in register A into the address of NN
 pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
     let mut address = ((0xFF & opcode) as u16)<<8;
     address |= ((0xFF00&opcode) as u16)>>8;
-    memory.write(address, *cpu.af.high());
+    memory.write(address, *cpu.af.low());
 }
 
 //load value in register A into address HL and then increment register HL value
 pub fn ldi_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.hl.value, *cpu.af.high());
+    memory.write(cpu.hl.value, *cpu.af.low());
     cpu.inc_hl();
 }
 
 //load into register A the value in address HL and then increment register HL value
 pub fn ldi_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.hl.value);
+    *cpu.af.low() = memory.read(cpu.hl.value);
     cpu.inc_hl();
 }
 
 //load value in register A into address HL and then decrement register HL value
 pub fn ldd_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.hl.value, *cpu.af.high());
+    memory.write(cpu.hl.value, *cpu.af.low());
     cpu.dec_hl();
 }
 
 //load into register A the value in address HL and then decrement register HL value
 pub fn ldd_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.hl.value);
+    *cpu.af.low() = memory.read(cpu.hl.value);
     cpu.dec_hl();
 }
 
 //load into register A the value in io port N
 pub fn ld_a_ioport_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let io_port = 0x00FF & opcode;
-    *cpu.af.high() = memory.read(IO_PORTS_ADDRESS + (io_port as u16));
+    *cpu.af.low() = memory.read(IO_PORTS_ADDRESS + (io_port as u16));
 }
 
 //load into io port N the value in register A
 pub fn ld_ioport_n_a(cpu: &mut GbcCpu, memory: &mut dyn Memory, opcode:u16){
     let io_port = 0x00FF & opcode;
-    memory.write(IO_PORTS_ADDRESS + (io_port as u16), *cpu.af.high());
+    memory.write(IO_PORTS_ADDRESS + (io_port as u16), *cpu.af.low());
 }
 
 //load into io port C the value in register A
 pub fn ld_ioport_c_a(cpu: &mut GbcCpu, memory: &mut dyn Memory){
-    memory.write(IO_PORTS_ADDRESS + (*cpu.bc.low() as u16), *cpu.af.high());
+    memory.write(IO_PORTS_ADDRESS + (*cpu.bc.high() as u16), *cpu.af.low());
 }
 
 pub fn ld_a_ioport_c(cpu: &mut GbcCpu, memory: &mut dyn Memory){
-    *cpu.af.high() = memory.read(IO_PORTS_ADDRESS + (*cpu.bc.low() as u16));
+    *cpu.af.low() = memory.read(IO_PORTS_ADDRESS + (*cpu.bc.high() as u16));
 }

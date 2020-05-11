@@ -1,7 +1,6 @@
 use crate::cpu::gbc_cpu::{GbcCpu,Flag};
 use crate::mmu::memory::Memory;
 
-const IE:u16 = 0xFFFF;
 const P1:u16 = 0xFF00;
 
 pub fn ccf(cpu:&mut GbcCpu){
@@ -22,7 +21,7 @@ pub fn halt(cpu:&mut GbcCpu){
 }
 
 pub fn stop(cpu:&mut GbcCpu, memory: &mut dyn  Memory){
-    if (memory.read(IE) & 0b111111 == 0) && (memory.read(P1) & 0b1111) == 0{
+    if (cpu.interupt_enable & 0b11111 == 0) && (memory.read(P1) & 0b1111) == 0{
         cpu.stop = true;
     }
 }
