@@ -94,14 +94,15 @@ impl GbcPpu {
         }
         else if (self.current_line_drawn as usize) < SCREEN_HEIGHT{
             let sprites = self.get_bg_and_window_sprites(memory);
-            let obj_sprites = self.get_objects_sprites(memory);
+            //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
-            let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
-            let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
+            //let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
+            //let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
             let mut buffer = Vec::<u32>::new();
             for color in bg_frame_buffer.iter() {
                 buffer.push(Self::color_as_uint(&color));
             }
+            /*
             for i in 0..window_frame_buffer.len() {
                 match &window_frame_buffer[i] {
                     Some(color) => buffer[i] = Self::color_as_uint(color),
@@ -114,7 +115,7 @@ impl GbcPpu {
                     _ => {}
                 }
             }
-
+            */
             let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
 
             for i in line_index..line_index+SCREEN_WIDTH{
@@ -158,7 +159,7 @@ impl GbcPpu {
         return sprites;
     }
 
-    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory)-> Vec<Color> {
+    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory, current_line:u8)-> Vec<Color> {
         let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
         for _ in 0..frame_buffer.capacity() {
             frame_buffer.push(Sprite::new());
@@ -169,21 +170,24 @@ impl GbcPpu {
         } else {
             0x9800
         };
-
+        let line_sprites:Vec<Sprite> = Vec::with_capacity(32);
+        let index = (current_line as u16 + self.background_scroll.y as u16) / 8;
         if self.window_tile_background_map_data_address {
-            for i in 0..0x400 {
+            for i in index..index + 32 {
                 let chr: u8 = memory.read(address + i);
                 let sprite = sprites[chr as usize].clone();
-                frame_buffer[i as usize] = sprite;
+                line_sprites.push(sprite);
             }
         } else {
-            for i in 0..0x400 {
+            for i in index..index + 32 {
                 let mut chr: u8 = memory.read(address + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = sprites[chr as usize].clone();
-                frame_buffer[i as usize] = sprite;
+                line_sprites.push(sprite);
             }
         }
+
+
 
         let mut colors_buffer: Vec<Color> = Vec::with_capacity(FRAME_BUFFER_SIZE);
         for _ in 0..colors_buffer.capacity() {
@@ -209,7 +213,7 @@ impl GbcPpu {
 
         let end_y = cmp::min(self.background_scroll.y as u16 + SCREEN_HEIGHT as u16, 255) as u8;
         let end_x = cmp::min(self.background_scroll.x as u16 + SCREEN_WIDTH as u16, 255) as u8;
-        for i in self.background_scroll.y..=end_y {
+        for i in self.background_scroll.y..end_y {
             for j in self.background_scroll.x..end_x {
                 screen_buffer.push(colors_buffer[((i as u16) * 256 + j as u16) as usize].clone());
             }
