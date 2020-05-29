@@ -40,7 +40,7 @@ pub struct GbcPpu {
     pub bg_color_mapping: [Color; 4],
     pub obj_color_mapping0: [Option<Color>;4],
     pub obj_color_mapping1: [Option<Color>;4],
-    pub current_line_drawn: u8
+    pub current_line_drawn: Option<u8>
 }
 
 impl Default for GbcPpu {
@@ -61,7 +61,7 @@ impl Default for GbcPpu {
             bg_color_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
-            current_line_drawn:0
+            current_line_drawn:None
         }
     }
 }
@@ -79,10 +79,10 @@ impl GbcPpu {
         
         let line = cycle_counter/DRAWING_CYCLE_CLOCKS as u32;
         if line>LY_MAX_VALUE as u32{
-            self.current_line_drawn = LY_MAX_VALUE;
+            self.current_line_drawn = Some(LY_MAX_VALUE);
         }
         else{
-            self.current_line_drawn = line as u8;
+            self.current_line_drawn = Some(line as u8);
         }
     }
 
@@ -92,16 +92,13 @@ impl GbcPpu {
         if last_ly==self.current_line_drawn{
             return;
         }
-        else if (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+        else if (self.current_line_drawn.unwrap() as usize) < SCREEN_HEIGHT{
+            let temp = self.current_line_drawn.unwrap();
             let sprites = self.get_bg_and_window_sprites(memory);
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
             //let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
             //let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
-            let mut buffer = Vec::<u32>::new();
-            for color in bg_frame_buffer.iter() {
-                buffer.push(Self::color_as_uint(&color));
-            }
             /*
             for i in 0..window_frame_buffer.len() {
                 match &window_frame_buffer[i] {
@@ -116,10 +113,10 @@ impl GbcPpu {
                 }
             }
             */
-            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
+            let line_index = self.current_line_drawn.unwrap() as usize * SCREEN_WIDTH;
 
             for i in line_index..line_index+SCREEN_WIDTH{
-                self.screen_buffer[i] = buffer[i];
+                self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer[(i - line_index)]);
             }
         }
     }
@@ -159,7 +156,8 @@ impl GbcPpu {
         return sprites;
     }
 
-    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory, current_line:u8)-> Vec<Color> {
+    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
+        let current_line = self.current_line_drawn.unwrap();
         let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
         for _ in 0..frame_buffer.capacity() {
             frame_buffer.push(Sprite::new());
@@ -170,7 +168,7 @@ impl GbcPpu {
         } else {
             0x9800
         };
-        let line_sprites:Vec<Sprite> = Vec::with_capacity(32);
+        let mut line_sprites:Vec<Sprite> = Vec::with_capacity(32);
         let index = (current_line as u16 + self.background_scroll.y as u16) / 8;
         if self.window_tile_background_map_data_address {
             for i in index..index + 32 {
@@ -178,48 +176,33 @@ impl GbcPpu {
                 let sprite = sprites[chr as usize].clone();
                 line_sprites.push(sprite);
             }
-        } else {
+        } 
+        else {
             for i in index..index + 32 {
                 let mut chr: u8 = memory.read(address + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = sprites[chr as usize].clone();
                 line_sprites.push(sprite);
             }
-        }
+        }   
 
+        let mut drawn_line:[Color; 256] = [Color::default();256];
 
-
-        let mut colors_buffer: Vec<Color> = Vec::with_capacity(FRAME_BUFFER_SIZE);
-        for _ in 0..colors_buffer.capacity() {
-            colors_buffer.push(Color::default());
-        }
-
-        for i in 0..32 {
-            for k in 0..8 {
-                for j in 0..32 {
-                    for n in 0..8 {
-                        let colors_buffer_address = (i * 32 * 64) + k * 256 + j * 8 + n;
-                        let frame_buffer_address = i * 32 + j;
-                        let pixel_index = k * 8 + n;
-                        let color_index = frame_buffer[frame_buffer_address].pixels[pixel_index];
-                        let color = self.get_bg_color(color_index);
-                        colors_buffer[colors_buffer_address] = color;
-                    }
-                }
+        let sprite_line = current_line % 8;
+        for i in 0..line_sprites.len(){
+            for j in 0..8{
+                let pixel = line_sprites[i].pixels[(sprite_line * 8 + j) as usize];
+                drawn_line[(i * 8) + j as usize] = self.get_bg_color(pixel);
             }
         }
 
-        let mut screen_buffer: Vec<Color> = Vec::new();
-
-        let end_y = cmp::min(self.background_scroll.y as u16 + SCREEN_HEIGHT as u16, 255) as u8;
-        let end_x = cmp::min(self.background_scroll.x as u16 + SCREEN_WIDTH as u16, 255) as u8;
-        for i in self.background_scroll.y..end_y {
-            for j in self.background_scroll.x..end_x {
-                screen_buffer.push(colors_buffer[((i as u16) * 256 + j as u16) as usize].clone());
-            }
+        let mut screen_line:[Color;SCREEN_WIDTH] = [Color::default();SCREEN_WIDTH];
+        let end = cmp::min(self.background_scroll.x as usize + SCREEN_WIDTH,256);
+        for i in self.background_scroll.x as usize..end{
+            screen_line[(i - self.background_scroll.x as usize) as usize] = drawn_line[i as usize];
         }
 
-        return screen_buffer;
+        return screen_line;
     }
 
     fn get_window_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory,)-> Vec<Option<Color>> {

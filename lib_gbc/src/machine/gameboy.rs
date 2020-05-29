@@ -56,7 +56,7 @@ impl GameBoy{
 
     fn execute_opcode(&mut self){
         let pc = self.cpu.program_counter;
-        if pc >= 0x8000{
+        if pc == 0x1C{
             println!("good");
         }
         let opcode:u8 = self.fetch_next_byte();

@@ -57,8 +57,10 @@ fn get_matching_color(number:u8)->Color{
     };
 }
 fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu){
-    let value = ppu.current_line_drawn;
-    memory.write(LY_REGISTER_ADDRESS, value);
+    match ppu.current_line_drawn{
+        Some(value)=>memory.write(LY_REGISTER_ADDRESS, value),
+        None=>memory.write(LY_REGISTER_ADDRESS, 0)
+    }
 }
 
 fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){

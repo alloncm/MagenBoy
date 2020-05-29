@@ -23,3 +23,5 @@ impl Clone for Color{
         }
     }
 }
+
+impl Copy for Color{}
