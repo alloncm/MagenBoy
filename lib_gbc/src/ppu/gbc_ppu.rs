@@ -158,10 +158,6 @@ impl GbcPpu {
 
     fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
         let current_line = self.current_line_drawn.unwrap();
-        let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
-        for _ in 0..frame_buffer.capacity() {
-            frame_buffer.push(Sprite::new());
-        }
 
         let address = if self.background_tile_map_address {
             0x9C00
@@ -201,7 +197,7 @@ impl GbcPpu {
         for i in self.background_scroll.x as usize..end{
             screen_line[(i - self.background_scroll.x as usize) as usize] = drawn_line[i as usize];
         }
-
+        
         return screen_line;
     }
 

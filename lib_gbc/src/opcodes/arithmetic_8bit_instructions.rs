@@ -90,170 +90,170 @@ fn or(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
 //add A and r
 pub fn add_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = add(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = add(cpu, dest, src_reg);
 }
 
 //add A and nn
 pub fn add_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = add(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = add(cpu, dest, src);
 }
 
 //add A and (hl)
 pub fn add_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = add(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = add(cpu, dest, src);
 }
 
 //add A and r + carry flag
 pub fn adc_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = adc(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = adc(cpu, dest, src_reg);
 }
 
 //add A and nn +  carry
 pub fn adc_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = adc(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = adc(cpu, dest, src);
 }
 
 //add A and (hl) + Scarry
 pub fn adc_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = adc(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = adc(cpu, dest, src);
 }
 
 //sub r from A
 pub fn sub_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = sub(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = sub(cpu, dest, src_reg);
 }
 
 //sub A and nn
 pub fn sub_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = sub(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = sub(cpu, dest, src);
 }
 
 //add A and (hl)
 pub fn sub_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = sub(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = sub(cpu, dest, src);
 }
 
 
 //sub r from A
 pub fn sbc_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = subc(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = subc(cpu, dest, src_reg);
 }
 
 //sub A and nn
 pub fn sbc_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = subc(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = subc(cpu, dest, src);
 }
 
 //sub A and (hl)
 pub fn sbc_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = subc(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = subc(cpu, dest, src);
 }
 
 //and A and r
 pub fn and_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = and(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = and(cpu, dest, src_reg);
 }
 
 //and A and nn
 pub fn and_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = and(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = and(cpu, dest, src);
 }
 
 //and A and (hl)
 pub fn and_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = and(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = and(cpu, dest, src);
 }
 
 //xor A and r
 pub fn xor_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = xor(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = xor(cpu, dest, src_reg);
 }
 
 //xor A and nn
 pub fn xor_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = xor(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = xor(cpu, dest, src);
 }
 
 //xor A and (hl)
 pub fn xor_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = xor(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = xor(cpu, dest, src);
 }
 
 
 //or A and r
 pub fn or_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = or(cpu, dest, src_reg);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = or(cpu, dest, src_reg);
 }
 
 //or A and nn
 pub fn or_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
-    *cpu.af.low() = or(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = or(cpu, dest, src);
 }
 
 //or A and (hl)
 pub fn or_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
-    *cpu.af.low() = or(cpu, dest, src);
+    let dest = *cpu.af.high();
+    *cpu.af.high() = or(cpu, dest, src);
 }
 
 //cp A and r
 pub fn cp_a_r(cpu:&mut GbcCpu, opcode:u8){
     let src_reg = *get_src_register(cpu, opcode);
-    let dest = *cpu.af.low();
+    let dest = *cpu.af.high();
     sub(cpu, dest, src_reg);
 }
 
 //cp A and nn
 pub fn cp_a_nn(cpu:&mut GbcCpu, opcode:u16){
     let src = (opcode & 0xFF) as u8;
-    let dest = *cpu.af.low();
+    let dest = *cpu.af.high();
     sub(cpu, dest, src);
 }
 
 //or A and (hl)
 pub fn cp_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(cpu.hl.value);
-    let dest = *cpu.af.low();
+    let dest = *cpu.af.high();
     sub(cpu, dest, src);
 }
 
@@ -306,14 +306,14 @@ pub fn dec_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
 }
 
 pub fn cpl(cpu:&mut GbcCpu){
-    *cpu.af.low() ^= 0xFF;
+    *cpu.af.high() ^= 0xFF;
     cpu.set_flag(Flag::HalfCarry);
     cpu.set_flag(Flag::Subtraction);
 }
 
 pub fn daa(cpu:&mut GbcCpu){
     let mut added_value = 0;
-    let mut a = *cpu.af.low();
+    let mut a = *cpu.af.high();
     let mut carry = false;
     if cpu.get_flag(Flag::HalfCarry) || (a & 0xF) > 0x9{
         added_value|=0x6;
@@ -330,7 +330,7 @@ pub fn daa(cpu:&mut GbcCpu){
         a+=added_value;
     }
 
-    *cpu.af.low() = a;
+    *cpu.af.high() = a;
     cpu.set_by_value(Flag::Carry, carry);
     cpu.set_by_value(Flag::Zero, a==0);
     cpu.unset_flag(Flag::HalfCarry);
