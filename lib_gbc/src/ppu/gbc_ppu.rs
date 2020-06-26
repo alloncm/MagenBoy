@@ -9,7 +9,7 @@ pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
 const FRAME_BUFFER_SIZE: usize = 0x10000;
 //const SPRITE_NORMAL_SIZE:u8 = 8;
-const SPRITES_SIZE: usize = 32 * 32;
+const SPRITES_SIZE: usize = 256;
 const DRAWING_CYCLE_CLOCKS: u8 = 114;
 const LY_MAX_VALUE:u8 = 154;
 
@@ -142,6 +142,9 @@ impl GbcPpu {
                     let mask = 1 << k;
                     let mut value = (byte & (mask)) >> k;
                     value |= (next & (mask) >> k) << 1;
+                    if value !=0{
+                        //println!("found");
+                    }
                     let swaped = 7 - k;
                     sprites[(sprite_number) as usize].pixels[(byte_number * 8 + swaped) as usize] =
                         value;
@@ -168,15 +171,21 @@ impl GbcPpu {
         let index = (current_line as u16 + self.background_scroll.y as u16) / 8;
         if self.window_tile_background_map_data_address {
             for i in index..index + 32 {
-                let chr: u8 = memory.read(address + i);
+                let chr: u8 = memory.read(address + (index*32) + i);
+                if chr != 0{
+                    //println!("char != 0");
+                }
                 let sprite = sprites[chr as usize].clone();
-                line_sprites.push(sprite);
+                    line_sprites.push(sprite);
             }
         } 
         else {
             for i in index..index + 32 {
-                let mut chr: u8 = memory.read(address + i);
+                let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
+                if chr != 0x80 && chr != 160{
+                    println!("char != 80");
+                }
                 let sprite = sprites[chr as usize].clone();
                 line_sprites.push(sprite);
             }

@@ -9,7 +9,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/gbc.exe",
-            "args": ["D:\\downloads\\compSc\\GameBoy\\cpu_instrs.gb"],
+            "args": ["C:\\Users\\allon\\source\\repos\\GBCEmul\\gbc\\Dependencies\\cpu_instrs.gb"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -8,6 +8,3 @@ edition = "2018"
 [dependencies]
 lib_gbc = {path = "../lib_gbc/"}
 stupid_gfx = {path = "../stupid_gfx/"}
-
-[profile.dev]
-panic = "unwind"

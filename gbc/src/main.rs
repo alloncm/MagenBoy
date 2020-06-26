@@ -40,7 +40,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
         Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read file {}",why)
+        Result::Err(why)=>panic!("could not read boot rom {}",why)
     };
     
     let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
@@ -50,7 +50,7 @@ fn main() {
 
     let program = match fs::read(&args[1]){
         Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read file {}",why)
+        Result::Err(why)=>panic!("could not read rom {}\n{}",args[1],why)
     };
     
 
