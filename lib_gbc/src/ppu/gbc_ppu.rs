@@ -142,9 +142,6 @@ impl GbcPpu {
                     let mask = 1 << k;
                     let mut value = (byte & (mask)) >> k;
                     value |= (next & (mask) >> k) << 1;
-                    if value !=0{
-                        //println!("found");
-                    }
                     let swaped = 7 - k;
                     sprites[(sprite_number) as usize].pixels[(byte_number * 8 + swaped) as usize] =
                         value;
@@ -172,9 +169,6 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in index..index + 32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                if chr != 0{
-                    //println!("char != 0");
-                }
                 let sprite = sprites[chr as usize].clone();
                     line_sprites.push(sprite);
             }
@@ -183,9 +177,6 @@ impl GbcPpu {
             for i in index..index + 32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                if chr != 0x80 && chr != 160{
-                    println!("char != 80");
-                }
                 let sprite = sprites[chr as usize].clone();
                 line_sprites.push(sprite);
             }
@@ -193,7 +184,7 @@ impl GbcPpu {
 
         let mut drawn_line:[Color; 256] = [Color::default();256];
 
-        let sprite_line = current_line % 8;
+        let sprite_line = (current_line as u16 + self.background_scroll.y as u16) % 8;
         for i in 0..line_sprites.len(){
             for j in 0..8{
                 let pixel = line_sprites[i].pixels[(sprite_line * 8 + j) as usize];
@@ -202,9 +193,9 @@ impl GbcPpu {
         }
 
         let mut screen_line:[Color;SCREEN_WIDTH] = [Color::default();SCREEN_WIDTH];
-        let end = cmp::min(self.background_scroll.x as usize + SCREEN_WIDTH,256);
+        let end = cmp::min(self.background_scroll.x as usize + SCREEN_WIDTH, 256);
         for i in self.background_scroll.x as usize..end{
-            screen_line[(i - self.background_scroll.x as usize) as usize] = drawn_line[i as usize];
+            screen_line[(i - self.background_scroll.x as usize)] = drawn_line[i];
         }
         
         return screen_line;
