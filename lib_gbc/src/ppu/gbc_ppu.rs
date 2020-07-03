@@ -167,14 +167,17 @@ impl GbcPpu {
         let mut line_sprites:Vec<Sprite> = Vec::with_capacity(32);
         let index = (current_line as u16 + self.background_scroll.y as u16) / 8;
         if self.window_tile_background_map_data_address {
-            for i in index..index + 32 {
+            for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
+                if chr != 0{
+                    print!("test");
+                }
                 let sprite = sprites[chr as usize].clone();
-                    line_sprites.push(sprite);
+                line_sprites.push(sprite);
             }
         } 
         else {
-            for i in index..index + 32 {
+            for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = sprites[chr as usize].clone();
@@ -187,7 +190,7 @@ impl GbcPpu {
         let sprite_line = (current_line as u16 + self.background_scroll.y as u16) % 8;
         for i in 0..line_sprites.len(){
             for j in 0..8{
-                let pixel = line_sprites[i].pixels[(sprite_line * 8 + j) as usize];
+                let pixel = line_sprites[i].pixels[((sprite_line * 8) + j) as usize];
                 drawn_line[(i * 8) + j as usize] = self.get_bg_color(pixel);
             }
         }
