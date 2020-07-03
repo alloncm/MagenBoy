@@ -169,9 +169,6 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                if chr != 0{
-                    print!("test");
-                }
                 let sprite = sprites[chr as usize].clone();
                 line_sprites.push(sprite);
             }
