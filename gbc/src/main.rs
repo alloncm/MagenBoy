@@ -31,8 +31,29 @@ fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     return new_vec;
 }
 
+fn init_logger()->Result<(), fern::InitError>{
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "{}[{}][{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.target(),
+                record.level(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(fern::log_file("output.log")?)
+        .apply()?;
+    Ok(())
+}
+
 
 fn main() {
+    match init_logger(){
+        Result::Ok(())=>{},
+        Result::Err(error)=>std::panic!("error initing logger: {}", error)
+    }
     let gfx_initializer: Initializer = Initializer::new();
     let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600,0);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();

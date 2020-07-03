@@ -8,3 +8,6 @@ edition = "2018"
 [dependencies]
 lib_gbc = {path = "../lib_gbc/"}
 stupid_gfx = {path = "../stupid_gfx/"}
+log = "0.4"
+fern = "0.6.0"
+chrono = "0.4"
