@@ -40,7 +40,7 @@ pub fn ld_r_n(cpu: &mut GbcCpu, opcode:u16) {
 //load the value in address of HL into dest register
 pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     let reg = opcode>>3;
-    let hl_value = cpu.hl.value;
+    let hl_value = *cpu.hl.value();
     let reg = match reg{
         0x8=>cpu.bc.high(),
         0x9=>cpu.bc.low(),
@@ -57,23 +57,23 @@ pub fn ld_r_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 
 //load the value in reg_src into the address of HL in memory
 pub fn ld_hl_r(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    memory.write(cpu.hl.value, *get_src_register(cpu, opcode));
+    memory.write(*cpu.hl.value(), *get_src_register(cpu, opcode));
 }
 
 //load the valie src into the address HL in memory
 pub fn ld_hl_n(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let src = (0xFF & opcode) as u8;
-    memory.write(cpu.hl.value, src);
+    memory.write(*cpu.hl.value(), src);
 }
 
 //load the value in address of BC into register A
 pub fn ld_a_bc(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.bc.value);
+    *cpu.af.high() = memory.read(*cpu.bc.value());
 }
 
 //load the value in address of DE into register A
 pub fn ld_a_de(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.de.value);
+    *cpu.af.high() = memory.read(*cpu.de.value());
 }
 
 //load the value at address NN into register A
@@ -85,12 +85,12 @@ pub fn ld_a_nn(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
 
 //load the value in register A into the address of BC
 pub fn ld_bc_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.bc.value, *cpu.af.high());
+    memory.write(*cpu.bc.value(), *cpu.af.high());
 }
 
 //load the value in register A into the address of DE
 pub fn ld_de_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.de.value, *cpu.af.high());
+    memory.write(*cpu.de.value(), *cpu.af.high());
 }
 
 //load the value in register A into the address of NN
@@ -102,25 +102,25 @@ pub fn ld_nn_a(cpu: &mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
 
 //load value in register A into address HL and then increment register HL value
 pub fn ldi_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.hl.value, *cpu.af.high());
+    memory.write(*cpu.hl.value(), *cpu.af.high());
     cpu.inc_hl();
 }
 
 //load into register A the value in address HL and then increment register HL value
 pub fn ldi_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.hl.value);
+    *cpu.af.high() = memory.read(*cpu.hl.value());
     cpu.inc_hl();
 }
 
 //load value in register A into address HL and then decrement register HL value
 pub fn ldd_hl_a(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    memory.write(cpu.hl.value, *cpu.af.high());
+    memory.write(*cpu.hl.value(), *cpu.af.high());
     cpu.dec_hl();
 }
 
 //load into register A the value in address HL and then decrement register HL value
 pub fn ldd_a_hl(cpu: &mut GbcCpu, memory:&mut dyn Memory){
-    *cpu.af.high() = memory.read(cpu.hl.value);
+    *cpu.af.high() = memory.read(*cpu.hl.value());
     cpu.dec_hl();
 }
 

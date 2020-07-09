@@ -108,7 +108,7 @@ pub fn jump_cc(cpu:&mut GbcCpu, opcode:u32){
 }
 
 pub fn jump_hl(cpu:&mut GbcCpu){
-    cpu.program_counter = cpu.hl.value;
+    cpu.program_counter = *cpu.hl.value();
 }
 
 fn jump_r_if_true(cpu:&mut GbcCpu, opcode:u16, flag:bool){

@@ -61,7 +61,7 @@ impl GameBoy{
         let opcode:u8 = self.fetch_next_byte();
 
         info!("Opcode:{:#x} AF:{:#x},BC:{:#x},DE:{:#x},HL:{:#x},PC:{:#x},SP:{:#x}",
-            opcode, self.cpu.af.value,self.cpu.bc.value,self.cpu.de.value,self.cpu.hl.value,self.cpu.program_counter, self.cpu.stack_pointer);
+            opcode, self.cpu.af.value(),self.cpu.bc.value(),self.cpu.de.value(),self.cpu.hl.value(),self.cpu.program_counter, self.cpu.stack_pointer);
 
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
         match opcode_func{

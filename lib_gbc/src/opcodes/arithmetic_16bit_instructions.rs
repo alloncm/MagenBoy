@@ -7,13 +7,14 @@ use crate::opcodes::opcodes_utils::{
 pub fn add_hl_rr(cpu:&mut GbcCpu, opcode:u8){
     let reg = opcode >> 4;
     let reg = *get_arithmetic_16reg(cpu, reg);
+    let hl_value = *cpu.hl.value();
 
-    let (value,overflow) = cpu.hl.value.overflowing_add(reg);
+    let (value,overflow) = hl_value.overflowing_add(reg);
     cpu.set_by_value(Flag::Carry, overflow);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(cpu.hl.value, reg));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(hl_value, reg));
     cpu.unset_flag(Flag::Subtraction);
 
-    cpu.hl.value = value;
+    *cpu.hl.value() = value;
 }
 
 pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){

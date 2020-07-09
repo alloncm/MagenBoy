@@ -26,7 +26,7 @@ pub struct GbcCpu {
 impl Default for GbcCpu {
     fn default() -> GbcCpu {
         GbcCpu {
-            af: Reg::default(),
+            af: Reg::new(0xFFF0),
             bc: Reg::default(),
             de: Reg::default(),
             hl: Reg::default(),
@@ -67,10 +67,10 @@ impl GbcCpu {
     }
 
     pub fn inc_hl(&mut self){
-        self.hl.value = self.hl.value.wrapping_add(1);
+        *self.hl.value() = (*self.hl.value()).wrapping_add(1);
     }
 
     pub fn dec_hl(&mut self){
-        self.hl.value = self.hl.value.wrapping_sub(1);
+        *self.hl.value() = (*self.hl.value()).wrapping_sub(1);
     }
 }

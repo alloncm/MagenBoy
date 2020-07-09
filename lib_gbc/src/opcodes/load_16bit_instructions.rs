@@ -17,7 +17,7 @@ pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
 
 //loads register HL into the SP
 pub fn load_sp_hl(cpu:&mut GbcCpu){
-    cpu.stack_pointer = cpu.hl.value;
+    cpu.stack_pointer = *cpu.hl.value();
 }
 
 //pop from the stack pointer to one register
@@ -58,7 +58,7 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
     let temp:i32 = cpu.stack_pointer as i32;
     let value = temp.wrapping_add(dd as i32);
 
-    cpu.hl.value = value as u16;
+    *cpu.hl.value() = value as u16;
 
     //check for carry
     cpu.set_by_value(Flag::Carry, value<0);

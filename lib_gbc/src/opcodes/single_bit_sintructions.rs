@@ -24,7 +24,7 @@ pub fn bit_r(cpu:&mut GbcCpu, opcode:u16){
 
 pub fn bit_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let opcode = get_cb_opcode(opcode);
-    let byte = memory.read(cpu.hl.value);
+    let byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
     let bit = byte & bit_number;
     set_flags_bit(cpu, bit == 0);
@@ -39,10 +39,10 @@ pub fn set_r(cpu:&mut GbcCpu, opcode:u16){
 
 pub fn set_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let opcode = get_cb_opcode(opcode);
-    let mut byte = memory.read(cpu.hl.value);
+    let mut byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
     byte |= bit_number;
-    memory.write(cpu.hl.value, byte);
+    memory.write(*cpu.hl.value(), byte);
 }
 
 pub fn res_r(cpu:&mut GbcCpu, opcode:u16){
@@ -55,9 +55,9 @@ pub fn res_r(cpu:&mut GbcCpu, opcode:u16){
 
 pub fn res_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u16){
     let opcode = get_cb_opcode(opcode);
-    let mut byte = memory.read(cpu.hl.value);
+    let mut byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
     let bit_mask:u8 = 0xFF ^ bit_number;
     byte &= bit_mask;
-    memory.write(cpu.hl.value, byte);
+    memory.write(*cpu.hl.value(), byte);
 }
