@@ -50,10 +50,12 @@ fn init_logger()->Result<(), fern::InitError>{
 
 
 fn main() {
+    /*
     match init_logger(){
         Result::Ok(())=>{},
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
+    */
     let gfx_initializer: Initializer = Initializer::new();
     let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600,0);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();

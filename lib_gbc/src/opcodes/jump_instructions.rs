@@ -22,7 +22,7 @@ fn call_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32, flag:bool){
 }
 
 pub fn call_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
-    let flag = ((0xFF0000 & opcode) >> 16) & 0b00011000;
+    let flag = (((0xFF0000 & opcode) >> 16) & 0b00011000)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
@@ -95,7 +95,7 @@ pub fn jump(cpu:&mut GbcCpu, opcode:u32){
 }
 
 pub fn jump_cc(cpu:&mut GbcCpu, opcode:u32){
-    let flag:u8 = (((opcode &0xFF0000)>>16 & 0b00011000) as u8)>>3;
+    let flag:u8 = ((((opcode & 0xFF0000)>>16) & 0b00011000)>>3) as u8;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{
