@@ -165,7 +165,7 @@ impl GbcPpu {
             0x9800
         };
         let mut line_sprites:Vec<Sprite> = Vec::with_capacity(32);
-        let index = (current_line as u16 + self.background_scroll.y as u16) / 8;
+        let index = ((current_line.wrapping_add(self.background_scroll.y)) / 8) as u16;
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
@@ -201,6 +201,7 @@ impl GbcPpu {
         return screen_line;
     }
 
+    
     fn get_window_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory,)-> Vec<Option<Color>> {
         let mut frame_buffer: Vec<Sprite> = Vec::with_capacity(sprites.len());
         for _ in 0..frame_buffer.capacity() {
