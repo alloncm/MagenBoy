@@ -143,7 +143,7 @@ pub fn sub_a_nn(cpu:&mut GbcCpu, opcode:u16){
     *cpu.af.high() = sub(cpu, dest, src);
 }
 
-//add A and (hl)
+//sub A and (hl)
 pub fn sub_a_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     let src = memory.read(*cpu.hl.value());
     let dest = *cpu.af.high();
