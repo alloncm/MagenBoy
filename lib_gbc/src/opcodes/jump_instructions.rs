@@ -1,12 +1,12 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::mmu::memory::Memory;
+use crate::opcodes::opcodes_utils::{
+    pop,
+    push
+};
 
 fn push_pc(cpu:&mut GbcCpu, memory: &mut dyn Memory){
-    let high = ((cpu.program_counter & 0xFF00)>>8) as u8;
-    let low = (cpu.program_counter & 0xFF) as u8;
-    memory.write(cpu.stack_pointer-1, high);
-    memory.write(cpu.stack_pointer-2, low);
-    cpu.stack_pointer-=2;
+    push(cpu, memory, cpu.program_counter);
 }
 
 pub fn call(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
@@ -35,10 +35,7 @@ pub fn call_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
 }
 
 pub fn ret(cpu:&mut GbcCpu, memory:&mut dyn Memory){
-    let mut pc:u16 = memory.read(cpu.stack_pointer) as u16;
-    pc |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
-    cpu.program_counter = pc;
-    cpu.stack_pointer+=2;
+    cpu.program_counter = pop(cpu, memory);
 }
 
 fn ret_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, flag:bool){

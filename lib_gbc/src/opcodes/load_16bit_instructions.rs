@@ -4,6 +4,7 @@ use crate::opcodes::opcodes_utils::{
     check_for_half_carry_third_nible,
     get_arithmetic_16reg
 };
+use crate::opcodes::opcodes_utils;
 
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
@@ -22,6 +23,7 @@ pub fn load_sp_hl(cpu:&mut GbcCpu){
 
 //pop from the stack pointer to one register
 pub fn pop(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
+    let poped_value = opcodes_utils::pop(cpu, memory);
     let reg = (opcode&0xF0)>>4;
     let reg = match reg{
         0xC=>&mut cpu.bc,
@@ -31,25 +33,21 @@ pub fn pop(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
         _=>panic!("no register")
     };
 
-    *reg.low() = memory.read(cpu.stack_pointer);
-    *reg.high() = memory.read(cpu.stack_pointer+1);
-    cpu.stack_pointer+=2;
+    *reg.value() = poped_value;
 }
 
 //push to stack the register 
 pub fn push(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
     let reg = (opcode&0xF0)>>4;
-    let reg = match reg{
-        0xC=>&mut cpu.bc,
-        0xD=>&mut cpu.de,
-        0xE=>&mut cpu.hl,
-        0xF=>&mut cpu.af,
+    let value = match reg{
+        0xC=>*cpu.bc.value(),
+        0xD=>*cpu.de.value(),
+        0xE=>*cpu.hl.value(),
+        0xF=>*cpu.af.value(),
         _=>panic!("no register")
     };
 
-    memory.write(cpu.stack_pointer-1, *reg.high());
-    memory.write(cpu.stack_pointer-2, *reg.low());
-    cpu.stack_pointer-=2;
+    opcodes_utils::push(cpu, memory, value);
 }
 
 //load into hl sp + rr

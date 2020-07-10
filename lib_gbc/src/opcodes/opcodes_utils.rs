@@ -1,4 +1,5 @@
 use crate::cpu::gbc_cpu::{GbcCpu};
+use crate::mmu::memory::Memory;
 
 
 
@@ -57,4 +58,21 @@ pub fn get_reg_two_rows(cpu: &mut GbcCpu, mut reg:u8)->&mut u8{
         0b111=>cpu.af.high(),
         _=>panic!("no register")
     }
+}
+
+pub fn push(cpu:&mut GbcCpu,memory:&mut dyn Memory, value:u16){
+    let high = ((value & 0xFF00) >> 8) as u8;
+    let low = (value & 0xFF) as u8;
+    
+    memory.write(cpu.stack_pointer-1, high);
+    memory.write(cpu.stack_pointer-2, low);
+    cpu.stack_pointer-=2;
+}
+
+pub fn pop(cpu:&mut GbcCpu,memory:&mut dyn Memory)->u16{
+    let mut value:u16 = memory.read(cpu.stack_pointer) as u16;
+    value |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
+    cpu.stack_pointer+=2;
+    
+    return value;
 }
