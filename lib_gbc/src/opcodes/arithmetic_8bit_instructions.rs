@@ -271,7 +271,7 @@ pub fn inc_r(cpu:&mut GbcCpu, opcode:u8){
         finished_reg = *reg;
     }
     cpu.set_by_value(Flag::Zero, finished_reg == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(original_reg, finished_reg));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(original_reg, 1));
     cpu.unset_flag(Flag::Subtraction);
 }
 
@@ -281,7 +281,7 @@ pub fn inc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory){
     memory.write(*cpu.hl.value(), altered_value);
     
     cpu.set_by_value(Flag::Zero, altered_value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(value, altered_value));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(value, 1));
     cpu.unset_flag(Flag::Subtraction);
 }
 

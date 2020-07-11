@@ -1,6 +1,21 @@
 extern crate lib_gbc;
 use lib_gbc::cpu::gbc_cpu::{GbcCpu,Flag};
 use lib_gbc::opcodes::arithmetic_8bit_instructions;
+use lib_gbc::mmu::memory::Memory;
+
+struct MemoryStub{
+    pub data:[u8;0xFFFF]
+}
+
+impl Memory for MemoryStub{
+    fn read(&self, address:u16)->u8{
+        self.data[address as usize]
+    }
+
+    fn write(&mut self, address:u16, value:u8){
+        self.data[address as usize] = value;
+    }
+}
 
 #[test]
 fn daa_after_add_op(){
@@ -10,6 +25,7 @@ fn daa_after_add_op(){
     arithmetic_8bit_instructions::daa(&mut cpu);
     assert_eq!(*cpu.af.high(), 0x83);
     assert_eq!(cpu.get_flag(Flag::Carry), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
 }
 
 #[test]
@@ -19,6 +35,7 @@ fn daa_after_sub_op(){
     cpu.set_flag(Flag::Subtraction);
     arithmetic_8bit_instructions::daa(&mut cpu);
     assert_eq!(*cpu.af.high(), 0x45);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
 }
 
 #[test]
@@ -137,4 +154,39 @@ fn test_adc_nn_on_carry_set_expeced_carry_half_carry_zero(){
     assert_eq!(cpu.get_flag(Flag::Carry), true);
     assert_eq!(cpu.get_flag(Flag::Subtraction), false);
     assert_eq!(cpu.get_flag(Flag::HalfCarry), true);
+}
+
+
+#[test]
+fn test_inc_hl(){
+    let mut cpu = GbcCpu::default();
+    *cpu.hl.value() = 0x50;
+    cpu.set_flag(Flag::Carry);
+    let mut memory = MemoryStub{data:[0;0xFFFF]};
+    
+    arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);
+
+    assert_eq!(*cpu.hl.value(), 0x50);
+    assert_eq!(memory.data[0x50], 1);
+    assert_eq!(cpu.get_flag(Flag::Zero), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
+    assert_eq!(cpu.get_flag(Flag::Subtraction), false);
+}
+
+
+#[test]
+fn test_inc_hl_half_carry(){
+    let mut cpu = GbcCpu::default();
+    *cpu.hl.value() = 0x50;
+    cpu.set_flag(Flag::Carry);
+    let mut memory = MemoryStub{data:[0;0xFFFF]};
+    memory.data[0x50] = 0x0F;
+    
+    arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);
+
+    assert_eq!(*cpu.hl.value(), 0x50);
+    assert_eq!(memory.data[0x50], 0x10);
+    assert_eq!(cpu.get_flag(Flag::Zero), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), true);
+    assert_eq!(cpu.get_flag(Flag::Subtraction), false);
 }
