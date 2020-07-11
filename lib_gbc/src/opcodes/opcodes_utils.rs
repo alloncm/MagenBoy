@@ -32,7 +32,7 @@ pub fn check_for_half_carry_third_nible(a:u16, b:u16)->bool{
 }
 
 pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{
-    ((a & 0xF) + (b & 0xF)) & 0x10 == 0x10
+    (((a & 0xF) + (b & 0xF)) & 0xF0) != 0
 }
 
 pub fn check_for_half_carry_first_nible_sub(a:u8, b:u8)->bool{

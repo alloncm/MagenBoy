@@ -19,13 +19,15 @@ fn add(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
 }
 
 fn adc(cpu:&mut GbcCpu, dest:u8, src:u8 ) -> u8{
-    let flag = (*cpu.af.high()) & (Flag::Carry as u8) >> 5;
-    let addition = add(cpu,dest,src);
-    let (value, overflow) = addition.overflowing_add(flag);
+    let flag = (*cpu.af.low() & (Flag::Carry as u8)) >> 4;
+    let (value_to_add, value_of) = src.overflowing_add(flag);
+    let half_carry_of = check_for_half_carry_first_nible_add(src, flag);
+    let (value, overflow) = dest.overflowing_add(value_to_add);
 
-    cpu.set_by_value(Flag::Carry, overflow);
+    cpu.set_by_value(Flag::Carry, overflow || value_of);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(dest,value_to_add) || half_carry_of);
+    cpu.unset_flag(Flag::Subtraction);
 
     return value;
 }

@@ -94,3 +94,47 @@ fn test_sbc_nn_on_carry_set_expeced_carry_and_half_carry(){
     assert_eq!(cpu.get_flag(Flag::HalfCarry), true);
 }
 
+#[test]
+fn test_adc_nn_on_carry_set_expeced_half_carry(){
+    let mut cpu = GbcCpu::default();
+    *cpu.af.high() = 0xE1;
+    cpu.set_flag(Flag::Carry);
+    let opcode = 0x0F;
+    arithmetic_8bit_instructions::adc_a_nn(&mut cpu, opcode);
+
+    assert_eq!(*cpu.af.high(), 0xF1);
+    assert_eq!(cpu.get_flag(Flag::Zero), false);
+    assert_eq!(cpu.get_flag(Flag::Carry), false);
+    assert_eq!(cpu.get_flag(Flag::Subtraction), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), true);
+}
+
+#[test]
+fn test_adc_nn_on_carry_set_expeced_carry(){
+    let mut cpu = GbcCpu::default();
+    *cpu.af.high() = 0xE1;
+    cpu.set_flag(Flag::Carry);
+    let opcode = 0x3B;
+    arithmetic_8bit_instructions::adc_a_nn(&mut cpu, opcode);
+
+    assert_eq!(*cpu.af.high(), 0x1D);
+    assert_eq!(cpu.get_flag(Flag::Zero), false);
+    assert_eq!(cpu.get_flag(Flag::Carry), true);
+    assert_eq!(cpu.get_flag(Flag::Subtraction), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
+}
+
+#[test]
+fn test_adc_nn_on_carry_set_expeced_carry_half_carry_zero(){
+    let mut cpu = GbcCpu::default();
+    *cpu.af.high() = 0xE1;
+    cpu.set_flag(Flag::Carry);
+    let opcode = 0x1E;
+    arithmetic_8bit_instructions::adc_a_nn(&mut cpu, opcode);
+
+    assert_eq!(*cpu.af.high(), 0);
+    assert_eq!(cpu.get_flag(Flag::Zero), true);
+    assert_eq!(cpu.get_flag(Flag::Carry), true);
+    assert_eq!(cpu.get_flag(Flag::Subtraction), false);
+    assert_eq!(cpu.get_flag(Flag::HalfCarry), true);
+}
