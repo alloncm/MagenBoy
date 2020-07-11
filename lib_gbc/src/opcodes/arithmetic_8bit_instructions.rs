@@ -35,20 +35,22 @@ fn sub(cpu:&mut GbcCpu, dest:u8, src:u8 )->u8{
 
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(dest,src));
     cpu.set_flag(Flag::Subtraction);
 
     return value;
 }
 
 fn subc(cpu:&mut GbcCpu, dest:u8, src:u8 ) -> u8{
-    let flag = (*cpu.af.high()) & (Flag::Carry as u8) >> 5;
-    let subtraction = sub(cpu,dest,src);
-    let (value, overflow) = subtraction.overflowing_sub(flag);
+    let flag = (*cpu.af.low() & (Flag::Carry as u8)) >> 4;
+    let (value_to_sub, value_of) = src.overflowing_add(flag);
+    let half_carry = check_for_half_carry_first_nible_add(src, flag);
+    let (value, overflow) = dest.overflowing_sub(value_to_sub);
 
-    cpu.set_by_value(Flag::Carry, overflow);
+    cpu.set_by_value(Flag::Carry, overflow || value_of);
     cpu.set_by_value(Flag::Zero, value == 0);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(src,dest));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(dest, value_to_sub) || half_carry);
+    cpu.set_flag(Flag::Subtraction);
 
     return value;
 }

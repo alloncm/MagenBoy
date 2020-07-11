@@ -36,9 +36,9 @@ pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{
 }
 
 pub fn check_for_half_carry_first_nible_sub(a:u8, b:u8)->bool{
-    let sa = a as i16;
-    let sb = b as i16;
-    (((sa & 0xF0)>>4) - ((sb & 0xF0)>>4)) < 0
+    let sa = (a & 0xF) as i8;
+    let sb = (b & 0xF) as i8;
+    (sa - sb) < 0
 }
 
 pub fn get_cb_opcode(cb_opcode:u16)->u8{
