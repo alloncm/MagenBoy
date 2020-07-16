@@ -2,15 +2,16 @@ use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::mmu::memory::Memory;
 use crate::opcodes::opcodes_utils::{
     check_for_half_carry_third_nible,
-    get_arithmetic_16reg
+    get_arithmetic_16reg,
+    opcode_to_u16_value,
+    u16_to_high_and_low
 };
 use crate::opcodes::opcodes_utils;
 
 //load into 16bit register RR the value NN
 pub fn load_rr_nn(cpu:&mut GbcCpu, opcode:u32){
     let reg = (((opcode>>16) & 0xF0)>>4) as u8;
-    let mut nn = ((opcode&0xFF)<<8) as u16;
-    nn |= ((opcode&0xFF00)>>8) as u16;
+    let nn = opcode_to_u16_value((opcode & 0xFFFF) as u16);
     let reg = get_arithmetic_16reg(cpu, reg);
 
     *reg = nn;
@@ -71,9 +72,8 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
 
 //load sp into memory
 pub fn ld_nn_sp(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u32){
-    let address = (opcode & 0xFFFF) as u16;
-    let low = (cpu.stack_pointer & 0xFF) as u8;
-    let high = ((cpu.stack_pointer & 0xFF)>>8) as u8;
+    let address = opcode_to_u16_value((opcode & 0xFFFF) as u16);
+    let (high, low):(u8, u8) = u16_to_high_and_low(cpu.stack_pointer);
     memory.write(address, low);
     memory.write(address+1, high);
 }

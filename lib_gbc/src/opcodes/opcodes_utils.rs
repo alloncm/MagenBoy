@@ -76,3 +76,15 @@ pub fn pop(cpu:&mut GbcCpu,memory:&mut dyn Memory)->u16{
     
     return value;
 }
+
+pub fn opcode_to_u16_value(u16opcode:u16)->u16{
+    let mut value = ((u16opcode & 0xFF)<<8) as u16;
+    value |= ((u16opcode & 0xFF00)>>8) as u16;
+    return value;
+}
+
+pub fn u16_to_high_and_low(value:u16)->(u8, u8){
+    let low = (value & 0xFF) as u8;
+    let high = ((value & 0xFF00)>>8) as u8;
+    return (high, low);
+}
