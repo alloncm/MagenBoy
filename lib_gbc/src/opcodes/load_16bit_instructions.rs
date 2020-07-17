@@ -1,7 +1,7 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::mmu::memory::Memory;
 use crate::opcodes::opcodes_utils::{
-    check_for_half_carry_third_nible,
+    check_for_half_carry_third_nible_add,
     get_arithmetic_16reg,
     opcode_to_u16_value,
     u16_to_high_and_low
@@ -64,7 +64,7 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
 
     //check for half carry
     //todo check for bugs
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible(cpu.stack_pointer,dd as u16));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(cpu.stack_pointer,dd as u16));
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
