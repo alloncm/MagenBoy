@@ -60,7 +60,7 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
     *cpu.hl.value() = value as u16;
 
     //check for carry
-    cpu.set_by_value(Flag::Carry, value<0);
+    cpu.set_by_value(Flag::Carry, value<=0);
 
     //check for half carry
     //todo check for bugs

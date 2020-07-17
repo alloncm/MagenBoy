@@ -45,7 +45,7 @@ fn ret_if_true(cpu:&mut GbcCpu, memory:&mut dyn Memory, flag:bool){
 }
 
 pub fn ret_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let flag:u8 = opcode & 0b00011000>>3;
+    let flag:u8 = (opcode & 0b00011000)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
     match flag{

@@ -24,14 +24,15 @@ pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
     let mut temp = cpu.stack_pointer as i32;
     temp += dd as i32;
     operation_res.0 = temp as u16;
-    if temp < 0{
+
+    if operation_res.0 <= 0{
         operation_res.1 = true;   
     }
-
+    
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
     cpu.set_by_value(Flag::Carry, operation_res.1);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(cpu.program_counter, dd as u16));
+    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(cpu.stack_pointer, dd as u16));
 
     cpu.stack_pointer = operation_res.0;
 }
