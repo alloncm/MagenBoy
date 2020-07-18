@@ -1,8 +1,10 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::opcodes::opcodes_utils::{
     get_arithmetic_16reg,
-    check_for_half_carry_third_nible_add
+    check_for_half_carry_third_nible_add,
+    signed_check_for_half_carry_third_nible_add
 };
+use std::convert::TryFrom;
 
 pub fn add_hl_rr(cpu:&mut GbcCpu, opcode:u8){
     let reg = opcode >> 4;
@@ -23,16 +25,18 @@ pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
     
     let mut temp = cpu.stack_pointer as i32;
     temp += dd as i32;
-    operation_res.0 = temp as u16;
+    match u16::try_from(temp){
+        Ok(value)=>operation_res.0 = value,
+        Err(_)=>{
+            operation_res.0 = temp as u16;
+            operation_res.1 = true;
+        }
+    };
 
-    if operation_res.0 <= 0{
-        operation_res.1 = true;   
-    }
-    
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
     cpu.set_by_value(Flag::Carry, operation_res.1);
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(cpu.stack_pointer, dd as u16));
+    cpu.set_by_value(Flag::HalfCarry, signed_check_for_half_carry_third_nible_add(cpu.stack_pointer, dd));
 
     cpu.stack_pointer = operation_res.0;
 }

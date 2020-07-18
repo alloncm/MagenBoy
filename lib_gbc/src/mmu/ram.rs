@@ -41,7 +41,7 @@ impl Default for Ram{
     fn default()->Ram{
         Ram{
             memory:[0;RAM_SZIE],
-            ram_bank_register:0
+            ram_bank_register:1
         }
     }
 }

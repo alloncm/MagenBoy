@@ -28,11 +28,15 @@ pub fn get_arithmetic_16reg(cpu:&mut GbcCpu, reg:u8)->&mut u16{
 }
 
 pub fn check_for_half_carry_third_nible_add(a:u16, b:u16)->bool{
-    (((a & 0xFFF) + (b & 0xFFF)) & 0xF000) != 0
+    (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) != 0
+}
+
+pub fn signed_check_for_half_carry_third_nible_add(a:u16, b:i8)->bool{
+    (((a & 0xFFF) as i32 + b as i32) & 0x1000) != 0
 }
 
 pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{
-    (((a & 0xF) + (b & 0xF)) & 0xF0) != 0
+    (((a & 0xF) + (b & 0xF)) & 0x10) != 0
 }
 
 pub fn check_for_half_carry_first_nible_sub(a:u8, b:u8)->bool{
