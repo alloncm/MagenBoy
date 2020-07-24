@@ -316,26 +316,33 @@ pub fn cpl(cpu:&mut GbcCpu){
 }
 
 pub fn daa(cpu:&mut GbcCpu){
-    let mut added_value = 0;
-    let mut a = *cpu.af.high();
-    let mut carry = false;
-    if cpu.get_flag(Flag::HalfCarry) || (a & 0xF) > 0x9{
-        added_value|=0x6;
-    }
-    if cpu.get_flag(Flag::Carry) || (a & 0xF0)>0x90{
-        added_value|=0x60;
-        carry = true;
-    }
+    let low_a = *cpu.af.high() & 0xF;
+    let mut daa_value:u8 = 0;
+    let mut carry:bool = false;
 
     if cpu.get_flag(Flag::Subtraction){
-        a-=added_value;
+        if cpu.get_flag(Flag::Carry){
+            daa_value |= 0x60;
+            carry = true;
+        }
+        if cpu.get_flag(Flag::HalfCarry){
+            daa_value |= 0x6;
+        }
+        *cpu.af.high() -= daa_value;    
     }
     else{
-        a+=added_value;
+        if *cpu.af.high() > 0x99 || cpu.get_flag(Flag::Carry){
+            daa_value |= 0x60;
+            carry = true;
+        }
+        if low_a > 0x9 || cpu.get_flag(Flag::HalfCarry){
+            daa_value |= 0x6;
+        }
+        *cpu.af.high() += daa_value;    
     }
 
-    *cpu.af.high() = a;
+    let zero = *cpu.af.high() == 0;
     cpu.set_by_value(Flag::Carry, carry);
-    cpu.set_by_value(Flag::Zero, a==0);
+    cpu.set_by_value(Flag::Zero, zero);
     cpu.unset_flag(Flag::HalfCarry);
 }
