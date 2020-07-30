@@ -22,24 +22,14 @@ pub fn add_hl_rr(cpu:&mut GbcCpu, opcode:u8){
 
 pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
     let dd = (opcode & 0xFF) as i8;
-    let mut operation_res:(u16, bool) = (0,false);
-    
-    let mut temp = cpu.stack_pointer as i32;
-    temp += dd as i32;
-    match u16::try_from(temp){
-        Ok(value)=>operation_res.0 = value,
-        Err(_)=>{
-            operation_res.0 = temp as u16;
-            operation_res.1 = true;
-        }
-    };
+    let temp = cpu.stack_pointer as i16;
+
+    cpu.stack_pointer = temp.wrapping_add(dd as i16) as u16;
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
     cpu.set_by_value(Flag::Carry, signed_check_for_carry_first_nible_add(temp as i16, dd));
     cpu.set_by_value(Flag::HalfCarry, signed_check_for_half_carry_first_nible_add(temp as i16, dd));
-
-    cpu.stack_pointer = operation_res.0;
 }
 
 pub fn inc_rr(cpu:&mut GbcCpu, opcode:u8){
