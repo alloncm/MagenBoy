@@ -31,8 +31,13 @@ pub fn check_for_half_carry_third_nible_add(a:u16, b:u16)->bool{
     (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) != 0
 }
 
-pub fn signed_check_for_half_carry_third_nible_add(a:u16, b:i8)->bool{
-    (((a & 0xFFF) as i32 + b as i32) & 0x1000) != 0
+pub fn signed_check_for_half_carry_first_nible_add(a:i16, b:i8)->bool{
+    ((a & 0xF) + ((b as i16) & 0xF)) > 0xF
+}
+
+
+pub fn signed_check_for_carry_first_nible_add(a:i16, b:i8)->bool{
+    (a& 0xFF) + ((b as i16)& 0xFF) > 0xFF
 }
 
 pub fn check_for_half_carry_first_nible_add(a:u8, b:u8)->bool{

@@ -1,10 +1,11 @@
 use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::mmu::memory::Memory;
 use crate::opcodes::opcodes_utils::{
-    check_for_half_carry_third_nible_add,
     get_arithmetic_16reg,
     opcode_to_u16_value,
-    u16_to_high_and_low
+    u16_to_high_and_low,
+    signed_check_for_half_carry_first_nible_add,
+    signed_check_for_carry_first_nible_add
 };
 use crate::opcodes::opcodes_utils;
 
@@ -60,11 +61,12 @@ pub fn ld_hl_spdd(cpu:&mut GbcCpu, opcode:u16){
     *cpu.hl.value() = value as u16;
 
     //check for carry
-    cpu.set_by_value(Flag::Carry, value<=0);
+    cpu.set_by_value(Flag::Carry, signed_check_for_carry_first_nible_add(temp as i16, dd));
 
     //check for half carry
     //todo check for bugs
-    cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(cpu.stack_pointer,dd as u16));
+    cpu.set_by_value(Flag::HalfCarry, ((temp as i16) & 0xF) + ((dd as i16) & 0xF) > 0xF);
+    cpu.set_by_value(Flag::HalfCarry,  signed_check_for_half_carry_first_nible_add(temp as i16, dd));
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);

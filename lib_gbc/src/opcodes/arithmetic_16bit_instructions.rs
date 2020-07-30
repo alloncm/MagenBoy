@@ -2,7 +2,8 @@ use crate::cpu::gbc_cpu::{GbcCpu, Flag};
 use crate::opcodes::opcodes_utils::{
     get_arithmetic_16reg,
     check_for_half_carry_third_nible_add,
-    signed_check_for_half_carry_third_nible_add
+    signed_check_for_half_carry_first_nible_add,
+    signed_check_for_carry_first_nible_add
 };
 use std::convert::TryFrom;
 
@@ -35,8 +36,8 @@ pub fn add_sp_dd(cpu:&mut GbcCpu, opcode:u16){
 
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
-    cpu.set_by_value(Flag::Carry, operation_res.1);
-    cpu.set_by_value(Flag::HalfCarry, signed_check_for_half_carry_third_nible_add(cpu.stack_pointer, dd));
+    cpu.set_by_value(Flag::Carry, signed_check_for_carry_first_nible_add(temp as i16, dd));
+    cpu.set_by_value(Flag::HalfCarry, signed_check_for_half_carry_first_nible_add(temp as i16, dd));
 
     cpu.stack_pointer = operation_res.0;
 }
