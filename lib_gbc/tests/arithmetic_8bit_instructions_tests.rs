@@ -29,16 +29,6 @@ fn daa_after_add_op(){
 }
 
 #[test]
-fn daa_after_sub_op(){
-    let mut cpu = GbcCpu::default();
-    *cpu.af.high() = 0x4B;
-    cpu.set_flag(Flag::Subtraction);
-    arithmetic_8bit_instructions::daa(&mut cpu);
-    assert_eq!(*cpu.af.high(), 0x45);
-    assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
-}
-
-#[test]
 fn test_sub_a_nn_for_half_carry_true(){
     let mut cpu = GbcCpu::default();
     *cpu.af.high() = 0x3E;
