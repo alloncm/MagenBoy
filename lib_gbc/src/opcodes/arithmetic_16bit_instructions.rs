@@ -5,7 +5,6 @@ use crate::opcodes::opcodes_utils::{
     signed_check_for_half_carry_first_nible_add,
     signed_check_for_carry_first_nible_add
 };
-use std::convert::TryFrom;
 
 pub fn add_hl_rr(cpu:&mut GbcCpu, opcode:u8){
     let reg = opcode >> 4;
