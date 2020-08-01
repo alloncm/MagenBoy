@@ -2,6 +2,7 @@ use crate::cpu::gbc_cpu::*;
 use crate::opcodes::opcodes_utils::*;
 use crate::mmu::memory::Memory;
 use crate::utils::bit_masks::*;
+use log::info;
 
 fn a_rotate_flags(cpu:&mut GbcCpu, carry:bool){
     cpu.unset_flag(Flag::HalfCarry);
@@ -120,9 +121,11 @@ pub fn rl_r(cpu:&mut GbcCpu, opcode:u16)
 pub fn rl_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
+    //info!("rl hl: {} val: {:#X}", *cpu.hl.value(), byte);
     let carry:bool = rotate_left_carry(&mut byte, cpu.get_flag(Flag::Carry));
     memory.write(*cpu.hl.value(), byte);
     rotate_shift_flags(cpu, carry, byte == 0);
+    //info!("val {:#X} flags {:#b}",byte, cpu.af.low());
 }
 
 pub fn rrc_r(cpu:&mut GbcCpu, opcode:u16)
@@ -244,9 +247,11 @@ pub fn swap_r(cpu:&mut GbcCpu, opcode:u16){
 pub fn swap_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
+    //info!("sw hl: {} val: {:#X}", *cpu.hl.value(), byte);
     swap_nibbles(&mut byte);
     memory.write(*cpu.hl.value(), byte);
     set_swap_flags(cpu, byte == 0);
+    //info!("val {:#X} flags {:#b}",byte, cpu.af.low());
 }
 
 pub fn sra_r(cpu:&mut GbcCpu, opcode:u16)
