@@ -169,6 +169,8 @@ pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
 
 pub fn rr_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
+    //debug
+    info!("rr_hl");
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry_flag = cpu.get_flag(Flag::Carry);
     let carry:bool = rotate_right_carry(&mut byte, carry_flag);
@@ -213,9 +215,13 @@ pub fn sla_r(cpu:&mut GbcCpu, opcode:u16)
 pub fn sla_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
+    //debug
+    info!("sla hl: {} val: {:#X}", *cpu.hl.value(), byte);
     let carry:bool = shift_left(&mut byte);
     memory.write(*cpu.hl.value(), byte);
     rotate_shift_flags(cpu, carry, byte == 0);
+    //debug
+    info!("val {:#X} flags {:#b} hl {:#X}",byte, cpu.af.low(), *cpu.hl.value());
 }
 
 fn swap_nibbles(r:&mut u8){
@@ -247,11 +253,9 @@ pub fn swap_r(cpu:&mut GbcCpu, opcode:u16){
 pub fn swap_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
-    //info!("sw hl: {} val: {:#X}", *cpu.hl.value(), byte);
     swap_nibbles(&mut byte);
     memory.write(*cpu.hl.value(), byte);
     set_swap_flags(cpu, byte == 0);
-    //info!("val {:#X} flags {:#b}",byte, cpu.af.low());
 }
 
 pub fn sra_r(cpu:&mut GbcCpu, opcode:u16)

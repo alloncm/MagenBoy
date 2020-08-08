@@ -22,23 +22,12 @@ pub struct  OpcodeResolver{
     memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc>,
     u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc>,
     u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc>,
-    u32_memory_opcode_func_resolver:fn(u8)->Option<U32MemoryOpcodeFunc>,
-    pc_queue:Vec<u16>
+    u32_memory_opcode_func_resolver:fn(u8)->Option<U32MemoryOpcodeFunc>
 }
 
 
 impl OpcodeResolver{
-
-    fn update_current_pc(&mut self, pc:u16){
-
-        if self.pc_queue.len()> 300{
-            self.pc_queue.remove(0);
-        }
-        
-        self.pc_queue.push(pc-1);
-    }
     pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
-        self.update_current_pc(program_counter);
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{
             Some(func)=> return OpcodeFuncType::OpcodeFunc(func),
@@ -86,12 +75,7 @@ impl OpcodeResolver{
             None=>{}
         }
         
-        let mut string:String = String::new();
-        for pc in self.pc_queue.iter(){
-            string.push_str(&pc.to_string());
-            string.push(' ');
-        }
-        std::panic!("no opcode matching: {:#X?}, nextb{:#X?}, c_pc{:#X?}, l_pc{}",opcode, postfix, program_counter, string);
+        std::panic!("no opcode matching: {:#X?}, nextb{:#X?}, c_pc{:#X?}",opcode, postfix, program_counter);
     }
 }
 
@@ -106,8 +90,7 @@ impl Default for OpcodeResolver{
             u16_memory_opcode_func_resolver:get_u16_memory_opcode_func_resolver(),
             u16_opcode_func_resolver:get_u16_opcode_func_resolver(),
             u32_opcode_func_resolver:get_u32_opcode_func_resolver(),
-            u32_memory_opcode_func_resolver:get_u32_memory_opcode_func_resolver(),
-            pc_queue:Vec::new()
+            u32_memory_opcode_func_resolver:get_u32_memory_opcode_func_resolver()
         }
     }
 }

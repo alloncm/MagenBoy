@@ -153,17 +153,21 @@ pub fn get_memory_opcode_func_2bytes_resolver()->fn(u8,u8)->Option<MemoryOpcodeF
             return Some(stop);
         }
 
-        match next_byte{
-            0x06=>Some(rlc_hl),
-            0x0E=>Some(rrc_hl),
-            0x16=>Some(rl_hl),
-            0x1E=>Some(rr_hl),
-            0x26=>Some(sla_hl),
-            0x2E=>Some(sra_hl),
-            0x36=>Some(swap_hl),
-            0x3E=>Some(srl_hl),
-            _=>None
+        if opcode == 0xCB{
+            return match next_byte{
+                0x06=>Some(rlc_hl),
+                0x0E=>Some(rrc_hl),
+                0x16=>Some(rl_hl),
+                0x1E=>Some(rr_hl),
+                0x26=>Some(sla_hl),
+                0x2E=>Some(sra_hl),
+                0x36=>Some(swap_hl),
+                0x3E=>Some(srl_hl),
+                _=>None
+            };
         }
+
+        return None;
     }
 }
 
