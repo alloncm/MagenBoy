@@ -60,74 +60,45 @@ impl GameBoy{
 
         //debug
         if pc >= 0xFF{
-            info!("AF:{:#x},BC:{:#x},DE:{:#x},HL:{:#x},PC:{:#x},SP:{:#x}",
-                self.cpu.af.value(),self.cpu.bc.value(),self.cpu.de.value(),self.cpu.hl.value(),self.cpu.program_counter, self.cpu.stack_pointer);
+            let a = *self.cpu.af.high();
+            let f = *self.cpu.af.low();
+            let b = *self.cpu.bc.high(); 
+            let c = *self.cpu.bc.low();
+            let d = *self.cpu.de.high();
+            let e = *self.cpu.de.low();
+            let h = *self.cpu.hl.high();
+            let l = *self.cpu.hl.low();
+            info!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+            a, f, b,c,d,e,
+            h,l, self.cpu.stack_pointer, pc,
+             self.mmu.read(pc),self.mmu.read(pc+1),
+             self.mmu.read(pc+2),self.mmu.read(pc+3));
         }
         
-        let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, self.cpu.program_counter);
+        let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{
-            OpcodeFuncType::OpcodeFunc(func)=>{
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", opcode);
-                }
-                func(&mut self.cpu)
-            }
-            OpcodeFuncType::MemoryOpcodeFunc(func)=>{
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", opcode);
-                }
-                func(&mut self.cpu, &mut self.mmu)
-            }
-            OpcodeFuncType::U8OpcodeFunc(func)=>{
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", opcode);
-                }
-                func(&mut self.cpu, opcode)
-            }
-            OpcodeFuncType::U8MemoryOpcodeFunc(func)=>{
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", opcode);
-                }
-                func(&mut self.cpu, &mut self.mmu, opcode)
-            }
+            OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
+            OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),
+            OpcodeFuncType::U8OpcodeFunc(func)=>func(&mut self.cpu, opcode),
+            OpcodeFuncType::U8MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu, opcode),
             OpcodeFuncType::U16OpcodeFunc(func)=>{
                 let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", u16_opcode);
-                }
                 func(&mut self.cpu, u16_opcode);
             },
             OpcodeFuncType::U16MemoryOpcodeFunc(func)=>{
                 let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", u16_opcode);
-                }
                 func(&mut self.cpu, &mut self.mmu, u16_opcode);
             },
             OpcodeFuncType::U32OpcodeFunc(func)=>{
                 let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", u32_opcode);
-                }
                 func(&mut self.cpu, u32_opcode);
             },
             OpcodeFuncType::U32MemoryOpcodeFunc(func)=>{
                 let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
-                //debug
-                if pc >= 0xFF{
-                    info!("Opcode {:#X}", u32_opcode);
-                }
                 func(&mut self.cpu, &mut self.mmu, u32_opcode);
             }
         }
