@@ -27,7 +27,7 @@ pub struct  OpcodeResolver{
 
 
 impl OpcodeResolver{
-    pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:u16)->OpcodeFuncType{
+    pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:&mut u16)->OpcodeFuncType{
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{
             Some(func)=> return OpcodeFuncType::OpcodeFunc(func),
@@ -48,10 +48,10 @@ impl OpcodeResolver{
             Some(func)=> return OpcodeFuncType::U8MemoryOpcodeFunc(func),
             None=>{}
         }
-        let postfix:u8 = memory.read(program_counter);
+        let postfix:u8 = memory.read(*program_counter);
         let u16_opcode_func=(self.u16_opcode_func_resolver)(opcode, postfix);
         match u16_opcode_func{
-            Some(func)=> return OpcodeFuncType::U16OpcodeFunc(func),
+            Some(func)=>return OpcodeFuncType::U16OpcodeFunc(func),
             None=>{}
         }
         let u32_opcode_func = (self.u32_opcode_func_resolver)(opcode);
@@ -71,7 +71,12 @@ impl OpcodeResolver{
         }
         let memory_opcode_func = (self.memory_opcode_func_2bytes_resolver)(opcode, postfix);
         match memory_opcode_func{
-            Some(func)=>return OpcodeFuncType::MemoryOpcodeFunc(func),
+            Some(func)=>{
+                //this is the only opcodes type that does not uses the postfix byte and therfore does not increment the program counter 
+                //so im incrementing is manually
+                *program_counter+=1;
+                return OpcodeFuncType::MemoryOpcodeFunc(func);
+            },
             None=>{}
         }
         
