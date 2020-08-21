@@ -1,6 +1,7 @@
 use super::memory::Memory;
 use super::ram::Ram;
 use super::vram::VRam;
+use super::io_ports::IoPorts;
 use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
 use super::mbc::Mbc;
 use std::boxed::Box;
@@ -8,16 +9,15 @@ use std::boxed::Box;
 pub const BOOT_ROM_SIZE:usize = 0x100;
 const HRAM_SIZE:usize = 0x7F;
 const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
-const IO_PORTS_SIZE:usize = 0x80;
 
 pub struct GbcMmu{
     pub ram: Ram,
     pub vram: VRam,
     pub dma_trasfer_trigger:bool,
     pub finished_boot:bool,
+    pub io_ports: IoPorts,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: Box<dyn Mbc>,
-    io_ports: [u8;IO_PORTS_SIZE],
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
     hram: [u8;HRAM_SIZE],
     interupt_enable_register:u8
@@ -43,7 +43,7 @@ impl Memory for GbcMmu{
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_ports[(address - 0xFF00) as usize],
+            0xFF00..=0xFF7F=>self.io_ports.read(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         }
@@ -63,7 +63,7 @@ impl Memory for GbcMmu{
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_ports[(address - 0xFF00) as usize] = value,
+            0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }
@@ -74,7 +74,7 @@ impl GbcMmu{
     pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
         GbcMmu{
             ram:Ram::default(),
-            io_ports:[0;IO_PORTS_SIZE],
+            io_ports:IoPorts::default(),
             mbc:mbc,
             vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],

@@ -25,6 +25,8 @@ pub fn update_registers_state(memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut Gbc
     handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
     handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
     handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
+    handle_divider_register(memory);
+    handle_timer_counter_register(memory.read(TIMA_COUNTER_REGISTER_ADDRESS), memory);
 }
 
 fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
@@ -124,4 +126,21 @@ fn handle_dma_transfer_register(register:u8, mmu:&mut GbcMmu){
 
         mmu.dma_trasfer_trigger = false;
     }
+}
+
+fn handle_divider_register(mmu:&mut GbcMmu){
+    mmu.io_ports.increase_system_counter();
+}
+
+fn handle_timer_counter_register(register:u8, memory:&mut dyn Memory){
+    let (mut value, overflow) = register.overflowing_add(1);
+    
+    if overflow{
+        let if_register = memory.read(IF_REGISTER_ADDRESS);
+        memory.write(IF_REGISTER_ADDRESS, if_register | BIT_2_MASK);
+        let tma_value = memory.read(TMA_COUNTER_REGISTER_ADDRESS);
+        value = tma_value;
+    }
+
+    memory.write(TIMA_COUNTER_REGISTER_ADDRESS, value);
 }
