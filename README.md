@@ -6,3 +6,4 @@ GameBoy Color emulator im making with rust
 ## Development Status
 
 - Passing all blargg's tests
+- PPU needs some work
