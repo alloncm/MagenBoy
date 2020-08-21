@@ -20,14 +20,14 @@ impl IoPorts{
             self.system_counter = 0;
         }
         else if address == TIMER_CONTROL_REGISTER_INDEX{
-            value &= 111;
+            value &= 0b111;
         }
 
         self.ports[address as usize] = value;
     } 
     
     pub fn increase_system_counter(&mut self){
-        self.system_counter = self.system_counter.wrapping_add(1);
+        self.system_counter = self.system_counter.wrapping_add(4);
         self.ports[DIVIDER_REGISTER_INDEX as usize] = (self.system_counter >> 8) as u8;
     }
 }

@@ -6,7 +6,7 @@ use crate::mmu::gbc_mmu::{
 };
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
-use crate::machine::registers_handler::update_registers_state;
+use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::mbc::Mbc;
 use crate::ppu::gbc_ppu::{
     SCREEN_HEIGHT,
@@ -21,6 +21,7 @@ pub struct GameBoy {
     mmu: GbcMmu,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
+    register_handler:RegisterHandler,
     cycles_per_frame:u32
 }
 
@@ -32,6 +33,7 @@ impl GameBoy{
             mmu:GbcMmu::new(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
+            register_handler: RegisterHandler::default(),
             cycles_per_frame:cycles
         }
     }
@@ -40,10 +42,10 @@ impl GameBoy{
         for i in 0..self.cycles_per_frame{
             if !self.cpu.halt{
                 self.execute_opcode();
-                self.ppu.update_gb_screen(&mut self.mmu, i);
-                update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
             }
 
+            self.ppu.update_gb_screen(&mut self.mmu, i);
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
             handle_interrupts(&mut self.cpu, &mut self.mmu);
         }
 
@@ -62,7 +64,7 @@ impl GameBoy{
         let opcode:u8 = self.fetch_next_byte();
 
         //debug
-        if pc >= 0xFF{
+        if self.mmu.finished_boot{
             let a = *self.cpu.af.high();
             let f = *self.cpu.af.low();
             let b = *self.cpu.bc.high(); 

@@ -1,5 +1,8 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use crate::utils::bit_masks::*;
+use crate::utils::{
+    bit_masks::*,
+    memory_registers::IF_REGISTER_ADDRESS
+};
 use crate::opcodes::opcodes_utils::push;
 use crate::mmu::memory::Memory;
 
@@ -28,11 +31,20 @@ pub fn handle_interrupts(cpu:&mut GbcCpu, memory:&mut dyn Memory){
             prepare_for_interut(cpu, BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS, memory);
         }
     }
+    else if cpu.halt{
+        for i in 0..5{
+            let mask = 1 << i;
+            if cpu.interupt_flag & mask != 0 && cpu.interupt_enable & mask != 0{
+                cpu.halt = false;
+            }
+        }
+    }
 }
 
 fn prepare_for_interut(cpu:&mut GbcCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory){
     //reseting the interupt bit
     cpu.interupt_flag ^= interupt_bit;
+    memory.write(IF_REGISTER_ADDRESS, cpu.interupt_flag);
     //reseting MIE register
     cpu.mie = false;
     //pushing PC
