@@ -38,10 +38,13 @@ impl GameBoy{
 
     pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         for i in 0..self.cycles_per_frame{
-            self.execute_opcode();
-            self.ppu.update_gb_screen(&mut self.mmu, i);
-            update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
-            //handle_interrupts(&mut self.cpu);
+            if !self.cpu.halt{
+                self.execute_opcode();
+                self.ppu.update_gb_screen(&mut self.mmu, i);
+                update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
+            }
+
+            handle_interrupts(&mut self.cpu, &mut self.mmu);
         }
 
         return self.ppu.get_frame_buffer();

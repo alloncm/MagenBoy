@@ -21,7 +21,7 @@ pub fn halt(cpu:&mut GbcCpu){
 }
 
 pub fn stop(cpu:&mut GbcCpu, memory: &mut dyn  Memory){
-    if (cpu.interupt_enable & 0b11111 == 0) && (memory.read(P1) & 0b1111) == 0{
+    if (cpu.interupt_enable & 0b11111 == 0) && (memory.read(P1) & 0b1111 == 0){
         cpu.stop = true;
     }
 }
