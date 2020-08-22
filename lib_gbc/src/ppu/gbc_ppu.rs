@@ -94,9 +94,8 @@ impl GbcPpu {
         }
         else if (self.current_line_drawn.unwrap() as usize) < SCREEN_HEIGHT{
             let temp = self.current_line_drawn.unwrap();
-            let sprites = self.get_bg_and_window_sprites(memory);
             //let obj_sprites = self.get_objects_sprites(memory);
-            let bg_frame_buffer = self.get_bg_frame_buffer(&sprites, memory);
+            let bg_frame_buffer = self.get_bg_frame_buffer(memory);
             //let window_frame_buffer = self.get_window_frame_buffer(&sprites, memory);
             //let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
             /*
@@ -121,42 +120,7 @@ impl GbcPpu {
         }
     }
 
-    fn get_bg_and_window_sprites(&self, memory: &dyn Memory) -> Vec<Sprite> {
-        let mut sprites: Vec<Sprite> = Vec::with_capacity(SPRITES_SIZE);
-        for _ in 0..sprites.capacity() {
-            sprites.push(Sprite::new());
-        }
-        let address = if self.window_tile_background_map_data_address {
-            0x8000
-        } else {
-            0x8800
-        };
-
-        let mut sprite_number = 0;
-        for i in (0..0x1000).step_by(16) {
-            let mut byte_number = 0;
-            for j in (i..i + 16).step_by(2) {
-                let byte = memory.read(address + j);
-                let next = memory.read(address + j + 1);
-                for k in 0..8 {
-                    let mask = 1 << k;
-                    let mut value = (byte & (mask)) >> k;
-                    value |= (next & (mask) >> k) << 1;
-                    let swaped = 7 - k;
-                    sprites[(sprite_number) as usize].pixels[(byte_number * 8 + swaped) as usize] =
-                        value;
-                }
-
-                byte_number += 1;
-            }
-
-            sprite_number += 1;
-        }
-
-        return sprites;
-    }
-
-    fn get_bg_frame_buffer(&self, sprites: &Vec<Sprite>, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
+    fn get_bg_frame_buffer(&self, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
         let current_line = self.current_line_drawn.unwrap();
 
         let address = if self.background_tile_map_address {
@@ -169,7 +133,7 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                let sprite = sprites[chr as usize].clone();
+                let sprite = self.get_sprite(chr, memory);
                 line_sprites.push(sprite);
             }
         } 
@@ -177,7 +141,7 @@ impl GbcPpu {
             for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                let sprite = sprites[chr as usize].clone();
+                let sprite = self.get_sprite(chr, memory);
                 line_sprites.push(sprite);
             }
         }   
@@ -199,6 +163,35 @@ impl GbcPpu {
         }
         
         return screen_line;
+    }
+
+    fn get_sprite(&self, index:u8, memory:&dyn Memory)->Sprite{
+        let address = if self.window_tile_background_map_data_address {
+            0x8000
+        } else {
+            0x8800
+        };
+
+        let mut sprite = Sprite::new();
+
+        let mut byte_number = 0;
+        let start:u16 = index as u16 * 16;
+        let end:u16 = start + 16;
+        for j in (start .. end).step_by(2) {
+            let byte = memory.read(address + j);
+            let next = memory.read(address + j + 1);
+            for k in 0..8 {
+                let mask = 1 << k;
+                let mut value = (byte & (mask)) >> k;
+                value |= (next & (mask) >> k) << 1;
+                let swaped = 7 - k;
+                sprite.pixels[(byte_number * 8 + swaped) as usize] = value;
+            }
+
+            byte_number += 1;
+        }
+
+        return sprite;
     }
 
     
