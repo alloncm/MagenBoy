@@ -10,6 +10,7 @@ use crate::utils::color::Color;
 
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
+const LY_INTERUPT_VALUE:u8 = 144;
 
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16
@@ -38,9 +39,11 @@ impl RegisterHandler{
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
-        Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
         Self::handle_divider_register(memory);
         self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory);
+
+        //This should be last cause it updated the interupt values
+        Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
     }
 
     fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
@@ -75,7 +78,15 @@ impl RegisterHandler{
     
     fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu){
         match ppu.current_line_drawn{
-            Some(value)=>memory.write(LY_REGISTER_ADDRESS, value),
+            Some(value)=>{
+                if value == LY_INTERUPT_VALUE{
+                    //V-Blank interrupt
+                    let if_register = memory.read(IF_REGISTER_ADDRESS);
+                    memory.write(IF_REGISTER_ADDRESS, if_register | BIT_0_MASK);
+                }
+
+                memory.write(LY_REGISTER_ADDRESS, value);
+            },
             None=>memory.write(LY_REGISTER_ADDRESS, 0)
         }
     }
