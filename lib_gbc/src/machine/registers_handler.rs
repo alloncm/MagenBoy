@@ -6,6 +6,7 @@ use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
+use super::interrupts_handler::InterruptsHandler;
 
 
 const DMA_SIZE:u16 = 0xA0;
@@ -26,7 +27,7 @@ impl Default for RegisterHandler{
 
 impl RegisterHandler{
 
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu){
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler){
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
         Self::handle_lcdstatus_register(memory.read(STAT_REGISTER_ADDRESS), memory);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
@@ -58,6 +59,20 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
+    //needs to add a way to find the rest of the register
+    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut dyn Memory){
+        let ly = memory.read(LY_REGISTER_ADDRESS);
+        let lyc = memory.read(LYC_REGISTER_ADDRESS);
+
+        interrupts_handler.h_blank_interrupt = register & BIT_3_MASK != 0;
+        interrupts_handler.v_blank_interrupt = register & BIT_4_MASK != 0;
+        interrupts_handler.oam_search = register & BIT_5_MASK != 0;
+        interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
+
+        if ly == lyc{
+            register |= BIT_2_MASK;
+        }
+    }
 
     fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
         pallet[0] = None;

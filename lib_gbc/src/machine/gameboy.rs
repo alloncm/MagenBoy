@@ -12,7 +12,7 @@ use crate::ppu::gbc_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
 };
-use super::interrupts_handler::handle_interrupts;
+use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::info;
 
@@ -22,7 +22,8 @@ pub struct GameBoy {
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
     register_handler:RegisterHandler,
-    cycles_per_frame:u32
+    cycles_per_frame:u32,
+    interrupts_handler:InterruptsHandler
 }
 
 impl GameBoy{
@@ -34,7 +35,8 @@ impl GameBoy{
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),
-            cycles_per_frame:cycles
+            cycles_per_frame:cycles,
+            interrupts_handler: InterruptsHandler::default()
         }
     }
 
@@ -45,8 +47,8 @@ impl GameBoy{
             }
 
             self.ppu.update_gb_screen(&mut self.mmu, i);
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu);
-            handle_interrupts(&mut self.cpu, &mut self.mmu);
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler);
+            self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
         }
 
         return self.ppu.get_frame_buffer();
