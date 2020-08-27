@@ -28,6 +28,9 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler){
+        let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
+        let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
+
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
         Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
@@ -36,15 +39,18 @@ impl RegisterHandler{
         Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
         Self::handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
         Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
-        Self::handle_ly_register(memory, ppu);
+        Self::handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
         Self::handle_divider_register(memory);
-        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory);
+        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag);
 
         //This should be last cause it updated the interupt values
-        Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
+        Self::handle_intreput_registers(interupt_enable, interupt_flag, cpu);
+
+        memory.write(IF_REGISTER_ADDRESS, interupt_flag);
+        memory.write(IE_REGISTER_ADDRESS, interupt_enable);
     }
 
     fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
@@ -96,13 +102,12 @@ impl RegisterHandler{
         };
     }
     
-    fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu){
+    fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
         match ppu.current_line_drawn{
             Some(value)=>{
                 if value == LY_INTERUPT_VALUE{
                     //V-Blank interrupt
-                    let if_register = memory.read(IF_REGISTER_ADDRESS);
-                    memory.write(IF_REGISTER_ADDRESS, if_register | BIT_0_MASK);
+                    *if_register |= BIT_0_MASK;
                 }
 
                 memory.write(LY_REGISTER_ADDRESS, value);
@@ -171,7 +176,7 @@ impl RegisterHandler{
         mmu.io_ports.increase_system_counter();
     }
 
-    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory){
+    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory, if_register:&mut u8){
         let (interval, enable) = Self::get_timer_controller_data(memory);
 
         if !enable{
@@ -190,8 +195,7 @@ impl RegisterHandler{
             let (mut value, overflow) = register.overflowing_add(4);
 
             if overflow{
-                let if_register = memory.read(IF_REGISTER_ADDRESS);
-                memory.write(IF_REGISTER_ADDRESS, if_register | BIT_2_MASK);
+                *if_register |= BIT_2_MASK;
                 value = memory.read(TMA_REGISTER_ADDRESS);
             }
 
