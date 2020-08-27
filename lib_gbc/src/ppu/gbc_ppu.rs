@@ -1,4 +1,5 @@
 use crate::mmu::memory::Memory;
+use super::ppu_state::PpuState;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
@@ -10,7 +11,11 @@ pub const SCREEN_WIDTH: usize = 160;
 const FRAME_BUFFER_SIZE: usize = 0x10000;
 //const SPRITE_NORMAL_SIZE:u8 = 8;
 const SPRITES_SIZE: usize = 256;
-const DRAWING_CYCLE_CLOCKS: u8 = 114;
+
+const OAM_CLOCKS:u8 = 20;
+const PIXEL_TRANSFER_CLOCKS:u8 = 43;
+const H_BLANK_CLOCKS:u8 = 51;
+const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
 const LY_MAX_VALUE:u8 = 154;
 
 #[derive(Clone)]
@@ -40,7 +45,8 @@ pub struct GbcPpu {
     pub bg_color_mapping: [Color; 4],
     pub obj_color_mapping0: [Option<Color>;4],
     pub obj_color_mapping1: [Option<Color>;4],
-    pub current_line_drawn: Option<u8>
+    pub current_line_drawn: Option<u8>,
+    pub state:PpuState
 }
 
 impl Default for GbcPpu {
@@ -61,7 +67,8 @@ impl Default for GbcPpu {
             bg_color_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
-            current_line_drawn:None
+            current_line_drawn:None,
+            state:PpuState::OamSearch
         }
     }
 }
@@ -86,13 +93,31 @@ impl GbcPpu {
         }
     }
 
+    fn get_ppu_state(cycle_counter:u32, last_ly:u8)->PpuState{
+        if last_ly > SCREEN_HEIGHT as u8{
+            return PpuState::Vblank;
+        }
+
+        //getting the reminder of the clocks 
+        let current_line_clocks = cycle_counter % DRAWING_CYCLE_CLOCKS as u32;
+        
+        const PIXEL_TRANSFER_START:u8 = OAM_CLOCKS+1;
+        const PIXEL_TRANSFER_END:u8 = OAM_CLOCKS + PIXEL_TRANSFER_CLOCKS;
+        const H_BLANK_START:u8 = PIXEL_TRANSFER_END+1;
+        const H_BLANK_END:u8 = PIXEL_TRANSFER_END + H_BLANK_CLOCKS;
+
+        return match current_line_clocks as u8{
+            0 ..= OAM_CLOCKS => PpuState::OamSearch,
+            PIXEL_TRANSFER_START ..= PIXEL_TRANSFER_END => PpuState::PixelTransfer,
+            H_BLANK_START ..= H_BLANK_END => PpuState::Hblank,
+            _=>std::panic!("Error calculating ppu state")
+        };
+    }
+
     pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
         let last_ly = self.current_line_drawn;
         self.update_ly(cycle_counter);
-        if last_ly==self.current_line_drawn{
-            return;
-        }
-        else if (self.current_line_drawn.unwrap() as usize) < SCREEN_HEIGHT{
+        if last_ly != self.current_line_drawn &&  (self.current_line_drawn.unwrap() as usize) < SCREEN_HEIGHT{
             let temp = self.current_line_drawn.unwrap();
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
@@ -124,6 +149,8 @@ impl GbcPpu {
                 }
             }
         }
+
+        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn.unwrap());
     }
 
     fn get_bg_frame_buffer(&self, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
