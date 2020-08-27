@@ -60,7 +60,7 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
-    //needs to add a way to find the rest of the register
+    //detect the interupts
     fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
