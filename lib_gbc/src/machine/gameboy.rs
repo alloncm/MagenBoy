@@ -46,7 +46,7 @@ impl GameBoy{
                 self.execute_opcode();
             }
 
-            self.ppu.update_gb_screen(&mut self.mmu, i);
+            self.ppu.update_gb_screen(&self.mmu, i);
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler);
             self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
         }

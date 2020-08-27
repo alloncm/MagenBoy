@@ -4,6 +4,7 @@ use super::vram::VRam;
 use super::io_ports::IoPorts;
 use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
 use super::mbc::Mbc;
+use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
 
 pub const BOOT_ROM_SIZE:usize = 0x100;
@@ -20,7 +21,8 @@ pub struct GbcMmu{
     mbc: Box<dyn Mbc>,
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
     hram: [u8;HRAM_SIZE],
-    interupt_enable_register:u8
+    interupt_enable_register:u8,
+    pub ppu_state:PpuState
 }
 
 
@@ -82,7 +84,8 @@ impl GbcMmu{
             interupt_enable_register:0,
             dma_trasfer_trigger:false,
             boot_rom:boot_rom,
-            finished_boot:false
+            finished_boot:false,
+            ppu_state:PpuState::OamSearch
         }
     }
 }

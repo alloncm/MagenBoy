@@ -42,6 +42,7 @@ impl RegisterHandler{
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
         Self::handle_divider_register(memory);
         self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory);
+        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu);
 
         //This should be last cause it updated the interupt values
         Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
@@ -60,7 +61,7 @@ impl RegisterHandler{
     }
 
     //needs to add a way to find the rest of the register
-    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut dyn Memory){
+    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
 
@@ -72,6 +73,11 @@ impl RegisterHandler{
         if ly == lyc{
             register |= BIT_2_MASK;
         }
+
+        register |= ppu.state as u8;
+
+        memory.write(STAT_REGISTER_ADDRESS, register);
+        memory.ppu_state = ppu.state;
     }
 
     fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
