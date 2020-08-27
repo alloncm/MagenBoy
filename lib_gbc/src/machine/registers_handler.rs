@@ -29,7 +29,7 @@ impl RegisterHandler{
 
     pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler){
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
-        Self::handle_lcdstatus_register(memory.read(STAT_REGISTER_ADDRESS), memory);
+        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
@@ -42,7 +42,6 @@ impl RegisterHandler{
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
         Self::handle_divider_register(memory);
         self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory);
-        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu);
 
         //This should be last cause it updated the interupt values
         Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
@@ -130,13 +129,6 @@ impl RegisterHandler{
         if register & BIT_7_MASK == 0{
             memory.write(LY_REGISTER_ADDRESS,0);
         }
-    }
-
-    fn handle_lcdstatus_register( register:u8, memory: &mut dyn Memory){
-        let mut coincidence:u8 = (memory.read(LY_REGISTER_ADDRESS) == memory.read(LYC_REGISTER_ADDRESS)) as u8;
-        //to match the 2 bit
-        coincidence <<=2;
-        memory.write(STAT_REGISTER_ADDRESS, register | coincidence);
     }
 
     fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbcPpu){
