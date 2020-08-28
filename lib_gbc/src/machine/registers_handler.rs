@@ -97,6 +97,8 @@ impl RegisterHandler{
 
         if register & 0b11 != ppu.state as u8{
             memory.ppu_state = ppu.state;
+            //clears the 2 lower bits
+            register &= 0b11111100;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
                 *if_register |= BIT_1_MASK;
