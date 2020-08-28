@@ -7,6 +7,7 @@ use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
 use super::interrupts_handler::InterruptsHandler;
+use crate::ppu::ppu_state::PpuState;
 
 
 const DMA_SIZE:u16 = 0xA0;
@@ -32,7 +33,7 @@ impl RegisterHandler{
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
-        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu);
+        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
@@ -65,8 +66,7 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
-    //detect the interupts
-    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu){
+    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu, if_register:&mut u8){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
 
@@ -77,12 +77,18 @@ impl RegisterHandler{
 
         if ly == lyc{
             register |= BIT_2_MASK;
+            *if_register |= BIT_1_MASK;
         }
 
-        register |= ppu.state as u8;
+        if register & 0b11 != ppu.state as u8{
+            memory.ppu_state = ppu.state;
+            register |= ppu.state as u8;
+            if ppu.state as u8 != PpuState::PixelTransfer as u8{
+                *if_register |= BIT_1_MASK;
+            }
+        }
 
         memory.write(STAT_REGISTER_ADDRESS, register);
-        memory.ppu_state = ppu.state;
     }
 
     fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
