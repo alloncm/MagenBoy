@@ -121,7 +121,7 @@ impl GbcPpu {
             let temp = self.current_line_drawn.unwrap();
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
-            let window_frame_buffer_line = self.get_window_frame_buffer(memory);
+            //let window_frame_buffer_line = self.get_window_frame_buffer(memory);
             //let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
             /*
             for i in 0..window_frame_buffer.len() {
@@ -138,14 +138,15 @@ impl GbcPpu {
             }
             */
             let line_index = self.current_line_drawn.unwrap() as usize * SCREEN_WIDTH;
-
             for i in line_index..line_index+SCREEN_WIDTH{
                 self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer_line[(i - line_index)]);
                 if self.window_enable{
+                    /*
                     match window_frame_buffer_line[(i - line_index)]{
                         Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
                         None=>{}
                     }
+                    */
                 }
             }
         }

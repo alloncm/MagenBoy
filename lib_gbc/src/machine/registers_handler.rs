@@ -84,7 +84,7 @@ impl RegisterHandler{
             memory.ppu_state = ppu.state;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
-                *if_register |= BIT_1_MASK;
+                //*if_register |= BIT_1_MASK;
             }
         }
 
