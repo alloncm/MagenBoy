@@ -15,13 +15,18 @@ const DMA_DEST:u16 = 0xFE00;
 const LY_INTERUPT_VALUE:u8 = 144;
 
 pub struct RegisterHandler{
-    timer_clock_interval_counter:u16
+    timer_clock_interval_counter:u16,
+    last_ly:u8,
+    coincidence_triggered:bool
+
 }
 
 impl Default for RegisterHandler{
     fn default()->Self{
         RegisterHandler{
-            timer_clock_interval_counter: 0
+            timer_clock_interval_counter: 0,
+            last_ly:0,
+            coincidence_triggered:false
         }
     }
 }
@@ -33,7 +38,7 @@ impl RegisterHandler{
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
-        Self::handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
+        self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
@@ -66,7 +71,7 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
-    fn handle_lcd_status_register(mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu, if_register:&mut u8){
+    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu, if_register:&mut u8){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
 
@@ -75,16 +80,26 @@ impl RegisterHandler{
         interrupts_handler.oam_search = register & BIT_5_MASK != 0;
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
+        if self.last_ly != ly{
+            self.coincidence_triggered = false;
+        }
+
+        self.last_ly = ly;    
+
         if ly == lyc{
             register |= BIT_2_MASK;
-            *if_register |= BIT_1_MASK;
-        }
+            if !self.coincidence_triggered{
+                *if_register |= BIT_1_MASK;
+                self.coincidence_triggered = true;
+            }
+        }    
+
 
         if register & 0b11 != ppu.state as u8{
             memory.ppu_state = ppu.state;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
-                //*if_register |= BIT_1_MASK;
+                *if_register |= BIT_1_MASK;
             }
         }
 
@@ -134,7 +149,7 @@ impl RegisterHandler{
 
         //updates ly register
         if register & BIT_7_MASK == 0{
-            memory.write(LY_REGISTER_ADDRESS,0);
+            //memory.write(LY_REGISTER_ADDRESS,0);
         }
     }
 
