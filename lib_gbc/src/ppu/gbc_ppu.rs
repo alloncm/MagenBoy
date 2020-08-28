@@ -128,6 +128,7 @@ impl GbcPpu {
         }
 
         if !self.line_rendered &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+            self.line_rendered = true;
             let temp = self.current_line_drawn;
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
