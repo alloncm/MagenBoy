@@ -117,6 +117,12 @@ impl GbcPpu {
     pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
         let last_ly = self.current_line_drawn;
         self.update_ly(cycle_counter);
+        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn);
+
+        if self.state as u8 != PpuState::PixelTransfer as u8{
+            return;
+        }
+        
         if last_ly != self.current_line_drawn &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
             let temp = self.current_line_drawn;
             //let obj_sprites = self.get_objects_sprites(memory);
@@ -151,7 +157,6 @@ impl GbcPpu {
             }
         }
 
-        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn);
     }
 
     fn get_bg_frame_buffer(&self, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
