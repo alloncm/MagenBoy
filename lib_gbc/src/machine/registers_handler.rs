@@ -109,18 +109,14 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
-        match ppu.current_line_drawn{
-            Some(value)=>{
-                if value == LY_INTERUPT_VALUE{
-                    //V-Blank interrupt
-                    *if_register |= BIT_0_MASK;
-                }
-
-                memory.write(LY_REGISTER_ADDRESS, value);
-            },
-            None=>memory.write(LY_REGISTER_ADDRESS, 0)
+        if ppu.current_line_drawn == LY_INTERUPT_VALUE{
+            //V-Blank interrupt
+            *if_register |= BIT_0_MASK;
         }
+
+        memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
     }
+    
 
     fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){
         memory.finished_boot = register == 1;

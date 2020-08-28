@@ -45,7 +45,7 @@ pub struct GbcPpu {
     pub bg_color_mapping: [Color; 4],
     pub obj_color_mapping0: [Option<Color>;4],
     pub obj_color_mapping1: [Option<Color>;4],
-    pub current_line_drawn: Option<u8>,
+    pub current_line_drawn: u8,
     pub state:PpuState
 }
 
@@ -67,7 +67,7 @@ impl Default for GbcPpu {
             bg_color_mapping: [WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
-            current_line_drawn:None,
+            current_line_drawn:0,
             state:PpuState::OamSearch
         }
     }
@@ -86,10 +86,10 @@ impl GbcPpu {
         
         let line = cycle_counter/DRAWING_CYCLE_CLOCKS as u32;
         if line>LY_MAX_VALUE as u32{
-            self.current_line_drawn = Some(LY_MAX_VALUE);
+            self.current_line_drawn = LY_MAX_VALUE;
         }
         else{
-            self.current_line_drawn = Some(line as u8);
+            self.current_line_drawn = line as u8;
         }
     }
 
@@ -117,8 +117,8 @@ impl GbcPpu {
     pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
         let last_ly = self.current_line_drawn;
         self.update_ly(cycle_counter);
-        if last_ly != self.current_line_drawn &&  (self.current_line_drawn.unwrap() as usize) < SCREEN_HEIGHT{
-            let temp = self.current_line_drawn.unwrap();
+        if last_ly != self.current_line_drawn &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+            let temp = self.current_line_drawn;
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
             //let window_frame_buffer_line = self.get_window_frame_buffer(memory);
@@ -137,7 +137,7 @@ impl GbcPpu {
                 }
             }
             */
-            let line_index = self.current_line_drawn.unwrap() as usize * SCREEN_WIDTH;
+            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
             for i in line_index..line_index+SCREEN_WIDTH{
                 self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer_line[(i - line_index)]);
                 if self.window_enable{
@@ -151,7 +151,7 @@ impl GbcPpu {
             }
         }
 
-        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn.unwrap());
+        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn);
     }
 
     fn get_bg_frame_buffer(&self, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
@@ -161,7 +161,7 @@ impl GbcPpu {
             return [color;SCREEN_WIDTH]
         }
 
-        let current_line = self.current_line_drawn.unwrap();
+        let current_line = self.current_line_drawn;
 
         let address = if self.background_tile_map_address {
             0x9C00
@@ -236,7 +236,7 @@ impl GbcPpu {
 
     
     fn get_window_frame_buffer(&self, memory: &dyn Memory,)-> [Option<Color>; SCREEN_WIDTH] {
-        let current_line = self.current_line_drawn.unwrap();
+        let current_line = self.current_line_drawn;
 
         let address = if self.window_tile_map_address {
             0x9C00
