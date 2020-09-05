@@ -49,6 +49,7 @@ pub struct GbcPpu {
     pub current_line_drawn: u8,
     pub state:PpuState,
 
+    current_cycle:u32,
     line_rendered:bool
 }
 
@@ -72,7 +73,8 @@ impl Default for GbcPpu {
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             current_line_drawn:0,
             state:PpuState::OamSearch,
-            line_rendered:false
+            line_rendered:false,
+            current_cycle:0
         }
     }
 }
@@ -86,12 +88,13 @@ impl GbcPpu {
         return &self.screen_buffer;
     }
 
-    fn update_ly(&mut self, cycle_counter:u32){
+    fn update_ly(&mut self){
         
-        let line = cycle_counter/DRAWING_CYCLE_CLOCKS as u32;
+        let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
         if line>LY_MAX_VALUE as u32{
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
+            self.current_cycle = 0;
         }
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
@@ -120,16 +123,18 @@ impl GbcPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
+    pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycles_passed:u8){
         if !self.screen_enable{
+            self.current_cycle = 0;
             self.current_line_drawn = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
-            self.state = PpuState::Vblank;
+            self.state = PpuState::Hblank;
             return;
         }
 
-        self.update_ly(cycle_counter);
-        self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn);
+        self.current_cycle += cycles_passed as u32;
+        self.update_ly();
+        self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
 
         if self.state as u8 != PpuState::PixelTransfer as u8{
             return;
