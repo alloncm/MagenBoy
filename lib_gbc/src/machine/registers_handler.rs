@@ -80,20 +80,22 @@ impl RegisterHandler{
         interrupts_handler.oam_search = register & BIT_5_MASK != 0;
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
-        if self.last_ly != ly{
+        if ly != self.last_ly{
             self.coincidence_triggered = false;
         }
 
-        self.last_ly = ly;    
+        self.last_ly = ly; 
 
         if ly == lyc{
             register |= BIT_2_MASK;
-            if !self.coincidence_triggered{
+            if interrupts_handler.coincidence_interrupt && !self.coincidence_triggered{
                 *if_register |= BIT_1_MASK;
                 self.coincidence_triggered = true;
             }
+        }
+        else{
+            register &= !BIT_2_MASK;
         }    
-
 
         if register & 0b11 != ppu.state as u8{
             memory.ppu_state = ppu.state;
@@ -101,7 +103,7 @@ impl RegisterHandler{
             register = (register >> 2)<<2;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
-                *if_register |= BIT_1_MASK;
+                //*if_register |= BIT_1_MASK;
             }
         }
 
