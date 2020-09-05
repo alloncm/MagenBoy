@@ -4,6 +4,7 @@ use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
 use crate::utils::bit_masks::BIT_4_MASK;
+use crate::utils::colors::WHITE;
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -120,6 +121,13 @@ impl GbcPpu {
     }
 
     pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycle_counter:u32){
+        if !self.screen_enable{
+            self.current_line_drawn = 0;
+            self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
+            self.state = PpuState::Vblank;
+            return;
+        }
+
         self.update_ly(cycle_counter);
         self.state = Self::get_ppu_state(cycle_counter, self.current_line_drawn);
 

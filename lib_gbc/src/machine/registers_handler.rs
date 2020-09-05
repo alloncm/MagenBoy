@@ -37,7 +37,8 @@ impl RegisterHandler{
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
-        Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
+        Self::handle_ly_register(memory, ppu, &mut interupt_flag);
+        Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
@@ -45,7 +46,6 @@ impl RegisterHandler{
         Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
         Self::handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
         Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
-        Self::handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
@@ -98,7 +98,7 @@ impl RegisterHandler{
         if register & 0b11 != ppu.state as u8{
             memory.ppu_state = ppu.state;
             //clears the 2 lower bits
-            register &= 0b11111100;
+            register = (register >> 2)<<2;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
                 *if_register |= BIT_1_MASK;
@@ -139,7 +139,7 @@ impl RegisterHandler{
         memory.finished_boot = register == 1;
     }
 
-    fn handle_lcdcontrol_register( register:u8, memory: &mut dyn Memory, ppu:&mut GbcPpu){
+    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbcPpu){
         ppu.screen_enable = (register & BIT_7_MASK) != 0;
         ppu.window_tile_map_address = (register & BIT_6_MASK) != 0;
         ppu.window_enable = (register & BIT_5_MASK) != 0;
@@ -148,11 +148,6 @@ impl RegisterHandler{
         ppu.sprite_extended = (register & BIT_2_MASK) != 0;
         ppu.sprite_enable = (register & BIT_1_MASK) != 0;
         ppu.background_enabled = (register & BIT_0_MASK) != 0;
-
-        //updates ly register
-        if register & BIT_7_MASK == 0{
-            //memory.write(LY_REGISTER_ADDRESS,0);
-        }
     }
 
     fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbcPpu){
