@@ -86,18 +86,19 @@ impl RegisterHandler{
 
         self.last_ly = ly; 
 
-        if ly == lyc{
-            register |= BIT_2_MASK;
-            if interrupts_handler.coincidence_interrupt && !self.coincidence_triggered{
-                *if_register |= BIT_1_MASK;
-                self.coincidence_triggered = true;
-            }
-        }
-        else{
-            register &= !BIT_2_MASK;
-        }    
+        
 
         if register & 0b11 != ppu.state as u8{
+            if ly == lyc{
+                register |= BIT_2_MASK;
+                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::Hblank as u8{
+                    *if_register |= BIT_1_MASK;
+                    self.coincidence_triggered = true;
+                }
+            }
+            else{
+                register &= !BIT_2_MASK;
+            }    
             memory.ppu_state = ppu.state;
             //clears the 2 lower bits
             register = (register >> 2)<<2;
