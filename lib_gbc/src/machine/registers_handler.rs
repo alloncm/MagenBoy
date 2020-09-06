@@ -108,7 +108,7 @@ impl RegisterHandler{
             }
         }
 
-        memory.write(STAT_REGISTER_ADDRESS, register);
+        memory.io_ports.write_unprotected(STAT_REGISTER_ADDRESS - 0xFF00, register);
     }
 
     fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
