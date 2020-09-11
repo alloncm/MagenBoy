@@ -91,7 +91,7 @@ impl RegisterHandler{
         if register & 0b11 != ppu.state as u8{
             if ly == lyc{
                 register |= BIT_2_MASK;
-                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::Hblank as u8{
+                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
                     *if_register |= BIT_1_MASK;
                     self.coincidence_triggered = true;
                 }
