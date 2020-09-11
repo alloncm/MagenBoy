@@ -12,21 +12,16 @@ use crate::ppu::ppu_state::PpuState;
 
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
-const LY_INTERUPT_VALUE:u8 = 144;
+const LY_INTERRUPT_VALUE:u8 = 144;
 
 pub struct RegisterHandler{
-    timer_clock_interval_counter:u16,
-    last_ly:u8,
-    coincidence_triggered:bool
-
+    timer_clock_interval_counter:u16
 }
 
 impl Default for RegisterHandler{
     fn default()->Self{
         RegisterHandler{
-            timer_clock_interval_counter: 0,
-            last_ly:0,
-            coincidence_triggered:false
+            timer_clock_interval_counter: 0
         }
     }
 }
@@ -80,30 +75,23 @@ impl RegisterHandler{
         interrupts_handler.oam_search = register & BIT_5_MASK != 0;
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
-        if ly != self.last_ly{
-            self.coincidence_triggered = false;
-        }
-
-        self.last_ly = ly; 
-
-        
-
         if register & 0b11 != ppu.state as u8{
             if ly == lyc{
                 register |= BIT_2_MASK;
                 if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
                     *if_register |= BIT_1_MASK;
-                    self.coincidence_triggered = true;
                 }
             }
             else{
                 register &= !BIT_2_MASK;
-            }    
+            }
+            
             memory.ppu_state = ppu.state;
             //clears the 2 lower bits
             register = (register >> 2)<<2;
             register |= ppu.state as u8;
             if ppu.state as u8 != PpuState::PixelTransfer as u8{
+                //fix this
                 //*if_register |= BIT_1_MASK;
             }
         }
@@ -129,7 +117,7 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
-        if ppu.current_line_drawn == LY_INTERUPT_VALUE{
+        if ppu.current_line_drawn == LY_INTERRUPT_VALUE{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
         }
