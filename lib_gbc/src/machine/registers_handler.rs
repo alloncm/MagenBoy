@@ -6,10 +6,13 @@ use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
+use super::interrupts_handler::InterruptsHandler;
+use crate::ppu::ppu_state::PpuState;
 
 
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
+const LY_INTERRUPT_VALUE:u8 = 144;
 
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16
@@ -25,22 +28,30 @@ impl Default for RegisterHandler{
 
 impl RegisterHandler{
 
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu){
-        Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), memory, ppu);
-        Self::handle_lcdstatus_register(memory.read(STAT_REGISTER_ADDRESS), memory);
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler){
+        let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
+        let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
+
+        Self::handle_ly_register(memory, ppu, &mut interupt_flag);
+        Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
+        self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
         Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
         Self::handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
         Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
-        Self::handle_ly_register(memory, ppu);
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
-        Self::handle_intreput_registers(memory.read(IE_REGISTER_ADDRESS), memory.read(IF_REGISTER_ADDRESS), cpu);
         Self::handle_divider_register(memory);
-        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory);
+        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag);
+
+        //This should be last cause it updated the interupt values
+        Self::handle_intreput_registers(interupt_enable, interupt_flag, cpu);
+
+        memory.write(IF_REGISTER_ADDRESS, interupt_flag);
+        memory.write(IE_REGISTER_ADDRESS, interupt_enable);
     }
 
     fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
@@ -55,6 +66,38 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
+    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu, if_register:&mut u8){
+        let ly = memory.read(LY_REGISTER_ADDRESS);
+        let lyc = memory.read(LYC_REGISTER_ADDRESS);
+
+        interrupts_handler.h_blank_interrupt = register & BIT_3_MASK != 0;
+        interrupts_handler.v_blank_interrupt = register & BIT_4_MASK != 0;
+        interrupts_handler.oam_search = register & BIT_5_MASK != 0;
+        interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
+
+        if register & 0b11 != ppu.state as u8{
+            if ly == lyc{
+                register |= BIT_2_MASK;
+                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
+                    *if_register |= BIT_1_MASK;
+                }
+            }
+            else{
+                register &= !BIT_2_MASK;
+            }
+            
+            memory.ppu_state = ppu.state;
+            //clears the 2 lower bits
+            register = (register >> 2)<<2;
+            register |= ppu.state as u8;
+            if ppu.state as u8 != PpuState::PixelTransfer as u8{
+                //fix this
+                //*if_register |= BIT_1_MASK;
+            }
+        }
+
+        memory.io_ports.write_unprotected(STAT_REGISTER_ADDRESS - 0xFF00, register);
+    }
 
     fn handle_obp_pallet_register(register:u8, pallet:&mut [Option<Color>;4] ){
         pallet[0] = None;
@@ -73,18 +116,21 @@ impl RegisterHandler{
         };
     }
     
-    fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu){
-        match ppu.current_line_drawn{
-            Some(value)=>memory.write(LY_REGISTER_ADDRESS, value),
-            None=>memory.write(LY_REGISTER_ADDRESS, 0)
+    fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
+        if ppu.current_line_drawn == LY_INTERRUPT_VALUE{
+            //V-Blank interrupt
+            *if_register |= BIT_0_MASK;
         }
+
+        memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
     }
+    
 
     fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){
         memory.finished_boot = register == 1;
     }
 
-    fn handle_lcdcontrol_register( register:u8, memory: &mut dyn Memory, ppu:&mut GbcPpu){
+    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbcPpu){
         ppu.screen_enable = (register & BIT_7_MASK) != 0;
         ppu.window_tile_map_address = (register & BIT_6_MASK) != 0;
         ppu.window_enable = (register & BIT_5_MASK) != 0;
@@ -93,18 +139,6 @@ impl RegisterHandler{
         ppu.sprite_extended = (register & BIT_2_MASK) != 0;
         ppu.sprite_enable = (register & BIT_1_MASK) != 0;
         ppu.background_enabled = (register & BIT_0_MASK) != 0;
-
-        //updates ly register
-        if register & BIT_7_MASK == 0{
-            memory.write(LY_REGISTER_ADDRESS,0);
-        }
-    }
-
-    fn handle_lcdstatus_register( register:u8, memory: &mut dyn Memory){
-        let mut coincidence:u8 = (memory.read(LY_REGISTER_ADDRESS) == memory.read(LYC_REGISTER_ADDRESS)) as u8;
-        //to match the 2 bit
-        coincidence <<=2;
-        memory.write(STAT_REGISTER_ADDRESS, register | coincidence);
     }
 
     fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbcPpu){
@@ -147,7 +181,7 @@ impl RegisterHandler{
         mmu.io_ports.increase_system_counter();
     }
 
-    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory){
+    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory, if_register:&mut u8){
         let (interval, enable) = Self::get_timer_controller_data(memory);
 
         if !enable{
@@ -166,8 +200,7 @@ impl RegisterHandler{
             let (mut value, overflow) = register.overflowing_add(4);
 
             if overflow{
-                let if_register = memory.read(IF_REGISTER_ADDRESS);
-                memory.write(IF_REGISTER_ADDRESS, if_register | BIT_2_MASK);
+                *if_register |= BIT_2_MASK;
                 value = memory.read(TMA_REGISTER_ADDRESS);
             }
 

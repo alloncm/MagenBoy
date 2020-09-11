@@ -1,8 +1,12 @@
+use crate::utils::memory_registers::*;
 
 const IO_PORTS_SIZE:usize = 0x80;
 
-const DIVIDER_REGISTER_INDEX:u16 = 0x04;
-const TIMER_CONTROL_REGISTER_INDEX:u16 = 0x04;
+const IO_PORTS_MEMORY_OFFSET:u16 = 0xFF00;
+
+const DIV_REGISTER_INDEX:u16 = DIV_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
+const TAC_REGISTER_INDEX:u16 = TAC_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
+const STAT_REGISTER_INDEX:u16 = STAT_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 
 pub struct IoPorts{
     system_counter:u16,
@@ -15,12 +19,14 @@ impl IoPorts{
     }
 
     pub fn write(&mut self, address:u16, mut value:u8){
-        if address == DIVIDER_REGISTER_INDEX{
-            value = 0;
-            self.system_counter = 0;
-        }
-        else if address == TIMER_CONTROL_REGISTER_INDEX{
-            value &= 0b111;
+        match address{
+            DIV_REGISTER_INDEX=>{
+                value = 0;
+                self.system_counter = 0;
+            },
+            TAC_REGISTER_INDEX=> value &= 0b111,
+            STAT_REGISTER_INDEX => value = (value >> 2) << 2,
+            _=>{}
         }
 
         self.ports[address as usize] = value;
@@ -28,7 +34,11 @@ impl IoPorts{
     
     pub fn increase_system_counter(&mut self){
         self.system_counter = self.system_counter.wrapping_add(4);
-        self.ports[DIVIDER_REGISTER_INDEX as usize] = (self.system_counter >> 8) as u8;
+        self.ports[DIV_REGISTER_INDEX as usize] = (self.system_counter >> 8) as u8;
+    }
+
+    pub fn write_unprotected(&mut self, address:u16, value:u8){
+        self.ports[address as usize] = value;
     }
 }
 
