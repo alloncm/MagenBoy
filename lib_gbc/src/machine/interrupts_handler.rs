@@ -36,25 +36,20 @@ impl InterruptsHandler{
         if cpu.mie{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLACK_INTERRUPT_ADDERESS, memory);
-                cpu.halt = false;
             }
             else if cpu.interupt_flag & BIT_1_MASK != 0 && cpu.interupt_enable & BIT_1_MASK != 0{
                 if self.v_blank_interrupt || self.oam_search || self.h_blank_interrupt || self.coincidence_interrupt{
                     Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory);
-                    cpu.halt = false;
                 }
             }
             else if cpu.interupt_flag & BIT_2_MASK != 0 && cpu.interupt_enable & BIT_2_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_2_MASK, TIMER_INTERRUPT_ADDERESS, memory);
-                cpu.halt = false;
             }
             else if cpu.interupt_flag & BIT_3_MASK != 0 && cpu.interupt_enable & BIT_3_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_3_MASK, SRIAL_INTERRUPT_ADDERESS, memory);
-                cpu.halt = false;
             }
             else if cpu.interupt_flag & BIT_4_MASK != 0 && cpu.interupt_enable & BIT_4_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS, memory);
-                cpu.halt = false;
             }
         }
         else if cpu.halt{
@@ -77,5 +72,7 @@ impl InterruptsHandler{
         push(cpu, memory, cpu.program_counter);
         //jumping to the interupt address
         cpu.program_counter = address;
+        //unhalting the CPU
+        cpu.halt = false;
     }
 }
