@@ -75,11 +75,14 @@ impl RegisterHandler{
         interrupts_handler.oam_search = register & BIT_5_MASK != 0;
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
+
         if register & 0b11 != ppu.state as u8{
+            let mut lcd_stat_interrupt:bool = false;
+
             if ly == lyc{
                 register |= BIT_2_MASK;
                 if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
-                    *if_register |= BIT_1_MASK;
+                    lcd_stat_interrupt = true;
                 }
             }
             else{
@@ -90,9 +93,28 @@ impl RegisterHandler{
             //clears the 2 lower bits
             register = (register >> 2)<<2;
             register |= ppu.state as u8;
-            if ppu.state as u8 != PpuState::PixelTransfer as u8{
-                //fix this
-                //*if_register |= BIT_1_MASK;
+
+            match ppu.state{
+                PpuState::OamSearch=>{
+                    if interrupts_handler.oam_search{
+                        lcd_stat_interrupt = true;
+                    }
+                },
+                PpuState::Hblank=>{
+                    if interrupts_handler.h_blank_interrupt{
+                        lcd_stat_interrupt = true;
+                    }
+                },
+                PpuState::Vblank=>{
+                    if interrupts_handler.v_blank_interrupt{
+                        lcd_stat_interrupt = true;
+                    }
+                },
+                _=>{}
+            }
+
+            if lcd_stat_interrupt{
+                *if_register |= BIT_1_MASK;
             }
         }
 
