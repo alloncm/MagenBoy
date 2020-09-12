@@ -5,6 +5,7 @@ use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
 use crate::utils::bit_masks::BIT_4_MASK;
 use crate::utils::colors::WHITE;
+use super::sprite::Sprite;
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -19,16 +20,7 @@ const H_BLANK_CLOCKS:u8 = 51;
 const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
 const LY_MAX_VALUE:u8 = 154;
 
-#[derive(Clone)]
-struct Sprite {
-    pixels: [u8; 64],
-}
 
-impl Sprite {
-    pub fn new() -> Sprite {
-        Sprite { pixels: [0; 64] }
-    }
-}
 
 pub struct GbcPpu {
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
