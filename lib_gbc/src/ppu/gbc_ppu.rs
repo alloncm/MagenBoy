@@ -145,7 +145,7 @@ impl GbcPpu {
             let temp = self.current_line_drawn;
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
-            //let window_frame_buffer_line = self.get_window_frame_buffer(memory);
+            let window_frame_buffer_line = self.get_window_frame_buffer(memory);
             //let obj_buffer = self.get_objects_frame_buffer(memory, &obj_sprites);
             /*
             for i in 0..window_frame_buffer.len() {
@@ -164,13 +164,10 @@ impl GbcPpu {
             let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
             for i in line_index..line_index+SCREEN_WIDTH{
                 self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer_line[(i - line_index)]);
-                if self.window_enable{
-                    /*
-                    match window_frame_buffer_line[(i - line_index)]{
-                        Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
-                        None=>{}
-                    }
-                    */
+
+                match window_frame_buffer_line[(i - line_index)]{
+                    Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
+                    None=>{}
                 }
             }
         }
@@ -196,7 +193,7 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                let sprite = self.get_bg_sprite(chr, memory);
+                let sprite = Self::get_bg_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
@@ -204,7 +201,7 @@ impl GbcPpu {
             for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                let sprite = self.get_bg_sprite(chr, memory);
+                let sprite = Self::get_bg_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
             }
         }   
@@ -220,29 +217,23 @@ impl GbcPpu {
         }
 
         let mut screen_line:[Color;SCREEN_WIDTH] = [Color::default();SCREEN_WIDTH];
-        let end = cmp::min(self.background_scroll.x as usize + SCREEN_WIDTH, 256);
-        for i in self.background_scroll.x as usize..end{
-            screen_line[(i - self.background_scroll.x as usize)] = drawn_line[i];
+        for i in 0..SCREEN_WIDTH{
+            let index:usize = (i as u8).wrapping_add(self.background_scroll.x) as usize;
+            screen_line[i] = drawn_line[index]
         }
         
         return screen_line;
     }
 
-    fn get_bg_sprite(&self, index:u8, memory:&dyn Memory)->Sprite{
-        let address = if self.window_tile_background_map_data_address {
-            0x8000
-        } else {
-            0x8800
-        };
-
+    fn get_bg_sprite(index:u8, memory:&dyn Memory, data_address:u16)->Sprite{
         let mut sprite = Sprite::new();
 
         let mut byte_number = 0;
         let start:u16 = index as u16 * 16;
         let end:u16 = start + 16;
         for j in (start .. end).step_by(2) {
-            let byte = memory.read(address + j);
-            let next = memory.read(address + j + 1);
+            let byte = memory.read(data_address + j);
+            let next = memory.read(data_address + j + 1);
             for k in 0..8 {
                 let mask = 1 << k;
                 let mut value = (byte & (mask)) >> k;
@@ -259,6 +250,10 @@ impl GbcPpu {
 
     
     fn get_window_frame_buffer(&self, memory: &dyn Memory,)-> [Option<Color>; SCREEN_WIDTH] {
+        if !self.window_enable || self.current_line_drawn < self.window_scroll.y{
+            return [Option::None; SCREEN_WIDTH];
+        }
+
         let current_line = self.current_line_drawn;
 
         let address = if self.window_tile_map_address {
@@ -271,7 +266,7 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                let sprite = self.get_bg_sprite(chr, memory);
+                let sprite = Self::get_bg_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
@@ -279,7 +274,7 @@ impl GbcPpu {
             for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                let sprite = self.get_bg_sprite(chr, memory);
+                let sprite = Self::get_bg_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
             }
         }   
@@ -295,9 +290,8 @@ impl GbcPpu {
         }
 
         let mut screen_line:[Option<Color>;SCREEN_WIDTH] = [Option::None;SCREEN_WIDTH];
-        let end = cmp::min(self.window_scroll.x as usize + SCREEN_WIDTH, 256);
-        for i in self.window_scroll.x as usize..end{
-            screen_line[(i - self.window_scroll.x as usize)] = Option::Some(drawn_line[i]);
+        for i in self.window_scroll.x as usize..SCREEN_WIDTH{
+            screen_line[(i as usize)] = Option::Some(drawn_line[i]);
         }
         
         return screen_line;

@@ -13,6 +13,7 @@ use crate::ppu::ppu_state::PpuState;
 const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
 const LY_INTERRUPT_VALUE:u8 = 144;
+const WX_OFFSET:u8 = 7;
 
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16
@@ -46,6 +47,8 @@ impl RegisterHandler{
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
         Self::handle_divider_register(memory);
         self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag);
+        Self::handle_wy_register(memory.read(WY_REGISTER_ADDRESS), ppu);
+        Self::handle_wx_register(memory.read(WX_REGISTER_ADDRESS), ppu);
 
         //This should be last cause it updated the interupt values
         Self::handle_intreput_registers(interupt_enable, interupt_flag, cpu);
@@ -227,6 +230,19 @@ impl RegisterHandler{
             }
 
             memory.write(TIMA_REGISTER_ADDRESS, value);
+        }
+    }
+
+    fn handle_wy_register(register:u8, ppu:&mut GbcPpu){
+        ppu.window_scroll.y = register;
+    }
+
+    fn handle_wx_register(register:u8, ppu:&mut GbcPpu){
+        if register < WX_OFFSET{
+            ppu.window_scroll.x = 0;
+        }
+        else{
+            ppu.window_scroll.x = register - WX_OFFSET;
         }
     }
 
