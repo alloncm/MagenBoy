@@ -134,7 +134,6 @@ impl GbcPpu {
 
         if !self.line_rendered &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
             self.line_rendered = true;
-            let temp = self.current_line_drawn;
             //let obj_sprites = self.get_objects_sprites(memory);
             let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
             let window_frame_buffer_line = self.get_window_frame_buffer(memory);
@@ -156,7 +155,7 @@ impl GbcPpu {
             let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
             for i in line_index..line_index+SCREEN_WIDTH{
                 self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer_line[(i - line_index)]);
-
+                
                 match window_frame_buffer_line[(i - line_index)]{
                     Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
                     None=>{}
@@ -242,7 +241,7 @@ impl GbcPpu {
 
     
     fn get_window_frame_buffer(&self, memory: &dyn Memory,)-> [Option<Color>; SCREEN_WIDTH] {
-        if !self.window_enable || self.current_line_drawn < self.window_scroll.y{
+        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y {
             return [Option::None; SCREEN_WIDTH];
         }
 
