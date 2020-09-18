@@ -80,7 +80,9 @@ fn main() {
 
     let mbc = initialize_mbc(program);    
 
-    let mut gameboy = GameBoy::new(mbc, bootrom, 17556);
+    //CPU frequrncy: 1,048,326 / 60 
+    let cycles_per_frame = 17556;
+    let mut gameboy = GameBoy::new(mbc, bootrom, cycles_per_frame);
     let mut alive = true;
     let scale:u32 = 4;
     while alive {
