@@ -7,3 +7,4 @@ pub mod mbc;
 pub mod mbc1;
 pub mod mbc_initializer;
 pub mod io_ports;
+pub mod video_memory;

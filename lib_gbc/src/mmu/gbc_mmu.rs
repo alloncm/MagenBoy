@@ -1,4 +1,5 @@
 use super::memory::Memory;
+use super::video_memory::VideoMemory;
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
@@ -92,6 +93,16 @@ impl Memory for GbcMmu{
             0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
+        }
+    }
+}
+
+impl VideoMemory for GbcMmu{
+    fn read(&self, address: u16)->u8{
+        return match address{
+            0x8000..=0x9FFF=>self.vram.read_current_bank(address - 0x8000),
+            0xFE00..=0xFE9F=>self.sprite_attribute_table[(address - 0xFE00) as usize],
+            _=>std::panic!("No one should read no video memory using this trait")
         }
     }
 }

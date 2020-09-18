@@ -1,4 +1,4 @@
-use crate::mmu::memory::Memory;
+use crate::mmu::video_memory::VideoMemory;
 use super::ppu_state::PpuState;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
@@ -115,7 +115,7 @@ impl GbcPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn Memory, cycles_passed:u8){
+    pub fn update_gb_screen(&mut self, memory: &dyn VideoMemory, cycles_passed:u8){
         if !self.screen_enable{
             self.current_cycle = 0;
             self.current_line_drawn = 0;
@@ -165,7 +165,7 @@ impl GbcPpu {
 
     }
 
-    fn get_bg_frame_buffer(&self, memory: &dyn Memory)-> [Color;SCREEN_WIDTH] {
+    fn get_bg_frame_buffer(&self, memory: &dyn VideoMemory)-> [Color;SCREEN_WIDTH] {
         if !self.background_enabled{
             //color in BGP 0
             let color = self.get_bg_color(0);
@@ -216,7 +216,7 @@ impl GbcPpu {
         return screen_line;
     }
 
-    fn get_bg_sprite(index:u8, memory:&dyn Memory, data_address:u16)->Sprite{
+    fn get_bg_sprite(index:u8, memory:&dyn VideoMemory, data_address:u16)->Sprite{
         let mut sprite = Sprite::new();
 
         let mut byte_number = 0;
@@ -240,7 +240,7 @@ impl GbcPpu {
     }
 
     
-    fn get_window_frame_buffer(&self, memory: &dyn Memory,)-> [Option<Color>; SCREEN_WIDTH] {
+    fn get_window_frame_buffer(&self, memory: &dyn VideoMemory)-> [Option<Color>; SCREEN_WIDTH] {
         if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y {
             return [Option::None; SCREEN_WIDTH];
         }
@@ -288,7 +288,7 @@ impl GbcPpu {
         return screen_line;
     }
 
-    fn get_objects_sprites(&self, memory: &dyn Memory) -> Vec<Sprite> {
+    fn get_objects_sprites(&self, memory: &dyn VideoMemory) -> Vec<Sprite> {
         let mut sprites: Vec<Sprite> = Vec::with_capacity(SPRITES_SIZE);
         for _ in 0..sprites.capacity() {
             sprites.push(Sprite::new());
@@ -319,7 +319,7 @@ impl GbcPpu {
         return sprites;
     }
 
-    fn get_objects_frame_buffer(&self, memory:&dyn Memory, sprites:&Vec<Sprite>)->Vec<Option<Color>>{
+    fn get_objects_frame_buffer(&self, memory:&dyn VideoMemory, sprites:&Vec<Sprite>)->Vec<Option<Color>>{
         let oam_address = 0xFE00;
 
         let mut frame_buffer: Vec<Option<Color>> = Vec::with_capacity(FRAME_BUFFER_SIZE);
