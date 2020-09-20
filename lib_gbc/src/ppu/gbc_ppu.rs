@@ -253,7 +253,7 @@ impl GbcPpu {
             0x9800
         };
         let mut line_sprites:Vec<Sprite> = Vec::with_capacity(32);
-        let index = ((current_line.wrapping_add(self.background_scroll.y)) / 8) as u16;
+        let index = ((current_line - self.window_scroll.y) / 8) as u16;
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
@@ -272,7 +272,7 @@ impl GbcPpu {
 
         let mut drawn_line:[Color; 256] = [Color::default();256];
 
-        let sprite_line = (current_line as u16 + self.window_scroll.y as u16) % 8;
+        let sprite_line = (current_line as u16 - self.window_scroll.y as u16) % 8;
         for i in 0..line_sprites.len(){
             for j in 0..8{
                 let pixel = line_sprites[i].pixels[((sprite_line * 8) + j) as usize];
@@ -282,7 +282,7 @@ impl GbcPpu {
 
         let mut screen_line:[Option<Color>;SCREEN_WIDTH] = [Option::None;SCREEN_WIDTH];
         for i in self.window_scroll.x as usize..SCREEN_WIDTH{
-            screen_line[(i as usize)] = Option::Some(drawn_line[i]);
+            screen_line[(i as usize)] = Option::Some(drawn_line[i - self.window_scroll.x as usize]);
         }
         
         return screen_line;
