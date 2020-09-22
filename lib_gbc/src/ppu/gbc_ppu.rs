@@ -40,6 +40,7 @@ pub struct GbcPpu {
     pub obj_color_mapping1: [Option<Color>;4],
     pub current_line_drawn: u8,
     pub state:PpuState,
+    pub window_line_counter:u8,
 
     current_cycle:u32,
     line_rendered:bool
@@ -66,7 +67,8 @@ impl Default for GbcPpu {
             current_line_drawn:0,
             state:PpuState::OamSearch,
             line_rendered:false,
-            current_cycle:0
+            current_cycle:0,
+            window_line_counter:0
         }
     }
 }
@@ -87,6 +89,7 @@ impl GbcPpu {
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
             self.current_cycle = 0;
+            self.window_line_counter = 0;
         }
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
@@ -240,12 +243,10 @@ impl GbcPpu {
     }
 
     
-    fn get_window_frame_buffer(&self, memory: &dyn VideoMemory)-> [Option<Color>; SCREEN_WIDTH] {
-        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y {
+    fn get_window_frame_buffer(&mut self, memory: &dyn VideoMemory)-> [Option<Color>; SCREEN_WIDTH] {
+        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || self.window_scroll.x as usize > SCREEN_WIDTH {
             return [Option::None; SCREEN_WIDTH];
         }
-
-        let current_line = self.current_line_drawn;
 
         let address = if self.window_tile_map_address {
             0x9C00
@@ -253,7 +254,7 @@ impl GbcPpu {
             0x9800
         };
         let mut line_sprites:Vec<Sprite> = Vec::with_capacity(32);
-        let index = ((current_line - self.window_scroll.y) / 8) as u16;
+        let index = ((self.window_line_counter) / 8) as u16;
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
@@ -272,7 +273,7 @@ impl GbcPpu {
 
         let mut drawn_line:[Color; 256] = [Color::default();256];
 
-        let sprite_line = (current_line as u16 - self.window_scroll.y as u16) % 8;
+        let sprite_line = ( self.window_line_counter) % 8;
         for i in 0..line_sprites.len(){
             for j in 0..8{
                 let pixel = line_sprites[i].pixels[((sprite_line * 8) + j) as usize];
@@ -284,6 +285,8 @@ impl GbcPpu {
         for i in self.window_scroll.x as usize..SCREEN_WIDTH{
             screen_line[(i as usize)] = Option::Some(drawn_line[i - self.window_scroll.x as usize]);
         }
+
+        self.window_line_counter += 1;
         
         return screen_line;
     }
