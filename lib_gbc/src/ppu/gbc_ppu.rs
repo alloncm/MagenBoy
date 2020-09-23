@@ -3,7 +3,7 @@ use super::ppu_state::PpuState;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
-use crate::utils::bit_masks::BIT_4_MASK;
+use crate::utils::bit_masks::*;
 use crate::utils::colors::WHITE;
 use super::sprite::Sprite;
 use std::cmp;
@@ -319,7 +319,14 @@ impl GbcPpu {
             let tile_number = memory.read(oam_address + i + 2);
             let attributes = memory.read(oam_address + i + 3);
 
-            let sprite = Self::get_sprite(tile_number, memory, 0x8000);
+            let mut sprite = Self::get_sprite(tile_number, memory, 0x8000);
+
+            if attributes & BIT_6_MASK != 0 {
+                sprite = Self::flip_sprite_y(sprite);
+            }
+            if attributes & BIT_5_MASK != 0{
+                sprite = Self::flip_sprite_x(sprite);
+            }
 
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
             let sprite_line = currrent_line % 8;
@@ -344,5 +351,39 @@ impl GbcPpu {
         else{
             self.obj_color_mapping0[color as usize].clone()
         };
+    }
+
+    fn flip_sprite_y(sprite:Sprite)->Sprite{
+        let mut flipped = Sprite::new();
+        for y in 0..4{
+            let upper_line = &sprite.pixels[y*8..(y+1)*8];
+            let opposite_index = 7-y;
+            let lower_line = &sprite.pixels[opposite_index*8..(opposite_index+1)*8];
+            
+            Self::copy_pixels(&mut flipped,y, lower_line);
+            Self::copy_pixels(&mut flipped,opposite_index, upper_line);
+        }
+
+        return flipped;
+    }
+
+    fn flip_sprite_x(sprite:Sprite)->Sprite{
+        let mut fliiped = Sprite::new();
+
+        for y in 0..8{
+            let line = &sprite.pixels[y*8 .. (y+1)*8];
+            for x in 0..4{
+                fliiped.pixels[y*8 + x] = line[7-x];
+                fliiped.pixels[y*8 + (7-x)] = line[x];
+            }
+        }
+
+        return fliiped;
+    }
+
+    fn copy_pixels(sprite:&mut Sprite, index:usize, pixels:&[u8]){
+        for i in 0..pixels.len(){
+            sprite.pixels[index * 8 + i] = pixels[i];
+        }
     }
 }
