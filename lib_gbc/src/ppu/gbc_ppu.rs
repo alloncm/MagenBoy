@@ -186,7 +186,7 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                let sprite = Self::get_bg_sprite(chr, memory, 0x8000);
+                let sprite = Self::get_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
@@ -194,7 +194,7 @@ impl GbcPpu {
             for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                let sprite = Self::get_bg_sprite(chr, memory, 0x8800);
+                let sprite = Self::get_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
             }
         }   
@@ -218,7 +218,7 @@ impl GbcPpu {
         return screen_line;
     }
 
-    fn get_bg_sprite(index:u8, memory:&dyn VideoMemory, data_address:u16)->Sprite{
+    fn get_sprite(index:u8, memory:&dyn VideoMemory, data_address:u16)->Sprite{
         let mut sprite = Sprite::new();
 
         let mut byte_number = 0;
@@ -257,7 +257,7 @@ impl GbcPpu {
         if self.window_tile_background_map_data_address {
             for i in 0..32 {
                 let chr: u8 = memory.read(address + (index*32) + i);
-                let sprite = Self::get_bg_sprite(chr, memory, 0x8000);
+                let sprite = Self::get_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
@@ -265,7 +265,7 @@ impl GbcPpu {
             for i in 0..32 {
                 let mut chr: u8 = memory.read(address + (index*32) + i);
                 chr = chr.wrapping_add(0x80);
-                let sprite = Self::get_bg_sprite(chr, memory, 0x8800);
+                let sprite = Self::get_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
             }
         }   
@@ -304,18 +304,22 @@ impl GbcPpu {
             let end_y = memory.read(oam_address + i);
             let end_x = memory.read(oam_address + i + 1);
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
+
+            //cheks if this sprite apears in this line
             if currrent_line > end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
                 continue;
             }
 
-            if end_y - currrent_line < 8{
+            //end_y is is the upper y value of the sprite + 16 lines and sprite is 8 lines.
+            //so checking if this sprite shouldnt be drawn
+            if end_y - currrent_line <= 8{
                 continue;
             }
 
             let tile_number = memory.read(oam_address + i + 2);
             let attributes = memory.read(oam_address + i + 3);
 
-            let sprite = Self::get_bg_sprite(tile_number, memory, 0x8000);
+            let sprite = Self::get_sprite(tile_number, memory, 0x8000);
 
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
             let sprite_line = currrent_line % 8;
