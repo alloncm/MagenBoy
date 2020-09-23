@@ -294,13 +294,20 @@ impl GbcPpu {
         if !self.sprite_enable{
             return [None;SCREEN_WIDTH];
         }
-        let oam_address = 0xFE00;
+
+        let oam_address:u16 = 0xFE00;
+        let sprites_per_line:u8 = 10;
 
         let currrent_line = self.current_line_drawn;
 
         let mut line:[Option<Color>;SCREEN_WIDTH] = [None;SCREEN_WIDTH];
+        let mut sprites_per_line_counter:u8 = 0;
 
         for i in (0..0xA0).step_by(4){
+            if sprites_per_line_counter >= sprites_per_line{
+                break;
+            }
+
             let end_y = memory.read(oam_address + i);
             let end_x = memory.read(oam_address + i + 1);
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
@@ -335,6 +342,8 @@ impl GbcPpu {
                 let color = self.get_obj_color(pixel, (attributes & BIT_4_MASK) != 0);
                 line[x as usize] = color;
             }
+
+            sprites_per_line_counter += 1;
         }
         
         return line;
