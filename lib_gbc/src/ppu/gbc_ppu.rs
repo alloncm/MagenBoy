@@ -228,10 +228,10 @@ impl GbcPpu {
         for j in (start .. end).step_by(2) {
             let byte = memory.read(data_address + j);
             let next = memory.read(data_address + j + 1);
-            for k in 0..8 {
+            for k in (0..=7).rev() {
                 let mask = 1 << k;
-                let mut value = (byte & (mask)) >> k;
-                value |= (next & (mask) >> k) << 1;
+                let mut value = (byte & mask) >> k;
+                value |= (((next & mask) >> k) << 1);
                 let swaped = 7 - k;
                 sprite.pixels[(byte_number * 8 + swaped) as usize] = value;
             }
