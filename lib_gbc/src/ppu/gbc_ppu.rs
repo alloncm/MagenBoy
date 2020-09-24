@@ -38,8 +38,8 @@ pub struct GbcPpu {
     pub obj_color_mapping1: [Option<Color>;4],
     pub current_line_drawn: u8,
     pub state:PpuState,
-    pub window_line_counter:u8,
 
+    window_line_counter:u8,
     current_cycle:u32,
     line_rendered:bool
 }

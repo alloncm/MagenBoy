@@ -126,12 +126,14 @@ impl GbcMmu{
 
     fn is_oam_ready_for_io(&self)->bool{
         return true;
-        let ppu_state = self.ppu_state as u8;
-        return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
+        //TODO: uncomment when cycle accureate
+        //let ppu_state = self.ppu_state as u8;
+        //return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
     }
 
     fn is_vram_ready_for_io(&self)->bool{
         return true;
-        return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
+        //TODO: uncomment when cycle accureate
+        //return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
     }
 }
