@@ -1,4 +1,6 @@
 pub mod gbc_ppu;
 pub mod ppu_state;
-mod sprite;
+mod normal_sprite;
 mod sprite_attribute;
+mod extended_sprite;
+mod sprite;
