@@ -282,7 +282,7 @@ impl GbcPpu {
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
 
              //cheks if this sprite apears in this line
-             if currrent_line > end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
+             if currrent_line >= end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
                 continue;
             }
 
@@ -310,8 +310,6 @@ impl GbcPpu {
         for oam in &oams{
             let mut sprite = Self::get_sprite(oam.tile_number, memory, 0x8000, self.sprite_extended);
 
-            let sprite_size:u8 = if self.sprite_extended {16} else {8};
-
             if oam.flip_y {
                 sprite.flip_y();
             }
@@ -322,7 +320,8 @@ impl GbcPpu {
             let end_x = oam.x;
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
 
-            let sprite_line = currrent_line % sprite_size;
+            let start_y = cmp::max(0, (oam.y as i16) - 16) as u8;
+            let sprite_line = currrent_line - start_y;
 
             for x in start_x..end_x{
                 let pixel = sprite.get_pixel(sprite_line * 8 + (x - start_x));
@@ -337,7 +336,6 @@ impl GbcPpu {
                     None=>{}
                 }
             }
-
         }
     }
 

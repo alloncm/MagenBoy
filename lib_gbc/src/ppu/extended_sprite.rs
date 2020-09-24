@@ -47,7 +47,7 @@ impl Sprite for ExtendedSprite{
 
     fn flip_y(&mut self){
         let mut flipped = ExtendedSprite::new();
-        for y in 0..4{
+        for y in 0..8{
             let upper_line = &self.pixels[y*8..(y+1)*8];
             let opposite_index = 15-y;
             let lower_line = &self.pixels[opposite_index*8..(opposite_index+1)*8];
