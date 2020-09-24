@@ -1,6 +1,6 @@
 # MagenBoy
 
-GameBoy Color emulator im making with rust
+GameBoy Color emulator im making with rust (currently just a GameBoy emualator)
 
 ## Development Status
 
