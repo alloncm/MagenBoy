@@ -3,9 +3,9 @@ use super::ppu_state::PpuState;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
 use crate::utils::vec2::Vec2;
-use crate::utils::bit_masks::*;
 use crate::utils::colors::WHITE;
 use super::sprite::Sprite;
+use super::sprite_attribute::SpriteAttribute;
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -277,23 +277,23 @@ impl GbcPpu {
         }
 
         let oam_address:u16 = 0xFE00;
-        let sprites_per_line:u8 = 10;
+        let sprites_per_line:usize = 10;
 
         let currrent_line = self.current_line_drawn;
 
-        let mut sprites_per_line_counter:u8 = 0;
+        let mut oams = Vec::with_capacity(sprites_per_line as usize);
 
         for i in (0..0xA0).step_by(4){
-            if sprites_per_line_counter >= sprites_per_line{
+            if oams.len() >= sprites_per_line{
                 break;
             }
-
+            
             let end_y = memory.read(oam_address + i);
             let end_x = memory.read(oam_address + i + 1);
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
 
-            //cheks if this sprite apears in this line
-            if currrent_line > end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
+             //cheks if this sprite apears in this line
+             if currrent_line > end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
                 continue;
             }
 
@@ -302,29 +302,41 @@ impl GbcPpu {
             if end_y - currrent_line <= 8{
                 continue;
             }
-
+            
             let tile_number = memory.read(oam_address + i + 2);
             let attributes = memory.read(oam_address + i + 3);
 
-            let mut sprite = Self::get_sprite(tile_number, memory, 0x8000);
+            oams.push(SpriteAttribute::new(end_y, end_x, tile_number, attributes));
+        }
 
-            if attributes & BIT_6_MASK != 0 {
+        //sprites that occurs first in the oam memory draws first so im reversing it so the first ones will be last and will 
+        //draw onto the last ones.
+        oams.reverse();
+        //ordering this from the less priority to the higher where the smaller x the priority higher.
+        oams.sort_by(|a, b| b.x.cmp(&a.x));
+
+        for oam in &oams{
+            let mut sprite = Self::get_sprite(oam.tile_number, memory, 0x8000);
+
+            if oam.flip_y {
                 sprite = Self::flip_sprite_y(sprite);
             }
-            if attributes & BIT_5_MASK != 0{
+            if oam.flip_x{
                 sprite = Self::flip_sprite_x(sprite);
-            }
+            }   
 
+            let end_x = oam.x;
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
             let sprite_line = currrent_line % 8;
+
             for x in start_x..end_x{
                 let pixel = sprite.pixels[(sprite_line * 8 + (x - start_x)) as usize];
-                let color = self.get_obj_color(pixel, (attributes & BIT_4_MASK) != 0);
-                let transprency:bool = attributes & BIT_7_MASK != 0;
+                let color = self.get_obj_color(pixel, oam.palette_number);
+                let bg_priority:bool = oam.is_bg_priority;
                 
                 match color{
                     Some(c)=>{
-                        if !(transprency && self.bg_color_mapping[0] != line[x as usize]){
+                        if !(bg_priority && self.bg_color_mapping[0] != line[x as usize]){
                             line[x as usize] = c
                         }
                     },
@@ -332,7 +344,6 @@ impl GbcPpu {
                 }
             }
 
-            sprites_per_line_counter += 1;
         }
     }
 
