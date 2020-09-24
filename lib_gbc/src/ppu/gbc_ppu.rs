@@ -137,31 +137,15 @@ impl GbcPpu {
 
         if !self.line_rendered &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
             self.line_rendered = true;
-            //let obj_sprites = self.get_objects_sprites(memory);
-            let bg_frame_buffer_line = self.get_bg_frame_buffer(memory);
-            let window_frame_buffer_line = self.get_window_frame_buffer(memory);
-            let obj_buffer = self.get_objects_frame_buffer(memory);
-            /*
-            for i in 0..obj_buffer.len() {
-                match &obj_buffer[i] {
-                    Some(color) => buffer[i] = Self::color_as_uint(color),
-                    _ => {}
-                }
-            }
-            */
-            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
-            for i in line_index..line_index+SCREEN_WIDTH{
-                self.screen_buffer[i] = Self::color_as_uint(&bg_frame_buffer_line[(i - line_index)]);
-                
-                match window_frame_buffer_line[(i - line_index)]{
-                    Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
-                    None=>{}
-                }
 
-                match obj_buffer[i -line_index]{
-                    Some(val)=>self.screen_buffer[i] = Self::color_as_uint(&val),
-                    None=>{}
-                }
+            let mut frame_buffer_line = self.get_bg_frame_buffer(memory);
+            self.draw_window_frame_buffer(memory, &mut frame_buffer_line);
+            self.draw_objects_frame_buffer(memory, &mut frame_buffer_line);
+
+            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
+            
+            for i in line_index..line_index+SCREEN_WIDTH{
+                self.screen_buffer[i] = Self::color_as_uint(&frame_buffer_line[(i - line_index)]);
             }
         }
 
@@ -242,9 +226,9 @@ impl GbcPpu {
     }
 
     
-    fn get_window_frame_buffer(&mut self, memory: &dyn VideoMemory)-> [Option<Color>; SCREEN_WIDTH] {
+    fn draw_window_frame_buffer(&mut self, memory: &dyn VideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
         if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || self.window_scroll.x as usize > SCREEN_WIDTH {
-            return [Option::None; SCREEN_WIDTH];
+            return;
         }
 
         let address = if self.window_tile_map_address {
@@ -280,19 +264,16 @@ impl GbcPpu {
             }
         }
 
-        let mut screen_line:[Option<Color>;SCREEN_WIDTH] = [Option::None;SCREEN_WIDTH];
         for i in self.window_scroll.x as usize..SCREEN_WIDTH{
-            screen_line[(i as usize)] = Option::Some(drawn_line[i - self.window_scroll.x as usize]);
+            line[(i as usize)] = drawn_line[i - self.window_scroll.x as usize];
         }
 
         self.window_line_counter += 1;
-        
-        return screen_line;
     }
 
-    fn get_objects_frame_buffer(&self, memory:&dyn VideoMemory)->[Option<Color>;SCREEN_WIDTH]{
+    fn draw_objects_frame_buffer(&self, memory:&dyn VideoMemory, line:&mut [Color;SCREEN_WIDTH]){
         if !self.sprite_enable{
-            return [None;SCREEN_WIDTH];
+            return;
         }
 
         let oam_address:u16 = 0xFE00;
@@ -300,7 +281,6 @@ impl GbcPpu {
 
         let currrent_line = self.current_line_drawn;
 
-        let mut line:[Option<Color>;SCREEN_WIDTH] = [None;SCREEN_WIDTH];
         let mut sprites_per_line_counter:u8 = 0;
 
         for i in (0..0xA0).step_by(4){
@@ -340,13 +320,20 @@ impl GbcPpu {
             for x in start_x..end_x{
                 let pixel = sprite.pixels[(sprite_line * 8 + (x - start_x)) as usize];
                 let color = self.get_obj_color(pixel, (attributes & BIT_4_MASK) != 0);
-                line[x as usize] = color;
+                let transprency:bool = attributes & BIT_7_MASK != 0;
+                
+                match color{
+                    Some(c)=>{
+                        if !(transprency && self.bg_color_mapping[0] != line[x as usize]){
+                            line[x as usize] = c
+                        }
+                    },
+                    None=>{}
+                }
             }
 
             sprites_per_line_counter += 1;
         }
-        
-        return line;
     }
 
     fn get_bg_color(&self, color: u8) -> Color {
