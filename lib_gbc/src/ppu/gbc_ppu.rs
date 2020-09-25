@@ -1,4 +1,4 @@
-use crate::mmu::video_memory::VideoMemory;
+use crate::mmu::video_memory::ReadOnlyVideoMemory;
 use super::ppu_state::PpuState;
 use crate::utils::color::Color;
 use crate::utils::colors::*;
@@ -121,7 +121,7 @@ impl GbcPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn VideoMemory, cycles_passed:u8){
+    pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u8){
         if !self.screen_enable{
             self.current_cycle = 0;
             self.current_line_drawn = 0;
@@ -154,7 +154,7 @@ impl GbcPpu {
 
     }
 
-    fn get_bg_frame_buffer(&self, memory: &dyn VideoMemory)-> [Color;SCREEN_WIDTH] {
+    fn get_bg_frame_buffer(&self, memory: &dyn ReadOnlyVideoMemory)-> [Color;SCREEN_WIDTH] {
         if !self.background_enabled{
             //color in BGP 0
             let color = self.get_bg_color(0);
@@ -205,7 +205,7 @@ impl GbcPpu {
         return screen_line;
     }
 
-    fn get_normal_sprite(index:u8, memory:&dyn VideoMemory, data_address:u16)->NormalSprite{
+    fn get_normal_sprite(index:u8, memory:&dyn ReadOnlyVideoMemory, data_address:u16)->NormalSprite{
         let mut sprite = NormalSprite::new();
 
         let mut line_number = 0;
@@ -220,7 +220,7 @@ impl GbcPpu {
     }
 
     
-    fn draw_window_frame_buffer(&mut self, memory: &dyn VideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
+    fn draw_window_frame_buffer(&mut self, memory: &dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
         if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || self.window_scroll.x as usize > SCREEN_WIDTH {
             return;
         }
@@ -265,7 +265,7 @@ impl GbcPpu {
         self.window_line_counter += 1;
     }
 
-    fn draw_objects_frame_buffer(&self, memory:&dyn VideoMemory, line:&mut [Color;SCREEN_WIDTH]){
+    fn draw_objects_frame_buffer(&self, memory:&dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]){
         if !self.sprite_enable{
             return;
         }
@@ -349,7 +349,7 @@ impl GbcPpu {
         };
     }
     
-    fn get_sprite(mut index:u8, memory:&dyn VideoMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
+    fn get_sprite(mut index:u8, memory:&dyn ReadOnlyVideoMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
         let mut sprite:Box<dyn Sprite>;
         if extended{
             //ignore bit 0
@@ -373,7 +373,7 @@ impl GbcPpu {
         return sprite;
     }
 
-    fn get_line(memory:&dyn VideoMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
+    fn get_line(memory:&dyn ReadOnlyVideoMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
         let byte = memory.read(address);
         let next = memory.read(address + 1);
         for k in (0..=7).rev() {

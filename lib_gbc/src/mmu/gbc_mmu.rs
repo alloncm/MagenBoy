@@ -1,5 +1,5 @@
 use super::memory::Memory;
-use super::video_memory::VideoMemory;
+use super::video_memory::ReadOnlyVideoMemory;
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
@@ -97,7 +97,7 @@ impl Memory for GbcMmu{
     }
 }
 
-impl VideoMemory for GbcMmu{
+impl ReadOnlyVideoMemory for GbcMmu{
     fn read(&self, address: u16)->u8{
         return match address{
             0x8000..=0x9FFF=>self.vram.read_current_bank(address - 0x8000),
