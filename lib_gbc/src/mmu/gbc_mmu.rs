@@ -1,4 +1,5 @@
 use super::memory::Memory;
+use super::video_memory::ReadOnlyVideoMemory;
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
@@ -96,6 +97,16 @@ impl Memory for GbcMmu{
     }
 }
 
+impl ReadOnlyVideoMemory for GbcMmu{
+    fn read(&self, address: u16)->u8{
+        return match address{
+            0x8000..=0x9FFF=>self.vram.read_current_bank(address - 0x8000),
+            0xFE00..=0xFE9F=>self.sprite_attribute_table[(address - 0xFE00) as usize],
+            _=>std::panic!("No one should read no video memory using this trait")
+        }
+    }
+}
+
 impl GbcMmu{
     pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
         GbcMmu{
@@ -114,11 +125,15 @@ impl GbcMmu{
     }
 
     fn is_oam_ready_for_io(&self)->bool{
-        let ppu_state = self.ppu_state as u8;
-        return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
+        return true;
+        //TODO: uncomment when cycle accureate
+        //let ppu_state = self.ppu_state as u8;
+        //return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
     }
 
     fn is_vram_ready_for_io(&self)->bool{
-        return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
+        return true;
+        //TODO: uncomment when cycle accureate
+        //return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
     }
 }

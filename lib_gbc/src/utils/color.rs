@@ -25,3 +25,11 @@ impl Clone for Color{
 }
 
 impl Copy for Color{}
+
+impl PartialEq for Color{
+    fn eq(&self,color:&Color)->bool{
+        self.b == color.b && 
+        self.g == color.g && 
+        self.r == color.r
+    }
+}

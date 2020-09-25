@@ -41,7 +41,7 @@ impl GameBoy{
     }
 
     pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
-        for i in 0..self.cycles_per_frame{
+        for _ in 0..self.cycles_per_frame{
             if !self.cpu.halt{
                 self.execute_opcode();
             }
