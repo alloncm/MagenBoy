@@ -4,7 +4,7 @@ use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
 use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
-use super::mbc::Mbc;
+use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
 

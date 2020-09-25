@@ -1,6 +1,6 @@
-use super::mbc1::Mbc1;
-use super::mbc::Mbc;
-use super::rom::Rom;
+use super::carts::mbc1::Mbc1;
+use super::carts::mbc::Mbc;
+use super::carts::rom::Rom;
 use std::boxed::Box;
 
 const CARTRIDGE_TYPE_ADDRESS:usize = 0x147;

@@ -7,7 +7,7 @@ use crate::mmu::gbc_mmu::{
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::RegisterHandler;
-use crate::mmu::mbc::Mbc;
+use crate::mmu::carts::mbc::Mbc;
 use crate::ppu::gbc_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
