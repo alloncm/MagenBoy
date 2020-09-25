@@ -16,13 +16,15 @@ const LY_INTERRUPT_VALUE:u8 = 144;
 const WX_OFFSET:u8 = 7;
 
 pub struct RegisterHandler{
-    timer_clock_interval_counter:u16
+    timer_clock_interval_counter:u16,
+    v_blank_triggered:bool
 }
 
 impl Default for RegisterHandler{
     fn default()->Self{
         RegisterHandler{
-            timer_clock_interval_counter: 0
+            timer_clock_interval_counter: 0,
+            v_blank_triggered:false
         }
     }
 }
@@ -33,7 +35,7 @@ impl RegisterHandler{
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
-        Self::handle_ly_register(memory, ppu, &mut interupt_flag);
+        self.handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
         Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
@@ -141,10 +143,14 @@ impl RegisterHandler{
         };
     }
     
-    fn handle_ly_register(memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
-        if ppu.current_line_drawn == LY_INTERRUPT_VALUE{
+    fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
+        if ppu.current_line_drawn == LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
+            self.v_blank_triggered = true;
+        }
+        else if ppu.state as u8 != PpuState::Vblank as u8{
+            self.v_blank_triggered = false;
         }
 
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
