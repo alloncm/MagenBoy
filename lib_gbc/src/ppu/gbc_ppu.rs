@@ -47,6 +47,7 @@ pub struct GbcPpu {
     pub current_line_drawn: u8,
     pub state:PpuState,
 
+    window_active:bool,
     window_line_counter:u8,
     current_cycle:u32,
     line_rendered:bool
@@ -74,7 +75,8 @@ impl Default for GbcPpu {
             state:PpuState::OamSearch,
             line_rendered:false,
             current_cycle:0,
-            window_line_counter:0
+            window_line_counter:0,
+            window_active:false
         }
     }
 }
@@ -96,6 +98,7 @@ impl GbcPpu {
             self.line_rendered = true;
             self.current_cycle = 0;
             self.window_line_counter = 0;
+            self.window_enable = false;
         }
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
@@ -224,7 +227,16 @@ impl GbcPpu {
 
     
     fn draw_window_frame_buffer(&mut self, memory: &dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
-        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || self.window_scroll.x as usize > SCREEN_WIDTH {
+        if !self.window_active{
+            self.window_active = self.current_line_drawn == self.window_scroll.y;
+        }
+
+        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || !self.window_active{
+             self.window_active = false;
+            return;
+        }
+        else if self.window_scroll.x as usize > SCREEN_WIDTH {
+            
             return;
         }
 
