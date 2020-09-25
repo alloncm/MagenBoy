@@ -18,6 +18,9 @@ const PIXEL_TRANSFER_CLOCKS:u8 = 43;
 const H_BLANK_CLOCKS:u8 = 51;
 const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
 const LY_MAX_VALUE:u8 = 154;
+const OAM_ADDRESS:u16 = 0xFE00;
+const OAM_SIZE:u16 = 0xA0;
+const OBJ_PER_LINE:usize = 10;
 
 
 pub struct GbcPpu {
@@ -265,20 +268,17 @@ impl GbcPpu {
             return;
         }
 
-        let oam_address:u16 = 0xFE00;
-        let sprites_per_line:usize = 10;
-
         let currrent_line = self.current_line_drawn;
 
-        let mut oams = Vec::with_capacity(sprites_per_line as usize);
+        let mut obj_attributes = Vec::with_capacity(OBJ_PER_LINE as usize);
 
-        for i in (0..0xA0).step_by(4){
-            if oams.len() >= sprites_per_line{
+        for i in (0..OAM_SIZE).step_by(4){
+            if obj_attributes.len() >= OBJ_PER_LINE{
                 break;
             }
             
-            let end_y = memory.read(oam_address + i);
-            let end_x = memory.read(oam_address + i + 1);
+            let end_y = memory.read(OAM_ADDRESS + i);
+            let end_x = memory.read(OAM_ADDRESS + i + 1);
             let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
 
              //cheks if this sprite apears in this line
@@ -295,45 +295,42 @@ impl GbcPpu {
                 }
             }
             
-            let tile_number = memory.read(oam_address + i + 2);
-            let attributes = memory.read(oam_address + i + 3);
+            let tile_number = memory.read(OAM_ADDRESS + i + 2);
+            let attributes = memory.read(OAM_ADDRESS + i + 3);
 
-            oams.push(SpriteAttribute::new(end_y, end_x, tile_number, attributes));
+            obj_attributes.push(SpriteAttribute::new(end_y, end_x, tile_number, attributes));
         }
 
         //sprites that occurs first in the oam memory draws first so im reversing it so the first ones will be last and will 
         //draw onto the last ones.
-        oams.reverse();
+        obj_attributes.reverse();
         //ordering this from the less priority to the higher where the smaller x the priority higher.
-        oams.sort_by(|a, b| b.x.cmp(&a.x));
+        obj_attributes.sort_by(|a, b| b.x.cmp(&a.x));
 
-        for oam in &oams{
-            let mut sprite = Self::get_sprite(oam.tile_number, memory, 0x8000, self.sprite_extended);
+        for obj_attribute in &obj_attributes{
+            let mut sprite = Self::get_sprite(obj_attribute.tile_number, memory, 0x8000, self.sprite_extended);
 
-            if oam.flip_y {
+            if obj_attribute.flip_y {
                 sprite.flip_y();
             }
-            if oam.flip_x{
+            if obj_attribute.flip_x{
                 sprite.flip_x();
             }   
 
-            let end_x = oam.x;
+            let end_x = obj_attribute.x;
             let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
 
-            let start_y = cmp::max(0, (oam.y as i16) - 16) as u8;
+            let start_y = cmp::max(0, (obj_attribute.y as i16) - 16) as u8;
             let sprite_line = currrent_line - start_y;
 
             for x in start_x..end_x{
                 let pixel = sprite.get_pixel(sprite_line * 8 + (x - start_x));
-                let color = self.get_obj_color(pixel, oam.palette_number);
+                let color = self.get_obj_color(pixel, obj_attribute.palette_number);
                 
-                match color{
-                    Some(c)=>{
-                        if !(oam.is_bg_priority && self.bg_color_mapping[0] != line[x as usize]){
-                            line[x as usize] = c
-                        }
-                    },
-                    None=>{}
+                if let Some(c) = color{
+                    if !(obj_attribute.is_bg_priority && self.bg_color_mapping[0] != line[x as usize]){
+                        line[x as usize] = c
+                    }
                 }
             }
         }
