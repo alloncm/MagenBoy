@@ -21,6 +21,8 @@ const LY_MAX_VALUE:u8 = 154;
 const OAM_ADDRESS:u16 = 0xFE00;
 const OAM_SIZE:u16 = 0xA0;
 const OBJ_PER_LINE:usize = 10;
+const SPRITE_WIDTH:u8 = 8;
+const SPRITE_MAX_HEIGHT:u8 = 16;
 
 
 pub struct GbcPpu {
@@ -316,9 +318,9 @@ impl GbcPpu {
             }   
 
             let end_x = obj_attribute.x;
-            let start_x = cmp::max(0, (end_x as i16) - 8) as u8;
+            let start_x = cmp::max(0, (end_x as i16) - SPRITE_WIDTH as i16) as u8;
 
-            let start_y = cmp::max(0, (obj_attribute.y as i16) - 16) as u8;
+            let start_y = cmp::max(0, (obj_attribute.y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;
             let sprite_line = currrent_line - start_y;
 
             for x in start_x..end_x{
