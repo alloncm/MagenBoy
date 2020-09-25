@@ -198,10 +198,9 @@ impl RegisterHandler{
 
     fn handle_dma_transfer_register(register:u8, mmu:&mut GbcMmu){
         if mmu.dma_trasfer_trigger{
-            let mut source:u16 = (register as u16) << 8;
+            let source:u16 = (register as u16) << 8;
             for i in 0..DMA_SIZE{
-                source+=1;
-                mmu.write(DMA_DEST+i, mmu.read(source));
+                mmu.write(DMA_DEST+i, mmu.read(source + i));
             }
 
             mmu.dma_trasfer_trigger = false;
