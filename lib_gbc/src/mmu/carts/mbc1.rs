@@ -2,10 +2,10 @@ use std::vec::Vec;
 use super::mbc::{
     Mbc,
     ROM_BANK_SIZE,
-    RAM_BANK_SIZE
+    RAM_BANK_SIZE, 
+    MBC_RAM_SIZE_LOCATION
 };
 
-const MBC1_RAM_SIZE_LOCATION:usize = 0x149;
 
 pub struct Mbc1{
     program:Vec<u8>,
@@ -89,7 +89,7 @@ impl Mbc1{
     }
 
     fn init(&mut self){
-        let ram_index = self.program[MBC1_RAM_SIZE_LOCATION];
+        let ram_index = self.program[MBC_RAM_SIZE_LOCATION];
         let ram_size = match ram_index{
             0=>0,
             1=>0x800,

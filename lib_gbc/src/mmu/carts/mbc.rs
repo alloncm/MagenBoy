@@ -1,6 +1,7 @@
 
 pub const ROM_BANK_SIZE:u16 = 0x4000;
 pub const RAM_BANK_SIZE:u16 = 0x2000;
+pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 
 pub trait Mbc{
     fn read_bank0(&self, address:u16)->u8;
