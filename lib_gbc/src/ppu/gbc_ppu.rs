@@ -227,16 +227,19 @@ impl GbcPpu {
 
     
     fn draw_window_frame_buffer(&mut self, memory: &dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
-        if !self.window_active{
-            self.window_active = self.current_line_drawn == self.window_scroll.y;
-        }
-
-        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y || !self.window_active{
-             self.window_active = false;
+        if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y{ 
             return;
         }
-        else if self.window_scroll.x as usize > SCREEN_WIDTH {
-            
+
+        if self.current_line_drawn == self.window_scroll.y{
+            self.window_active = true;
+        }
+        
+        if !self.window_active {
+            return;
+        }
+
+        if self.window_scroll.x as usize > SCREEN_WIDTH {    
             return;
         }
 
