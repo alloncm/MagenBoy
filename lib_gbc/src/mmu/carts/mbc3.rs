@@ -20,9 +20,9 @@ impl Mbc for Mbc3{
 
     fn read_current_bank(&self, address: u16)->u8{
         let current_bank = self.get_current_rom_bank() as u16;
-        let internal_address:u16 = (RAM_BANK_SIZE * current_bank) + address;
+        let internal_address:usize = (ROM_BANK_SIZE as usize* current_bank as usize) + address as usize;
 
-        self.program[internal_address as usize]
+        self.program[internal_address]
     }
 
     fn write_rom(&mut self, address: u16, value: u8){
@@ -42,8 +42,8 @@ impl Mbc for Mbc3{
         
         return match self.ram_rtc_select{
             0..=3=>{
-                let internal_address:u16 = self.ram_rtc_select as u16 * RAM_BANK_SIZE +  address;
-                return self.ram[internal_address as usize];
+                let internal_address = self.ram_rtc_select as usize * RAM_BANK_SIZE as usize +  address as usize;
+                return self.ram[internal_address];
             },
             0x8..=0xC=>self.rtc_registers[self.ram_rtc_select as usize],
             _=>EXTERNAL_RAM_READ_ERROR_VALUE
@@ -54,8 +54,8 @@ impl Mbc for Mbc3{
         if self.ram_timer_enable == RAM_TIMER_ENABLE_VALUE{
             match self.ram_rtc_select{
                 0..=3=>{
-                    let internal_address:u16 = self.ram_rtc_select as u16 * RAM_BANK_SIZE +  address;
-                    self.ram[internal_address as usize] = value;
+                    let internal_address = self.ram_rtc_select as usize * RAM_BANK_SIZE as usize +  address as usize;
+                    self.ram[internal_address] = value;
                 },
                 0x8..=0xC=>self.rtc_registers[self.ram_rtc_select as usize] = value,
                 _=>{}
