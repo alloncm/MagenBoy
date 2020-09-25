@@ -147,6 +147,7 @@ impl RegisterHandler{
         if ppu.current_line_drawn == LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
+            self.v_blank_triggered = true;
         }
         else if ppu.state as u8 != PpuState::Vblank as u8{
             self.v_blank_triggered = false;
