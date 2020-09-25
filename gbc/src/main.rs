@@ -51,17 +51,22 @@ fn init_logger()->Result<(), fern::InitError>{
 
 
 fn main() {
-    
-    //match init_logger(){
-    //    Result::Ok(())=>{},
-    //    Result::Err(error)=>std::panic!("error initing logger: {}", error)
-    //}
+
+    let args: Vec<String> = env::args().collect();    
+
+    if args.len() >= 3{
+        if args[2].eq(&String::from("--verbose")){
+            match init_logger(){
+                Result::Ok(())=>{},
+                Result::Err(error)=>std::panic!("error initing logger: {}", error)
+            }
+        }
+    }
     
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("GbcEmul", 800, 600,0);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
-    let args: Vec<String> = env::args().collect();
     let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
         Result::Ok(val)=>val,
         Result::Err(why)=>panic!("could not read boot rom {}",why)
