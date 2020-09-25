@@ -5,8 +5,9 @@ GameBoy Color emulator im making with rust (currently just a GameBoy emualator)
 ## Development Status
 
 ### GameBoy
-- Blargg's cpu_instrs tests (https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
-- PPU passing dmg-acid2 (https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
+- Blargg's cpu_instrs (https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
+- dmg-acid2 (https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
+- TurtleTests (https://github.com/Powerlated/TurtleTests) - :thumbsup:
 - Cycle accurate emulation - :x:
 
 ### GameBoyColor - :x:
