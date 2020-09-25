@@ -289,10 +289,8 @@ impl GbcPpu {
             //end_y is is the upper y value of the sprite + 16 lines and normal sprite is 8  lines.
             //so checking if this sprite shouldnt be drawn
             //on extended sprite end_y should be within all the values of current line
-            if !self.sprite_extended{
-                if end_y - currrent_line <= 8{
-                    continue;
-                }
+            if !self.sprite_extended && end_y - currrent_line <= 8{
+                continue;
             }
             
             let tile_number = memory.read(OAM_ADDRESS + i + 2);
