@@ -22,7 +22,10 @@ const OAM_ADDRESS:u16 = 0xFE00;
 const OAM_SIZE:u16 = 0xA0;
 const OBJ_PER_LINE:usize = 10;
 const SPRITE_WIDTH:u8 = 8;
+const NORMAL_SPRITE_HIEGHT:u8 = 8;
 const SPRITE_MAX_HEIGHT:u8 = 16;
+const BG_SPRITES_PER_LINE:u16 = 32;
+const SPRITE_SIZE_IN_MEMORY:u16 = 16;
 
 
 pub struct GbcPpu {
@@ -168,18 +171,18 @@ impl GbcPpu {
         } else {
             0x9800
         };
-        let mut line_sprites:Vec<NormalSprite> = Vec::with_capacity(32);
-        let index = ((current_line.wrapping_add(self.background_scroll.y)) / 8) as u16;
+        let mut line_sprites:Vec<NormalSprite> = Vec::with_capacity(BG_SPRITES_PER_LINE as usize);
+        let index = ((current_line.wrapping_add(self.background_scroll.y)) / NORMAL_SPRITE_HIEGHT) as u16;
         if self.window_tile_background_map_data_address {
-            for i in 0..32 {
-                let chr: u8 = memory.read(address + (index*32) + i);
+            for i in 0..BG_SPRITES_PER_LINE {
+                let chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
         else {
-            for i in 0..32 {
-                let mut chr: u8 = memory.read(address + (index*32) + i);
+            for i in 0..BG_SPRITES_PER_LINE {
+                let mut chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
@@ -190,9 +193,9 @@ impl GbcPpu {
 
         let sprite_line = (current_line as u16 + self.background_scroll.y as u16) % 8;
         for i in 0..line_sprites.len(){
-            for j in 0..8{
-                let pixel = line_sprites[i].pixels[((sprite_line * 8) + j) as usize];
-                drawn_line[(i * 8) + j as usize] = self.get_bg_color(pixel);
+            for j in 0..SPRITE_WIDTH{
+                let pixel = line_sprites[i].pixels[((sprite_line as u8 * SPRITE_WIDTH) + j) as usize];
+                drawn_line[(i * SPRITE_WIDTH as usize) + j as usize] = self.get_bg_color(pixel);
             }
         }
 
@@ -209,8 +212,8 @@ impl GbcPpu {
         let mut sprite = NormalSprite::new();
 
         let mut line_number = 0;
-        let start:u16 = index as u16 * 16;
-        let end:u16 = start + 16;
+        let start:u16 = index as u16 * SPRITE_SIZE_IN_MEMORY;
+        let end:u16 = start + SPRITE_SIZE_IN_MEMORY;
         for j in (start .. end).step_by(2) {
             Self::get_line(memory, &mut sprite, data_address + j, line_number);
             line_number += 1;
@@ -230,18 +233,18 @@ impl GbcPpu {
         } else {
             0x9800
         };
-        let mut line_sprites:Vec<NormalSprite> = Vec::with_capacity(32);
+        let mut line_sprites:Vec<NormalSprite> = Vec::with_capacity(BG_SPRITES_PER_LINE as usize);
         let index = ((self.window_line_counter) / 8) as u16;
         if self.window_tile_background_map_data_address {
-            for i in 0..32 {
-                let chr: u8 = memory.read(address + (index*32) + i);
+            for i in 0..BG_SPRITES_PER_LINE {
+                let chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
         else {
-            for i in 0..32 {
-                let mut chr: u8 = memory.read(address + (index*32) + i);
+            for i in 0..BG_SPRITES_PER_LINE {
+                let mut chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
@@ -250,11 +253,11 @@ impl GbcPpu {
 
         let mut drawn_line:[Color; 256] = [Color::default();256];
 
-        let sprite_line = ( self.window_line_counter) % 8;
+        let sprite_line = ( self.window_line_counter) % NORMAL_SPRITE_HIEGHT;
         for i in 0..line_sprites.len(){
-            for j in 0..8{
-                let pixel = line_sprites[i].pixels[((sprite_line * 8) + j) as usize];
-                drawn_line[(i * 8) + j as usize] = self.get_bg_color(pixel);
+            for j in 0..SPRITE_WIDTH{
+                let pixel = line_sprites[i].pixels[((sprite_line * SPRITE_WIDTH) + j) as usize];
+                drawn_line[(i * SPRITE_WIDTH as usize) + j as usize] = self.get_bg_color(pixel);
             }
         }
 
@@ -281,7 +284,7 @@ impl GbcPpu {
             
             let end_y = memory.read(OAM_ADDRESS + i);
             let end_x = memory.read(OAM_ADDRESS + i + 1);
-            let start_y = cmp::max(0, (end_y as i16) - 16) as u8;
+            let start_y = cmp::max(0, (end_y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;
 
              //cheks if this sprite apears in this line
              if currrent_line >= end_y || currrent_line < start_y || end_x == 0 || end_x >=168{
@@ -324,11 +327,11 @@ impl GbcPpu {
             let sprite_line = currrent_line - start_y;
 
             for x in start_x..end_x{
-                let pixel = sprite.get_pixel(sprite_line * 8 + (x - start_x));
+                let pixel = sprite.get_pixel(sprite_line * SPRITE_WIDTH + (x - start_x));
                 let color = self.get_obj_color(pixel, obj_attribute.palette_number);
                 
                 if let Some(c) = color{
-                    if !(obj_attribute.is_bg_priority && self.bg_color_mapping[0] != line[x as usize]){
+                    if !(obj_attribute.is_bg_priority && self.get_bg_color(0) != line[x as usize]){
                         line[x as usize] = c
                     }
                 }
@@ -361,7 +364,7 @@ impl GbcPpu {
         }
 
         let mut line_number = 0;
-        let start:u16 = index as u16 * 16;
+        let start:u16 = index as u16 * SPRITE_SIZE_IN_MEMORY;
         let end:u16 = start + ((sprite.size() as u16) *2);
         let raw = Box::into_raw(sprite);
         for j in (start .. end).step_by(2) {
@@ -376,12 +379,12 @@ impl GbcPpu {
     fn get_line(memory:&dyn ReadOnlyVideoMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
         let byte = memory.read(address);
         let next = memory.read(address + 1);
-        for k in (0..=7).rev() {
+        for k in (0..SPRITE_WIDTH).rev() {
             let mask = 1 << k;
             let mut value = (byte & mask) >> k;
             value |= ((next & mask) >> k) << 1;
-            let swaped = 7 - k;
-            unsafe{(*sprite).set_pixel(line_number * 8 + swaped, value);}
+            let swaped = SPRITE_WIDTH - 1 - k;
+            unsafe{(*sprite).set_pixel(line_number * SPRITE_WIDTH + swaped, value);}
         }
     }
 }
