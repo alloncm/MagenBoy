@@ -335,7 +335,7 @@ impl GbcPpu {
                 sprite.flip_x();
             }   
 
-            let end_x = obj_attribute.x;
+            let end_x = cmp::min(obj_attribute.x, SCREEN_WIDTH as u8);
             let start_x = cmp::max(0, (end_x as i16) - SPRITE_WIDTH as i16) as u8;
 
             let start_y = cmp::max(0, (obj_attribute.y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;
