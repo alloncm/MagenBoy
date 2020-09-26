@@ -16,7 +16,9 @@ pub struct InterruptsHandler{
     pub h_blank_interrupt:bool,
     pub v_blank_interrupt:bool,
     pub oam_search:bool,
-    pub coincidence_interrupt:bool
+    pub coincidence_interrupt:bool,
+
+    ei_triggered:bool
 }
 
 impl Default for InterruptsHandler{
@@ -25,15 +27,17 @@ impl Default for InterruptsHandler{
             coincidence_interrupt:false,
             h_blank_interrupt:false,
             oam_search:false,
-            v_blank_interrupt:false
+            v_blank_interrupt:false,
+            ei_triggered:false
         }
     }
 }
 
 impl InterruptsHandler{
 
-    pub fn handle_interrupts(&self, cpu:&mut GbcCpu, memory:&mut dyn Memory){
-        if cpu.mie{
+    pub fn handle_interrupts(&mut self, cpu:&mut GbcCpu, memory:&mut dyn Memory){
+        //this is delatey by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
+        if cpu.mie && self.ei_triggered{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLACK_INTERRUPT_ADDERESS, memory);
             }
@@ -60,6 +64,8 @@ impl InterruptsHandler{
                 }
             }
         }
+
+        self.ei_triggered = cpu.mie;
     }
 
     fn prepare_for_interut(cpu:&mut GbcCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory){
