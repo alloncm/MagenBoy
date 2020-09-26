@@ -55,7 +55,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();    
 
     if args.len() >= 3{
-        if args[2].eq(&String::from("--verbose")){
+        if args[2].eq(&String::from("--log")){
             match init_logger(){
                 Result::Ok(())=>{},
                 Result::Err(error)=>std::panic!("error initing logger: {}", error)
