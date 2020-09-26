@@ -47,8 +47,8 @@ impl GameBoy{
             }
 
             //passing in the cycles 1 but in the future when Ill have a cycle accureate cpu ill pass the cycles passed since last time
-            self.ppu.update_gb_screen(&self.mmu, 1);
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler);
+            self.ppu.update_gb_screen(&self.mmu, 1);
             self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
         }
 
@@ -69,18 +69,17 @@ impl GameBoy{
         //debug
         if self.mmu.finished_boot{
             let a = *self.cpu.af.high();
-            let f = *self.cpu.af.low();
             let b = *self.cpu.bc.high(); 
             let c = *self.cpu.bc.low();
             let d = *self.cpu.de.high();
             let e = *self.cpu.de.low();
+            let f = *self.cpu.af.low();
             let h = *self.cpu.hl.high();
             let l = *self.cpu.hl.low();
-            info!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
-            a, f, b,c,d,e,
-            h,l, self.cpu.stack_pointer, pc,
-             self.mmu.read(pc),self.mmu.read(pc+1),
-             self.mmu.read(pc+2),self.mmu.read(pc+3));
+            let ly = self.mmu.io_ports.read(0x44);
+            info!("A:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} F:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} ({:02X} {:02X} {:02X} {:02X}) LY:{:02X}",
+            a, b,c,d,e,f,
+            h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3), ly);
         }
         
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
