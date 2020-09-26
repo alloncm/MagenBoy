@@ -17,7 +17,7 @@ const OAM_CLOCKS:u8 = 20;
 const PIXEL_TRANSFER_CLOCKS:u8 = 43;
 const H_BLANK_CLOCKS:u8 = 51;
 const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
-const LY_MAX_VALUE:u8 = 154;
+const LY_MAX_VALUE:u8 = 153;
 const OAM_ADDRESS:u16 = 0xFE00;
 const OAM_SIZE:u16 = 0xA0;
 const OBJ_PER_LINE:usize = 10;
@@ -93,7 +93,7 @@ impl GbcPpu {
     fn update_ly(&mut self){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
-        if line>LY_MAX_VALUE as u32{
+        if line>=LY_MAX_VALUE as u32{
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
             self.current_cycle = 0;
@@ -130,7 +130,7 @@ impl GbcPpu {
     pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u8){
         if !self.screen_enable{
             self.current_cycle = 0;
-            self.current_line_drawn = 0;
+            //self.current_line_drawn = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
             self.state = PpuState::Hblank;
             return;
