@@ -130,7 +130,7 @@ impl GbcPpu {
     pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u8){
         if !self.screen_enable{
             self.current_cycle = 0;
-            //self.current_line_drawn = 0;
+            self.current_line_drawn = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
             self.state = PpuState::Hblank;
             return;
