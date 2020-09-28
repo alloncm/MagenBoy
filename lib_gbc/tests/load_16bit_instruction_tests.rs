@@ -1,21 +1,8 @@
 extern crate lib_gbc;
 use lib_gbc::cpu::gbc_cpu::{GbcCpu};
 use lib_gbc::opcodes::load_16bit_instructions;
-use lib_gbc::mmu::memory::Memory;
-
-struct MemoryStub{
-    pub data:[u8;0xFFFF]
-}
-
-impl Memory for MemoryStub{
-    fn read(&self, address:u16)->u8{
-        self.data[address as usize]
-    }
-
-    fn write(&mut self, address:u16, value:u8){
-        self.data[address as usize] = value;
-    }
-}
+mod memory_stub;
+use crate::memory_stub::MemoryStub;
 
 #[test]
 fn test_ld_hl_sp_dd(){
