@@ -144,15 +144,16 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
-        if ppu.current_line_drawn == LY_INTERRUPT_VALUE && !self.v_blank_triggered{
+        if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
             self.v_blank_triggered = true;
         }
-        else if ppu.state as u8 != PpuState::Vblank as u8 && ppu.current_line_drawn < LY_INTERRUPT_VALUE{
+        else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
+
             self.v_blank_triggered = false;
         }
-
+        
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
     }
     
