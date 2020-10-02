@@ -41,10 +41,9 @@ impl InterruptsHandler{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLACK_INTERRUPT_ADDERESS, memory);
             }
-            else if cpu.interupt_flag & BIT_1_MASK != 0 && cpu.interupt_enable & BIT_1_MASK != 0{
-                if self.v_blank_interrupt || self.oam_search || self.h_blank_interrupt || self.coincidence_interrupt{
-                    Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory);
-                }
+            else if cpu.interupt_flag & BIT_1_MASK != 0 && cpu.interupt_enable & BIT_1_MASK != 0 && 
+            (self.v_blank_interrupt || self.oam_search || self.h_blank_interrupt || self.coincidence_interrupt){
+                Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory);    
             }
             else if cpu.interupt_flag & BIT_2_MASK != 0 && cpu.interupt_enable & BIT_2_MASK != 0{
                 Self::prepare_for_interut(cpu, BIT_2_MASK, TIMER_INTERRUPT_ADDERESS, memory);
