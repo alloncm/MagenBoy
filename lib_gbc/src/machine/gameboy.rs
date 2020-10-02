@@ -47,7 +47,7 @@ impl GameBoy{
                 self.execute_opcode();
             }
 
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler);
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler,1);
             //passing in the cycles 1 but in the future when Ill have a cycle accureate cpu ill pass the cycles passed since last time
             self.ppu.update_gb_screen(&self.mmu, 1);
             self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
