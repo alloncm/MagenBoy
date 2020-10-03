@@ -38,6 +38,7 @@ impl RegisterHandler{
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
+        Self::handle_joypad_register(memory);
         self.handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
@@ -259,6 +260,10 @@ impl RegisterHandler{
         else{
             ppu.window_scroll.x = register - WX_OFFSET;
         }
+    }
+
+    fn handle_joypad_register(memory:&mut dyn Memory){
+        memory.write(JOYP_REGISTER_ADDRESS, 0xFF);
     }
 
     fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){

@@ -15,7 +15,7 @@ impl Mbc for Rom{
     }
 
     fn write_rom(&mut self, _address: u16, _value: u8){
-        //std::panic!("no wrting to mbc of type rom");
+        //Just ignoring this as some games accidently wrtite here (ahhm Tetris)
     }
 
     fn read_current_bank(&self, address:u16)->u8{
