@@ -68,7 +68,7 @@ fn main() {
     }
     
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
     let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
