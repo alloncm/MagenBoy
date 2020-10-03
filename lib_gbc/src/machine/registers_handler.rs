@@ -271,38 +271,33 @@ impl RegisterHandler{
         
         //needs to discard presses (handle release too)
         if buttons{
-            if joypad.a{
-                state |= BIT_0_MASK;
-            }
-            if joypad.b{
-                state |= BIT_1_MASK;
-            }
-            if joypad.select{
-                state |= BIT_2_MASK;
-            }
-            if joypad.start{
-                state |= BIT_3_MASK;
-            }
+            Self::flip_bit(&mut state, 0, joypad.a);
+            Self::flip_bit(&mut state, 1, joypad.b);
+            Self::flip_bit(&mut state, 2, joypad.select);
+            Self::flip_bit(&mut state, 3, joypad.start);
         }
         if directions{
-            if joypad.right{
-                state |= BIT_0_MASK;
-            }
-            if joypad.left{
-                state |= BIT_1_MASK;
-            }
-            if joypad.up{
-                state |= BIT_2_MASK;
-            }
-            if joypad.down{
-                state |= BIT_3_MASK;
-            }
+            Self::flip_bit(&mut state, 0, joypad.right);
+            Self::flip_bit(&mut state, 1, joypad.left);
+            Self::flip_bit(&mut state, 2, joypad.up);
+            Self::flip_bit(&mut state, 3, joypad.down);
         }
 
         //inverting the bits casue 0 is pressed and 1 is released
         state = !state;
 
         memory.io_ports.write_unprotected(JOYP_REGISTER_ADDRESS - 0xFF00, state);
+    }
+
+    fn flip_bit(value:&mut u8, bit_number:u8, switch:bool){
+        let mask = 1 << bit_number;
+        if switch{
+            *value |= mask;
+        }
+        else{
+            let inverse_mask = !mask;
+            *value &= inverse_mask;
+        }
     }
 
     fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){
