@@ -17,24 +17,28 @@ const WX_OFFSET:u8 = 7;
 
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16,
-    v_blank_triggered:bool
+    v_blank_triggered:bool,
+    dma_cycle_counter:u16
 }
 
 impl Default for RegisterHandler{
     fn default()->Self{
         RegisterHandler{
             timer_clock_interval_counter: 0,
-            v_blank_triggered:false
+            v_blank_triggered:false,
+            dma_cycle_counter:0
         }
     }
 }
 
 impl RegisterHandler{
 
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler){
+    //TODO: update the rest of the function to use the cycles (I think only timer)
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
+        Self::handle_joypad_register(memory);
         self.handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
@@ -42,7 +46,7 @@ impl RegisterHandler{
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
         Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
-        Self::handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory);
+        self.handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory,cycles);
         Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
@@ -144,15 +148,16 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
-        if ppu.current_line_drawn == LY_INTERRUPT_VALUE && !self.v_blank_triggered{
+        if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
             self.v_blank_triggered = true;
         }
-        else if ppu.state as u8 != PpuState::Vblank as u8{
+        else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
+
             self.v_blank_triggered = false;
         }
-
+        
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
     }
     
@@ -196,15 +201,20 @@ impl RegisterHandler{
         memory.ram.set_bank(bank);
     }
 
-    fn handle_dma_transfer_register(register:u8, mmu:&mut GbcMmu){
+    fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbcMmu, m_cycles:u8){
         if mmu.dma_trasfer_trigger{
-            let mut source:u16 = (register as u16) << 8;
-            for i in 0..DMA_SIZE{
-                source+=1;
-                mmu.write(DMA_DEST+i, mmu.read(source));
+            let source:u16 = (register as u16) << 8;
+            let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
+            for i in self.dma_cycle_counter..cycles_to_run as u16{
+                mmu.write(DMA_DEST + i, mmu.read(source + i));
             }
 
-            mmu.dma_trasfer_trigger = false;
+            self.dma_cycle_counter += m_cycles as u16;
+            
+            if self.dma_cycle_counter >= DMA_SIZE{
+                mmu.dma_trasfer_trigger = false;   
+                self.dma_cycle_counter = 0;
+            }
         }
     }
 
@@ -250,6 +260,10 @@ impl RegisterHandler{
         else{
             ppu.window_scroll.x = register - WX_OFFSET;
         }
+    }
+
+    fn handle_joypad_register(memory:&mut dyn Memory){
+        memory.write(JOYP_REGISTER_ADDRESS, 0xFF);
     }
 
     fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){

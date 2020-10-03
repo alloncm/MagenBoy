@@ -7,7 +7,7 @@ use crate::mmu::gbc_mmu::{
 use crate::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::RegisterHandler;
-use crate::mmu::mbc::Mbc;
+use crate::mmu::carts::mbc::Mbc;
 use crate::ppu::gbc_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
@@ -41,14 +41,15 @@ impl GameBoy{
     }
 
     pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
-        for _ in 0..self.cycles_per_frame{
+        for _ in (0..self.cycles_per_frame).step_by(1){
+
             if !self.cpu.halt{
                 self.execute_opcode();
             }
 
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler,1);
             //passing in the cycles 1 but in the future when Ill have a cycle accureate cpu ill pass the cycles passed since last time
             self.ppu.update_gb_screen(&self.mmu, 1);
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler);
             self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
         }
 
@@ -69,18 +70,19 @@ impl GameBoy{
         //debug
         if self.mmu.finished_boot{
             let a = *self.cpu.af.high();
-            let f = *self.cpu.af.low();
             let b = *self.cpu.bc.high(); 
             let c = *self.cpu.bc.low();
             let d = *self.cpu.de.high();
             let e = *self.cpu.de.low();
+            let f = *self.cpu.af.low();
             let h = *self.cpu.hl.high();
             let l = *self.cpu.hl.low();
-            info!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
-            a, f, b,c,d,e,
-            h,l, self.cpu.stack_pointer, pc,
-             self.mmu.read(pc),self.mmu.read(pc+1),
-             self.mmu.read(pc+2),self.mmu.read(pc+3));
+            let ly = self.mmu.io_ports.read(0x44);
+            info!("A:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} F:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} ({:02X} {:02X} {:02X} {:02X}) LY:{:02X} CS: ({:02X}{:02X} {:02X}{:02X} {:02X}{:02X}) SE {}",
+            a, b,c,d,e,f,
+            h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3), ly,
+            self.mmu.read(self.cpu.stack_pointer+1),self.mmu.read(self.cpu.stack_pointer),self.mmu.read(self.cpu.stack_pointer+3),self.mmu.read(self.cpu.stack_pointer+2),self.mmu.read(self.cpu.stack_pointer+5),self.mmu.read(self.cpu.stack_pointer+4),
+            self.ppu.screen_enable);
         }
         
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);

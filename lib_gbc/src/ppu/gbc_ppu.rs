@@ -17,7 +17,7 @@ const OAM_CLOCKS:u8 = 20;
 const PIXEL_TRANSFER_CLOCKS:u8 = 43;
 const H_BLANK_CLOCKS:u8 = 51;
 const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
-const LY_MAX_VALUE:u8 = 154;
+const LY_MAX_VALUE:u8 = 153;
 const OAM_ADDRESS:u16 = 0xFE00;
 const OAM_SIZE:u16 = 0xA0;
 const OBJ_PER_LINE:usize = 10;
@@ -93,7 +93,7 @@ impl GbcPpu {
     fn update_ly(&mut self){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
-        if line>LY_MAX_VALUE as u32{
+        if line>=LY_MAX_VALUE as u32{
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
             self.current_cycle = 0;
@@ -335,7 +335,7 @@ impl GbcPpu {
                 sprite.flip_x();
             }   
 
-            let end_x = obj_attribute.x;
+            let end_x = cmp::min(obj_attribute.x, SCREEN_WIDTH as u8);
             let start_x = cmp::max(0, (end_x as i16) - SPRITE_WIDTH as i16) as u8;
 
             let start_y = cmp::max(0, (obj_attribute.y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;

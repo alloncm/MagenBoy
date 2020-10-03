@@ -1,6 +1,8 @@
 # MagenBoy
 
-GameBoy Color emulator im making with rust (currently just a GameBoy emualator)
+A GameBoy emulator developped by me.
+
+The main goal of this project is to be able to play Pokemon on my own emulator.
 
 ## Development Status
 
@@ -9,6 +11,10 @@ GameBoy Color emulator im making with rust (currently just a GameBoy emualator)
 - dmg-acid2 (https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
 - TurtleTests (https://github.com/Powerlated/TurtleTests) - :thumbsup:
 - Cycle accurate emulation - :x:
+
+#### Games Booting
+- Pokemon Red - :thumbsup:
+- Tetris - :thumbsup:
 
 ### GameBoyColor - :x:
 - implement the new PPU

@@ -58,7 +58,7 @@ pub fn ret_cc(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 }
 
 pub fn rst(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
-    let t:u8 = (opcode & 0b0011100)>>2;
+    let t:u8 = (opcode & 0b00111000)>>3;
     let mut value:u8 = 0;
     if t & 0b001 > 0{
         value+=0x8;   
@@ -72,7 +72,6 @@ pub fn rst(cpu:&mut GbcCpu, memory:&mut dyn Memory, opcode:u8){
 
     push_pc(cpu, memory);
     cpu.program_counter = value as u16;
-    
 }
 
 pub fn reti(cpu:&mut GbcCpu, memory:&mut dyn Memory){
