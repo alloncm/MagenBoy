@@ -1,6 +1,10 @@
 extern crate lib_gbc;
 extern crate stupid_gfx;
-use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::machine::{
+    gameboy::GameBoy,
+    joypad::Joypad
+};
+use std::default::Default;
 use std::fs;
 use std::env;
 use std::result::Result;
@@ -85,6 +89,8 @@ fn main() {
 
     let mbc = initialize_mbc(program);    
 
+    let mut joypad = Joypad::default();
+
     //CPU frequrncy: 1,048,326 / 60 
     let cycles_per_frame = 17556;
     let mut gameboy = GameBoy::new(mbc, bootrom, cycles_per_frame);
@@ -92,14 +98,27 @@ fn main() {
     let scale:u32 = 4;
     while alive {
         graphics.clear();
+        joypad.clear();
         for event in event_handler.poll_events(){
             match event{
                 Event::Quit=>alive = false,
-                _=>{}
+                Event::KeyPressed(code)=>{
+                    match code{
+                        Keycode::X=>joypad.a = true,
+                        Keycode::Z=>joypad.b = true,
+                        Keycode::S=>joypad.start = true,
+                        Keycode::A=>joypad.select = true,
+                        Keycode::Up=>joypad.up = true,
+                        Keycode::Down=>joypad.down = true,
+                        Keycode::Right=>joypad.right = true,
+                        Keycode::Left=>joypad.left = true,
+                        _=>{}
+                    }
+                }
             }
         }
         
-        let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
+        let vec:Vec<u32> = gameboy.cycle_frame(&joypad).to_vec();
         let other_vec = extend_vec(vec, scale as usize, 160, 144);
         let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
 

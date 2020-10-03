@@ -7,6 +7,7 @@ use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
 use super::interrupts_handler::InterruptsHandler;
+use super::joypad::Joypad;
 use crate::ppu::ppu_state::PpuState;
 
 
@@ -34,11 +35,11 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
-        Self::handle_joypad_register(memory);
+        Self::handle_joypad_register(memory.read(JOYP_REGISTER_ADDRESS),memory, joypad);
         self.handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
@@ -262,8 +263,46 @@ impl RegisterHandler{
         }
     }
 
-    fn handle_joypad_register(memory:&mut dyn Memory){
-        memory.write(JOYP_REGISTER_ADDRESS, 0xFF);
+    fn handle_joypad_register(mut state:u8,memory:&mut GbcMmu,joypad:&Joypad){
+        let buttons = (state & BIT_5_MASK) == 0;
+        let directions = (state & BIT_4_MASK) == 0;
+
+        state = !state;
+        
+        //needs to discard presses (handle release too)
+        if buttons{
+            if joypad.a{
+                state |= BIT_0_MASK;
+            }
+            if joypad.b{
+                state |= BIT_1_MASK;
+            }
+            if joypad.select{
+                state |= BIT_2_MASK;
+            }
+            if joypad.start{
+                state |= BIT_3_MASK;
+            }
+        }
+        if directions{
+            if joypad.right{
+                state |= BIT_0_MASK;
+            }
+            if joypad.left{
+                state |= BIT_1_MASK;
+            }
+            if joypad.up{
+                state |= BIT_2_MASK;
+            }
+            if joypad.down{
+                state |= BIT_3_MASK;
+            }
+        }
+
+        //inverting the bits casue 0 is pressed and 1 is released
+        state = !state;
+
+        memory.io_ports.write_unprotected(JOYP_REGISTER_ADDRESS - 0xFF00, state);
     }
 
     fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){

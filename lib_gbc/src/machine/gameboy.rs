@@ -1,4 +1,5 @@
 use crate::cpu::gbc_cpu::GbcCpu;
+use super::joypad::Joypad;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::{
     GbcMmu,
@@ -40,14 +41,14 @@ impl GameBoy{
         }
     }
 
-    pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
+    pub fn cycle_frame(&mut self,joypad:&Joypad )->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         for _ in (0..self.cycles_per_frame).step_by(1){
 
             if !self.cpu.halt{
                 self.execute_opcode();
             }
 
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler,1);
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, joypad, 1);
             //passing in the cycles 1 but in the future when Ill have a cycle accureate cpu ill pass the cycles passed since last time
             self.ppu.update_gb_screen(&self.mmu, 1);
             self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
