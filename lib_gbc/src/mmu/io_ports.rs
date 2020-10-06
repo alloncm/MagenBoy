@@ -54,7 +54,7 @@ impl Default for IoPorts{
             system_counter: 0
         };
 
-        //joypad interrupt
+        //joypad register initiall value
         io_ports.ports[JOYP_REGISTER_INDEX as usize] = 0xFF;
 
         io_ports
