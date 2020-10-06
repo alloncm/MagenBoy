@@ -264,34 +264,31 @@ impl RegisterHandler{
         }
     }
 
+    // This register stores key pressed as 0 (unset bit) and not 1 (set bit) 
+    // so this function will beahve accordingly
     fn handle_joypad_register(mut state:u8,memory:&mut GbcMmu,joypad:&Joypad){
         let buttons = (state & BIT_5_MASK) == 0;
         let directions = (state & BIT_4_MASK) == 0;
 
-        state = !state;
-        
         if buttons{
-            Self::flip_bit(&mut state, 0, joypad.buttons[Button::A as usize]);
-            Self::flip_bit(&mut state, 1, joypad.buttons[Button::B as usize]);
-            Self::flip_bit(&mut state, 2, joypad.buttons[Button::Select as usize]);
-            Self::flip_bit(&mut state, 3, joypad.buttons[Button::Start as usize]);
+            Self::set_bit(&mut state, 0, !joypad.buttons[Button::A as usize]);
+            Self::set_bit(&mut state, 1, !joypad.buttons[Button::B as usize]);
+            Self::set_bit(&mut state, 2, !joypad.buttons[Button::Select as usize]);
+            Self::set_bit(&mut state, 3, !joypad.buttons[Button::Start as usize]);
         }
         if directions{
-            Self::flip_bit(&mut state, 0, joypad.buttons[Button::Right as usize]);
-            Self::flip_bit(&mut state, 1, joypad.buttons[Button::Left as usize]);
-            Self::flip_bit(&mut state, 2, joypad.buttons[Button::Up as usize]);
-            Self::flip_bit(&mut state, 3, joypad.buttons[Button::Down as usize]);
+            Self::set_bit(&mut state, 0, !joypad.buttons[Button::Right as usize]);
+            Self::set_bit(&mut state, 1, !joypad.buttons[Button::Left as usize]);
+            Self::set_bit(&mut state, 2, !joypad.buttons[Button::Up as usize]);
+            Self::set_bit(&mut state, 3, !joypad.buttons[Button::Down as usize]);
         }
-
-        //inverting the bits casue 0 is pressed and 1 is released
-        state = !state;
 
         memory.io_ports.write_unprotected(JOYP_REGISTER_ADDRESS - 0xFF00, state);
     }
 
-    fn flip_bit(value:&mut u8, bit_number:u8, switch:bool){
+    fn set_bit(value:&mut u8, bit_number:u8, set:bool){
         let mask = 1 << bit_number;
-        if switch{
+        if set{
             *value |= mask;
         }
         else{
