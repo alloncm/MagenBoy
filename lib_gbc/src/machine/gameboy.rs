@@ -1,6 +1,6 @@
 use crate::cpu::gbc_cpu::GbcCpu;
-use super::joypad::Joypad;
-use super::joypad_provider::JoypadProvider;
+use crate::keypad::joypad::Joypad;
+use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::{
     GbcMmu,

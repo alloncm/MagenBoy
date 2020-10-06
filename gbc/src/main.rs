@@ -1,8 +1,7 @@
 extern crate lib_gbc;
 extern crate stupid_gfx;
-use lib_gbc::machine::{
-    gameboy::GameBoy
-};
+use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::keypad::button::Button;
 use std::fs;
 use std::env;
 use std::result::Result;
@@ -52,6 +51,19 @@ fn init_logger()->Result<(), fern::InitError>{
         .chain(fern::log_file("output.log")?)
         .apply()?;
     Ok(())
+}
+
+fn buttons_mapper(button:Button)->Scancode{
+    match button{
+        Button::A => Scancode::X,
+        Button::B => Scancode::Z,
+        Button::Start => Scancode::S,
+        Button::Select =>Scancode::A,
+        Button::Up => Scancode::Up,
+        Button::Down => Scancode::Down,
+        Button::Right => Scancode::Right,
+        Button::Left => Scancode::Left
+    }
 }
 
 
@@ -104,7 +116,7 @@ fn main() {
             }
         }
 
-        let joypad_provider = StupidGfxJoypadProvider::new(&mut event_handler);
+        let joypad_provider = StupidGfxJoypadProvider::new(&mut event_handler, buttons_mapper);
         
         let vec:Vec<u32> = gameboy.cycle_frame(joypad_provider).to_vec();
         let other_vec = extend_vec(vec, scale as usize, 160, 144);

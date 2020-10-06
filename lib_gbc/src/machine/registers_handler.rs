@@ -7,7 +7,8 @@ use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
 use super::interrupts_handler::InterruptsHandler;
-use super::joypad::Joypad;
+use crate::keypad::joypad::Joypad;
+use crate::keypad::button::Button;
 use crate::ppu::ppu_state::PpuState;
 
 
@@ -269,18 +270,17 @@ impl RegisterHandler{
 
         state = !state;
         
-        //needs to discard presses (handle release too)
         if buttons{
-            Self::flip_bit(&mut state, 0, joypad.a);
-            Self::flip_bit(&mut state, 1, joypad.b);
-            Self::flip_bit(&mut state, 2, joypad.select);
-            Self::flip_bit(&mut state, 3, joypad.start);
+            Self::flip_bit(&mut state, 0, joypad.buttons[Button::A as usize]);
+            Self::flip_bit(&mut state, 1, joypad.buttons[Button::B as usize]);
+            Self::flip_bit(&mut state, 2, joypad.buttons[Button::Select as usize]);
+            Self::flip_bit(&mut state, 3, joypad.buttons[Button::Start as usize]);
         }
         if directions{
-            Self::flip_bit(&mut state, 0, joypad.right);
-            Self::flip_bit(&mut state, 1, joypad.left);
-            Self::flip_bit(&mut state, 2, joypad.up);
-            Self::flip_bit(&mut state, 3, joypad.down);
+            Self::flip_bit(&mut state, 0, joypad.buttons[Button::Right as usize]);
+            Self::flip_bit(&mut state, 1, joypad.buttons[Button::Left as usize]);
+            Self::flip_bit(&mut state, 2, joypad.buttons[Button::Up as usize]);
+            Self::flip_bit(&mut state, 3, joypad.buttons[Button::Down as usize]);
         }
 
         //inverting the bits casue 0 is pressed and 1 is released
