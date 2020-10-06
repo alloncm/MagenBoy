@@ -1,6 +1,7 @@
 extern crate lib_gbc;
 extern crate stupid_gfx;
 use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::keypad::button::Button;
 use std::fs;
 use std::env;
 use std::result::Result;
@@ -14,6 +15,9 @@ use stupid_gfx::{
     surface::Surface,
     event::*
 };
+
+mod stupid_gfx_joypad_provider;
+use crate::stupid_gfx_joypad_provider::StupidGfxJoypadProvider;
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
@@ -33,7 +37,7 @@ fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
 
 fn init_logger()->Result<(), fern::InitError>{
     fern::Dispatch::new()
-        .format(|out, message, record| {
+        .format(|out, message, _record| {
             out.finish(format_args!(
                 //"{}[{}][{}] {}",
                 //chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
@@ -47,6 +51,19 @@ fn init_logger()->Result<(), fern::InitError>{
         .chain(fern::log_file("output.log")?)
         .apply()?;
     Ok(())
+}
+
+fn buttons_mapper(button:Button)->Scancode{
+    match button{
+        Button::A => Scancode::X,
+        Button::B => Scancode::Z,
+        Button::Start => Scancode::S,
+        Button::Select =>Scancode::A,
+        Button::Up => Scancode::Up,
+        Button::Down => Scancode::Down,
+        Button::Right => Scancode::Right,
+        Button::Left => Scancode::Left
+    }
 }
 
 
@@ -64,7 +81,7 @@ fn main() {
     }
     
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
     let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
@@ -98,8 +115,10 @@ fn main() {
                 _=>{}
             }
         }
+
+        let joypad_provider = StupidGfxJoypadProvider::new(&mut event_handler, buttons_mapper);
         
-        let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
+        let vec:Vec<u32> = gameboy.cycle_frame(joypad_provider).to_vec();
         let other_vec = extend_vec(vec, scale as usize, 160, 144);
         let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
 

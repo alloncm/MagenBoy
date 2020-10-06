@@ -7,6 +7,8 @@ use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
 use crate::utils::color::Color;
 use super::interrupts_handler::InterruptsHandler;
+use crate::keypad::joypad::Joypad;
+use crate::keypad::button::Button;
 use crate::ppu::ppu_state::PpuState;
 
 
@@ -34,11 +36,11 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
-        Self::handle_joypad_register(memory);
+        Self::handle_joypad_register(memory.read(JOYP_REGISTER_ADDRESS),memory, joypad);
         self.handle_ly_register(memory, ppu, &mut interupt_flag);
         Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
         self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
@@ -262,8 +264,37 @@ impl RegisterHandler{
         }
     }
 
-    fn handle_joypad_register(memory:&mut dyn Memory){
-        memory.write(JOYP_REGISTER_ADDRESS, 0xFF);
+    // This register stores key pressed as 0 (unset bit) and not 1 (set bit) 
+    // so this function will beahve accordingly
+    fn handle_joypad_register(mut state:u8,memory:&mut GbcMmu,joypad:&Joypad){
+        let buttons = (state & BIT_5_MASK) == 0;
+        let directions = (state & BIT_4_MASK) == 0;
+
+        if buttons{
+            Self::set_bit(&mut state, 0, !joypad.buttons[Button::A as usize]);
+            Self::set_bit(&mut state, 1, !joypad.buttons[Button::B as usize]);
+            Self::set_bit(&mut state, 2, !joypad.buttons[Button::Select as usize]);
+            Self::set_bit(&mut state, 3, !joypad.buttons[Button::Start as usize]);
+        }
+        if directions{
+            Self::set_bit(&mut state, 0, !joypad.buttons[Button::Right as usize]);
+            Self::set_bit(&mut state, 1, !joypad.buttons[Button::Left as usize]);
+            Self::set_bit(&mut state, 2, !joypad.buttons[Button::Up as usize]);
+            Self::set_bit(&mut state, 3, !joypad.buttons[Button::Down as usize]);
+        }
+
+        memory.io_ports.write_unprotected(JOYP_REGISTER_ADDRESS - 0xFF00, state);
+    }
+
+    fn set_bit(value:&mut u8, bit_number:u8, set:bool){
+        let mask = 1 << bit_number;
+        if set{
+            *value |= mask;
+        }
+        else{
+            let inverse_mask = !mask;
+            *value &= inverse_mask;
+        }
     }
 
     fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){
