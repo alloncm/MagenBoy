@@ -23,16 +23,3 @@ impl Default for Joypad{
         }
     }
 }
-
-impl Joypad{
-    pub fn clear(&mut self){
-        self.a = false;
-        self.b = false;
-        self.down = false;
-        self.left = false;
-        self.right = false;
-        self.select = false;
-        self.start = false;
-        self.up = false;
-    }
-}
