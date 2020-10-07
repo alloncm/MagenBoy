@@ -6,7 +6,6 @@ use std::fs;
 use std::env;
 use std::result::Result;
 use std::vec::Vec;
-use lib_gbc::mmu::mbc_initializer::initialize_mbc;
 use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
 use stupid_gfx::{
     event_handler::EventHandler,
@@ -16,8 +15,10 @@ use stupid_gfx::{
     event::*
 };
 
+mod mbc_initializer;
 mod stupid_gfx_joypad_provider;
 use crate::stupid_gfx_joypad_provider::StupidGfxJoypadProvider;
+use crate::mbc_initializer::initialize_mbc;
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
@@ -94,13 +95,10 @@ fn main() {
         bootrom[i] = file[i];
     }
 
-    let program = match fs::read(&args[1]){
-        Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read rom {}\n{}",args[1],why)
-    };
+    let program_name = &args[1];
     
 
-    let mbc = initialize_mbc(program);    
+    let mbc = initialize_mbc(program_name);    
 
     //CPU frequrncy: 1,048,326 / 60 
     let cycles_per_frame = 17556;

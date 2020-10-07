@@ -1,10 +1,5 @@
 use std::vec::Vec;
-use super::mbc::{
-    Mbc,
-    ROM_BANK_SIZE,
-    RAM_BANK_SIZE, 
-    MBC_RAM_SIZE_LOCATION
-};
+use super::mbc::*;
 
 
 pub struct Mbc1{
@@ -14,11 +9,17 @@ pub struct Mbc1{
     register1:u8,
     register2:u8,
     register3:u8,
-    pub gbc:bool
+    battery:bool
 }
 
 impl Mbc for Mbc1{
-    
+    fn get_ram(&self) ->&[u8] {
+        self.ram.as_slice()
+    }
+
+    fn has_battery(&self) ->bool {
+        self.battery
+    }
 
     fn read_bank0(&self, address: u16)->u8{
         self.program[address as usize]
@@ -51,7 +52,7 @@ impl Mbc for Mbc1{
 }
 
 impl Mbc1{
-    pub fn new(v:Vec<u8>)->Self{
+    pub fn new(v:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Self{
         let mut mbc = Mbc1{
             program:v,
             ram:Vec::new(),
@@ -59,10 +60,11 @@ impl Mbc1{
             register1:0,
             register2:0,
             register3:0,
-            gbc:false
+            battery:battery
         };
 
-        mbc.init();
+        mbc.ram = init_ram(mbc.program[MBC_RAM_SIZE_LOCATION], ram);
+
         return mbc;
     }
 
@@ -86,18 +88,5 @@ impl Mbc1{
         }
 
         return 0;
-    }
-
-    fn init(&mut self){
-        let ram_index = self.program[MBC_RAM_SIZE_LOCATION];
-        let ram_size = match ram_index{
-            0=>0,
-            1=>0x800,
-            2=>0x2000,
-            3=>0x8000,
-            _=>std::panic!("no ram size in mbc1 cartridge")
-        };
-
-        self.ram = vec![0;ram_size as usize];
     }
 }

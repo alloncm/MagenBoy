@@ -1,15 +1,23 @@
 use std::vec::Vec;
 use super::mbc::Mbc;
-use super::mbc::ROM_BANK_SIZE;
-
-const RAM_SZIE:usize = 0x2000;
+use super::mbc::*;
 
 pub struct Rom{
     program: Vec<u8>,
-    external_ram:[u8;RAM_SZIE]
+    external_ram:Vec<u8>,
+    battery:bool
 }
 
 impl Mbc for Rom{
+    
+    fn get_ram(&self) ->&[u8] {
+        self.external_ram.as_slice()
+    }
+
+    fn has_battery(&self) ->bool {
+        self.battery
+    }
+
     fn read_bank0(&self, address:u16)->u8{
         return self.program[address as usize];
     }
@@ -34,10 +42,15 @@ impl Mbc for Rom{
 
 impl Rom{
     
-    pub fn new(vec:Vec<u8>)->Rom{
-        Rom{
+    pub fn new(vec:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Rom{
+        let mut rom = Rom{
             program:vec,
-            external_ram:[0;RAM_SZIE]
-        }
+            external_ram:Vec::new(),
+            battery:battery
+        };
+
+        rom.external_ram = init_ram(rom.program[MBC_RAM_SIZE_LOCATION], ram);
+
+        rom
     }
 }
