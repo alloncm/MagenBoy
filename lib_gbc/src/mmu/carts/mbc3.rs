@@ -6,6 +6,7 @@ const EXTERNAL_RAM_READ_ERROR_VALUE:u8 = 0xFF;
 pub struct Mbc3{
     program:Vec<u8>,
     ram:Vec<u8>,
+    battery:bool,
     current_bank:u8, 
     ram_timer_enable:u8,
     ram_rtc_select:u8,
@@ -14,6 +15,15 @@ pub struct Mbc3{
 }
 
 impl Mbc for Mbc3{
+
+    fn get_ram(&self) ->&[u8] {
+        self.ram.as_slice()
+    }
+
+    fn has_battery(&self) ->bool {
+        self.battery
+    }
+
     fn read_bank0(&self, address:u16)->u8{
         self.program[address as usize]
     }
@@ -66,9 +76,10 @@ impl Mbc for Mbc3{
 
 impl Mbc3{
 
-    pub fn new(program:Vec<u8>)->Self{
+    pub fn new(program:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Self{
         let mut mbc = Mbc3{
             current_bank:0,
+            battery:battery,
             latch_clock_data:0,
             program:program,
             ram:Vec::new(),
@@ -76,24 +87,10 @@ impl Mbc3{
             ram_timer_enable:0,
             rtc_registers:[0;4]
         };
-        mbc.init();
+
+        mbc.ram = init_ram(mbc.program[MBC_RAM_SIZE_LOCATION], ram);
 
         mbc
-    }
-
-    fn init(&mut self){
-        let ram_index = self.program[MBC_RAM_SIZE_LOCATION];
-        let ram_size = match ram_index{
-            0=>0,
-            1=>0x800,
-            2=>0x2000,
-            3=>0x8000,
-            4=>0x20000,
-            5=>0x10000,
-            _=>std::panic!("no ram size in mbc3 cartridge")
-        };
-
-        self.ram = vec![0;ram_size as usize];
     }
 
     fn get_current_rom_bank(&self)->u8{

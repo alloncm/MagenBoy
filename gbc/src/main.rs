@@ -1,12 +1,17 @@
-extern crate lib_gbc;
-extern crate stupid_gfx;
+mod mbc_handler;
+mod stupid_gfx_joypad_provider;
+
 use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::ppu::gbc_ppu::{
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
+};
 use lib_gbc::keypad::button::Button;
 use std::fs;
 use std::env;
 use std::result::Result;
 use std::vec::Vec;
-use lib_gbc::mmu::mbc_initializer::initialize_mbc;
+use log::info;
 use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
 use stupid_gfx::{
     event_handler::EventHandler,
@@ -16,8 +21,8 @@ use stupid_gfx::{
     event::*
 };
 
-mod stupid_gfx_joypad_provider;
 use crate::stupid_gfx_joypad_provider::StupidGfxJoypadProvider;
+use crate::mbc_handler::*;
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
@@ -35,21 +40,26 @@ fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     return new_vec;
 }
 
-fn init_logger()->Result<(), fern::InitError>{
-    fern::Dispatch::new()
-        .format(|out, message, _record| {
+fn init_logger(debug:bool)->Result<(), fern::InitError>{
+    let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
+    let mut fern_logger = fern::Dispatch::new()
+        .format(|out, message, record| {
             out.finish(format_args!(
-                //"{}[{}][{}] {}",
-                //chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                //record.target(),
-                //record.level(),
-                "{}",
+                "{}[{}] {}",
+                chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                record.level(),
                 message
             ))
         })
-        .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("output.log")?)
-        .apply()?;
+        .level(level)
+        .chain(fern::log_file("output.log")?);
+
+    if !debug{
+        fern_logger = fern_logger.chain(std::io::stdout());
+    }
+
+    fern_logger.apply()?;
+
     Ok(())
 }
 
@@ -67,46 +77,52 @@ fn buttons_mapper(button:Button)->Scancode{
 }
 
 
+//CPU frequrncy: 1,048,326 / 60 
+const CYCLES_PER_FRAME:u32 = 17556; 
+
 fn main() {
+
+    let screen_scale:u32 = 4;
 
     let args: Vec<String> = env::args().collect();    
 
-    if args.len() >= 3{
-        if args[2].eq(&String::from("--log")){
-            match init_logger(){
-                Result::Ok(())=>{},
-                Result::Err(error)=>std::panic!("error initing logger: {}", error)
-            }
-        }
+    let debug_level = args.len() >= 3 && args[2].eq(&String::from("--log"));
+    
+    match init_logger(debug_level){
+        Result::Ok(())=>{},
+        Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
     
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0, true);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32* screen_scale, 0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
-    let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
-        Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read boot rom {}",why)
+    let program_name = &args[1];
+    let mut mbc = initialize_mbc(program_name); 
+
+    let mut gameboy = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
+        Result::Ok(file)=>{
+            info!("found bootrom!");
+
+            let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
+            for i in 0..BOOT_ROM_SIZE{
+                bootrom[i] = file[i];
+            }
+            
+            GameBoy::new_with_bootrom(&mut mbc, bootrom, CYCLES_PER_FRAME)
+        }
+        Result::Err(_)=>{
+            info!("could not find bootrom... booting directly to rom");
+
+            GameBoy::new(&mut mbc, CYCLES_PER_FRAME)
+        }
     };
     
-    let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
-    for i in 0..BOOT_ROM_SIZE{
-        bootrom[i] = file[i];
-    }
+  
+    info!("initialized gameboy successfully!");
 
-    let program = match fs::read(&args[1]){
-        Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read rom {}\n{}",args[1],why)
-    };
-    
 
-    let mbc = initialize_mbc(program);    
-
-    //CPU frequrncy: 1,048,326 / 60 
-    let cycles_per_frame = 17556;
-    let mut gameboy = GameBoy::new(mbc, bootrom, cycles_per_frame);
     let mut alive = true;
-    let scale:u32 = 4;
     while alive {
         graphics.clear();
         for event in event_handler.poll_events(){
@@ -119,10 +135,13 @@ fn main() {
         let joypad_provider = StupidGfxJoypadProvider::new(&mut event_handler, buttons_mapper);
         
         let vec:Vec<u32> = gameboy.cycle_frame(joypad_provider).to_vec();
-        let other_vec = extend_vec(vec, scale as usize, 160, 144);
-        let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
+        let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
+        let surface = Surface::new_from_raw(other_vec, SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32 * screen_scale);
 
         graphics.draw_surface(0, 0, &surface);
         graphics.update();
     }
+
+    drop(gameboy);
+    release_mbc(program_name, mbc);
 }

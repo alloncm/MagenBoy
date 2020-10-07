@@ -16,11 +16,11 @@ use crate::ppu::gbc_ppu::{
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
-use log::info;
+use log::debug;
 
-pub struct GameBoy {
+pub struct GameBoy<'a> {
     cpu: GbcCpu,
-    mmu: GbcMmu,
+    mmu: GbcMmu::<'a>,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
     register_handler:RegisterHandler,
@@ -28,12 +28,33 @@ pub struct GameBoy {
     interrupts_handler:InterruptsHandler
 }
 
-impl GameBoy{
+impl<'a> GameBoy<'a>{
 
-    pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
-            mmu:GbcMmu::new(mbc, boot_rom),
+            mmu:GbcMmu::new_with_bootrom(mbc, boot_rom),
+            opcode_resolver:OpcodeResolver::default(),
+            ppu:GbcPpu::default(),
+            register_handler: RegisterHandler::default(),
+            cycles_per_frame:cycles,
+            interrupts_handler: InterruptsHandler::default()
+        }
+    }
+
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, cycles:u32)->GameBoy{
+        let mut cpu = GbcCpu::default();
+        //Values after the bootrom
+        *cpu.af.value() = 0x190;
+        *cpu.bc.value() = 0x13;
+        *cpu.de.value() = 0xD8;
+        *cpu.hl.value() = 0x14D;
+        cpu.stack_pointer = 0xFFFE;
+        cpu.program_counter = 0x100;
+
+        GameBoy{
+            cpu:cpu,
+            mmu:GbcMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),
@@ -82,7 +103,7 @@ impl GameBoy{
             let h = *self.cpu.hl.high();
             let l = *self.cpu.hl.low();
             let ly = self.mmu.io_ports.read(0x44);
-            info!("A:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} F:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} ({:02X} {:02X} {:02X} {:02X}) LY:{:02X} CS: ({:02X}{:02X} {:02X}{:02X} {:02X}{:02X}) SE {}",
+            debug!("A:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} F:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} ({:02X} {:02X} {:02X} {:02X}) LY:{:02X} CS: ({:02X}{:02X} {:02X}{:02X} {:02X}{:02X}) SE {}",
             a, b,c,d,e,f,
             h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3), ly,
             self.mmu.read(self.cpu.stack_pointer+1),self.mmu.read(self.cpu.stack_pointer),self.mmu.read(self.cpu.stack_pointer+3),self.mmu.read(self.cpu.stack_pointer+2),self.mmu.read(self.cpu.stack_pointer+5),self.mmu.read(self.cpu.stack_pointer+4),
