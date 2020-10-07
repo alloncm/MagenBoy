@@ -14,14 +14,14 @@ const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbcMmu{
+pub struct GbcMmu<'a>{
     pub ram: Ram,
     pub vram: VRam,
     pub dma_trasfer_trigger:bool,
     pub finished_boot:bool,
     pub io_ports: IoPorts,
     boot_rom:[u8;BOOT_ROM_SIZE],
-    mbc: Box<dyn Mbc>,
+    mbc: &'a mut Box<dyn Mbc>,
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
     hram: [u8;HRAM_SIZE],
     interupt_enable_register:u8,
@@ -29,7 +29,7 @@ pub struct GbcMmu{
 }
 
 
-impl Memory for GbcMmu{
+impl<'a> Memory for GbcMmu<'a>{
     fn read(&self, address:u16)->u8{
         return match address{
             0x0..=0xFF=>{
@@ -97,7 +97,7 @@ impl Memory for GbcMmu{
     }
 }
 
-impl ReadOnlyVideoMemory for GbcMmu{
+impl<'a> ReadOnlyVideoMemory for GbcMmu<'a>{
     fn read(&self, address: u16)->u8{
         return match address{
             0x8000..=0x9FFF=>self.vram.read_current_bank(address - 0x8000),
@@ -107,8 +107,8 @@ impl ReadOnlyVideoMemory for GbcMmu{
     }
 }
 
-impl GbcMmu{
-    pub fn new(mbc:Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
+impl<'a> GbcMmu<'a>{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
         GbcMmu{
             ram:Ram::default(),
             io_ports:IoPorts::default(),
