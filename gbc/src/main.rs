@@ -1,4 +1,4 @@
-mod mbc_initializer;
+mod mbc_handler;
 mod stupid_gfx_joypad_provider;
 
 use lib_gbc::machine::gameboy::GameBoy;
@@ -18,7 +18,7 @@ use stupid_gfx::{
 };
 
 use crate::stupid_gfx_joypad_provider::StupidGfxJoypadProvider;
-use crate::mbc_initializer::*;
+use crate::mbc_handler::*;
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];

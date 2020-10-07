@@ -15,16 +15,10 @@ pub fn initialize_mbc(program_name:&String)->Box<dyn Mbc>{
     let mbc_type = program[CARTRIDGE_TYPE_ADDRESS];
 
     info!("initializing cartridge of type: {:#X}", mbc_type);
-
-    return match mbc_type{
-        0x0|0x8=>Box::new(Rom::new(program,false, None)),
-        0x9=>Box::new(Rom::new(program, true, try_get_save_data(program_name))),
-        0x1|0x2=>Box::new(Mbc1::new(program,false, None)),
-        0x3=>Box::new(Mbc1::new(program,true, try_get_save_data(program_name))),
-        0x11|0x12=>Box::new(Mbc3::new(program,false,Option::None)),
-        0x13=>Box::new(Mbc3::new(program, true, try_get_save_data(program_name))),
-        _=>std::panic!("not supported cartridge: {}",mbc_type)
-    }
+    
+    let save_data = try_get_save_data(program_name);
+    
+    return lib_gbc::machine::mbc_initializer::initialize_mbc(mbc_type, program, save_data);
 }
 
 fn try_get_save_data(name:&String)->Option<Vec<u8>>{
