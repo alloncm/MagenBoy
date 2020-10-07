@@ -1,3 +1,6 @@
+mod mbc_initializer;
+mod stupid_gfx_joypad_provider;
+
 use lib_gbc::machine::gameboy::GameBoy;
 use lib_gbc::keypad::button::Button;
 use std::fs;
@@ -14,8 +17,6 @@ use stupid_gfx::{
     event::*
 };
 
-mod mbc_initializer;
-mod stupid_gfx_joypad_provider;
 use crate::stupid_gfx_joypad_provider::StupidGfxJoypadProvider;
 use crate::mbc_initializer::*;
 
