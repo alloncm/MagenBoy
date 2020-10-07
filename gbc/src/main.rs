@@ -2,6 +2,10 @@ mod mbc_handler;
 mod stupid_gfx_joypad_provider;
 
 use lib_gbc::machine::gameboy::GameBoy;
+use lib_gbc::ppu::gbc_ppu::{
+    SCREEN_HEIGHT,
+    SCREEN_WIDTH
+};
 use lib_gbc::keypad::button::Button;
 use std::fs;
 use std::env;
@@ -73,7 +77,13 @@ fn buttons_mapper(button:Button)->Scancode{
 }
 
 
+//CPU frequrncy: 1,048,326 / 60 
+const CYCLES_PER_FRAME:u32 = 17556; 
+
 fn main() {
+
+    let screen_scale:u32 = 4;
+
     let args: Vec<String> = env::args().collect();    
 
     let debug_level = args.len() >= 3 && args[2].eq(&String::from("--log"));
@@ -84,29 +94,34 @@ fn main() {
     }
     
     let gfx_initializer: Initializer = Initializer::new();
-    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", 800, 600,0, true);
+    let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32* screen_scale, 0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
-    let file = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
-        Result::Ok(val)=>val,
-        Result::Err(why)=>panic!("could not read boot rom {}",why)
+    let program_name = &args[1];
+    let mut mbc = initialize_mbc(program_name); 
+
+    let mut gameboy = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
+        Result::Ok(file)=>{
+            info!("found bootrom!");
+
+            let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
+            for i in 0..BOOT_ROM_SIZE{
+                bootrom[i] = file[i];
+            }
+            
+            GameBoy::new_with_bootrom(&mut mbc, bootrom, CYCLES_PER_FRAME)
+        }
+        Result::Err(_)=>{
+            info!("could not find bootrom... booting directly to rom");
+
+            GameBoy::new(&mut mbc, CYCLES_PER_FRAME)
+        }
     };
     
-    let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
-    for i in 0..BOOT_ROM_SIZE{
-        bootrom[i] = file[i];
-    }
+  
+    info!("initialized gameboy successfully!");
 
-    let program_name = &args[1];
-    let mut mbc = initialize_mbc(program_name);    
 
-    //CPU frequrncy: 1,048,326 / 60 
-    let cycles_per_frame = 17556;
-    let mut gameboy = GameBoy::new(&mut mbc, bootrom, cycles_per_frame);
-
-    info!("initialized gameboy successfully");
-
-    let scale:u32 = 4;
     let mut alive = true;
     while alive {
         graphics.clear();
@@ -120,8 +135,8 @@ fn main() {
         let joypad_provider = StupidGfxJoypadProvider::new(&mut event_handler, buttons_mapper);
         
         let vec:Vec<u32> = gameboy.cycle_frame(joypad_provider).to_vec();
-        let other_vec = extend_vec(vec, scale as usize, 160, 144);
-        let surface = Surface::new_from_raw(other_vec, 160*scale, 144*scale);
+        let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
+        let surface = Surface::new_from_raw(other_vec, SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32 * screen_scale);
 
         graphics.draw_surface(0, 0, &surface);
         graphics.update();

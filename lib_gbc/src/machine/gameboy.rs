@@ -30,10 +30,31 @@ pub struct GameBoy<'a> {
 
 impl<'a> GameBoy<'a>{
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
         GameBoy{
             cpu:GbcCpu::default(),
-            mmu:GbcMmu::new(mbc, boot_rom),
+            mmu:GbcMmu::new_with_bootrom(mbc, boot_rom),
+            opcode_resolver:OpcodeResolver::default(),
+            ppu:GbcPpu::default(),
+            register_handler: RegisterHandler::default(),
+            cycles_per_frame:cycles,
+            interrupts_handler: InterruptsHandler::default()
+        }
+    }
+
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, cycles:u32)->GameBoy{
+        let mut cpu = GbcCpu::default();
+        //Values after the bootrom
+        *cpu.af.value() = 0x190;
+        *cpu.bc.value() = 0x13;
+        *cpu.de.value() = 0xD8;
+        *cpu.hl.value() = 0x14D;
+        cpu.stack_pointer = 0xFFFE;
+        cpu.program_counter = 0x100;
+
+        GameBoy{
+            cpu:cpu,
+            mmu:GbcMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),

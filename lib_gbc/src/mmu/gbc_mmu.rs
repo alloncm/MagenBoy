@@ -3,7 +3,10 @@ use super::video_memory::ReadOnlyVideoMemory;
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
-use crate::utils::memory_registers::DMA_REGISTER_ADDRESS;
+use crate::utils::memory_registers::{
+    DMA_REGISTER_ADDRESS,
+    BOOT_REGISTER_ADDRESS
+};
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
@@ -108,7 +111,7 @@ impl<'a> ReadOnlyVideoMemory for GbcMmu<'a>{
 }
 
 impl<'a> GbcMmu<'a>{
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
         GbcMmu{
             ram:Ram::default(),
             io_ports:IoPorts::default(),
@@ -122,6 +125,27 @@ impl<'a> GbcMmu<'a>{
             finished_boot:false,
             ppu_state:PpuState::OamSearch
         }
+    }
+
+    pub fn new(mbc:&'a mut Box<dyn Mbc>)->Self{
+        let mut mmu = GbcMmu{
+            ram:Ram::default(),
+            io_ports:IoPorts::default(),
+            mbc:mbc,
+            vram:VRam::default(),
+            sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
+            hram:[0;HRAM_SIZE],
+            interupt_enable_register:0,
+            dma_trasfer_trigger:false,
+            boot_rom:[0;BOOT_ROM_SIZE],
+            finished_boot:true,
+            ppu_state:PpuState::OamSearch
+        };
+
+        //Setting the bootrom register to be set (the boot sequence has over)
+        mmu.io_ports.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
+        
+        mmu
     }
 
     fn is_oam_ready_for_io(&self)->bool{
