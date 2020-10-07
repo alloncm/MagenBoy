@@ -4,6 +4,13 @@ A GameBoy emulator developped by me.
 
 The main goal of this project is to be able to play Pokemon on my own emulator.
 
+## Implemented Cartridges Types
+- Rom (No MBC controller)
+- MBC1
+- MBC3
+
+#### More will be added if neccessary (and by neccessary I mean if games I want to play will require them)
+
 ## Development Status
 
 ### GameBoy
