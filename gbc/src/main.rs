@@ -125,7 +125,7 @@ fn main() {
     let mut alive = true;
     while alive {
         graphics.clear();
-        for event in event_handler.poll_events(){
+        for event in event_handler.get_events(){
             match event{
                 Event::Quit=>alive = false,
                 _=>{}
