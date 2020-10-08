@@ -1,4 +1,3 @@
-extern crate lib_gbc;
 mod memory_stub;
 
 use lib_gbc::cpu::gb_cpu::GbCpu;

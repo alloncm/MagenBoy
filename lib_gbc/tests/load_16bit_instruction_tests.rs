@@ -1,4 +1,3 @@
-extern crate lib_gbc;
 use lib_gbc::cpu::gb_cpu::{GbCpu};
 use lib_gbc::cpu::opcodes::load_16bit_instructions;
 mod memory_stub;

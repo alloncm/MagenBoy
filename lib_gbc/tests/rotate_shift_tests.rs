@@ -1,4 +1,3 @@
-extern crate lib_gbc;
 use lib_gbc::cpu::opcodes::rotate_shift_instructions::*;
 use lib_gbc::cpu::gb_cpu::*;
 use lib_gbc::cpu::flag::Flag;

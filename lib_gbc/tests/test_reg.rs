@@ -1,4 +1,3 @@
-extern crate lib_gbc;
 use lib_gbc::cpu::register::Reg;
 
 #[test]

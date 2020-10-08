@@ -1,4 +1,3 @@
-extern crate lib_gbc;
 use lib_gbc::mmu::memory::Memory;
 
 pub struct MemoryStub{
