@@ -27,13 +27,13 @@ impl<'a, F: Fn(Button)->Scancode> StupidGfxJoypadProvider<'a, F>{
 impl<'a, F:Fn(Button)->Scancode> JoypadProvider for StupidGfxJoypadProvider<'a, F>{
     fn provide(&mut self, joypad:&mut Joypad) {
         let mapper = &(self.mapper);
-        joypad.buttons[Button::A as usize]      = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::A)));
-        joypad.buttons[Button::B as usize]      = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::B)));
-        joypad.buttons[Button::Start as usize]  = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Start)));
-        joypad.buttons[Button::Select as usize] = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Select)));
-        joypad.buttons[Button::Up as usize]     = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Up)));
-        joypad.buttons[Button::Down as usize]   = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Down)));
-        joypad.buttons[Button::Right as usize]  = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Right)));
-        joypad.buttons[Button::Left as usize]   = self.event_handler.has_event_occurred(Event::KeyPressed(mapper(Button::Left)));
+        joypad.buttons[Button::A as usize]      = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::A)));
+        joypad.buttons[Button::B as usize]      = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::B)));
+        joypad.buttons[Button::Start as usize]  = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Start)));
+        joypad.buttons[Button::Select as usize] = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Select)));
+        joypad.buttons[Button::Up as usize]     = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Up)));
+        joypad.buttons[Button::Down as usize]   = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Down)));
+        joypad.buttons[Button::Right as usize]  = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Right)));
+        joypad.buttons[Button::Left as usize]   = self.event_handler.has_input_device_event_occurred(Event::KeyPressed(mapper(Button::Left)));
     }
 }
