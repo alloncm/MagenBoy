@@ -1,4 +1,5 @@
-use crate::cpu::gb_cpu::{GbCpu,Flag};
+use crate::cpu::gb_cpu::GbCpu;
+use crate::cpu::flag::Flag;
 use crate::mmu::memory::Memory;
 
 const P1:u16 = 0xFF00;

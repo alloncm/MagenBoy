@@ -1,4 +1,5 @@
 use crate::cpu::gb_cpu::*;
+use crate::cpu::flag::Flag;
 use super::opcodes_utils::*;
 use crate::mmu::memory::Memory;
 use crate::utils::bit_masks::*;

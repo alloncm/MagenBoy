@@ -1,5 +1,6 @@
 extern crate lib_gbc;
-use lib_gbc::cpu::gb_cpu::{GbCpu,Flag};
+use lib_gbc::cpu::gb_cpu::GbCpu;
+use lib_gbc::cpu::flag::Flag;
 use lib_gbc::cpu::opcodes::arithmetic_8bit_instructions;
 mod memory_stub;
 use crate::memory_stub::MemoryStub;

@@ -1,4 +1,5 @@
-use crate::cpu::gb_cpu::{GbCpu, Flag};
+use crate::cpu::gb_cpu::GbCpu;
+use crate::cpu::flag::Flag;
 use crate::mmu::memory::Memory;
 use super::opcodes_utils::{
     get_src_register, 

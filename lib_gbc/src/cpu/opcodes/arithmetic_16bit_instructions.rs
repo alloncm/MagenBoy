@@ -1,4 +1,5 @@
-use crate::cpu::gb_cpu::{GbCpu, Flag};
+use crate::cpu::gb_cpu::GbCpu;
+use crate::cpu::flag::Flag;
 use super::opcodes_utils::{
     get_arithmetic_16reg,
     check_for_half_carry_third_nible_add,

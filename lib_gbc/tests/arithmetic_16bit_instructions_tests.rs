@@ -1,5 +1,6 @@
 extern crate lib_gbc;
-use lib_gbc::cpu::gb_cpu::{GbCpu,Flag};
+use lib_gbc::cpu::gb_cpu::GbCpu;
+use lib_gbc::cpu::flag::Flag;
 use lib_gbc::cpu::opcodes::arithmetic_16bit_instructions;
 
 #[test]
