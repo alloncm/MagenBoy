@@ -1,15 +1,14 @@
-extern crate lib_gbc;
 mod memory_stub;
 
-use lib_gbc::cpu::gbc_cpu::GbcCpu;
-use lib_gbc::opcodes::jump_instructions::rst;
+use lib_gbc::cpu::gb_cpu::GbCpu;
+use lib_gbc::cpu::opcodes::jump_instructions::rst;
 use crate::memory_stub::MemoryStub;
 
 macro_rules! rst_test{
     ($name:ident, $opcode:expr, $expected_pc:expr) => {
         #[test]
         fn $name(){
-            let mut cpu = GbcCpu::default();
+            let mut cpu = GbCpu::default();
             cpu.stack_pointer =0xFFFE;
             let mut memory = MemoryStub{data:[0;0xFFFF]};
 

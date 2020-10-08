@@ -1,7 +1,7 @@
-use crate::cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
 use std::option::Option;
-use crate::opcodes::{
+use super::{
     arithmetic_16bit_instructions::*,
     arithmetic_8bit_instructions::*,
     cpu_control_instructions::*,
@@ -13,14 +13,14 @@ use crate::opcodes::{
 };
 
 
-pub type OpcodeFunc = fn(&mut GbcCpu);
-pub type U8OpcodeFunc = fn(&mut GbcCpu,u8);
-pub type U16OpcodeFunc = fn(&mut GbcCpu,u16);
-pub type U32OpcodeFunc = fn(&mut GbcCpu,u32);
-pub type MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory);
-pub type U8MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u8);
-pub type U16MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u16);
-pub type U32MemoryOpcodeFunc = fn(&mut GbcCpu,&mut dyn Memory,u32);
+pub type OpcodeFunc = fn(&mut GbCpu);
+pub type U8OpcodeFunc = fn(&mut GbCpu,u8);
+pub type U16OpcodeFunc = fn(&mut GbCpu,u16);
+pub type U32OpcodeFunc = fn(&mut GbCpu,u32);
+pub type MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory);
+pub type U8MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u8);
+pub type U16MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u16);
+pub type U32MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u32);
 
 
 pub fn get_opcode_func_resolver()->fn(u8)->Option<OpcodeFunc>{

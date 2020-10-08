@@ -1,6 +1,6 @@
-extern crate lib_gbc;
-use lib_gbc::opcodes::rotate_shift_instructions::*;
-use lib_gbc::cpu::gbc_cpu::*;
+use lib_gbc::cpu::opcodes::rotate_shift_instructions::*;
+use lib_gbc::cpu::gb_cpu::*;
+use lib_gbc::cpu::flag::Flag;
 use lib_gbc::mmu::memory::Memory;
 
 struct MemoryStub{
@@ -20,7 +20,7 @@ impl Memory for MemoryStub{
 #[test]
 fn test_rlc_r(){
     let opcode:u16 = 0xCB00;
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.bc.high() = 0x85;
     rlc_r(&mut cpu, opcode);
     assert_eq!(*cpu.bc.high(), 0xB);
@@ -30,7 +30,7 @@ fn test_rlc_r(){
 #[test]
 fn test_rl_carry_not_set_r(){
     let opcode:u16 = 0xCB10;
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.bc.high() = 0x85;
     rl_r(&mut cpu, opcode);
     assert_eq!(*cpu.bc.high(), 0xA);
@@ -39,7 +39,7 @@ fn test_rl_carry_not_set_r(){
 #[test]
 fn test_rl_carry_set_r(){
     let opcode:u16 = 0xCB10;
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.bc.high() = 0x85;
     cpu.set_flag(Flag::Carry);
     rl_r(&mut cpu, opcode);
@@ -48,7 +48,7 @@ fn test_rl_carry_set_r(){
 
 #[test]
 fn test_rla(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x85;
     rla(&mut cpu);
     assert_eq!(*cpu.af.high(), 0xA);
@@ -56,7 +56,7 @@ fn test_rla(){
 
 #[test]
 fn test_sla_hl_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x0;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0x0] = 0x80;
@@ -70,7 +70,7 @@ fn test_sla_hl_carry(){
 
 #[test]
 fn test_sla_hl(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x0;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0x0] = 0xFF;
@@ -84,7 +84,7 @@ fn test_sla_hl(){
 
 #[test]
 fn test_sla_hl_expects_no_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x0;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0x0] = 0x0F;
@@ -98,7 +98,7 @@ fn test_sla_hl_expects_no_carry(){
 
 #[test]
 fn test_sla_hl_0(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x0;
@@ -112,7 +112,7 @@ fn test_sla_hl_0(){
 
 #[test]
 fn test_sla_hl_1(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x1;
@@ -126,7 +126,7 @@ fn test_sla_hl_1(){
 
 #[test]
 fn test_sla_hl_f(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0xF;
@@ -140,7 +140,7 @@ fn test_sla_hl_f(){
 
 #[test]
 fn test_sla_hl_10(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x10;
@@ -154,7 +154,7 @@ fn test_sla_hl_10(){
 
 #[test]
 fn test_sla_hl_1f(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x1F;
@@ -168,7 +168,7 @@ fn test_sla_hl_1f(){
 
 #[test]
 fn test_sla_hl_7f(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x7F;
@@ -182,7 +182,7 @@ fn test_sla_hl_7f(){
 
 #[test]
 fn test_sla_hl_80(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x80;
@@ -196,7 +196,7 @@ fn test_sla_hl_80(){
 
 #[test]
 fn test_sla_hl_f0(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0xF0;
@@ -210,7 +210,7 @@ fn test_sla_hl_f0(){
 
 #[test]
 fn test_sla_hl_ff(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0xFF;
@@ -224,7 +224,7 @@ fn test_sla_hl_ff(){
 
 #[test]
 fn test_sla_hl_2(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x2;
@@ -238,7 +238,7 @@ fn test_sla_hl_2(){
 
 #[test]
 fn test_sla_hl_4(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x4;
@@ -252,7 +252,7 @@ fn test_sla_hl_4(){
 
 #[test]
 fn test_sla_hl_20(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x20;
@@ -266,7 +266,7 @@ fn test_sla_hl_20(){
 
 #[test]
 fn test_sla_hl_40(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0xDEF8;
     let mut memory = MemoryStub{data:[0;0xFFFF]};
     memory.data[0xDEF8] = 0x40;

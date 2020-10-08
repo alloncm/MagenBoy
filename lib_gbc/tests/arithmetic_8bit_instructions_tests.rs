@@ -1,12 +1,12 @@
-extern crate lib_gbc;
-use lib_gbc::cpu::gbc_cpu::{GbcCpu,Flag};
-use lib_gbc::opcodes::arithmetic_8bit_instructions;
+use lib_gbc::cpu::gb_cpu::GbCpu;
+use lib_gbc::cpu::flag::Flag;
+use lib_gbc::cpu::opcodes::arithmetic_8bit_instructions;
 mod memory_stub;
 use crate::memory_stub::MemoryStub;
 
 #[test]
 fn daa_after_add_op(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x7D;
     *cpu.af.low() = 0;
     arithmetic_8bit_instructions::daa(&mut cpu);
@@ -17,7 +17,7 @@ fn daa_after_add_op(){
 
 #[test]
 fn test_sub_a_nn_for_half_carry_true(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x3E;
     let opcode = 0x0F;
     arithmetic_8bit_instructions::sub_a_nn(&mut cpu, opcode);
@@ -31,7 +31,7 @@ fn test_sub_a_nn_for_half_carry_true(){
 
 #[test]
 fn test_sub_a_nn_for_half_carry_false(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x3E;
     let opcode = 0x3E;
     arithmetic_8bit_instructions::sub_a_nn(&mut cpu, opcode);
@@ -45,7 +45,7 @@ fn test_sub_a_nn_for_half_carry_false(){
 
 #[test]
 fn test_sub_a_nn_for_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x3E;
     let opcode = 0x40;
     arithmetic_8bit_instructions::sub_a_nn(&mut cpu, opcode);
@@ -59,7 +59,7 @@ fn test_sub_a_nn_for_carry(){
 
 #[test]
 fn test_sbc_nn_on_carry_set_expeced_no_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x3B;
     cpu.set_flag(Flag::Carry);
     let opcode = 0x2A;
@@ -75,7 +75,7 @@ fn test_sbc_nn_on_carry_set_expeced_no_carry(){
 
 #[test]
 fn test_sbc_nn_on_carry_set_expeced_carry_and_half_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0x3B;
     cpu.set_flag(Flag::Carry);
     let opcode = 0x4F;
@@ -90,7 +90,7 @@ fn test_sbc_nn_on_carry_set_expeced_carry_and_half_carry(){
 
 #[test]
 fn test_adc_nn_on_carry_set_expeced_half_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0xE1;
     cpu.set_flag(Flag::Carry);
     let opcode = 0x0F;
@@ -105,7 +105,7 @@ fn test_adc_nn_on_carry_set_expeced_half_carry(){
 
 #[test]
 fn test_adc_nn_on_carry_set_expeced_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0xE1;
     cpu.set_flag(Flag::Carry);
     let opcode = 0x3B;
@@ -120,7 +120,7 @@ fn test_adc_nn_on_carry_set_expeced_carry(){
 
 #[test]
 fn test_adc_nn_on_carry_set_expeced_carry_half_carry_zero(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.af.high() = 0xE1;
     cpu.set_flag(Flag::Carry);
     let opcode = 0x1E;
@@ -136,7 +136,7 @@ fn test_adc_nn_on_carry_set_expeced_carry_half_carry_zero(){
 
 #[test]
 fn test_inc_hl(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x50;
     cpu.set_flag(Flag::Carry);
     let mut memory = MemoryStub{data:[0;0xFFFF]};
@@ -153,7 +153,7 @@ fn test_inc_hl(){
 
 #[test]
 fn test_inc_hl_half_carry(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x50;
     cpu.set_flag(Flag::Carry);
     let mut memory = MemoryStub{data:[0;0xFFFF]};

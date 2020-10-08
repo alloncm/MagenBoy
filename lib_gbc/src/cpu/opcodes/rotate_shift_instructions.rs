@@ -1,9 +1,10 @@
-use crate::cpu::gbc_cpu::*;
-use crate::opcodes::opcodes_utils::*;
+use crate::cpu::gb_cpu::*;
+use crate::cpu::flag::Flag;
+use super::opcodes_utils::*;
 use crate::mmu::memory::Memory;
 use crate::utils::bit_masks::*;
 
-fn a_rotate_flags(cpu:&mut GbcCpu, carry:bool){
+fn a_rotate_flags(cpu:&mut GbCpu, carry:bool){
     cpu.unset_flag(Flag::HalfCarry);
     cpu.unset_flag(Flag::Subtraction);
     cpu.unset_flag(Flag::Zero);
@@ -44,41 +45,41 @@ fn rotate_right_carry(r:&mut u8, carry:bool)->bool{
     return (temp & BIT_0_MASK) != 0;
 }
 
-pub fn rlca(cpu:&mut GbcCpu){
+pub fn rlca(cpu:&mut GbCpu){
     let carry:bool = rotate_left(cpu.af.high());
 
     a_rotate_flags(cpu, carry);
 }
 
-pub fn rla(cpu:&mut GbcCpu){
+pub fn rla(cpu:&mut GbCpu){
     let carry_flag = cpu.get_flag(Flag::Carry);
     let carry:bool = rotate_left_carry(cpu.af.high(), carry_flag);
 
     a_rotate_flags(cpu, carry);
 }   
 
-pub fn rrca(cpu:&mut GbcCpu){
+pub fn rrca(cpu:&mut GbCpu){
     let carry:bool = rotate_right(cpu.af.high());
 
     a_rotate_flags(cpu, carry);
 }
 
 
-pub fn rra(cpu:&mut GbcCpu){
+pub fn rra(cpu:&mut GbCpu){
     let carry_flag = cpu.get_flag(Flag::Carry);
     let carry:bool = rotate_right_carry(cpu.af.high(), carry_flag);
 
     a_rotate_flags(cpu, carry);
 }   
 
-fn rotate_shift_flags(cpu:&mut GbcCpu, carry:bool, zero:bool){
+fn rotate_shift_flags(cpu:&mut GbCpu, carry:bool, zero:bool){
     cpu.unset_flag(Flag::HalfCarry);
     cpu.unset_flag(Flag::Subtraction);
     cpu.set_by_value(Flag::Zero, zero);
     cpu.set_by_value(Flag::Carry, carry);
 }
 
-pub fn rlc_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn rlc_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -93,7 +94,7 @@ pub fn rlc_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn rlc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn rlc_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_left(&mut byte);
@@ -101,7 +102,7 @@ pub fn rlc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
     rotate_shift_flags(cpu, carry, byte == 0);
 }
 
-pub fn rl_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn rl_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -117,7 +118,7 @@ pub fn rl_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn rl_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn rl_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_left_carry(&mut byte, cpu.get_flag(Flag::Carry));
@@ -125,7 +126,7 @@ pub fn rl_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
     rotate_shift_flags(cpu, carry, byte == 0);
 }
 
-pub fn rrc_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn rrc_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -140,7 +141,7 @@ pub fn rrc_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn rrc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn rrc_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_right(&mut byte);
@@ -148,7 +149,7 @@ pub fn rrc_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
     rotate_shift_flags(cpu, carry, byte == 0);
 }
 
-pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn rr_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -164,7 +165,7 @@ pub fn rr_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn rr_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn rr_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry_flag = cpu.get_flag(Flag::Carry);
@@ -192,7 +193,7 @@ fn logical_shift_right(r:&mut u8)->bool{
     return temp & BIT_0_MASK != 0;
 }
 
-pub fn sla_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn sla_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -207,7 +208,7 @@ pub fn sla_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn sla_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn sla_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = shift_left(&mut byte);
@@ -222,14 +223,14 @@ fn swap_nibbles(r:&mut u8){
     *r = temp;
 }
 
-fn set_swap_flags(cpu:&mut GbcCpu, zero:bool){
+fn set_swap_flags(cpu:&mut GbCpu, zero:bool){
     cpu.unset_flag(Flag::HalfCarry);
     cpu.unset_flag(Flag::Subtraction);
     cpu.set_by_value(Flag::Zero,zero);
     cpu.unset_flag(Flag::Carry);
 }
 
-pub fn swap_r(cpu:&mut GbcCpu, opcode:u16){
+pub fn swap_r(cpu:&mut GbCpu, opcode:u16){
     let value:u8;
     let opcode:u8 = get_cb_opcode(opcode);
     {
@@ -241,7 +242,7 @@ pub fn swap_r(cpu:&mut GbcCpu, opcode:u16){
     set_swap_flags(cpu, value == 0);
 }
 
-pub fn swap_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn swap_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     swap_nibbles(&mut byte);
@@ -249,7 +250,7 @@ pub fn swap_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
     set_swap_flags(cpu, byte == 0);
 }
 
-pub fn sra_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn sra_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -263,7 +264,7 @@ pub fn sra_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn sra_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn sra_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = arithmetic_shift_right(&mut byte);
@@ -271,7 +272,7 @@ pub fn sra_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
     rotate_shift_flags(cpu, carry, byte == 0);
 }
 
-pub fn srl_r(cpu:&mut GbcCpu, opcode:u16)
+pub fn srl_r(cpu:&mut GbCpu, opcode:u16)
 {
     let opcode:u8 = get_cb_opcode(opcode);
     let register_value:u8;
@@ -285,7 +286,7 @@ pub fn srl_r(cpu:&mut GbcCpu, opcode:u16)
     rotate_shift_flags(cpu, carry, register_value == 0);
 }
 
-pub fn srl_hl(cpu:&mut GbcCpu, memory:&mut dyn Memory)
+pub fn srl_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)
 {
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = logical_shift_right(&mut byte);

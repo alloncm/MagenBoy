@@ -1,9 +1,9 @@
-use crate::cpu::gbc_cpu::{GbcCpu};
+use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
 
 
 
-pub fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
+pub fn get_src_register(cpu: &mut GbCpu, opcode:u8)-> &mut u8{
     let reg_num = opcode & 0b111;
     return match reg_num{
         0x0=>cpu.bc.high(),
@@ -17,7 +17,7 @@ pub fn get_src_register(cpu: &mut GbcCpu, opcode:u8)-> &mut u8{
     };
 }
 
-pub fn get_arithmetic_16reg(cpu:&mut GbcCpu, reg:u8)->&mut u16{
+pub fn get_arithmetic_16reg(cpu:&mut GbCpu, reg:u8)->&mut u16{
     return match reg{
         0x0=>cpu.bc.value(),
         0x1=>cpu.de.value(),
@@ -54,7 +54,7 @@ pub fn get_cb_opcode(cb_opcode:u16)->u8{
     (cb_opcode & 0xFF) as u8
 }
 
-pub fn get_reg_two_rows(cpu: &mut GbcCpu, mut reg:u8)->&mut u8{
+pub fn get_reg_two_rows(cpu: &mut GbCpu, mut reg:u8)->&mut u8{
     reg &= 0b11111000;
     reg >>= 3;
     match reg{
@@ -69,7 +69,7 @@ pub fn get_reg_two_rows(cpu: &mut GbcCpu, mut reg:u8)->&mut u8{
     }
 }
 
-pub fn push(cpu:&mut GbcCpu,memory:&mut dyn Memory, value:u16){
+pub fn push(cpu:&mut GbCpu,memory:&mut dyn Memory, value:u16){
     let high = ((value & 0xFF00) >> 8) as u8;
     let low = (value & 0xFF) as u8;
     
@@ -78,7 +78,7 @@ pub fn push(cpu:&mut GbcCpu,memory:&mut dyn Memory, value:u16){
     cpu.stack_pointer-=2;
 }
 
-pub fn pop(cpu:&mut GbcCpu,memory:&mut dyn Memory)->u16{
+pub fn pop(cpu:&mut GbCpu,memory:&mut dyn Memory)->u16{
     let mut value:u16 = memory.read(cpu.stack_pointer) as u16;
     value |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
     cpu.stack_pointer+=2;

@@ -1,13 +1,7 @@
 use super::register::Reg;
+use super::flag::Flag;
 
-pub enum Flag{
-    Carry = 0b00010000,
-    HalfCarry = 0b00100000,
-    Subtraction = 0b01000000,
-    Zero = 0b10000000
-}
-
-pub struct GbcCpu {
+pub struct GbCpu {
     pub af: Reg,
     pub bc: Reg,
     pub de: Reg,
@@ -23,9 +17,9 @@ pub struct GbcCpu {
     pub interupt_flag:u8
 }
 
-impl Default for GbcCpu {
-    fn default() -> GbcCpu {
-        GbcCpu {
+impl Default for GbCpu {
+    fn default() -> Self {
+        GbCpu {
             af: Reg::new(0xFFF0),
             bc: Reg::default(),
             de: Reg::default(),
@@ -43,7 +37,7 @@ impl Default for GbcCpu {
     }
 }
 
-impl GbcCpu {
+impl GbCpu {
     pub fn set_flag(&mut self, flag:Flag){
         *self.af.low() |= flag as u8;
     }

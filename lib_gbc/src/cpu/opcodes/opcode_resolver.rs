@@ -1,4 +1,4 @@
-use crate::opcodes::opcodes_resolvers::*;
+use super::opcodes_resolvers::*;
 use crate::mmu::memory::Memory;
 
 
