@@ -1,9 +1,9 @@
 extern crate lib_gbc;
-use lib_gbc::cpu::gbc_cpu::GbcCpu;
+use lib_gbc::cpu::gb_cpu::GbCpu;
 
 #[test]
 fn test_inc_hl(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 8200;
     cpu.inc_hl();
     assert_eq!(*cpu.hl.value(), 8201);
@@ -14,7 +14,7 @@ fn test_inc_hl(){
 
 #[test]
 fn test_dec_hl(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     *cpu.hl.value() = 8200;
     cpu.dec_hl();
     assert_eq!(*cpu.hl.value(), 8199);

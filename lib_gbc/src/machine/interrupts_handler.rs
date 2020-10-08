@@ -1,9 +1,9 @@
-use crate::cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gb_cpu::GbCpu;
 use crate::utils::{
     bit_masks::*,
     memory_registers::IF_REGISTER_ADDRESS
 };
-use crate::opcodes::opcodes_utils::push;
+use crate::cpu::opcodes::opcodes_utils::push;
 use crate::mmu::memory::Memory;
 
 const V_BLACK_INTERRUPT_ADDERESS:u16    = 0x40;
@@ -35,7 +35,7 @@ impl Default for InterruptsHandler{
 
 impl InterruptsHandler{
 
-    pub fn handle_interrupts(&mut self, cpu:&mut GbcCpu, memory:&mut dyn Memory){
+    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut dyn Memory){
         //this is delatey by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
         if cpu.mie && self.ei_triggered{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
@@ -67,7 +67,7 @@ impl InterruptsHandler{
         self.ei_triggered = cpu.mie;
     }
 
-    fn prepare_for_interut(cpu:&mut GbcCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory){
+    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory){
         //reseting the interupt bit
         cpu.interupt_flag &= !interupt_bit;
         memory.write(IF_REGISTER_ADDRESS, cpu.interupt_flag);

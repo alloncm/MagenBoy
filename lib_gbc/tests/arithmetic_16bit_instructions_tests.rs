@@ -1,10 +1,10 @@
 extern crate lib_gbc;
-use lib_gbc::cpu::gbc_cpu::{GbcCpu,Flag};
-use lib_gbc::opcodes::arithmetic_16bit_instructions;
+use lib_gbc::cpu::gb_cpu::{GbCpu,Flag};
+use lib_gbc::cpu::opcodes::arithmetic_16bit_instructions;
 
 #[test]
 fn test_add_sp_dd_positive_dd(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     let opcode:u16 = 88;
     arithmetic_16bit_instructions::add_sp_dd(&mut cpu, opcode);
     assert_eq!(cpu.stack_pointer, 88);
@@ -16,7 +16,7 @@ fn test_add_sp_dd_positive_dd(){
 
 #[test]
 fn test_add_sp_dd(){
-    let mut cpu = GbcCpu::default();
+    let mut cpu = GbCpu::default();
     cpu.stack_pointer =0xFFF8;
     let opcode:u16 = 2;
     arithmetic_16bit_instructions::add_sp_dd(&mut cpu, opcode);

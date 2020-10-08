@@ -1,4 +1,4 @@
-use crate::cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gb_cpu::GbCpu;
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -6,7 +6,7 @@ use crate::mmu::gbc_mmu::{
     GbcMmu,
     BOOT_ROM_SIZE
 };
-use crate::opcodes::opcode_resolver::*;
+use crate::cpu::opcodes::opcode_resolver::*;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::carts::mbc::Mbc;
@@ -19,7 +19,7 @@ use std::boxed::Box;
 use log::debug;
 
 pub struct GameBoy<'a> {
-    cpu: GbcCpu,
+    cpu: GbCpu,
     mmu: GbcMmu::<'a>,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
@@ -32,7 +32,7 @@ impl<'a> GameBoy<'a>{
 
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
         GameBoy{
-            cpu:GbcCpu::default(),
+            cpu:GbCpu::default(),
             mmu:GbcMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
@@ -43,7 +43,7 @@ impl<'a> GameBoy<'a>{
     }
 
     pub fn new(mbc:&'a mut Box<dyn Mbc>, cycles:u32)->GameBoy{
-        let mut cpu = GbcCpu::default();
+        let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
         *cpu.bc.value() = 0x13;

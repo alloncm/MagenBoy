@@ -1,4 +1,4 @@
-use crate::cpu::gbc_cpu::GbcCpu;
+use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::GbcMmu;
 use crate::ppu::gbc_ppu::GbcPpu;
@@ -36,7 +36,7 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbcCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
@@ -65,7 +65,7 @@ impl RegisterHandler{
         memory.write(IE_REGISTER_ADDRESS, interupt_enable);
     }
 
-    fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbcCpu){
+    fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbCpu){
         cpu.interupt_enable = enable;
         cpu.interupt_flag = flag;
     }
@@ -184,13 +184,13 @@ impl RegisterHandler{
         ppu.background_scroll.y = scroll_y;
     }
 
-    fn handle_vrambank_register( register:u8, memory: &mut GbcMmu, cpu:&mut GbcCpu){
+    fn handle_vrambank_register( register:u8, memory: &mut GbcMmu, cpu:&mut GbCpu){
         if cpu.cgb_mode{
             memory.vram.set_bank(register & BIT_0_MASK);
         }
     }
 
-    fn handle_switch_mode_register( register:u8, memory: &mut dyn Memory, cpu:&mut GbcCpu){
+    fn handle_switch_mode_register( register:u8, memory: &mut dyn Memory, cpu:&mut GbCpu){
         if register & BIT_0_MASK != 0{
             cpu.cgb_mode = !cpu.cgb_mode;
             let cgb_mask = (cpu.cgb_mode as u8) <<7;
