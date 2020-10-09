@@ -49,7 +49,7 @@ pub struct GbcPpu {
 
     window_active:bool,
     window_line_counter:u8,
-    current_cycle:u32,
+    //current_cycle:u32,
     line_rendered:bool
 }
 
@@ -74,7 +74,7 @@ impl Default for GbcPpu {
             current_line_drawn:0,
             state:PpuState::OamSearch,
             line_rendered:false,
-            current_cycle:0,
+            //current_cycle:0,
             window_line_counter:0,
             window_active:false
         }
@@ -90,13 +90,13 @@ impl GbcPpu {
         return &self.screen_buffer;
     }
 
-    fn update_ly(&mut self){
+    fn update_ly(&mut self, cycles:u32){
         
-        let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
+        let line = cycles/DRAWING_CYCLE_CLOCKS as u32;
         if line>=LY_MAX_VALUE as u32{
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
-            self.current_cycle = 0;
+            //self.current_cycle = 0;
             self.window_line_counter = 0;
             self.window_enable = false;
         }
@@ -127,18 +127,18 @@ impl GbcPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u8){
+    pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u32){
         if !self.screen_enable{
-            self.current_cycle = 0;
+            //self.current_cycle = 0;
             self.current_line_drawn = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
             self.state = PpuState::Hblank;
             return;
         }
 
-        self.current_cycle += cycles_passed as u32;
-        self.update_ly();
-        self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
+        //self.current_cycle += cycles_passed as u32;
+        self.update_ly(cycles_passed);
+        self.state = Self::get_ppu_state(cycles_passed, self.current_line_drawn);
 
         if self.state as u8 != PpuState::PixelTransfer as u8{
             return;

@@ -1,6 +1,7 @@
 use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gbc_mmu::GbcMmu;
+use crate::mmu::io_ports::DIV_REGISTER_INDEX;
 use crate::ppu::gbc_ppu::GbcPpu;
 use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
@@ -18,7 +19,7 @@ const LY_INTERRUPT_VALUE:u8 = 144;
 const WX_OFFSET:u8 = 7;
 
 pub struct RegisterHandler{
-    timer_clock_interval_counter:u16,
+    timer_clock_interval_counter:u32,
     v_blank_triggered:bool,
     dma_cycle_counter:u16
 }
@@ -36,7 +37,7 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, m_cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
@@ -48,13 +49,13 @@ impl RegisterHandler{
         Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
         Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
         Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
-        self.handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory,cycles);
+        self.handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory,m_cycles);
         Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
         Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
         Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
         Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
-        Self::handle_divider_register(memory);
-        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag);
+        self.handle_divider_register(memory,m_cycles);
+        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag, m_cycles);
         Self::handle_wy_register(memory.read(WY_REGISTER_ADDRESS), ppu);
         Self::handle_wx_register(memory.read(WX_REGISTER_ADDRESS), ppu);
 
@@ -220,35 +221,47 @@ impl RegisterHandler{
         }
     }
 
-    fn handle_divider_register(mmu:&mut GbcMmu){
-        mmu.io_ports.increase_system_counter();
+    fn handle_divider_register(&mut self, mmu:&mut GbcMmu, m_cycles:u8){
+        const T_CYCLES_IN_M_CYCLE:u8 = 4;
+        mmu.io_ports.system_counter = mmu.io_ports.system_counter.wrapping_add(m_cycles as u16 * T_CYCLES_IN_M_CYCLE as u16);
+        mmu.io_ports.write_unprotected(DIV_REGISTER_INDEX, (mmu.io_ports.system_counter >> 8) as u8);
     }
 
-    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory, if_register:&mut u8){
+    fn handle_timer_counter_register(&mut self, register:u8, memory:&mut dyn Memory, if_register:&mut u8, m_cycles_passed:u8){
         let (interval, enable) = Self::get_timer_controller_data(memory);
 
-        if !enable{
-            self.timer_clock_interval_counter = 0;
-            return;
-        }
+        if enable{
+            self.timer_clock_interval_counter += m_cycles_passed as u32;
 
-        if self.timer_clock_interval_counter < interval{
-            self.timer_clock_interval_counter+=4;
-        }
-        else
-        {
-            //zero the counter 
-            self.timer_clock_interval_counter = 0;
+            if self.timer_clock_interval_counter >= interval{
+                self.timer_clock_interval_counter -= interval as u32;
 
-            let (mut value, overflow) = register.overflowing_add(4);
+                let (mut value, overflow) = register.overflowing_add(1);
 
-            if overflow{
-                *if_register |= BIT_2_MASK;
-                value = memory.read(TMA_REGISTER_ADDRESS);
+                if overflow{
+                    *if_register |= BIT_2_MASK;
+                    value = memory.read(TMA_REGISTER_ADDRESS);
+                }
+
+                memory.write(TIMA_REGISTER_ADDRESS, value);
             }
-
-            memory.write(TIMA_REGISTER_ADDRESS, value);
         }
+    }
+    
+    fn get_timer_controller_data(memory: &mut dyn Memory)->(u32, bool){
+        let timer_controller = memory.read(TAC_REGISTER_ADDRESS);
+        let timer_enable:bool = timer_controller & BIT_2_MASK != 0;
+
+        //those are the the number of m_cycles to wait bwtween each update
+        let interval = match timer_controller & 0b11{
+            0b00=>256,
+            0b01=>4,
+            0b10=>16,
+            0b11=>64,
+            _=>std::panic!("timer controller value is out of range")
+        };
+
+        return (interval, timer_enable);
     }
 
     fn handle_wy_register(register:u8, ppu:&mut GbcPpu){
@@ -295,19 +308,5 @@ impl RegisterHandler{
             let inverse_mask = !mask;
             *value &= inverse_mask;
         }
-    }
-
-    fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){
-        let timer_controller = memory.read(TAC_REGISTER_ADDRESS);
-        let timer_enable:bool = timer_controller & BIT_2_MASK != 0;
-        let interval = match timer_controller & 0b11{
-            0b00=>1024,
-            0b01=>16,
-            0b10=>64,
-            0b11=>256,
-            _=>std::panic!("timer controller value is out of range")
-        };
-
-        return (interval, timer_enable);
     }
 }
