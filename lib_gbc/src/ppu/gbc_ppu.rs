@@ -74,7 +74,6 @@ impl Default for GbcPpu {
             current_line_drawn:0,
             state:PpuState::OamSearch,
             line_rendered:false,
-            //current_cycle:0,
             window_line_counter:0,
             window_active:false
         }
@@ -96,7 +95,6 @@ impl GbcPpu {
         if line>=LY_MAX_VALUE as u32{
             self.current_line_drawn = LY_MAX_VALUE;
             self.line_rendered = true;
-            //self.current_cycle = 0;
             self.window_line_counter = 0;
             self.window_enable = false;
         }
@@ -127,16 +125,16 @@ impl GbcPpu {
         };
     }
 
+    //receiving the amount of cycles from the first frame. because of this the PPU will be syncronized to the frames of the program.
+    //the down side is that upon turnning the PPU on it will start from the middle of the frame and not from the start.
     pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u32){
         if !self.screen_enable{
-            //self.current_cycle = 0;
             self.current_line_drawn = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
             self.state = PpuState::Hblank;
             return;
         }
 
-        //self.current_cycle += cycles_passed as u32;
         self.update_ly(cycles_passed);
         self.state = Self::get_ppu_state(cycles_passed, self.current_line_drawn);
 
