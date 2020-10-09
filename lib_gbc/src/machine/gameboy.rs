@@ -7,10 +7,10 @@ use crate::mmu::gb_mmu::{
     BOOT_ROM_SIZE
 };
 use crate::cpu::opcodes::opcode_resolver::*;
-use crate::ppu::gbc_ppu::GbcPpu;
+use crate::ppu::gb_ppu::GbPpu;
 use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::carts::mbc::Mbc;
-use crate::ppu::gbc_ppu::{
+use crate::ppu::gb_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
 };
@@ -25,7 +25,7 @@ pub struct GameBoy<'a> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver,
-    ppu:GbcPpu,
+    ppu:GbPpu,
     register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32
@@ -38,7 +38,7 @@ impl<'a> GameBoy<'a>{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
-            ppu:GbcPpu::default(),
+            ppu:GbPpu::default(),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0
@@ -59,7 +59,7 @@ impl<'a> GameBoy<'a>{
             cpu:cpu,
             mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
-            ppu:GbcPpu::default(),
+            ppu:GbPpu::default(),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0

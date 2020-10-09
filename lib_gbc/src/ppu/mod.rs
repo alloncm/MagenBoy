@@ -1,4 +1,4 @@
-pub mod gbc_ppu;
+pub mod gb_ppu;
 pub mod ppu_state;
 mod normal_sprite;
 mod sprite_attribute;

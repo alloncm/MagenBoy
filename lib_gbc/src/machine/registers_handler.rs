@@ -2,7 +2,7 @@ use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
 use crate::mmu::gb_mmu::GbMmu;
 use crate::mmu::io_ports::DIV_REGISTER_INDEX;
-use crate::ppu::gbc_ppu::GbcPpu;
+use crate::ppu::gb_ppu::GbPpu;
 use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
 use crate::utils::colors::*;
@@ -38,7 +38,7 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbMmu, cpu:&mut GbCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, m_cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbMmu, cpu:&mut GbCpu, ppu:&mut GbPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, m_cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
@@ -79,7 +79,7 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
-    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbMmu, ppu:&GbcPpu, if_register:&mut u8){
+    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbMmu, ppu:&GbPpu, if_register:&mut u8){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
 
@@ -151,7 +151,7 @@ impl RegisterHandler{
         };
     }
     
-    fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
+    fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbPpu, if_register:&mut u8){
         if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
@@ -170,7 +170,7 @@ impl RegisterHandler{
         memory.finished_boot = register == 1;
     }
 
-    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbcPpu){
+    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbPpu){
         ppu.screen_enable = (register & BIT_7_MASK) != 0;
         ppu.window_tile_map_address = (register & BIT_6_MASK) != 0;
         ppu.window_enable = (register & BIT_5_MASK) != 0;
@@ -181,7 +181,7 @@ impl RegisterHandler{
         ppu.background_enabled = (register & BIT_0_MASK) != 0;
     }
 
-    fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbcPpu){
+    fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbPpu){
         ppu.background_scroll.x = scroll_x;
         ppu.background_scroll.y = scroll_y;
     }
@@ -264,11 +264,11 @@ impl RegisterHandler{
         return (interval, timer_enable);
     }
 
-    fn handle_wy_register(register:u8, ppu:&mut GbcPpu){
+    fn handle_wy_register(register:u8, ppu:&mut GbPpu){
         ppu.window_scroll.y = register;
     }
 
-    fn handle_wx_register(register:u8, ppu:&mut GbcPpu){
+    fn handle_wx_register(register:u8, ppu:&mut GbPpu){
         if register < WX_OFFSET{
             ppu.window_scroll.x = 0;
         }
