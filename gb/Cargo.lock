@@ -98,17 +98,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gbc"
-version = "0.1.0"
-dependencies = [
- "chrono 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "fern 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lib_gbc 0.1.0",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "stupid_gfx 0.2.0",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -131,6 +120,17 @@ version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "magenboy"
+version = "0.1.0"
+dependencies = [
+ "chrono 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fern 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lib_gbc 0.1.0",
+ "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stupid_gfx 0.2.0",
 ]
 
 [[package]]

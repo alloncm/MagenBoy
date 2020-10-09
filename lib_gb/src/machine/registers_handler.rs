@@ -1,12 +1,12 @@
 use crate::cpu::gb_cpu::GbCpu;
 use crate::mmu::memory::Memory;
-use crate::mmu::gbc_mmu::GbcMmu;
+use crate::mmu::gb_mmu::GbMmu;
 use crate::mmu::io_ports::DIV_REGISTER_INDEX;
-use crate::ppu::gbc_ppu::GbcPpu;
+use crate::ppu::gb_ppu::GbPpu;
 use crate::utils::bit_masks::*;
 use crate::utils::memory_registers::*;
-use crate::utils::colors::*;
-use crate::utils::color::Color;
+use crate::ppu::colors::*;
+use crate::ppu::color::Color;
 use super::interrupts_handler::InterruptsHandler;
 use crate::keypad::joypad::Joypad;
 use crate::keypad::button::Button;
@@ -38,7 +38,7 @@ impl Default for RegisterHandler{
 impl RegisterHandler{
 
     //TODO: update the rest of the function to use the cycles (I think only timer)
-    pub fn update_registers_state(&mut self, memory: &mut GbcMmu, cpu:&mut GbCpu, ppu:&mut GbcPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, m_cycles:u8){
+    pub fn update_registers_state(&mut self, memory: &mut GbMmu, cpu:&mut GbCpu, ppu:&mut GbPpu, interrupts_handler:&mut InterruptsHandler,joypad:&Joypad, m_cycles:u8){
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
@@ -79,7 +79,7 @@ impl RegisterHandler{
         pallet[3] = Self::get_matching_color((register&0b11000000)>>6);
     }
 
-    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbcMmu, ppu:&GbcPpu, if_register:&mut u8){
+    fn handle_lcd_status_register(&mut self, mut register:u8, interrupts_handler:&mut InterruptsHandler, memory:&mut GbMmu, ppu:&GbPpu, if_register:&mut u8){
         let ly = memory.read(LY_REGISTER_ADDRESS);
         let lyc = memory.read(LYC_REGISTER_ADDRESS);
 
@@ -151,7 +151,7 @@ impl RegisterHandler{
         };
     }
     
-    fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbcPpu, if_register:&mut u8){
+    fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbPpu, if_register:&mut u8){
         if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
             //V-Blank interrupt
             *if_register |= BIT_0_MASK;
@@ -166,11 +166,11 @@ impl RegisterHandler{
     }
     
 
-    fn handle_bootrom_register(register:u8, memory: &mut GbcMmu){
+    fn handle_bootrom_register(register:u8, memory: &mut GbMmu){
         memory.finished_boot = register == 1;
     }
 
-    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbcPpu){
+    fn handle_lcdcontrol_register( register:u8, ppu:&mut GbPpu){
         ppu.screen_enable = (register & BIT_7_MASK) != 0;
         ppu.window_tile_map_address = (register & BIT_6_MASK) != 0;
         ppu.window_enable = (register & BIT_5_MASK) != 0;
@@ -181,12 +181,12 @@ impl RegisterHandler{
         ppu.background_enabled = (register & BIT_0_MASK) != 0;
     }
 
-    fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbcPpu){
+    fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu:&mut GbPpu){
         ppu.background_scroll.x = scroll_x;
         ppu.background_scroll.y = scroll_y;
     }
 
-    fn handle_vrambank_register( register:u8, memory: &mut GbcMmu, cpu:&mut GbCpu){
+    fn handle_vrambank_register( register:u8, memory: &mut GbMmu, cpu:&mut GbCpu){
         if cpu.cgb_mode{
             memory.vram.set_bank(register & BIT_0_MASK);
         }
@@ -200,12 +200,12 @@ impl RegisterHandler{
         }
     }
 
-    fn handle_wrambank_register( register:u8, memory: &mut GbcMmu){
+    fn handle_wrambank_register( register:u8, memory: &mut GbMmu){
         let bank:u8 = register & 0b00000111;
         memory.ram.set_bank(bank);
     }
 
-    fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbcMmu, m_cycles:u8){
+    fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbMmu, m_cycles:u8){
         if mmu.dma_trasfer_trigger{
             let source:u16 = (register as u16) << 8;
             let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
@@ -222,7 +222,7 @@ impl RegisterHandler{
         }
     }
 
-    fn handle_divider_register(&mut self, mmu:&mut GbcMmu, m_cycles:u8){
+    fn handle_divider_register(&mut self, mmu:&mut GbMmu, m_cycles:u8){
         mmu.io_ports.system_counter = mmu.io_ports.system_counter.wrapping_add(m_cycles as u16 * T_CYCLES_IN_M_CYCLE as u16);
         mmu.io_ports.write_unprotected(DIV_REGISTER_INDEX, (mmu.io_ports.system_counter >> 8) as u8);
     }
@@ -264,11 +264,11 @@ impl RegisterHandler{
         return (interval, timer_enable);
     }
 
-    fn handle_wy_register(register:u8, ppu:&mut GbcPpu){
+    fn handle_wy_register(register:u8, ppu:&mut GbPpu){
         ppu.window_scroll.y = register;
     }
 
-    fn handle_wx_register(register:u8, ppu:&mut GbcPpu){
+    fn handle_wx_register(register:u8, ppu:&mut GbPpu){
         if register < WX_OFFSET{
             ppu.window_scroll.x = 0;
         }
@@ -279,7 +279,7 @@ impl RegisterHandler{
 
     // This register stores key pressed as 0 (unset bit) and not 1 (set bit) 
     // so this function will beahve accordingly
-    fn handle_joypad_register(mut state:u8,memory:&mut GbcMmu,joypad:&Joypad){
+    fn handle_joypad_register(mut state:u8,memory:&mut GbMmu,joypad:&Joypad){
         let buttons = (state & BIT_5_MASK) == 0;
         let directions = (state & BIT_4_MASK) == 0;
 

@@ -1,5 +1,5 @@
 pub mod memory;
-pub mod gbc_mmu;
+pub mod gb_mmu;
 pub mod ram;
 pub mod vram;
 pub mod io_ports;

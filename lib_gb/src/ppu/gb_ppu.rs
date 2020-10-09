@@ -1,9 +1,9 @@
 use crate::mmu::video_memory::ReadOnlyVideoMemory;
 use super::ppu_state::PpuState;
-use crate::utils::color::Color;
-use crate::utils::colors::*;
+use super::color::Color;
+use super::colors::*;
 use crate::utils::vec2::Vec2;
-use crate::utils::colors::WHITE;
+use super::colors::WHITE;
 use super::normal_sprite::NormalSprite;
 use super::extended_sprite::ExtendedSprite;
 use super::sprite::Sprite;
@@ -28,7 +28,7 @@ const BG_SPRITES_PER_LINE:u16 = 32;
 const SPRITE_SIZE_IN_MEMORY:u16 = 16;
 
 
-pub struct GbcPpu {
+pub struct GbPpu {
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
     pub screen_enable: bool,
     pub window_enable: bool,
@@ -52,9 +52,9 @@ pub struct GbcPpu {
     line_rendered:bool
 }
 
-impl Default for GbcPpu {
-    fn default() -> GbcPpu {
-        GbcPpu {
+impl Default for GbPpu {
+    fn default() -> Self {
+        GbPpu {
             background_enabled: false,
             background_scroll: Vec2::<u8> { x: 0, y: 0 },
             window_scroll: Vec2::<u8> { x: 0, y: 0 },
@@ -79,7 +79,7 @@ impl Default for GbcPpu {
     }
 }
 
-impl GbcPpu {
+impl GbPpu {
     fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
