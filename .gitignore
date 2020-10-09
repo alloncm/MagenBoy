@@ -1,7 +1,7 @@
 **/target
 **/*.rs.bk
 /target
-Cargo.lock
+lib_*/Cargo.lock
 Dependencies/
 
 ## Ignore Visual Studio temporary files, build results, and

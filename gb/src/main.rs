@@ -2,7 +2,7 @@ mod mbc_handler;
 mod stupid_gfx_joypad_provider;
 
 use lib_gbc::machine::gameboy::GameBoy;
-use lib_gbc::ppu::gbc_ppu::{
+use lib_gbc::ppu::gb_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
 };
@@ -12,7 +12,7 @@ use std::env;
 use std::result::Result;
 use std::vec::Vec;
 use log::info;
-use lib_gbc::mmu::gbc_mmu::BOOT_ROM_SIZE;
+use lib_gbc::mmu::gb_mmu::BOOT_ROM_SIZE;
 use stupid_gfx::{
     event_handler::EventHandler,
     graphics::Graphics,
