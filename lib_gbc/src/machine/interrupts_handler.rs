@@ -6,7 +6,7 @@ use crate::utils::{
 use crate::cpu::opcodes::opcodes_utils::push;
 use crate::mmu::memory::Memory;
 
-const V_BLACK_INTERRUPT_ADDERESS:u16    = 0x40;
+const V_BLANK_INTERRUPT_ADDERESS:u16    = 0x40;
 const LCD_STAT_INTERRUPT_ADDERESS:u16   = 0x48;
 const TIMER_INTERRUPT_ADDERESS:u16      = 0x50;
 const SRIAL_INTERRUPT_ADDERESS:u16      = 0x58;
@@ -35,24 +35,24 @@ impl Default for InterruptsHandler{
 
 impl InterruptsHandler{
 
-    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut dyn Memory){
+    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
         //this is delatey by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
         if cpu.mie && self.ei_triggered{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
-                Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLACK_INTERRUPT_ADDERESS, memory);
+                return Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS, memory);
             }
-            else if cpu.interupt_flag & BIT_1_MASK != 0 && cpu.interupt_enable & BIT_1_MASK != 0 && 
+            if cpu.interupt_flag & BIT_1_MASK != 0 && cpu.interupt_enable & BIT_1_MASK != 0 && 
             (self.v_blank_interrupt || self.oam_search || self.h_blank_interrupt || self.coincidence_interrupt){
-                Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory);    
+                return Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory);
             }
-            else if cpu.interupt_flag & BIT_2_MASK != 0 && cpu.interupt_enable & BIT_2_MASK != 0{
-                Self::prepare_for_interut(cpu, BIT_2_MASK, TIMER_INTERRUPT_ADDERESS, memory);
+            if cpu.interupt_flag & BIT_2_MASK != 0 && cpu.interupt_enable & BIT_2_MASK != 0{
+                return Self::prepare_for_interut(cpu, BIT_2_MASK, TIMER_INTERRUPT_ADDERESS, memory);
             }
-            else if cpu.interupt_flag & BIT_3_MASK != 0 && cpu.interupt_enable & BIT_3_MASK != 0{
-                Self::prepare_for_interut(cpu, BIT_3_MASK, SRIAL_INTERRUPT_ADDERESS, memory);
+            if cpu.interupt_flag & BIT_3_MASK != 0 && cpu.interupt_enable & BIT_3_MASK != 0{
+                return Self::prepare_for_interut(cpu, BIT_3_MASK, SRIAL_INTERRUPT_ADDERESS, memory);
             }
-            else if cpu.interupt_flag & BIT_4_MASK != 0 && cpu.interupt_enable & BIT_4_MASK != 0{
-                Self::prepare_for_interut(cpu, BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS, memory);
+            if cpu.interupt_flag & BIT_4_MASK != 0 && cpu.interupt_enable & BIT_4_MASK != 0{
+                return Self::prepare_for_interut(cpu, BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS, memory);
             }
         }
         else if cpu.halt{
@@ -65,9 +65,12 @@ impl InterruptsHandler{
         }
 
         self.ei_triggered = cpu.mie;
+
+        //no cycles passed
+        return 0;
     }
 
-    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory){
+    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory)->u8{
         //reseting the interupt bit
         cpu.interupt_flag &= !interupt_bit;
         memory.write(IF_REGISTER_ADDRESS, cpu.interupt_flag);
@@ -79,5 +82,8 @@ impl InterruptsHandler{
         cpu.program_counter = address;
         //unhalting the CPU
         cpu.halt = false;
+
+        //cycles passed
+        return 5;
     }
 }

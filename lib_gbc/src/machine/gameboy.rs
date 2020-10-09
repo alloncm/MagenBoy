@@ -18,31 +18,34 @@ use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
+//CPU frequrncy: 1,048,326 / 60 
+const CYCLES_PER_FRAME:u32 = 17556;
+
 pub struct GameBoy<'a> {
     cpu: GbCpu,
     mmu: GbcMmu::<'a>,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
     register_handler:RegisterHandler,
-    cycles_per_frame:u32,
-    interrupts_handler:InterruptsHandler
+    interrupts_handler:InterruptsHandler,
+    cycles_counter:u32
 }
 
 impl<'a> GameBoy<'a>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE],cycles:u32)->GameBoy{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbcMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),
-            cycles_per_frame:cycles,
-            interrupts_handler: InterruptsHandler::default()
+            interrupts_handler: InterruptsHandler::default(),
+            cycles_counter:0
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, cycles:u32)->GameBoy{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>)->GameBoy{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -58,26 +61,43 @@ impl<'a> GameBoy<'a>{
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),
-            cycles_per_frame:cycles,
-            interrupts_handler: InterruptsHandler::default()
+            interrupts_handler: InterruptsHandler::default(),
+            cycles_counter:0
         }
     }
 
     pub fn cycle_frame(&mut self, mut joypad_provider:impl JoypadProvider )->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         let mut joypad = Joypad::default();
-        for _ in (0..self.cycles_per_frame).step_by(1){
+
+        while self.cycles_counter < CYCLES_PER_FRAME{
             joypad_provider.provide(&mut joypad);
 
+            //CPU
+            let mut cpu_cycles_passed = 1;
             if !self.cpu.halt{
-                self.execute_opcode();
+                cpu_cycles_passed = self.execute_opcode();
             }
 
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 1);
-            //passing in the cycles 1 but in the future when Ill have a cycle accureate cpu ill pass the cycles passed since last time
-            self.ppu.update_gb_screen(&self.mmu, 1);
-            self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
+            //interrupts
+            //updating the registers aftrer the CPU
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
+            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
+            if interrupt_cycles != 0{
+                //updating the register after the interrupts (for timing)
+                self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
+            }
+            
+            //PPU
+            self.cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
+            self.ppu.update_gb_screen(&self.mmu, self.cycles_counter);
+            //updating after the PPU
+            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
         }
 
+        if self.cycles_counter >= CYCLES_PER_FRAME{
+            self.cycles_counter -= CYCLES_PER_FRAME; 
+        }
+        
         return self.ppu.get_frame_buffer();
     }
 
@@ -87,7 +107,7 @@ impl<'a> GameBoy<'a>{
         return byte;
     }
 
-    fn execute_opcode(&mut self){
+    fn execute_opcode(&mut self)->u8{
         let pc = self.cpu.program_counter;
         
         let opcode:u8 = self.fetch_next_byte();
@@ -102,12 +122,8 @@ impl<'a> GameBoy<'a>{
             let f = *self.cpu.af.low();
             let h = *self.cpu.hl.high();
             let l = *self.cpu.hl.low();
-            let ly = self.mmu.io_ports.read(0x44);
-            debug!("A:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} F:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} ({:02X} {:02X} {:02X} {:02X}) LY:{:02X} CS: ({:02X}{:02X} {:02X}{:02X} {:02X}{:02X}) SE {}",
-            a, b,c,d,e,f,
-            h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3), ly,
-            self.mmu.read(self.cpu.stack_pointer+1),self.mmu.read(self.cpu.stack_pointer),self.mmu.read(self.cpu.stack_pointer+3),self.mmu.read(self.cpu.stack_pointer+2),self.mmu.read(self.cpu.stack_pointer+5),self.mmu.read(self.cpu.stack_pointer+4),
-            self.ppu.screen_enable);
+            debug!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+            a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
         
         let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
@@ -118,23 +134,23 @@ impl<'a> GameBoy<'a>{
             OpcodeFuncType::U8MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu, opcode),
             OpcodeFuncType::U16OpcodeFunc(func)=>{
                 let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                func(&mut self.cpu, u16_opcode);
+                func(&mut self.cpu, u16_opcode)
             },
             OpcodeFuncType::U16MemoryOpcodeFunc(func)=>{
                 let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                func(&mut self.cpu, &mut self.mmu, u16_opcode);
+                func(&mut self.cpu, &mut self.mmu, u16_opcode)
             },
             OpcodeFuncType::U32OpcodeFunc(func)=>{
                 let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
-                func(&mut self.cpu, u32_opcode);
+                func(&mut self.cpu, u32_opcode)
             },
             OpcodeFuncType::U32MemoryOpcodeFunc(func)=>{
                 let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
                 u32_opcode <<= 8;
                 u32_opcode |= self.fetch_next_byte() as u32;
-                func(&mut self.cpu, &mut self.mmu, u32_opcode);
+                func(&mut self.cpu, &mut self.mmu, u32_opcode)
             }
         }
     }

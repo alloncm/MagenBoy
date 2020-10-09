@@ -51,11 +51,13 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
                 message
             ))
         })
-        .level(level)
-        .chain(fern::log_file("output.log")?);
+        .level(level);
 
     if !debug{
         fern_logger = fern_logger.chain(std::io::stdout());
+    }
+    else{
+        fern_logger = fern_logger.chain(fern::log_file("output.log")?);
     }
 
     fern_logger.apply()?;
@@ -75,10 +77,6 @@ fn buttons_mapper(button:Button)->Scancode{
         Button::Left => Scancode::Left
     }
 }
-
-
-//CPU frequrncy: 1,048,326 / 60 
-const CYCLES_PER_FRAME:u32 = 17556; 
 
 fn main() {
 
@@ -109,12 +107,12 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, bootrom, CYCLES_PER_FRAME)
+            GameBoy::new_with_bootrom(&mut mbc, bootrom)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc, CYCLES_PER_FRAME)
+            GameBoy::new(&mut mbc)
         }
     };
     

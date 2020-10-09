@@ -13,20 +13,20 @@ use super::{
 };
 
 
-pub type OpcodeFunc = fn(&mut GbCpu);
-pub type U8OpcodeFunc = fn(&mut GbCpu,u8);
-pub type U16OpcodeFunc = fn(&mut GbCpu,u16);
-pub type U32OpcodeFunc = fn(&mut GbCpu,u32);
-pub type MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory);
-pub type U8MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u8);
-pub type U16MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u16);
-pub type U32MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u32);
+pub type OpcodeFunc = fn(&mut GbCpu)->u8;
+pub type U8OpcodeFunc = fn(&mut GbCpu,u8)->u8;
+pub type U16OpcodeFunc = fn(&mut GbCpu,u16)->u8;
+pub type U32OpcodeFunc = fn(&mut GbCpu,u32)->u8;
+pub type MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory)->u8;
+pub type U8MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u8)->u8;
+pub type U16MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u16)->u8;
+pub type U32MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u32)->u8;
 
 
 pub fn get_opcode_func_resolver()->fn(u8)->Option<OpcodeFunc>{
     |opcode:u8|->Option<OpcodeFunc>{
         match opcode{
-            0x00=>Some(|_|{}),
+            0x00=>Some(|_|1),
             0x07=>Some(rlca),
             0x0F=>Some(rrca),
             0x17=>Some(rla),
