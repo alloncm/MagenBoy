@@ -49,7 +49,6 @@ pub struct GbcPpu {
 
     window_active:bool,
     window_line_counter:u8,
-    //current_cycle:u32,
     line_rendered:bool
 }
 
