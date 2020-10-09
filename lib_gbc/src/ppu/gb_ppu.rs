@@ -1,9 +1,9 @@
 use crate::mmu::video_memory::ReadOnlyVideoMemory;
 use super::ppu_state::PpuState;
-use crate::utils::color::Color;
-use crate::utils::colors::*;
+use super::color::Color;
+use super::colors::*;
 use crate::utils::vec2::Vec2;
-use crate::utils::colors::WHITE;
+use super::colors::WHITE;
 use super::normal_sprite::NormalSprite;
 use super::extended_sprite::ExtendedSprite;
 use super::sprite::Sprite;
