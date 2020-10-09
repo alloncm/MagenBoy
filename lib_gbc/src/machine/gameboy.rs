@@ -72,32 +72,30 @@ impl<'a> GameBoy<'a>{
         while self.cycles_counter < CYCLES_PER_FRAME{
             joypad_provider.provide(&mut joypad);
 
+            //CPU
             let mut cpu_cycles_passed = 1;
-
             if !self.cpu.halt{
                 cpu_cycles_passed = self.execute_opcode();
             }
 
+            //interrupts
             //updating the registers aftrer the CPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
-
             let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
-
             if interrupt_cycles != 0{
                 //updating the register after the interrupts (for timing)
                 self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
             }
             
+            //PPU
             self.cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
-
             self.ppu.update_gb_screen(&self.mmu, self.cycles_counter);
-
             //updating after the PPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
         }
 
-        if self.cycles_counter >= CYCLES_PER_FRAME - 1{
-            self.cycles_counter -= CYCLES_PER_FRAME - 1; 
+        if self.cycles_counter >= CYCLES_PER_FRAME{
+            self.cycles_counter -= CYCLES_PER_FRAME; 
         }
         
         return self.ppu.get_frame_buffer();

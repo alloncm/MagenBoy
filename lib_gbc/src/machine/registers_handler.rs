@@ -17,9 +17,10 @@ const DMA_SIZE:u16 = 0xA0;
 const DMA_DEST:u16 = 0xFE00;
 const LY_INTERRUPT_VALUE:u8 = 144;
 const WX_OFFSET:u8 = 7;
+const T_CYCLES_IN_M_CYCLE:u8 = 4;
 
 pub struct RegisterHandler{
-    timer_clock_interval_counter:u32,
+    timer_clock_interval_counter:u16,
     v_blank_triggered:bool,
     dma_cycle_counter:u16
 }
@@ -222,7 +223,6 @@ impl RegisterHandler{
     }
 
     fn handle_divider_register(&mut self, mmu:&mut GbcMmu, m_cycles:u8){
-        const T_CYCLES_IN_M_CYCLE:u8 = 4;
         mmu.io_ports.system_counter = mmu.io_ports.system_counter.wrapping_add(m_cycles as u16 * T_CYCLES_IN_M_CYCLE as u16);
         mmu.io_ports.write_unprotected(DIV_REGISTER_INDEX, (mmu.io_ports.system_counter >> 8) as u8);
     }
@@ -231,10 +231,10 @@ impl RegisterHandler{
         let (interval, enable) = Self::get_timer_controller_data(memory);
 
         if enable{
-            self.timer_clock_interval_counter += m_cycles_passed as u32;
+            self.timer_clock_interval_counter += m_cycles_passed as u16;
 
             if self.timer_clock_interval_counter >= interval{
-                self.timer_clock_interval_counter -= interval as u32;
+                self.timer_clock_interval_counter -= interval as u16;
 
                 let (mut value, overflow) = register.overflowing_add(1);
 
@@ -248,7 +248,7 @@ impl RegisterHandler{
         }
     }
     
-    fn get_timer_controller_data(memory: &mut dyn Memory)->(u32, bool){
+    fn get_timer_controller_data(memory: &mut dyn Memory)->(u16, bool){
         let timer_controller = memory.read(TAC_REGISTER_ADDRESS);
         let timer_enable:bool = timer_controller & BIT_2_MASK != 0;
 
