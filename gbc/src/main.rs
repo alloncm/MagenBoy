@@ -57,7 +57,7 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
         fern_logger = fern_logger.chain(std::io::stdout());
     }
     else{
-        fern_logger = fern_logger.chain(fern::log_file(format!("output.log"))?);
+        fern_logger = fern_logger.chain(fern::log_file("output.log")?);
     }
 
     fern_logger.apply()?;
