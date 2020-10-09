@@ -336,5 +336,5 @@ pub fn srl_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
     rotate_shift_flags(cpu, carry, byte == 0);
     
     //cycles
-    return 2;
+    return 4;
 }
