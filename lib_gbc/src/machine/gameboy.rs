@@ -2,8 +2,8 @@ use crate::cpu::gb_cpu::GbCpu;
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
-use crate::mmu::gbc_mmu::{
-    GbcMmu,
+use crate::mmu::gb_mmu::{
+    GbMmu,
     BOOT_ROM_SIZE
 };
 use crate::cpu::opcodes::opcode_resolver::*;
@@ -23,7 +23,7 @@ const CYCLES_PER_FRAME:u32 = 17556;
 
 pub struct GameBoy<'a> {
     cpu: GbCpu,
-    mmu: GbcMmu::<'a>,
+    mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver,
     ppu:GbcPpu,
     register_handler:RegisterHandler,
@@ -36,7 +36,7 @@ impl<'a> GameBoy<'a>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
         GameBoy{
             cpu:GbCpu::default(),
-            mmu:GbcMmu::new_with_bootrom(mbc, boot_rom),
+            mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),
@@ -57,7 +57,7 @@ impl<'a> GameBoy<'a>{
 
         GameBoy{
             cpu:cpu,
-            mmu:GbcMmu::new(mbc),
+            mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbcPpu::default(),
             register_handler: RegisterHandler::default(),

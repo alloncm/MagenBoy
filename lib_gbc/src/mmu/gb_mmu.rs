@@ -17,7 +17,7 @@ const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbcMmu<'a>{
+pub struct GbMmu<'a>{
     pub ram: Ram,
     pub vram: VRam,
     pub dma_trasfer_trigger:bool,
@@ -32,7 +32,7 @@ pub struct GbcMmu<'a>{
 }
 
 
-impl<'a> Memory for GbcMmu<'a>{
+impl<'a> Memory for GbMmu<'a>{
     fn read(&self, address:u16)->u8{
         return match address{
             0x0..=0xFF=>{
@@ -100,7 +100,7 @@ impl<'a> Memory for GbcMmu<'a>{
     }
 }
 
-impl<'a> ReadOnlyVideoMemory for GbcMmu<'a>{
+impl<'a> ReadOnlyVideoMemory for GbMmu<'a>{
     fn read(&self, address: u16)->u8{
         return match address{
             0x8000..=0x9FFF=>self.vram.read_current_bank(address - 0x8000),
@@ -110,9 +110,9 @@ impl<'a> ReadOnlyVideoMemory for GbcMmu<'a>{
     }
 }
 
-impl<'a> GbcMmu<'a>{
+impl<'a> GbMmu<'a>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
-        GbcMmu{
+        GbMmu{
             ram:Ram::default(),
             io_ports:IoPorts::default(),
             mbc:mbc,
@@ -128,7 +128,7 @@ impl<'a> GbcMmu<'a>{
     }
 
     pub fn new(mbc:&'a mut Box<dyn Mbc>)->Self{
-        let mut mmu = GbcMmu{
+        let mut mmu = GbMmu{
             ram:Ram::default(),
             io_ports:IoPorts::default(),
             mbc:mbc,
