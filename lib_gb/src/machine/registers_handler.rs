@@ -1,5 +1,5 @@
 use crate::cpu::gb_cpu::GbCpu;
-use crate::mmu::memory::Memory;
+use crate::mmu::memory::*;
 use crate::mmu::gb_mmu::GbMmu;
 use crate::mmu::io_ports::DIV_REGISTER_INDEX;
 use crate::ppu::gb_ppu::GbPpu;
@@ -206,17 +206,17 @@ impl RegisterHandler{
     }
 
     fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbMmu, m_cycles:u8){
-        if mmu.dma_trasfer_trigger{
+        if mmu.io_ports.dma_trasfer_trigger{
             let source:u16 = (register as u16) << 8;
             let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
             for i in self.dma_cycle_counter..cycles_to_run as u16{
-                mmu.write(DMA_DEST + i, mmu.read(source + i));
+                mmu.write_unprotected(DMA_DEST + i, mmu.read_unprotected(source + i));
             }
 
             self.dma_cycle_counter += m_cycles as u16;
             
             if self.dma_cycle_counter >= DMA_SIZE{
-                mmu.dma_trasfer_trigger = false;   
+                mmu.io_ports.dma_trasfer_trigger = false;   
                 self.dma_cycle_counter = 0;
             }
         }

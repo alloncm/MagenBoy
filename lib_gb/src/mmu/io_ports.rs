@@ -8,9 +8,11 @@ pub const DIV_REGISTER_INDEX:u16 = DIV_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET
 const TAC_REGISTER_INDEX:u16 = TAC_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const STAT_REGISTER_INDEX:u16 = STAT_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const JOYP_REGISTER_INDEX:u16 = JOYP_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
+const DMA_REGISTER_INDEX:u16 = DMA_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 
 pub struct IoPorts{
     pub system_counter:u16,
+    pub dma_trasfer_trigger:bool,
     ports:[u8;IO_PORTS_SIZE]
 }
 
@@ -31,6 +33,7 @@ impl IoPorts{
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
             },
+            DMA_REGISTER_INDEX=> self.dma_trasfer_trigger = true,
             _=>{}
         }
 
@@ -46,6 +49,7 @@ impl Default for IoPorts{
     fn default()->Self{
         let mut io_ports = IoPorts{
             ports:[0;IO_PORTS_SIZE],
+            dma_trasfer_trigger:false,
             system_counter: 0
         };
 

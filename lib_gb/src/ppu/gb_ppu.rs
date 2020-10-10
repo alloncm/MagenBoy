@@ -1,4 +1,4 @@
-use crate::mmu::video_memory::ReadOnlyVideoMemory;
+use crate::mmu::memory::UnprotectedMemory;
 use super::ppu_state::PpuState;
 use super::color::Color;
 use super::colors::*;
@@ -128,7 +128,7 @@ impl GbPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn ReadOnlyVideoMemory, cycles_passed:u32){
+    pub fn update_gb_screen(&mut self, memory: &dyn UnprotectedMemory, cycles_passed:u32){
         if !self.screen_enable{
             self.current_line_drawn = 0;
             self.current_cycle = 0;
@@ -159,7 +159,7 @@ impl GbPpu {
         }
     }
 
-    fn get_bg_frame_buffer(&self, memory: &dyn ReadOnlyVideoMemory)-> [Color;SCREEN_WIDTH] {
+    fn get_bg_frame_buffer(&self, memory: &dyn UnprotectedMemory)-> [Color;SCREEN_WIDTH] {
         if !self.background_enabled{
             //color in BGP 0
             let color = self.get_bg_color(0);
@@ -177,14 +177,14 @@ impl GbPpu {
         let index = ((current_line.wrapping_add(self.background_scroll.y)) / NORMAL_SPRITE_HIEGHT) as u16;
         if self.window_tile_background_map_data_address {
             for i in 0..BG_SPRITES_PER_LINE {
-                let chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
+                let chr: u8 = memory.read_unprotected(address + (index*BG_SPRITES_PER_LINE) + i);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
         else {
             for i in 0..BG_SPRITES_PER_LINE {
-                let mut chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
+                let mut chr: u8 = memory.read_unprotected(address + (index*BG_SPRITES_PER_LINE) + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
@@ -210,7 +210,7 @@ impl GbPpu {
         return screen_line;
     }
 
-    fn get_normal_sprite(index:u8, memory:&dyn ReadOnlyVideoMemory, data_address:u16)->NormalSprite{
+    fn get_normal_sprite(index:u8, memory:&dyn UnprotectedMemory, data_address:u16)->NormalSprite{
         let mut sprite = NormalSprite::new();
 
         let mut line_number = 0;
@@ -225,7 +225,7 @@ impl GbPpu {
     }
 
     
-    fn draw_window_frame_buffer(&mut self, memory: &dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]) {
+    fn draw_window_frame_buffer(&mut self, memory: &dyn UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]) {
         if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y{ 
             return;
         }
@@ -251,14 +251,14 @@ impl GbPpu {
         let index = ((self.window_line_counter) / 8) as u16;
         if self.window_tile_background_map_data_address {
             for i in 0..BG_SPRITES_PER_LINE {
-                let chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
+                let chr: u8 = memory.read_unprotected(address + (index*BG_SPRITES_PER_LINE) + i);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8000);
                 line_sprites.push(sprite);
             }
         } 
         else {
             for i in 0..BG_SPRITES_PER_LINE {
-                let mut chr: u8 = memory.read(address + (index*BG_SPRITES_PER_LINE) + i);
+                let mut chr: u8 = memory.read_unprotected(address + (index*BG_SPRITES_PER_LINE) + i);
                 chr = chr.wrapping_add(0x80);
                 let sprite = Self::get_normal_sprite(chr, memory, 0x8800);
                 line_sprites.push(sprite);
@@ -282,7 +282,7 @@ impl GbPpu {
         self.window_line_counter += 1;
     }
 
-    fn draw_objects_frame_buffer(&self, memory:&dyn ReadOnlyVideoMemory, line:&mut [Color;SCREEN_WIDTH]){
+    fn draw_objects_frame_buffer(&self, memory:&dyn UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]){
         if !self.sprite_enable{
             return;
         }
@@ -296,8 +296,8 @@ impl GbPpu {
                 break;
             }
             
-            let end_y = memory.read(OAM_ADDRESS + i);
-            let end_x = memory.read(OAM_ADDRESS + i + 1);
+            let end_y = memory.read_unprotected(OAM_ADDRESS + i);
+            let end_x = memory.read_unprotected(OAM_ADDRESS + i + 1);
             let start_y = cmp::max(0, (end_y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;
 
              //cheks if this sprite apears in this line
@@ -312,8 +312,8 @@ impl GbPpu {
                 continue;
             }
             
-            let tile_number = memory.read(OAM_ADDRESS + i + 2);
-            let attributes = memory.read(OAM_ADDRESS + i + 3);
+            let tile_number = memory.read_unprotected(OAM_ADDRESS + i + 2);
+            let attributes = memory.read_unprotected(OAM_ADDRESS + i + 3);
 
             obj_attributes.push(SpriteAttribute::new(end_y, end_x, tile_number, attributes));
         }
@@ -366,7 +366,7 @@ impl GbPpu {
         };
     }
     
-    fn get_sprite(mut index:u8, memory:&dyn ReadOnlyVideoMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
+    fn get_sprite(mut index:u8, memory:&dyn UnprotectedMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
         let mut sprite:Box<dyn Sprite>;
         if extended{
             //ignore bit 0
@@ -390,9 +390,9 @@ impl GbPpu {
         return sprite;
     }
 
-    fn get_line(memory:&dyn ReadOnlyVideoMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
-        let byte = memory.read(address);
-        let next = memory.read(address + 1);
+    fn get_line(memory:&dyn UnprotectedMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
+        let byte = memory.read_unprotected(address);
+        let next = memory.read_unprotected(address + 1);
         for k in (0..SPRITE_WIDTH).rev() {
             let mask = 1 << k;
             let mut value = (byte & mask) >> k;
