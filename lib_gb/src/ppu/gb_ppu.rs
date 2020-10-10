@@ -107,22 +107,23 @@ impl GbPpu {
     }
 
     fn get_ppu_state(cycle_counter:u32, last_ly:u8)->PpuState{
-        if last_ly > SCREEN_HEIGHT as u8{
+        if last_ly >= SCREEN_HEIGHT as u8{
             return PpuState::Vblank;
         }
 
         //getting the reminder of the clocks 
         let current_line_clocks = cycle_counter % DRAWING_CYCLE_CLOCKS as u32;
         
-        const PIXEL_TRANSFER_START:u8 = OAM_CLOCKS+1;
-        const PIXEL_TRANSFER_END:u8 = OAM_CLOCKS + PIXEL_TRANSFER_CLOCKS;
-        const H_BLANK_START:u8 = PIXEL_TRANSFER_END+1;
-        const H_BLANK_END:u8 = PIXEL_TRANSFER_END + H_BLANK_CLOCKS;
+        const OAM_SERACH_END:u8 = OAM_CLOCKS - 1;
+        const PIXEL_TRANSFER_START:u8 = OAM_CLOCKS;
+        const PIXEL_TRANSFER_END:u8 = OAM_CLOCKS + PIXEL_TRANSFER_CLOCKS - 1;
+        const H_BLANK_START:u8 = OAM_CLOCKS + PIXEL_TRANSFER_CLOCKS;
+        const H_BLANK_END:u8 = H_BLANK_START + H_BLANK_CLOCKS - 1;
 
         return match current_line_clocks as u8{
-            0 ..= OAM_CLOCKS => PpuState::OamSearch,
-            PIXEL_TRANSFER_START ..= PIXEL_TRANSFER_END => PpuState::PixelTransfer,
-            H_BLANK_START ..= H_BLANK_END => PpuState::Hblank,
+            0 ..= OAM_SERACH_END => PpuState::OamSearch, // 0-19 (20)
+            PIXEL_TRANSFER_START ..= PIXEL_TRANSFER_END => PpuState::PixelTransfer, //20-62 (43)
+            H_BLANK_START ..= H_BLANK_END => PpuState::Hblank,//63-113(51)
             _=>std::panic!("Error calculating ppu state")
         };
     }
@@ -137,27 +138,25 @@ impl GbPpu {
         }
 
         self.current_cycle += cycles_passed as u32;
-        self.update_ly();
         self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
+        self.update_ly();
 
-        if self.state as u8 != PpuState::PixelTransfer as u8{
-            return;
-        }
+        if self.state as u8 == PpuState::PixelTransfer as u8{
 
-        if !self.line_rendered &&  (self.current_line_drawn as usize) < SCREEN_HEIGHT{
-            self.line_rendered = true;
+            if !self.line_rendered && (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+                self.line_rendered = true;
 
-            let mut frame_buffer_line = self.get_bg_frame_buffer(memory);
-            self.draw_window_frame_buffer(memory, &mut frame_buffer_line);
-            self.draw_objects_frame_buffer(memory, &mut frame_buffer_line);
+                let mut frame_buffer_line = self.get_bg_frame_buffer(memory);
+                self.draw_window_frame_buffer(memory, &mut frame_buffer_line);
+                self.draw_objects_frame_buffer(memory, &mut frame_buffer_line);
 
-            let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
-            
-            for i in line_index..line_index+SCREEN_WIDTH{
-                self.screen_buffer[i] = Self::color_as_uint(&frame_buffer_line[(i - line_index)]);
+                let line_index = self.current_line_drawn as usize * SCREEN_WIDTH;
+
+                for i in line_index..line_index+SCREEN_WIDTH{
+                    self.screen_buffer[i] = Self::color_as_uint(&frame_buffer_line[(i - line_index)]);
+                }
             }
         }
-
     }
 
     fn get_bg_frame_buffer(&self, memory: &dyn ReadOnlyVideoMemory)-> [Color;SCREEN_WIDTH] {
