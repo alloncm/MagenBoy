@@ -49,6 +49,7 @@ impl<'a> Memory for GbMmu<'a>{
                     return self.vram.read_current_bank(address-0x8000);
                 }
                 else{
+                    log::warn!("bad vram read");
                     return BAD_READ_VALUE;
                 }
             },
@@ -61,6 +62,7 @@ impl<'a> Memory for GbMmu<'a>{
                     return self.sprite_attribute_table[(address-0xFE00) as usize];
                 }
                 else{
+                    log::warn!("bad oam read");
                     return BAD_READ_VALUE;
                 }
             },
@@ -82,6 +84,9 @@ impl<'a> Memory for GbMmu<'a>{
                 if self.is_vram_ready_for_io(){
                     self.vram.write_current_bank(address-0x8000, value);
                 }
+                else{
+                    log::warn!("bad vram write")
+                }
             },
             0xA000..=0xBFFF=>self.mbc.write_external_ram(address-0xA000,value),
             0xC000..=0xCFFF =>self.ram.write_bank0(address - 0xC000,value), 
@@ -90,6 +95,9 @@ impl<'a> Memory for GbMmu<'a>{
             0xFE00..=0xFE9F=>{
                 if self.is_oam_ready_for_io(){
                     self.sprite_attribute_table[(address-0xFE00) as usize] = value;
+                }
+                else{
+                    log::warn!("bad oam write")
                 }
             },
             0xFEA0..=0xFEFF=>{},
@@ -149,15 +157,11 @@ impl<'a> GbMmu<'a>{
     }
 
     fn is_oam_ready_for_io(&self)->bool{
-        return true;
-        //TODO: uncomment when cycle accureate
-        //let ppu_state = self.ppu_state as u8;
-        //return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
+        let ppu_state = self.ppu_state as u8;
+        return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
     }
 
     fn is_vram_ready_for_io(&self)->bool{
-        return true;
-        //TODO: uncomment when cycle accureate
-        //return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
+        return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
     }
 }
