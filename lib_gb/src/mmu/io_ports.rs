@@ -1,4 +1,5 @@
 use crate::utils::memory_registers::*;
+use super::access_bus::AccessBus;
 
 const IO_PORTS_SIZE:usize = 0x80;
 
@@ -12,7 +13,7 @@ const DMA_REGISTER_INDEX:u16 = DMA_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 
 pub struct IoPorts{
     pub system_counter:u16,
-    pub dma_trasfer_trigger:bool,
+    pub dma_trasfer_trigger:Option<AccessBus>,
     ports:[u8;IO_PORTS_SIZE]
 }
 
@@ -33,7 +34,13 @@ impl IoPorts{
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
             },
-            DMA_REGISTER_INDEX=> self.dma_trasfer_trigger = true,
+            DMA_REGISTER_INDEX=> {
+                self.dma_trasfer_trigger = match value{
+                    0..=0x7F=>Some(AccessBus::External),
+                    0x80..=0x9F=>Some(AccessBus::Video),
+                    0xA0..=0xFF=>Some(AccessBus::External)
+                }
+            },
             _=>{}
         }
 
@@ -49,7 +56,7 @@ impl Default for IoPorts{
     fn default()->Self{
         let mut io_ports = IoPorts{
             ports:[0;IO_PORTS_SIZE],
-            dma_trasfer_trigger:false,
+            dma_trasfer_trigger:None,
             system_counter: 0
         };
 

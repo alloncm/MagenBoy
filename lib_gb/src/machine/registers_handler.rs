@@ -206,7 +206,7 @@ impl RegisterHandler{
     }
 
     fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbMmu, m_cycles:u8){
-        if mmu.io_ports.dma_trasfer_trigger{
+        if mmu.io_ports.dma_trasfer_trigger.is_some(){
             let source:u16 = (register as u16) << 8;
             let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
             for i in self.dma_cycle_counter..cycles_to_run as u16{
@@ -216,7 +216,7 @@ impl RegisterHandler{
             self.dma_cycle_counter += m_cycles as u16;
             
             if self.dma_cycle_counter >= DMA_SIZE{
-                mmu.io_ports.dma_trasfer_trigger = false;   
+                mmu.io_ports.dma_trasfer_trigger = None;   
                 self.dma_cycle_counter = 0;
             }
         }

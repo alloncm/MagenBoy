@@ -2,6 +2,7 @@ use super::memory::*;
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
+use super::access_bus::AccessBus;
 use crate::utils::memory_registers::BOOT_REGISTER_ADDRESS;
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
@@ -27,15 +28,15 @@ pub struct GbMmu<'a>{
 }
 
 
+//DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a> Memory for GbMmu<'a>{
     fn read(&self, address:u16)->u8{
-        if self.io_ports.dma_trasfer_trigger{
+        if let Some (bus) = &self.io_ports.dma_trasfer_trigger{
             return match address{
                 0xFEA0..=0xFEFF | 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
-                _=>{
-                    log::warn!("bad memory read during dma. {}", address);
-                    return BAD_READ_VALUE;
-                }
+                0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
+                0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
+                _=>Self::bad_dma_read(address)
             };
         }
         return match address{
@@ -62,10 +63,12 @@ impl<'a> Memory for GbMmu<'a>{
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if self.io_ports.dma_trasfer_trigger{
+        if let Some(bus) = &self.io_ports.dma_trasfer_trigger{
             match address{
                 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
-                _=>log::warn!("bad memory write during dma. {:#X}", address)
+                0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
+                0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
+                _=>Self::bad_dma_write(address)
             }
         }
         else{
@@ -177,5 +180,14 @@ impl<'a> GbMmu<'a>{
 
     fn is_vram_ready_for_io(&self)->bool{
         return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
+    }
+
+    fn bad_dma_read(address:u16)->u8{
+        log::warn!("bad memory read during dma. {:#X}", address);
+        return BAD_READ_VALUE;
+    }
+
+    fn bad_dma_write(address:u16){
+        log::warn!("bad memory write during dma. {:#X}", address)
     }
 }
