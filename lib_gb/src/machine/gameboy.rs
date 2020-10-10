@@ -69,6 +69,8 @@ impl<'a> GameBoy<'a>{
     pub fn cycle_frame(&mut self, mut joypad_provider:impl JoypadProvider )->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         let mut joypad = Joypad::default();
 
+        let mut last_ppu_power_state:bool = self.ppu.screen_enable;
+
         while self.cycles_counter < CYCLES_PER_FRAME{
             joypad_provider.provide(&mut joypad);
 
@@ -88,10 +90,17 @@ impl<'a> GameBoy<'a>{
             }
             
             //PPU
-            self.cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
-            self.ppu.update_gb_screen(&self.mmu, self.cycles_counter);
+            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
+            self.ppu.update_gb_screen(&self.mmu, iter_total_cycles);
             //updating after the PPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
+
+            if last_ppu_power_state != self.ppu.screen_enable && self.ppu.screen_enable{
+                self.cycles_counter = 0;
+            }
+
+            self.cycles_counter += iter_total_cycles;
+            last_ppu_power_state = self.ppu.screen_enable;
         }
 
         if self.cycles_counter >= CYCLES_PER_FRAME{
