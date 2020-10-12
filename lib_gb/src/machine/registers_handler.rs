@@ -22,7 +22,8 @@ const T_CYCLES_IN_M_CYCLE:u8 = 4;
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16,
     v_blank_triggered:bool,
-    dma_cycle_counter:u16
+    dma_cycle_counter:u16,
+    stat_triggered:bool
 }
 
 impl Default for RegisterHandler{
@@ -30,7 +31,8 @@ impl Default for RegisterHandler{
         RegisterHandler{
             timer_clock_interval_counter: 0,
             v_blank_triggered:false,
-            dma_cycle_counter:0
+            dma_cycle_counter:0,
+            stat_triggered:false
         }
     }
 }
@@ -89,12 +91,12 @@ impl RegisterHandler{
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
 
-        if register & 0b11 != ppu.state as u8{
+        if !self.stat_triggered{
             let mut lcd_stat_interrupt:bool = false;
 
             if ly == lyc{
                 register |= BIT_2_MASK;
-                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
+                if interrupts_handler.coincidence_interrupt {
                     lcd_stat_interrupt = true;
                 }
             }
@@ -128,6 +130,7 @@ impl RegisterHandler{
 
             if lcd_stat_interrupt{
                 *if_register |= BIT_1_MASK;
+                self.stat_triggered = true;
             }
         }
 
@@ -152,14 +155,19 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbPpu, if_register:&mut u8){
-        if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
-            //V-Blank interrupt
-            *if_register |= BIT_0_MASK;
-            self.v_blank_triggered = true;
-        }
-        else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
 
-            self.v_blank_triggered = false;
+        if ppu.current_line_drawn != memory.read(LY_REGISTER_ADDRESS){
+            if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
+                //V-Blank interrupt
+                *if_register |= BIT_0_MASK;
+                self.v_blank_triggered = true;
+            }
+            else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
+
+                self.v_blank_triggered = false;
+            }
+            
+            self.stat_triggered = false;
         }
         
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        

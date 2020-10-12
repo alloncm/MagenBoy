@@ -93,12 +93,12 @@ impl GbPpu {
     fn update_ly(&mut self){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
-        if line>LY_MAX_VALUE as u32{
-            self.current_line_drawn = LY_MAX_VALUE;
-            self.line_rendered = true;
-            self.current_cycle = self.current_cycle - ((LY_MAX_VALUE+1) as u32 * DRAWING_CYCLE_CLOCKS as u32);
+        if self.current_cycle >= 17556 {
+            self.current_line_drawn = 0;
+            self.line_rendered = false;
+            self.current_cycle -= 17556;
             self.window_line_counter = 0;
-            self.window_enable = false;
+            self.window_active = false;
         }
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
@@ -134,16 +134,16 @@ impl GbPpu {
             self.current_cycle = 0;
             self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
             self.state = PpuState::Hblank;
+            self.window_active = false;
             return;
         }
 
         self.current_cycle += cycles_passed as u32;
-        self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
         self.update_ly();
+        self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
 
         if self.state as u8 == PpuState::PixelTransfer as u8{
-
-            if !self.line_rendered && (self.current_line_drawn as usize) < SCREEN_HEIGHT{
+            if !self.line_rendered {
                 self.line_rendered = true;
 
                 let mut frame_buffer_line = self.get_bg_frame_buffer(memory);

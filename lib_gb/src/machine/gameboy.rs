@@ -106,7 +106,7 @@ impl<'a> GameBoy<'a>{
         if self.cycles_counter >= CYCLES_PER_FRAME{
             self.cycles_counter -= CYCLES_PER_FRAME; 
         }
-        
+
         return self.ppu.get_frame_buffer();
     }
 
