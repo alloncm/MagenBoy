@@ -95,7 +95,7 @@ impl<'a> GameBoy<'a>{
             //updating after the PPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
 
-            if last_ppu_power_state != self.ppu.screen_enable && self.ppu.screen_enable{
+            if !last_ppu_power_state && self.ppu.screen_enable{
                 self.cycles_counter = 0;
             }
 
