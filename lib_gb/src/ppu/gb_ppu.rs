@@ -12,6 +12,8 @@ use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
+//CPU frequrncy: 1,048,326 / 60 
+pub const CYCLES_PER_FRAME:u32 = 17556;
 
 const OAM_CLOCKS:u8 = 20;
 const PIXEL_TRANSFER_CLOCKS:u8 = 43;
@@ -26,7 +28,6 @@ const NORMAL_SPRITE_HIEGHT:u8 = 8;
 const SPRITE_MAX_HEIGHT:u8 = 16;
 const BG_SPRITES_PER_LINE:u16 = 32;
 const SPRITE_SIZE_IN_MEMORY:u16 = 16;
-
 
 pub struct GbPpu {
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
@@ -93,16 +94,19 @@ impl GbPpu {
     fn update_ly(&mut self){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
-        if self.current_cycle >= 17556 {
+        if self.current_cycle >= CYCLES_PER_FRAME {
             self.current_line_drawn = 0;
             self.line_rendered = false;
-            self.current_cycle -= 17556;
+            self.current_cycle -= CYCLES_PER_FRAME;
             self.window_line_counter = 0;
             self.window_active = false;
         }
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
             self.line_rendered = false;
+        }
+        else if self.current_line_drawn > LY_MAX_VALUE{
+            std::panic!("invalid LY register value: {}", self.current_line_drawn);
         }
     }
 

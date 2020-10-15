@@ -12,14 +12,13 @@ use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::carts::mbc::Mbc;
 use crate::ppu::gb_ppu::{
     SCREEN_HEIGHT,
-    SCREEN_WIDTH
+    SCREEN_WIDTH,
+    CYCLES_PER_FRAME
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
-//CPU frequrncy: 1,048,326 / 60 
-const CYCLES_PER_FRAME:u32 = 17556;
 
 pub struct GameBoy<'a> {
     cpu: GbCpu,
