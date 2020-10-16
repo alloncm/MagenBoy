@@ -91,49 +91,52 @@ impl RegisterHandler{
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
 
-        if !self.stat_triggered{
-            let mut lcd_stat_interrupt:bool = false;
+        let mut lcd_stat_interrupt:bool = false;
 
-            if ly == lyc{
-                register |= BIT_2_MASK;
-                if interrupts_handler.coincidence_interrupt {
+        if ly == lyc{
+            register |= BIT_2_MASK;
+            if interrupts_handler.coincidence_interrupt {
+                lcd_stat_interrupt = true;
+            }
+        }
+        else{
+            register &= !BIT_2_MASK;
+        }
+        
+        memory.ppu_state = ppu.state;
+        //clears the 2 lower bits
+        register = (register >> 2)<<2;
+        register |= ppu.state as u8;
+
+        match ppu.state{
+            PpuState::OamSearch=>{
+                if interrupts_handler.oam_search{
                     lcd_stat_interrupt = true;
                 }
-            }
-            else{
-                register &= !BIT_2_MASK;
-            }
-            
-            memory.ppu_state = ppu.state;
-            //clears the 2 lower bits
-            register = (register >> 2)<<2;
-            register |= ppu.state as u8;
+            },
+            PpuState::Hblank=>{
+                if interrupts_handler.h_blank_interrupt{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            PpuState::Vblank=>{
+                if interrupts_handler.v_blank_interrupt{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            _=>{}
+        }
 
-            match ppu.state{
-                PpuState::OamSearch=>{
-                    if interrupts_handler.oam_search{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                PpuState::Hblank=>{
-                    if interrupts_handler.h_blank_interrupt{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                PpuState::Vblank=>{
-                    if interrupts_handler.v_blank_interrupt{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                _=>{}
-            }
-
-            if lcd_stat_interrupt{
+        if lcd_stat_interrupt{
+            if !self.stat_triggered{
                 *if_register |= BIT_1_MASK;
                 self.stat_triggered = true;
             }
         }
-
+        else{
+            self.stat_triggered = false;
+        }
+        
         memory.io_ports.write_unprotected(STAT_REGISTER_ADDRESS - 0xFF00, register);
     }
 
@@ -166,8 +169,6 @@ impl RegisterHandler{
 
                 self.v_blank_triggered = false;
             }
-            
-            self.stat_triggered = false;
         }
         
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
