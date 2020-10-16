@@ -94,6 +94,8 @@ impl<'a> GameBoy<'a>{
             //updating after the PPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
 
+            //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
+            //the frame when the ppu finishes the frame
             if !last_ppu_power_state && self.ppu.screen_enable{
                 self.cycles_counter = 0;
             }
