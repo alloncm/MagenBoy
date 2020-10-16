@@ -1,5 +1,5 @@
 use crate::cpu::gb_cpu::GbCpu;
-use crate::mmu::memory::Memory;
+use crate::mmu::memory::*;
 use crate::mmu::gb_mmu::GbMmu;
 use crate::mmu::io_ports::DIV_REGISTER_INDEX;
 use crate::ppu::gb_ppu::GbPpu;
@@ -22,7 +22,8 @@ const T_CYCLES_IN_M_CYCLE:u8 = 4;
 pub struct RegisterHandler{
     timer_clock_interval_counter:u16,
     v_blank_triggered:bool,
-    dma_cycle_counter:u16
+    dma_cycle_counter:u16,
+    stat_triggered:bool
 }
 
 impl Default for RegisterHandler{
@@ -30,7 +31,8 @@ impl Default for RegisterHandler{
         RegisterHandler{
             timer_clock_interval_counter: 0,
             v_blank_triggered:false,
-            dma_cycle_counter:0
+            dma_cycle_counter:0,
+            stat_triggered:false
         }
     }
 }
@@ -89,48 +91,52 @@ impl RegisterHandler{
         interrupts_handler.coincidence_interrupt = register & BIT_6_MASK != 0;
 
 
-        if register & 0b11 != ppu.state as u8{
-            let mut lcd_stat_interrupt:bool = false;
+        let mut lcd_stat_interrupt:bool = false;
 
-            if ly == lyc{
-                register |= BIT_2_MASK;
-                if interrupts_handler.coincidence_interrupt && ppu.state as u8 == PpuState::OamSearch as u8{
-                    lcd_stat_interrupt = true;
-                }
-            }
-            else{
-                register &= !BIT_2_MASK;
-            }
-            
-            memory.ppu_state = ppu.state;
-            //clears the 2 lower bits
-            register = (register >> 2)<<2;
-            register |= ppu.state as u8;
-
-            match ppu.state{
-                PpuState::OamSearch=>{
-                    if interrupts_handler.oam_search{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                PpuState::Hblank=>{
-                    if interrupts_handler.h_blank_interrupt{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                PpuState::Vblank=>{
-                    if interrupts_handler.v_blank_interrupt{
-                        lcd_stat_interrupt = true;
-                    }
-                },
-                _=>{}
-            }
-
-            if lcd_stat_interrupt{
-                *if_register |= BIT_1_MASK;
+        if ly == lyc{
+            register |= BIT_2_MASK;
+            if interrupts_handler.coincidence_interrupt {
+                lcd_stat_interrupt = true;
             }
         }
+        else{
+            register &= !BIT_2_MASK;
+        }
+        
+        memory.ppu_state = ppu.state;
+        //clears the 2 lower bits
+        register = (register >> 2)<<2;
+        register |= ppu.state as u8;
 
+        match ppu.state{
+            PpuState::OamSearch=>{
+                if interrupts_handler.oam_search{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            PpuState::Hblank=>{
+                if interrupts_handler.h_blank_interrupt{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            PpuState::Vblank=>{
+                if interrupts_handler.v_blank_interrupt{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            _=>{}
+        }
+
+        if lcd_stat_interrupt{
+            if !self.stat_triggered{
+                *if_register |= BIT_1_MASK;
+                self.stat_triggered = true;
+            }
+        }
+        else{
+            self.stat_triggered = false;
+        }
+        
         memory.io_ports.write_unprotected(STAT_REGISTER_ADDRESS - 0xFF00, register);
     }
 
@@ -152,14 +158,17 @@ impl RegisterHandler{
     }
     
     fn handle_ly_register(&mut self, memory:&mut dyn Memory, ppu:&GbPpu, if_register:&mut u8){
-        if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
-            //V-Blank interrupt
-            *if_register |= BIT_0_MASK;
-            self.v_blank_triggered = true;
-        }
-        else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
 
-            self.v_blank_triggered = false;
+        if ppu.current_line_drawn != memory.read(LY_REGISTER_ADDRESS){
+            if ppu.current_line_drawn >= LY_INTERRUPT_VALUE && !self.v_blank_triggered{
+                //V-Blank interrupt
+                *if_register |= BIT_0_MASK;
+                self.v_blank_triggered = true;
+            }
+            else if ppu.current_line_drawn < LY_INTERRUPT_VALUE{
+
+                self.v_blank_triggered = false;
+            }
         }
         
         memory.write(LY_REGISTER_ADDRESS, ppu.current_line_drawn);        
@@ -206,17 +215,17 @@ impl RegisterHandler{
     }
 
     fn handle_dma_transfer_register(&mut self, register:u8, mmu:&mut GbMmu, m_cycles:u8){
-        if mmu.dma_trasfer_trigger{
+        if mmu.io_ports.dma_trasfer_trigger.is_some(){
             let source:u16 = (register as u16) << 8;
             let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
             for i in self.dma_cycle_counter..cycles_to_run as u16{
-                mmu.write(DMA_DEST + i, mmu.read(source + i));
+                mmu.write_unprotected(DMA_DEST + i, mmu.read_unprotected(source + i));
             }
 
             self.dma_cycle_counter += m_cycles as u16;
             
             if self.dma_cycle_counter >= DMA_SIZE{
-                mmu.dma_trasfer_trigger = false;   
+                mmu.io_ports.dma_trasfer_trigger = None;   
                 self.dma_cycle_counter = 0;
             }
         }

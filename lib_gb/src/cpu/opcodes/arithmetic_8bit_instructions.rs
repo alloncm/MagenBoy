@@ -416,7 +416,7 @@ pub fn daa(cpu:&mut GbCpu)->u8{
         if cpu.get_flag(Flag::HalfCarry){
             daa_value |= 0x6;
         }
-        *cpu.af.high() -= daa_value;    
+        *cpu.af.high() = (*cpu.af.high()).wrapping_sub(daa_value);    
     }
     else{
         if *cpu.af.high() > 0x99 || cpu.get_flag(Flag::Carry){
@@ -426,7 +426,7 @@ pub fn daa(cpu:&mut GbCpu)->u8{
         if low_a > 0x9 || cpu.get_flag(Flag::HalfCarry){
             daa_value |= 0x6;
         }
-        *cpu.af.high() += daa_value;    
+        *cpu.af.high() = (*cpu.af.high()).wrapping_add(daa_value);
     }
 
     let zero = *cpu.af.high() == 0;
