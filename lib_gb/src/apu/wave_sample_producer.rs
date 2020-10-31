@@ -1,7 +1,7 @@
 use super::sample_producer::SampleProducer;
 
 pub struct WaveSampleProducer{
-    pub wave_sumples:[u8;16],
+    pub wave_samples:[u8;16],
 
     sample_counter:u8
 }
@@ -9,7 +9,7 @@ pub struct WaveSampleProducer{
 impl Default for WaveSampleProducer{
     fn default() -> Self {
         WaveSampleProducer{
-            wave_sumples:[0;16],
+            wave_samples:[0;16],
             sample_counter:0
         }
     }
@@ -17,7 +17,7 @@ impl Default for WaveSampleProducer{
 
 impl SampleProducer for WaveSampleProducer{
     fn produce(&mut self) ->u8 {
-        let mut sample = self.wave_sumples[self.sample_counter as usize];
+        let mut sample = self.wave_samples[self.sample_counter as usize];
 
         if self.sample_counter % 2 != 0{
             sample &= 0x0F;
