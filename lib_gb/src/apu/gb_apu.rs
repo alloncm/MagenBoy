@@ -1,33 +1,33 @@
 use super::channel::Channel;
 use super::wave_sample_producer::WaveSampleProducer;
-use crate::mmu::memory::Memory;
+use super::audio_device::AudioDevice;
 
+pub const AUDIO_BUFFER_SIZE:usize = 0x100;
 
-pub struct GbApu{
+pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
 
-    
-    current_cycle:u32
+    audio_buffer:[f32;AUDIO_BUFFER_SIZE],
+    current_cycle:u32,
+    device:Device
 }
 
-impl Default for GbApu{
-    fn default() -> Self {
+impl<Device: AudioDevice> GbApu<Device>{
+    pub fn new(device: Device) -> Self {
         GbApu{
             wave_channel:Channel::<WaveSampleProducer>::new(),
-            current_cycle:0
+            audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
+            current_cycle:0,
+            device:device
         }
     }
-}
 
-impl GbApu{
-    pub fn cycle(&mut self, memory: &dyn Memory, cycles_passed:u8)->Vec<f32>{
-        let samples:Vec<f32> = vec![0.0 ; cycles_passed as usize];
+    pub fn cycle(&mut self, cycles_passed:u8){
+        
 
         for i in 0..cycles_passed{
-            samples[i as usize] = self.wave_channel.get_audio_sample(memory);
+            self.audio_buffer[i as usize] = self.wave_channel.get_audio_sample();
         }
-
-        samples
     }
 }
 
