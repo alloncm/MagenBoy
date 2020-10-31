@@ -1,4 +1,3 @@
-use crate::mmu::memory::Memory;
 use super::sample_producer::SampleProducer;
 
 pub struct Channel<Procuder: SampleProducer>{
@@ -7,8 +6,7 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sound_length:Option<u8>,
     pub volume_sweep:Option<u8>,
     pub frequency_sweep:Option<u8>,
-
-    smaple_producer:Procuder
+    pub smaple_producer:Procuder
 }
 
 
@@ -25,21 +23,10 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
     
     }
 
-    pub fn get_audio_sample(&self, memory:&dyn Memory)->f32{
-        let wave_pattern:[u8;16] = Self::get_wave_patterns(memory);
-
+    pub fn get_audio_sample(&mut self)->f32{
+        let sample = self.smaple_producer.produce();
         
-
-    }
-
-    fn get_wave_patterns(memory:&dyn Memory)->[u8;16]{
-        let mut output:[u8;16] = [0;16];
-
-        for i in 0..16{
-            output[i] = memory.read(0xFF30 + i as u16);
-        }
-  
-        output
+        Self::convert_digtial_to_analog(sample)
     }
 
     //the formula is y = (2/15)x - 1
