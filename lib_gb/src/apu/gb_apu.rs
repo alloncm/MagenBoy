@@ -24,9 +24,16 @@ impl<Device: AudioDevice> GbApu<Device>{
 
     pub fn cycle(&mut self, cycles_passed:u8){
         
+        //add timer 
+        for _ in 0..cycles_passed{   
+            if self.current_cycle as usize >= AUDIO_BUFFER_SIZE{
+                self.current_cycle = 0;
+                self.device.push_buffer(&self.audio_buffer);
+            }
 
-        for i in 0..cycles_passed{
-            self.audio_buffer[i as usize] = self.wave_channel.get_audio_sample();
+            self.audio_buffer[self.current_cycle as usize] = self.wave_channel.get_audio_sample();
+
+            self.current_cycle += 1;
         }
     }
 }
