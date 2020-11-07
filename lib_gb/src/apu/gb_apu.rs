@@ -4,7 +4,7 @@ use super::audio_device::AudioDevice;
 use crate::mmu::memory::Memory;
 use crate::utils::bit_masks::*;
 
-pub const AUDIO_BUFFER_SIZE:usize = 0x100;
+pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
@@ -33,7 +33,9 @@ impl<Device: AudioDevice> GbApu<Device>{
                 self.device.push_buffer(&self.audio_buffer);
             }
 
+            self.prepare_wave_channel(memory);
             self.audio_buffer[self.current_cycle as usize] = self.wave_channel.get_audio_sample();
+            self.update_registers(memory);
 
             self.current_cycle += 1;
         }
@@ -48,6 +50,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         let nr34 = memory.read(0xFF1E);
         freq |= ((nr34 & 0b111) as u16) << 8;
         self.wave_channel.frequency = freq;
+        self.wave_channel.timer.cycles_to_tick = (2048 - freq) * 2;
         self.wave_channel.trigger = nr34 & BIT_7_MASK != 0;
         self.wave_channel.length_enable = nr34 & BIT_6_MASK != 0;
 

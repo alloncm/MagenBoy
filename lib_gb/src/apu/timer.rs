@@ -1,10 +1,10 @@
 pub struct Timer{
-    pub cycles_to_tick:u32,
-    cycle_counter:u32
+    pub cycles_to_tick:u16,
+    cycle_counter:u16
 }
 
 impl Timer{
-    pub fn new(cycles_to_tick:u32)->Self{
+    pub fn new(cycles_to_tick:u16)->Self{
         Timer{
             cycle_counter:0,
             cycles_to_tick:cycles_to_tick
