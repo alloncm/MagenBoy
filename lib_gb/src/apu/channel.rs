@@ -1,4 +1,5 @@
 use super::sample_producer::SampleProducer;
+use super::timer::Timer;
 
 pub struct Channel<Procuder: SampleProducer>{
     pub enable:bool,
@@ -6,9 +7,9 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sound_length:Option<u8>,
     pub volume_sweep:Option<u8>,
     pub frequency_sweep:Option<u8>,
-    pub smaple_producer:Procuder
+    pub sample_producer:Procuder,
+    pub timer:Timer
 }
-
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
     pub fn new()->Self{
@@ -18,13 +19,18 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             sound_length:None,
             frequency_sweep:None,
             volume_sweep:None,
-            smaple_producer:Procuder::default()
-        }
-    
+            sample_producer:Procuder::default(),
+            timer: Timer::new(0)
+        }   
     }
 
     pub fn get_audio_sample(&mut self)->f32{
-        let sample = self.smaple_producer.produce();
+        let sample = if self.timer.cycle(){
+            self.sample_producer.produce()
+        }
+        else{
+            0
+        };
         
         Self::convert_digtial_to_analog(sample)
     }
