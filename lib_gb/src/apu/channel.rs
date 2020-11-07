@@ -3,10 +3,12 @@ use super::timer::Timer;
 
 pub struct Channel<Procuder: SampleProducer>{
     pub enable:bool,
-    pub frequency:u32,
-    pub sound_length:Option<u8>,
-    pub volume_sweep:Option<u8>,
+    pub frequency:u16,
+    pub sound_length:u8,
+    pub volume_envelope:Option<u8>,
     pub frequency_sweep:Option<u8>,
+    pub trigger:bool,
+    pub length_enable:bool,
     pub sample_producer:Procuder,
     pub timer:Timer
 }
@@ -16,9 +18,11 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         Channel{
             enable:false,
             frequency:0,
-            sound_length:None,
+            sound_length:0,
             frequency_sweep:None,
-            volume_sweep:None,
+            volume_envelope:None,
+            trigger:false,
+            length_enable:false,
             sample_producer:Procuder::default(),
             timer: Timer::new(0)
         }   
