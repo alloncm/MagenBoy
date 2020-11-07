@@ -1,6 +1,6 @@
 pub struct Timer{
-    cycle_counter:u32,
-    cycles_to_tick:u32
+    pub cycles_to_tick:u32,
+    cycle_counter:u32
 }
 
 impl Timer{
