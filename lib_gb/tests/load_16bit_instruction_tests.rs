@@ -1,5 +1,5 @@
-use lib_gbc::cpu::gb_cpu::{GbCpu};
-use lib_gbc::cpu::opcodes::load_16bit_instructions;
+use lib_gb::cpu::gb_cpu::{GbCpu};
+use lib_gb::cpu::opcodes::load_16bit_instructions;
 mod memory_stub;
 use crate::memory_stub::MemoryStub;
 

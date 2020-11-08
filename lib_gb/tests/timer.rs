@@ -1,4 +1,4 @@
-use lib_gbc::apu::timer::Timer;
+use lib_gb::apu::timer::Timer;
 
 
 #[test]
