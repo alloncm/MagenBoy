@@ -1,6 +1,4 @@
-extern crate stupid_gfx;
-extern crate lib_gbc;
-use lib_gbc::keypad::{
+use lib_gb::keypad::{
     joypad_provider::JoypadProvider,
     joypad::Joypad,
     button::Button

@@ -103,7 +103,7 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
-name = "lib_gbc"
+name = "lib_gb"
 version = "0.1.0"
 dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -128,9 +128,9 @@ version = "0.1.0"
 dependencies = [
  "chrono 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "fern 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "lib_gbc 0.1.0",
+ "lib_gb 0.1.0",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "stupid_gfx 0.2.0",
+ "stupid_gfx 0.2.1",
 ]
 
 [[package]]
@@ -210,7 +210,7 @@ dependencies = [
 
 [[package]]
 name = "stupid_gfx"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "sdl2 0.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -1,18 +1,19 @@
 mod mbc_handler;
 mod stupid_gfx_joypad_provider;
+mod stupid_gfx_audio_device;
 
-use lib_gbc::machine::gameboy::GameBoy;
-use lib_gbc::ppu::gb_ppu::{
+use lib_gb::machine::gameboy::GameBoy;
+use lib_gb::ppu::gb_ppu::{
     SCREEN_HEIGHT,
     SCREEN_WIDTH
 };
-use lib_gbc::keypad::button::Button;
+use lib_gb::keypad::button::Button;
 use std::fs;
 use std::env;
 use std::result::Result;
 use std::vec::Vec;
 use log::info;
-use lib_gbc::mmu::gb_mmu::BOOT_ROM_SIZE;
+use lib_gb::mmu::gb_mmu::BOOT_ROM_SIZE;
 use stupid_gfx::{
     event_handler::EventHandler,
     graphics::Graphics,
