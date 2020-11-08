@@ -15,36 +15,42 @@ use crate::ppu::gb_ppu::{
     SCREEN_WIDTH,
     CYCLES_PER_FRAME
 };
+use crate::apu::{
+    gb_apu::GbApu,
+    audio_device::AudioDevice
+};
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
 
-pub struct GameBoy<'a> {
+pub struct GameBoy<'a, Device:AudioDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver,
     ppu:GbPpu,
+    apu:GbApu<Device>,
     register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32
 }
 
-impl<'a> GameBoy<'a>{
+impl<'a, Device:AudioDevice> GameBoy<'a, Device>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], device:Device)->GameBoy<Device>{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
+            apu:GbApu::new(device),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>)->GameBoy{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, device:Device)->GameBoy<Device>{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -59,6 +65,7 @@ impl<'a> GameBoy<'a>{
             mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
+            apu:GbApu::new(device),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0
@@ -93,6 +100,9 @@ impl<'a> GameBoy<'a>{
             self.ppu.update_gb_screen(&self.mmu, iter_total_cycles);
             //updating after the PPU
             self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
+
+            //APU
+            self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
