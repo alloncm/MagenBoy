@@ -24,10 +24,11 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    pub fn cycle(&mut self, memory:&mut dyn Memory, cycles_passed:u8){
-        
+    pub fn cycle(&mut self, memory:&mut dyn Memory, m_cycles_passed:u8){
+        //converting m_cycles to t_cycles
+        let t_cycles = m_cycles_passed * 4;
         //add timer 
-        for _ in 0..cycles_passed{   
+        for _ in 0..t_cycles{   
             if self.current_cycle as usize >= AUDIO_BUFFER_SIZE{
                 self.current_cycle = 0;
                 self.device.push_buffer(&self.audio_buffer);
@@ -50,7 +51,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         let nr34 = memory.read(0xFF1E);
         freq |= ((nr34 & 0b111) as u16) << 8;
         self.wave_channel.frequency = freq;
-        self.wave_channel.timer.cycles_to_tick = (2048 - freq) * 2;
+        self.wave_channel.timer.cycles_to_tick = (2048 - freq)*2;
         self.wave_channel.trigger = nr34 & BIT_7_MASK != 0;
         self.wave_channel.length_enable = nr34 & BIT_6_MASK != 0;
 
