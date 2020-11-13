@@ -95,6 +95,9 @@ fn main() {
     let gfx_initializer: Initializer = Initializer::new();
     let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32* screen_scale, 0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
+    let audio = gfx_initializer.init_audio(0x40000, 1, 60);
+
+    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(audio);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
@@ -108,12 +111,12 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, bootrom)
+            GameBoy::new_with_bootrom(&mut mbc, bootrom, gfx_device)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc)
+            GameBoy::new(&mut mbc, gfx_device)
         }
     };
     
