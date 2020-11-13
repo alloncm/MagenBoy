@@ -19,7 +19,7 @@ impl Default for WaveSampleProducer{
 
 impl SampleProducer for WaveSampleProducer{
     fn produce(&mut self) ->u8 {
-        let mut sample = self.wave_samples[self.sample_counter as usize];
+        let mut sample = self.wave_samples[(self.sample_counter/2) as usize];
 
         if self.sample_counter % 2 != 0{
             sample &= 0x0F;
