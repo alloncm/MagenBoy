@@ -5,3 +5,4 @@ pub mod wave_sample_producer;
 pub mod audio_device;
 pub mod timer;
 pub mod frame_sequencer;
+pub mod sound_terminal;
