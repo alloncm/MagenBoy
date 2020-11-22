@@ -11,7 +11,7 @@ pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
 
     audio_buffer:[f32;AUDIO_BUFFER_SIZE],
-    current_cycle:u32,
+    current_t_cycle:u32,
     device:Device,
     terminal1:SoundTerminal,
     terminal2:SoundTerminal,
@@ -23,7 +23,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         GbApu{
             wave_channel:Channel::<WaveSampleProducer>::new(),
             audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
-            current_cycle:0,
+            current_t_cycle:0,
             device:device,
             terminal1: SoundTerminal::default(),
             terminal2: SoundTerminal::default(),
@@ -32,20 +32,28 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     pub fn cycle(&mut self, memory:&mut dyn Memory, m_cycles_passed:u8){
+        self.prepare_control_registers(memory);
+
         //converting m_cycles to t_cycles
         let t_cycles = m_cycles_passed * 4;
         //add timer 
-        for _ in 0..t_cycles{   
-            if self.current_cycle as usize >= AUDIO_BUFFER_SIZE{
-                self.current_cycle = 0;
-                self.device.push_buffer(&self.audio_buffer);
+
+        if self.enabled{
+            for _ in 0..t_cycles{   
+                if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
+                    self.current_t_cycle = 0;
+                    self.device.push_buffer(&self.audio_buffer);
+                }
+            
+                self.prepare_wave_channel(memory);
+                self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample();
+                self.update_registers(memory);
+            
+                self.current_t_cycle += 1;
             }
-
-            self.prepare_wave_channel(memory);
-            self.audio_buffer[self.current_cycle as usize] = self.wave_channel.get_audio_sample();
-            self.update_registers(memory);
-
-            self.current_cycle += 1;
+        }
+        else{
+            self.current_t_cycle += t_cycles as u32;
         }
     }
 
@@ -65,11 +73,14 @@ impl<Device: AudioDevice> GbApu<Device>{
         for i in 0..4{
             self.terminal2.channels[i as usize] = channels_output_terminals & (0b10000 << i) != 0;
         }
+
+        let master_sound = memory.read(0xFF26);
+        self.enabled = master_sound & BIT_7_MASK != 0;
     }
 
     fn prepare_wave_channel(&mut self, memory:&dyn Memory){
         self.wave_channel.sound_length = memory.read(0xFF1B);
-        self.wave_channel.enable = memory.read(0xFF1A) & BIT_7_MASK != 0;
+        self.wave_channel.enabled = memory.read(0xFF1A) & BIT_7_MASK != 0;
         //I want bits 5-6
         self.wave_channel.sample_producer.volume = (memory.read(0xFF1C)>>5) & 0b011;
         let mut freq = memory.read(0xFF1D) as u16;
@@ -87,6 +98,22 @@ impl<Device: AudioDevice> GbApu<Device>{
 
     fn update_registers(&mut self, memory:&mut dyn Memory){
         memory.write(0xFF1B, self.wave_channel.sound_length);
+
+        let mut control_register = memory.read(0xFF26);
+        Self::set_bit(&mut control_register, 3, self.wave_channel.enabled);
+    }
+
+
+    //TODO: delete when refactor this func is copied from the register handler
+    fn set_bit(value:&mut u8, bit_number:u8, set:bool){
+        let mask = 1 << bit_number;
+        if set{
+            *value |= mask;
+        }
+        else{
+            let inverse_mask = !mask;
+            *value &= inverse_mask;
+        }
     }
 }
 

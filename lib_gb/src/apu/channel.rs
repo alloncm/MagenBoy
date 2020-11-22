@@ -2,7 +2,7 @@ use super::sample_producer::SampleProducer;
 use super::timer::Timer;
 
 pub struct Channel<Procuder: SampleProducer>{
-    pub enable:bool,
+    pub enabled:bool,
     pub frequency:u16,
     pub sound_length:u8,
     pub volume_envelope:Option<u8>,
@@ -16,7 +16,7 @@ pub struct Channel<Procuder: SampleProducer>{
 impl<Procuder: SampleProducer> Channel<Procuder>{
     pub fn new()->Self{
         Channel{
-            enable:false,
+            enabled:false,
             frequency:0,
             sound_length:0,
             frequency_sweep:None,
@@ -36,7 +36,12 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             0
         };
         
-        Self::convert_digtial_to_analog(sample)
+        return if self.enabled{
+            Self::convert_digtial_to_analog(sample)
+        }
+        else{
+            0.0
+        };
     }
 
     //the formula is y = (2/15)x - 1
