@@ -13,6 +13,17 @@ pub struct FrameSequencer{
     frequency_sweep_cycles:u32
 }
 
+impl Default for FrameSequencer{
+    fn default() -> Self {
+        FrameSequencer{
+            timer: Timer::new(512),
+            length_counter_cycles:0,
+            frequency_sweep_cycles:0,
+            volume_envelope_cycles:0
+        }
+    }
+}
+
 impl FrameSequencer{
     pub fn cycle(&mut self)->TickType{
         let mut tick = TickType{
