@@ -6,3 +6,4 @@ pub mod audio_device;
 pub mod timer;
 pub mod frame_sequencer;
 pub mod sound_terminal;
+pub mod tone_sweep_sample_producer;
