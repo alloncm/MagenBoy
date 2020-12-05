@@ -2,6 +2,10 @@ use super::channel::Channel;
 use super::wave_sample_producer::WaveSampleProducer;
 use super::audio_device::AudioDevice;
 use super::sound_terminal::SoundTerminal;
+use super::frame_sequencer::{
+    FrameSequencer,
+    TickType,
+};
 use crate::mmu::memory::Memory;
 use crate::utils::bit_masks::*;
 
@@ -10,6 +14,7 @@ pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
 
+    frame_sequencer: FrameSequencer,
     audio_buffer:[f32;AUDIO_BUFFER_SIZE],
     current_t_cycle:u32,
     device:Device,
@@ -21,6 +26,7 @@ pub struct GbApu<Device: AudioDevice>{
 impl<Device: AudioDevice> GbApu<Device>{
     pub fn new(device: Device) -> Self {
         GbApu{
+            frame_sequencer:FrameSequencer::default(),
             wave_channel:Channel::<WaveSampleProducer>::new(),
             audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
@@ -44,6 +50,8 @@ impl<Device: AudioDevice> GbApu<Device>{
                     self.current_t_cycle = 0;
                     self.device.push_buffer(&self.audio_buffer);
                 }
+
+                let tick: TickType = self.frame_sequencer.cycle();
             
                 self.prepare_wave_channel(memory);
                 self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample();
@@ -55,6 +63,10 @@ impl<Device: AudioDevice> GbApu<Device>{
         else{
             self.current_t_cycle += t_cycles as u32;
         }
+    }
+
+    fn update_channels_for_frame_squencer(&mut self ){
+        
     }
 
     fn prepare_control_registers(&mut self, memory:&dyn Memory){
