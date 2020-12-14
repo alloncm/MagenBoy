@@ -97,7 +97,7 @@ fn main() {
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
     let audio = gfx_initializer.init_audio(0x40000, 1, 60);
 
-    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(audio);
+    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(gfx_initializer, 44100, 60, 1);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
