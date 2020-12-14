@@ -1,9 +1,9 @@
 use super::timer::Timer;
 
 pub struct TickType{
-    length_counter:bool,
-    volume_envelope:bool,
-    frequency_sweep:bool
+    pub length_counter:bool,
+    pub volume_envelope:bool,
+    pub frequency_sweep:bool
 }
 
 pub struct FrameSequencer{

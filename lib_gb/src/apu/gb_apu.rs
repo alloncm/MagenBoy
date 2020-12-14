@@ -1,5 +1,6 @@
 use super::channel::Channel;
 use super::wave_sample_producer::WaveSampleProducer;
+use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
 use super::audio_device::AudioDevice;
 use super::sound_terminal::SoundTerminal;
 use super::frame_sequencer::{
@@ -13,6 +14,7 @@ pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
+    pub sweep_tone_channel:Channel<ToneSweepSampleProducer>,
 
     frame_sequencer: FrameSequencer,
     audio_buffer:[f32;AUDIO_BUFFER_SIZE],
@@ -27,6 +29,7 @@ impl<Device: AudioDevice> GbApu<Device>{
     pub fn new(device: Device) -> Self {
         GbApu{
             frame_sequencer:FrameSequencer::default(),
+            sweep_tone_channel: Channel::<ToneSweepSampleProducer>::new(),
             wave_channel:Channel::<WaveSampleProducer>::new(),
             audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
@@ -51,10 +54,12 @@ impl<Device: AudioDevice> GbApu<Device>{
                     self.device.push_buffer(&self.audio_buffer);
                 }
 
-                let tick: TickType = self.frame_sequencer.cycle();
+                let tick = self.frame_sequencer.cycle();
+                self.update_channels_for_frame_squencer(tick);
             
                 self.prepare_wave_channel(memory);
-                self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample();
+                self.prepare_tone_sweep_channel(memory);
+                self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample() + self.sweep_tone_channel.get_audio_sample();
                 self.update_registers(memory);
             
                 self.current_t_cycle += 1;
@@ -65,8 +70,16 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    fn update_channels_for_frame_squencer(&mut self ){
-        
+    fn update_channels_for_frame_squencer(&mut self, tick:TickType){
+        if tick.frequency_sweep{
+            //code to handle freqeuncy sweep for each channel
+        }
+        if tick.length_counter{
+            //code to decrememant the length counter for each channel
+        }
+        if tick.volume_envelope{
+            //code to handle the volume envalope in each channel
+        }
     }
 
     fn prepare_control_registers(&mut self, memory:&dyn Memory){
@@ -106,6 +119,15 @@ impl<Device: AudioDevice> GbApu<Device>{
         for i in 0..=0xF{
             self.wave_channel.sample_producer.wave_samples[i] = memory.read(0xFF30 + i as u16);
         }
+    }
+
+    fn prepare_tone_sweep_channel(&mut self, memory:&dyn Memory){
+        let nr11 = memory.read(0xFF11);
+        let nr13 = memory.read(0xFF13);
+        let nr14 = memory.read(0xFF14);
+        self.sweep_tone_channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
+        self.sweep_tone_channel.frequency = nr13 as u16 | ((nr14 as u16 & 0b111) << 8);
+        self.sweep_tone_channel.enabled = true;
     }
 
     fn update_registers(&mut self, memory:&mut dyn Memory){

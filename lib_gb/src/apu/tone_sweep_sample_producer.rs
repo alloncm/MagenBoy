@@ -25,9 +25,12 @@ impl SampleProducer for ToneSweepSampleProducer{
             self.clocks_counter = 0;
         }
 
-        if self.duty_counter < self.wave_duty{
+        if self.duty_counter <= self.wave_duty{
+            self.duty_counter += 1;
             return 15;
         }
+
+        self.clocks_counter += 1;
 
         return 0;
     }
