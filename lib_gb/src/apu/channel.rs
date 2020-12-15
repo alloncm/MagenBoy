@@ -1,12 +1,14 @@
 use super::sample_producer::SampleProducer;
 use super::timer::Timer;
+use super::freq_sweep::FreqSweep;
+use super::volume_envelop::VolumeEnvlope;
 
 pub struct Channel<Procuder: SampleProducer>{
     pub enabled:bool,
     pub frequency:u16,
     pub sound_length:u8,
-    pub volume_envelope:Option<u8>,
-    pub frequency_sweep:Option<u8>,
+    pub volume_envelope:Option<VolumeEnvlope>,
+    pub frequency_sweep:Option<FreqSweep>,
     pub trigger:bool,
     pub length_enable:bool,
     pub sample_producer:Procuder,
