@@ -1,7 +1,11 @@
 use super::sample_producer::SampleProducer;
+use super::freq_sweep::FreqSweep;
+use super::volume_envelop::VolumeEnvlope;
 
 pub struct ToneSweepSampleProducer{
     pub wave_duty:u8,
+    pub sweep:FreqSweep,
+    pub envelop:VolumeEnvlope,
 
     clocks_counter:u8,
     duty_counter:u8
@@ -12,6 +16,15 @@ impl Default for ToneSweepSampleProducer{
     fn default()->Self{
         ToneSweepSampleProducer{
             wave_duty:1,
+            sweep:FreqSweep{
+                number_of_sweep_change:0,
+                sweep_decrease:false,
+                time_sweep:0
+            },
+            envelop:VolumeEnvlope{
+                increase_envelope:false,
+                number_of_envelope_sweep:0
+            },
             clocks_counter:0,
             duty_counter:0
         }

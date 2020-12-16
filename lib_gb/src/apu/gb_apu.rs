@@ -54,11 +54,12 @@ impl<Device: AudioDevice> GbApu<Device>{
                     self.device.push_buffer(&self.audio_buffer);
                 }
 
+                self.prepare_wave_channel(memory);
+                self.prepare_tone_sweep_channel(memory);
+
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                self.prepare_wave_channel(memory);
-                self.prepare_tone_sweep_channel(memory);
                 self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample() + self.sweep_tone_channel.get_audio_sample();
                 self.update_registers(memory);
             
@@ -72,13 +73,41 @@ impl<Device: AudioDevice> GbApu<Device>{
 
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
         if tick.frequency_sweep{
-            //code to handle freqeuncy sweep for each channel
+            let sweep = &mut self.sweep_tone_channel.sample_producer.sweep;
+            if sweep.time_sweep != 0{
+                let value_to_sweep = sweep.number_of_sweep_change as u16;
+
+                if sweep.sweep_decrease{
+                    self.sweep_tone_channel.frequency -= value_to_sweep;
+                }
+                else{
+                    self.sweep_tone_channel.frequency += value_to_sweep;
+                }
+
+                sweep.time_sweep -= 1;
+
+                self.sweep_tone_channel.timer.cycles_to_tick = 32*(2048 - self.sweep_tone_channel.frequency);
+            }
         }
         if tick.length_counter{
-            //code to decrememant the length counter for each channel
+            if self.sweep_tone_channel.length_enable{
+                self.sweep_tone_channel.sound_length -= 1;
+                if self.sweep_tone_channel.sound_length == 0{
+                    self.sweep_tone_channel.enabled = false;
+                }
+            }
         }
         if tick.volume_envelope{
-            //code to handle the volume envalope in each channel
+            let envelop = &mut self.sweep_tone_channel.sample_producer.envelop;
+
+            if envelop.increase_envelope{
+                let new_vol = self.sweep_tone_channel.volume + envelop.number_of_envelope_sweep;
+                self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
+            }
+            else{
+                let new_vol = (self.sweep_tone_channel.volume - envelop.number_of_envelope_sweep) as i8;
+                self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
+            }
         }
     }
 
@@ -112,7 +141,15 @@ impl<Device: AudioDevice> GbApu<Device>{
         let nr34 = memory.read(0xFF1E);
         freq |= ((nr34 & 0b111) as u16) << 8;
         self.wave_channel.frequency = freq;
-        self.wave_channel.timer.cycles_to_tick = (2048 - freq)*2;
+
+        // According to the docs the frequency is 65536/(2048-x) Hz
+        // After some calculations if we are running in 0x400000 Hz this should be the 
+        // amount of cycles we should trigger a new sample
+        // 
+        // Rate is for how many cycles I should trigger.
+        // So I did the frequency of the cycles divided by the frequency of this channel
+        // which is 0x400000 / 65536 (2048 - x) = 64(2048 - x)
+        self.wave_channel.timer.cycles_to_tick = (2048 - freq)*64;
         self.wave_channel.trigger = nr34 & BIT_7_MASK != 0;
         self.wave_channel.length_enable = nr34 & BIT_6_MASK != 0;
 
@@ -127,6 +164,9 @@ impl<Device: AudioDevice> GbApu<Device>{
         let nr14 = memory.read(0xFF14);
         self.sweep_tone_channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
         self.sweep_tone_channel.frequency = nr13 as u16 | ((nr14 as u16 & 0b111) << 8);
+
+        // See the wave for the calculation this channle freq is 131072/(2048-x) Hz
+        self.sweep_tone_channel.timer.cycles_to_tick = 32*(2048 - self.sweep_tone_channel.frequency);
         self.sweep_tone_channel.enabled = true;
     }
 
