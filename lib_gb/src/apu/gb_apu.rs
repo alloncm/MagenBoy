@@ -60,7 +60,8 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                self.audio_buffer[self.current_t_cycle as usize] = self.wave_channel.get_audio_sample() + self.sweep_tone_channel.get_audio_sample();
+                self.audio_buffer[self.current_t_cycle as usize] = self.sweep_tone_channel.get_audio_sample();
+                
                 self.update_registers(memory);
             
                 self.current_t_cycle += 1;
@@ -74,23 +75,27 @@ impl<Device: AudioDevice> GbApu<Device>{
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
         if tick.frequency_sweep{
             let sweep = &mut self.sweep_tone_channel.sample_producer.sweep;
-            if sweep.time_sweep != 0{
-                let value_to_sweep = sweep.number_of_sweep_change as u16;
+            if sweep.time_sweep != 0 && sweep.sweep_shift != 0{
+                let mut shifted_freq:i32 = (sweep.shadow_frequency >> sweep.sweep_shift) as i32;
 
                 if sweep.sweep_decrease{
-                    self.sweep_tone_channel.frequency -= value_to_sweep;
+                    shifted_freq *= -1;
+                }
+
+                shifted_freq += sweep.shadow_frequency as i32;
+
+                if shifted_freq >= 2048 || shifted_freq <= 0{
+                    self.sweep_tone_channel.enabled = false;
                 }
                 else{
-                    self.sweep_tone_channel.frequency += value_to_sweep;
+                    sweep.time_sweep -= 1;
+                    self.sweep_tone_channel.frequency = shifted_freq as u16;
+                    self.sweep_tone_channel.timer.cycles_to_tick = 32*(2048 - self.sweep_tone_channel.frequency);
                 }
-
-                sweep.time_sweep -= 1;
-
-                self.sweep_tone_channel.timer.cycles_to_tick = 32*(2048 - self.sweep_tone_channel.frequency);
             }
         }
         if tick.length_counter{
-            if self.sweep_tone_channel.length_enable{
+            if self.sweep_tone_channel.length_enable && self.sweep_tone_channel.enabled{
                 self.sweep_tone_channel.sound_length -= 1;
                 if self.sweep_tone_channel.sound_length == 0{
                     self.sweep_tone_channel.enabled = false;
@@ -100,13 +105,16 @@ impl<Device: AudioDevice> GbApu<Device>{
         if tick.volume_envelope{
             let envelop = &mut self.sweep_tone_channel.sample_producer.envelop;
 
-            if envelop.increase_envelope{
-                let new_vol = self.sweep_tone_channel.volume + envelop.number_of_envelope_sweep;
-                self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
-            }
-            else{
-                let new_vol = (self.sweep_tone_channel.volume - envelop.number_of_envelope_sweep) as i8;
-                self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
+            if envelop.number_of_envelope_sweep > 0{
+                if envelop.increase_envelope{
+                    let new_vol = self.sweep_tone_channel.volume + 1;
+                    self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
+                }
+                else{
+                    let new_vol = self.sweep_tone_channel.volume as i8 - 1;
+                    self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
+                }
+                envelop.number_of_envelope_sweep -= 1;
             }
         }
     }
@@ -158,16 +166,42 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    fn prepare_tone_sweep_channel(&mut self, memory:&dyn Memory){
+    fn prepare_tone_sweep_channel(&mut self, memory:&mut dyn Memory){
+        let nr10 = memory.read(0xFF10);
         let nr11 = memory.read(0xFF11);
+        let nr12 = memory.read(0xFF12);
         let nr13 = memory.read(0xFF13);
         let nr14 = memory.read(0xFF14);
+
+        // Sweep register (nr10)
+        self.sweep_tone_channel.sample_producer.sweep.sweep_decrease = (nr10 & 0b1000) != 0;
+        self.sweep_tone_channel.sample_producer.sweep.sweep_shift = nr10 & 0b111;
+
+        // sound length and wave pattern register (nr11)
         self.sweep_tone_channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
+        self.sweep_tone_channel.sound_length = nr11 & 0b11_1111;
+
+        // Volume envelop register (nr12)
+        self.sweep_tone_channel.volume = (nr12 & 0b1111_0000) >> 4;
+        self.sweep_tone_channel.sample_producer.envelop.increase_envelope = (nr12 & 0b1000) != 0;
+        self.sweep_tone_channel.sample_producer.envelop.number_of_envelope_sweep = nr12 & 0b111;
+
+        // Freqeuncy registers (nr13 nr14)
         self.sweep_tone_channel.frequency = nr13 as u16 | ((nr14 as u16 & 0b111) << 8);
+        self.sweep_tone_channel.length_enable = nr14 & 0b0100_0000 != 0;
+
+        if nr14 & 0b1000_0000 != 0{
+            self.sweep_tone_channel.enabled = true;
+
+            self.sweep_tone_channel.sample_producer.sweep.shadow_frequency = self.sweep_tone_channel.frequency;
+            self.sweep_tone_channel.sample_producer.sweep.time_sweep = (nr10 & 0b0111_0000) >> 4;
+
+            // turn this bit off
+            memory.write(0xFF14, nr14 & 0b0111_1111);
+        }
 
         // See the wave for the calculation this channle freq is 131072/(2048-x) Hz
         self.sweep_tone_channel.timer.cycles_to_tick = 32*(2048 - self.sweep_tone_channel.frequency);
-        self.sweep_tone_channel.enabled = true;
     }
 
     fn update_registers(&mut self, memory:&mut dyn Memory){
