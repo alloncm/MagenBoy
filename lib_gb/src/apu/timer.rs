@@ -12,11 +12,13 @@ impl Timer{
     }
 
     pub fn cycle(&mut self)->bool{
-        self.cycle_counter += 1;
-        if self.cycle_counter >= self.cycles_to_tick{
-            self.cycle_counter = 0;
-            
-            return true;
+        if self.cycles_to_tick != 0{
+            self.cycle_counter += 1;
+            if self.cycle_counter >= self.cycles_to_tick{
+                self.cycle_counter = 0;
+                
+                return true;
+            }
         }
 
         return false;
