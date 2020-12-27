@@ -24,7 +24,8 @@ impl Default for ToneSweepSampleProducer{
             },
             envelop:VolumeEnvlope{
                 increase_envelope:false,
-                number_of_envelope_sweep:0
+                number_of_envelope_sweep:0,
+                envelop_duration_counter:0
             },
             clocks_counter:0,
             duty_counter:0

@@ -60,7 +60,9 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                self.audio_buffer[self.current_t_cycle as usize] = self.sweep_tone_channel.get_audio_sample();
+                let sample = self.sweep_tone_channel.get_audio_sample();
+            
+                self.audio_buffer[self.current_t_cycle as usize] = sample;
                 
                 self.update_registers(memory);
             
@@ -108,17 +110,20 @@ impl<Device: AudioDevice> GbApu<Device>{
             if self.sweep_tone_channel.enabled{
                 let envelop = &mut self.sweep_tone_channel.sample_producer.envelop;
 
-                if envelop.number_of_envelope_sweep > 0{
-                    if envelop.increase_envelope{
-                        let new_vol = self.sweep_tone_channel.volume + 1;
-                        self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
-                    }
-                    else{
-                        let new_vol = self.sweep_tone_channel.volume as i8 - 1;
-                        self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
-                    }
+                if envelop.number_of_envelope_sweep > 0 {
+                    envelop.envelop_duration_counter += 1;
+                    if envelop.envelop_duration_counter == envelop.number_of_envelope_sweep{
+                        if envelop.increase_envelope{
+                            let new_vol = self.sweep_tone_channel.volume + 1;
+                            self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
+                        }
+                        else{
+                            let new_vol = self.sweep_tone_channel.volume as i8 - 1;
+                            self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
+                        }
 
-                    envelop.number_of_envelope_sweep -= 1;
+                        envelop.envelop_duration_counter = 0;
+                    }
                 }
             }
         }
