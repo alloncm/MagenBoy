@@ -7,10 +7,15 @@ pub struct ToneSweepSampleProducer{
     pub sweep:FreqSweep,
     pub envelop:VolumeEnvlope,
 
-    clocks_counter:u8,
-    duty_counter:u8
-
+    duty_sample_pointer:u8,
 }
+
+const DUTY_TABLE:[[u8; 8]; 4] = [
+    [0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,1],
+    [1,0,0,0,0,1,1,1],
+    [0,1,1,1,1,1,1,0],
+];
 
 impl Default for ToneSweepSampleProducer{
     fn default()->Self{
@@ -27,8 +32,7 @@ impl Default for ToneSweepSampleProducer{
                 number_of_envelope_sweep:0,
                 envelop_duration_counter:0
             },
-            clocks_counter:0,
-            duty_counter:0
+            duty_sample_pointer:0
         }
     }
 }
@@ -36,18 +40,15 @@ impl Default for ToneSweepSampleProducer{
 impl SampleProducer for ToneSweepSampleProducer{
 
     fn produce(&mut self)->u8{
-        if self.clocks_counter > 8{
-            self.clocks_counter = 0;
+        if self.duty_sample_pointer >= 8{
+            self.duty_sample_pointer = 0;
         }
 
-        if self.duty_counter <= self.wave_duty{
-            self.duty_counter += 1;
-            return 15;
-        }
+        let sample = DUTY_TABLE[self.wave_duty as usize][self.duty_sample_pointer as usize];
 
-        self.clocks_counter += 1;
+        self.duty_sample_pointer += 1;
 
-        return 0;
+        return sample;
     }
 }
 

@@ -35,7 +35,8 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         };
         
         return if self.enabled{
-            Self::convert_digtial_to_analog(sample & self.volume)
+            //Self::convert_digtial_to_analog(sample & self.volume)
+            (sample * self.volume) as f32 / 100.0
         }
         else{
             0.0
