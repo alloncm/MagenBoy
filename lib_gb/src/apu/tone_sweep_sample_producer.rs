@@ -10,11 +10,11 @@ pub struct ToneSweepSampleProducer{
     duty_sample_pointer:u8,
 }
 
-const DUTY_TABLE:[[u8; 8]; 4] = [
-    [0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,1],
-    [1,0,0,0,0,1,1,1],
-    [0,1,1,1,1,1,1,0],
+const DUTY_TABLE:[[i8; 8]; 4] = [
+    [-1,-1,-1,-1,-1,-1,-1,1],
+    [1,-1,-1,-1,-1,-1,-1,1],
+    [1,-1,-1,-1,-1,1,1,1],
+    [-1,1,1,1,1,1,1,-1],
 ];
 
 impl Default for ToneSweepSampleProducer{
@@ -39,7 +39,7 @@ impl Default for ToneSweepSampleProducer{
 
 impl SampleProducer for ToneSweepSampleProducer{
 
-    fn produce(&mut self)->u8{
+    fn produce(&mut self)->i8{
         if self.duty_sample_pointer >= 8{
             self.duty_sample_pointer = 0;
         }

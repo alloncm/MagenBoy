@@ -9,7 +9,9 @@ pub struct Channel<Procuder: SampleProducer>{
     pub trigger:bool,
     pub length_enable:bool,
     pub sample_producer:Procuder,
-    pub timer:Timer
+    pub timer:Timer,
+
+    last_sample:i8
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
@@ -22,7 +24,9 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             trigger:false,
             length_enable:false,
             sample_producer:Procuder::default(),
-            timer: Timer::new(0)
+            timer: Timer::new(0),
+
+            last_sample: 0
         }   
     }
 
@@ -31,22 +35,20 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             self.sample_producer.produce()
         }
         else{
-            0
+            self.last_sample
         };
         
-        return if self.enabled{
-            //Self::convert_digtial_to_analog(sample & self.volume)
-            (sample * self.volume) as f32 / 100.0
+        self.last_sample = if self.enabled{
+             sample
         }
         else{
-            0.0
+            0
         };
+
+        self.convert_digtial_to_analog(self.last_sample)
     }
 
-    //the formula is y = (2/15)x - 1
-    fn convert_digtial_to_analog(sample:u8)->f32{
-        let fixed_sample = (sample & 0xF) as f32;
-
-        (2.0/15.0) * fixed_sample - 1.0
+    fn convert_digtial_to_analog(&self, sample:i8)->f32{
+        (sample * self.volume as i8) as f32 / 100.0
     }
 }

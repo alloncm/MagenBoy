@@ -93,7 +93,7 @@ impl<Device: AudioDevice> GbApu<Device>{
                     else{
                         sweep.time_sweep -= 1;
                         self.sweep_tone_channel.frequency = shifted_freq as u16;
-                        self.sweep_tone_channel.timer.cycles_to_tick = (2048 - self.sweep_tone_channel.frequency).wrapping_mul(32);
+                        self.sweep_tone_channel.timer.cycles_to_tick = (2048 - self.sweep_tone_channel.frequency).wrapping_mul(4);
                     }
                 }
             }
@@ -212,7 +212,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
 
         // See the wave for the calculation this channle freq is 131072/(2048-x) Hz
-        self.sweep_tone_channel.timer.cycles_to_tick = (2048 - self.sweep_tone_channel.frequency).wrapping_mul(32);
+        self.sweep_tone_channel.timer.cycles_to_tick = (2048 - self.sweep_tone_channel.frequency).wrapping_mul(4);
     }
 
     fn update_registers(&mut self, memory:&mut dyn Memory){

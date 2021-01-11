@@ -16,7 +16,7 @@ pub struct FrameSequencer{
 impl Default for FrameSequencer{
     fn default() -> Self {
         FrameSequencer{
-            timer: Timer::new(512),
+            timer: Timer::new(8192),
             length_counter_cycles:0,
             frequency_sweep_cycles:0,
             volume_envelope_cycles:0

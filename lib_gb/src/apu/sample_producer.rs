@@ -1,3 +1,3 @@
 pub trait SampleProducer : Default{
-    fn produce(&mut self)->u8;
+    fn produce(&mut self)->i8;
 }
