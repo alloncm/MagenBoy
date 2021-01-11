@@ -96,7 +96,7 @@ fn main() {
     let mut graphics: Graphics = gfx_initializer.init_graphics("MagenBoy", SCREEN_WIDTH as u32 * screen_scale, SCREEN_HEIGHT as u32* screen_scale, 0, true);
     let mut event_handler: EventHandler = gfx_initializer.init_event_handler();
 
-    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(&gfx_initializer, 44100, 60, 1);
+    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(&gfx_initializer, 44100, 1);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 

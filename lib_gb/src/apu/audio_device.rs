@@ -1,3 +1,3 @@
 pub trait AudioDevice{
-    fn push_buffer(&self, buffer:&[f32]);
+    fn push_buffer(&mut self, buffer:&[f32]);
 }
