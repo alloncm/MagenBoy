@@ -7,7 +7,9 @@ edition = "2018"
 
 [dependencies]
 lib_gbc = {path = "../lib_gb/"}
-stupid_gfx = {path = "../stupid_gfx/"}
+#stupid_gfx = {path = "../stupid_gfx/"}
 log = "0.4"
 fern = "0.6.0"
 chrono = "0.4"
+sdl2 = {version = "0.34", features = ["bundled","static-link"]}
+fps_counter = "2.0.0"
