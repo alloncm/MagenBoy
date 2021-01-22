@@ -1,4 +1,5 @@
 mod mbc_handler;
+mod sdl_joypad_provider;
 
 use lib_gbc::machine::gameboy::GameBoy;
 use lib_gbc::ppu::gb_ppu::{
@@ -15,10 +16,8 @@ use lib_gbc::mmu::gb_mmu::BOOT_ROM_SIZE;
 use crate::mbc_handler::*;
 use sdl2::sys::*;
 use std::ffi::CString;
-use lib_gbc::keypad::{
-    joypad_provider::JoypadProvider,
-    joypad::Joypad
-};
+use crate::sdl_joypad_provider::SdlJoypadProvider;
+
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
@@ -61,27 +60,7 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
     Ok(())
 }
 
-struct SdlJoypadProvider<F:Fn(Button)->SDL_Scancode>{
-    mapper: F
-}
 
-impl<F:Fn(Button)->SDL_Scancode> JoypadProvider for SdlJoypadProvider<F>{
-    fn provide(&mut self, joypad:&mut Joypad) {
-        let mapper = &(self.mapper);
-        unsafe{
-            let keyborad_state:*const u8 = SDL_GetKeyboardState(std::ptr::null_mut());
-
-            joypad.buttons[Button::A as usize]      = *keyborad_state.offset(mapper(Button::A) as isize) != 0;
-            joypad.buttons[Button::B as usize]      = *keyborad_state.offset(mapper(Button::B) as isize) != 0;
-            joypad.buttons[Button::Start as usize]  = *keyborad_state.offset(mapper(Button::Start) as isize) != 0;
-            joypad.buttons[Button::Select as usize] = *keyborad_state.offset(mapper(Button::Select) as isize) != 0;
-            joypad.buttons[Button::Up as usize]     = *keyborad_state.offset(mapper(Button::Up) as isize) != 0;
-            joypad.buttons[Button::Down as usize]   = *keyborad_state.offset(mapper(Button::Down) as isize) != 0;
-            joypad.buttons[Button::Right as usize]  = *keyborad_state.offset(mapper(Button::Right) as isize) != 0;
-            joypad.buttons[Button::Left as usize]   = *keyborad_state.offset(mapper(Button::Left) as isize) != 0;
-        }
-    }
-}
 
 fn buttons_mapper(button:Button)->SDL_Scancode{
     match button{
@@ -111,6 +90,7 @@ fn main() {
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
+    let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
 
     let mut gameboy = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
         Result::Ok(file)=>{
@@ -121,21 +101,18 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, bootrom)
+            GameBoy::new_with_bootrom(&mut mbc, joypad_provider, bootrom)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc)
+            GameBoy::new(&mut mbc, joypad_provider)
         }
     };
 
     let buffer_width = SCREEN_WIDTH as u32 * screen_scale;
     let buffer_height = SCREEN_HEIGHT as u32* screen_scale;
 
-    
-    let mut fpsc = fps_counter::FPSCounter::new();
-    let mut frames = Vec::<usize>::new();
     unsafe{
         SDL_Init(SDL_INIT_VIDEO);
         let window:*mut SDL_Window = SDL_CreateWindow(
@@ -166,14 +143,11 @@ fn main() {
                 }
             }
 
-            let joypad_provider = SdlJoypadProvider{
-                mapper: buttons_mapper
-            };
 
             let mut pixels: *mut c_void = std::ptr::null_mut();
             let mut length: std::os::raw::c_int = 0;
 
-            let vec:Vec<u32> = gameboy.cycle_frame(joypad_provider).to_vec();
+            let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
             let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             SDL_LockTexture(texture, std::ptr::null(), &mut pixels, &mut length);
@@ -181,19 +155,8 @@ fn main() {
             SDL_UnlockTexture(texture);
             SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
             SDL_RenderPresent(renderer);
-
-            frames.push(fpsc.tick());
         }
     }
-    let avarage = {
-        let mut counter = 0;
-        for frame in &frames{
-            counter+=frame;
-        }
-
-        counter/frames.len()
-    };
-    println!("{}", avarage);
 
     drop(gameboy);
     release_mbc(program_name, mbc);
