@@ -6,11 +6,11 @@ use super::opcodes_utils::{
     push
 };
 
-fn push_pc(cpu:&mut GbCpu, memory: &mut dyn Memory){
+fn push_pc(cpu:&mut GbCpu, memory: &mut impl Memory){
     push(cpu, memory, cpu.program_counter);
 }
 
-pub fn call(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32)->u8{
+pub fn call(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
     let address_to_jump = (((opcode & 0xFF) as u16)<<8) | (((opcode & 0xFF00)as u16)>>8);
     push_pc(cpu, memory);
     cpu.program_counter = address_to_jump;
@@ -19,7 +19,7 @@ pub fn call(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32)->u8{
     return 6;
 }
 
-fn call_if_true(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32, flag:bool)->u8{
+fn call_if_true(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32, flag:bool)->u8{
     if flag{
         call(cpu, memory, opcode);
         
@@ -31,7 +31,7 @@ fn call_if_true(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32, flag:bool)->
     return 3;
 }
 
-pub fn call_cc(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32)->u8{
+pub fn call_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
     let flag = (((0xFF0000 & opcode) >> 16) & 0b00011000)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
@@ -44,14 +44,14 @@ pub fn call_cc(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32)->u8{
     }
 }
 
-pub fn ret(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn ret(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     cpu.program_counter = pop(cpu, memory);
     
     //cycles
     return 4;
 }
 
-fn ret_if_true(cpu:&mut GbCpu, memory:&mut dyn Memory, flag:bool)->u8{
+fn ret_if_true(cpu:&mut GbCpu, memory:&mut impl Memory, flag:bool)->u8{
     if flag{
         ret(cpu, memory);
         
@@ -63,7 +63,7 @@ fn ret_if_true(cpu:&mut GbCpu, memory:&mut dyn Memory, flag:bool)->u8{
     return 2;
 }
 
-pub fn ret_cc(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
+pub fn ret_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let flag:u8 = (opcode & 0b00011000)>>3;
     let zero:bool = cpu.get_flag(Flag::Zero);
     let carry:bool = cpu.get_flag(Flag::Carry);
@@ -76,7 +76,7 @@ pub fn ret_cc(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
     }
 }
 
-pub fn rst(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
+pub fn rst(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let t:u8 = (opcode & 0b00111000)>>3;
     let mut value:u8 = 0;
     if t & 0b001 > 0{
@@ -96,7 +96,7 @@ pub fn rst(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
     return 4;
 }
 
-pub fn reti(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn reti(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let cycles = ret(cpu, memory);
     cpu.mie = true;
 

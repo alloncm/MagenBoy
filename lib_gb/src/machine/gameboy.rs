@@ -23,7 +23,7 @@ use log::debug;
 pub struct GameBoy<'a> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
-    opcode_resolver:OpcodeResolver,
+    opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
     register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
@@ -136,7 +136,7 @@ impl<'a> GameBoy<'a>{
             a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
         
-        let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
+        let opcode_func:OpcodeFuncType<GbMmu> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
             OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),
