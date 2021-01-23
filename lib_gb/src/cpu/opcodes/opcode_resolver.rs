@@ -2,32 +2,32 @@ use super::opcodes_resolvers::*;
 use crate::mmu::memory::Memory;
 
 
-pub enum OpcodeFuncType{
+pub enum OpcodeFuncType<T:Memory>{
     OpcodeFunc(OpcodeFunc),
     U8OpcodeFunc(U8OpcodeFunc),
     U16OpcodeFunc(U16OpcodeFunc),
     U32OpcodeFunc(U32OpcodeFunc),
-    MemoryOpcodeFunc(MemoryOpcodeFunc),
-    U8MemoryOpcodeFunc(U8MemoryOpcodeFunc),
-    U16MemoryOpcodeFunc(U16MemoryOpcodeFunc),
-    U32MemoryOpcodeFunc(U32MemoryOpcodeFunc)
+    MemoryOpcodeFunc(MemoryOpcodeFunc<T>),
+    U8MemoryOpcodeFunc(U8MemoryOpcodeFunc<T>),
+    U16MemoryOpcodeFunc(U16MemoryOpcodeFunc<T>),
+    U32MemoryOpcodeFunc(U32MemoryOpcodeFunc<T>)
 }
 
-pub struct  OpcodeResolver{
+pub struct OpcodeResolver<T:Memory>{
     opcode_func_resolver:fn(u8)->Option<OpcodeFunc>,
     u8_opcode_func_resolver:fn(u8)->Option<U8OpcodeFunc>,
     u16_opcode_func_resolver:fn(u8,u8)->Option<U16OpcodeFunc>,
     u32_opcode_func_resolver:fn(u8)->Option<U32OpcodeFunc>,
-    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc>,
-    memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc>,
-    u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc>,
-    u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc>,
-    u32_memory_opcode_func_resolver:fn(u8)->Option<U32MemoryOpcodeFunc>
+    memory_opcode_func_resolver:fn(u8)->Option<MemoryOpcodeFunc<T>>,
+    memory_opcode_func_2bytes_resolver:fn(u8,u8)->Option<MemoryOpcodeFunc<T>>,
+    u8_memory_opcode_func_resolver:fn(u8)->Option<U8MemoryOpcodeFunc<T>>,
+    u16_memory_opcode_func_resolver:fn(u8,u8)->Option<U16MemoryOpcodeFunc<T>>,
+    u32_memory_opcode_func_resolver:fn(u8)->Option<U32MemoryOpcodeFunc<T>>
 }
 
 
-impl OpcodeResolver{
-    pub fn get_opcode(&mut self, opcode:u8, memory:&dyn Memory, program_counter:&mut u16)->OpcodeFuncType{
+impl<T:Memory> OpcodeResolver<T>{
+    pub fn get_opcode(&mut self, opcode:u8, memory:&impl Memory, program_counter:&mut u16)->OpcodeFuncType<T>{
         let opcode_func = (self.opcode_func_resolver)(opcode);
         match opcode_func{
             Some(func)=> return OpcodeFuncType::OpcodeFunc(func),
@@ -84,8 +84,8 @@ impl OpcodeResolver{
     }
 }
 
-impl Default for OpcodeResolver{
-    fn default()->OpcodeResolver{
+impl<T:Memory> Default for OpcodeResolver<T>{
+    fn default()->OpcodeResolver<T>{
         OpcodeResolver{
             opcode_func_resolver:get_opcode_func_resolver(),
             memory_opcode_func_resolver:get_memory_opcode_func_resolver(),

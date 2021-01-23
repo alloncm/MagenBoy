@@ -17,10 +17,10 @@ pub type OpcodeFunc = fn(&mut GbCpu)->u8;
 pub type U8OpcodeFunc = fn(&mut GbCpu,u8)->u8;
 pub type U16OpcodeFunc = fn(&mut GbCpu,u16)->u8;
 pub type U32OpcodeFunc = fn(&mut GbCpu,u32)->u8;
-pub type MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory)->u8;
-pub type U8MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u8)->u8;
-pub type U16MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u16)->u8;
-pub type U32MemoryOpcodeFunc = fn(&mut GbCpu,&mut dyn Memory,u32)->u8;
+pub type MemoryOpcodeFunc<T> = fn(&mut GbCpu,&mut T)->u8;
+pub type U8MemoryOpcodeFunc<T> = fn(&mut GbCpu,&mut T,u8)->u8;
+pub type U16MemoryOpcodeFunc<T> = fn(&mut GbCpu,&mut T,u16)->u8;
+pub type U32MemoryOpcodeFunc<T> = fn(&mut GbCpu,&mut T,u32)->u8;
 
 
 pub fn get_opcode_func_resolver()->fn(u8)->Option<OpcodeFunc>{
@@ -117,8 +117,8 @@ pub fn get_u32_opcode_func_resolver()->fn(u8)->Option<U32OpcodeFunc>{
     }
 }
 
-pub fn get_memory_opcode_func_resolver()->fn(u8)->Option<MemoryOpcodeFunc>{
-    |opcode:u8|->Option<MemoryOpcodeFunc>{
+pub fn get_memory_opcode_func_resolver<T:Memory>()->fn(u8)->Option<MemoryOpcodeFunc<T>>{
+    |opcode:u8|->Option<MemoryOpcodeFunc<T>>{
         match opcode{
             0x02=>Some(ld_bc_a),
             0x0A=>Some(ld_a_bc),
@@ -147,8 +147,8 @@ pub fn get_memory_opcode_func_resolver()->fn(u8)->Option<MemoryOpcodeFunc>{
     } 
 }
 
-pub fn get_memory_opcode_func_2bytes_resolver()->fn(u8,u8)->Option<MemoryOpcodeFunc>{
-    |opcode:u8,next_byte:u8|->Option<MemoryOpcodeFunc>{
+pub fn get_memory_opcode_func_2bytes_resolver<T:Memory>()->fn(u8,u8)->Option<MemoryOpcodeFunc<T>>{
+    |opcode:u8,next_byte:u8|->Option<MemoryOpcodeFunc<T>>{
         if opcode == 0x10 && next_byte == 0{
             return Some(stop);
         }
@@ -171,8 +171,8 @@ pub fn get_memory_opcode_func_2bytes_resolver()->fn(u8,u8)->Option<MemoryOpcodeF
     }
 }
 
-pub fn get_u8_memory_opcode_func_resolver()->fn(u8)->Option<U8MemoryOpcodeFunc>{
-    |opcode:u8|->Option<U8MemoryOpcodeFunc>{
+pub fn get_u8_memory_opcode_func_resolver<T:Memory>()->fn(u8)->Option<U8MemoryOpcodeFunc<T>>{
+    |opcode:u8|->Option<U8MemoryOpcodeFunc<T>>{
         match opcode{
             0x46|0x4E|0x56|0x5E|0x66|0x6E|0x7E=>Some(ld_r_hl),
             0x70..=0x75 | 0x77=>Some(ld_hl_r),
@@ -185,8 +185,8 @@ pub fn get_u8_memory_opcode_func_resolver()->fn(u8)->Option<U8MemoryOpcodeFunc>{
     }
 }
 
-pub fn get_u16_memory_opcode_func_resolver()->fn(u8,u8)->Option<U16MemoryOpcodeFunc>{
-    |opcode:u8, next_byte:u8|->Option<U16MemoryOpcodeFunc>{
+pub fn get_u16_memory_opcode_func_resolver<T:Memory>()->fn(u8,u8)->Option<U16MemoryOpcodeFunc<T>>{
+    |opcode:u8, next_byte:u8|->Option<U16MemoryOpcodeFunc<T>>{
         match opcode{
             0x36=>Some(ld_hl_n),
             0xE0=>Some(ld_ioport_n_a),
@@ -202,8 +202,8 @@ pub fn get_u16_memory_opcode_func_resolver()->fn(u8,u8)->Option<U16MemoryOpcodeF
     }
 }
 
-pub fn get_u32_memory_opcode_func_resolver()->fn(u8)->Option<U32MemoryOpcodeFunc>{
-    |opcode:u8|->Option<U32MemoryOpcodeFunc>{
+pub fn get_u32_memory_opcode_func_resolver<T:Memory>()->fn(u8)->Option<U32MemoryOpcodeFunc<T>>{
+    |opcode:u8|->Option<U32MemoryOpcodeFunc<T>>{
         match opcode{
             0x08=>Some(ld_nn_sp),
             0xC4|0xCC|0xD4|0xDC=>Some(call_cc),

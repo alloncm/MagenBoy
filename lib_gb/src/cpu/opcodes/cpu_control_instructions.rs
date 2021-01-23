@@ -30,7 +30,7 @@ pub fn halt(cpu:&mut GbCpu)->u8{
     return 1;
 }
 
-pub fn stop(cpu:&mut GbCpu, memory: &mut dyn  Memory)->u8{
+pub fn stop(cpu:&mut GbCpu, memory: &mut impl  Memory)->u8{
     if (cpu.interupt_enable & 0b11111 == 0) && (memory.read(P1) & 0b1111 == 0){
         cpu.stop = true;
     }

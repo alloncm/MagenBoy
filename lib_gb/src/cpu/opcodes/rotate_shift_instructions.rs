@@ -108,7 +108,7 @@ pub fn rlc_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn rlc_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn rlc_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_left(&mut byte);
     memory.write(*cpu.hl.value(), byte);
@@ -136,7 +136,7 @@ pub fn rl_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn rl_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn rl_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_left_carry(&mut byte, cpu.get_flag(Flag::Carry));
     memory.write(*cpu.hl.value(), byte);
@@ -163,7 +163,7 @@ pub fn rrc_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn rrc_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn rrc_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = rotate_right(&mut byte);
     memory.write(*cpu.hl.value(), byte);
@@ -191,7 +191,7 @@ pub fn rr_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn rr_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn rr_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry_flag = cpu.get_flag(Flag::Carry);
     let carry:bool = rotate_right_carry(&mut byte, carry_flag);
@@ -238,7 +238,7 @@ pub fn sla_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn sla_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn sla_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = shift_left(&mut byte);
     memory.write(*cpu.hl.value(), byte);
@@ -277,7 +277,7 @@ pub fn swap_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn swap_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn swap_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     swap_nibbles(&mut byte);
     memory.write(*cpu.hl.value(), byte);
@@ -303,7 +303,7 @@ pub fn sra_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn sra_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn sra_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = arithmetic_shift_right(&mut byte);
     memory.write(*cpu.hl.value(), byte);
@@ -329,7 +329,7 @@ pub fn srl_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn srl_hl(cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+pub fn srl_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let mut byte: u8 = memory.read(*cpu.hl.value());
     let carry:bool = logical_shift_right(&mut byte);
     memory.write(*cpu.hl.value(), byte);

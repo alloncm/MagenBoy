@@ -31,7 +31,7 @@ pub fn load_sp_hl(cpu:&mut GbCpu)->u8{
 }
 
 //pop from the stack pointer to one register
-pub fn pop(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
+pub fn pop(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let poped_value = opcodes_utils::pop(cpu, memory);
     let reg = (opcode&0xF0)>>4;
     let reg = match reg{
@@ -49,7 +49,7 @@ pub fn pop(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
 }
 
 //push to stack the register 
-pub fn push(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u8)->u8{
+pub fn push(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let reg = (opcode&0xF0)>>4;
     let value = match reg{
         0xC=>*cpu.bc.value(),
@@ -89,7 +89,7 @@ pub fn ld_hl_spdd(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 //load sp into memory
-pub fn ld_nn_sp(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u32)->u8{
+pub fn ld_nn_sp(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
     let address = opcode_to_u16_value((opcode & 0xFFFF) as u16);
     let (high, low):(u8, u8) = u16_to_high_and_low(cpu.stack_pointer);
     memory.write(address, low);

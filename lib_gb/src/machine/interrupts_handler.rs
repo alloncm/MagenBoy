@@ -35,7 +35,7 @@ impl Default for InterruptsHandler{
 
 impl InterruptsHandler{
 
-    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut dyn Memory)->u8{
+    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
         //this is delatey by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
         if cpu.mie && self.ei_triggered{
             if cpu.interupt_flag & BIT_0_MASK != 0 && cpu.interupt_enable & BIT_0_MASK != 0{
@@ -70,7 +70,7 @@ impl InterruptsHandler{
         return 0;
     }
 
-    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut dyn Memory)->u8{
+    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut impl Memory)->u8{
         //reseting the interupt bit
         cpu.interupt_flag &= !interupt_bit;
         memory.write(IF_REGISTER_ADDRESS, cpu.interupt_flag);

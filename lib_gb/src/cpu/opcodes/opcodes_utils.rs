@@ -69,7 +69,7 @@ pub fn get_reg_two_rows(cpu: &mut GbCpu, mut reg:u8)->&mut u8{
     }
 }
 
-pub fn push(cpu:&mut GbCpu,memory:&mut dyn Memory, value:u16){
+pub fn push(cpu:&mut GbCpu,memory:&mut impl Memory, value:u16){
     let high = ((value & 0xFF00) >> 8) as u8;
     let low = (value & 0xFF) as u8;
     
@@ -78,7 +78,7 @@ pub fn push(cpu:&mut GbCpu,memory:&mut dyn Memory, value:u16){
     cpu.stack_pointer-=2;
 }
 
-pub fn pop(cpu:&mut GbCpu,memory:&mut dyn Memory)->u16{
+pub fn pop(cpu:&mut GbCpu,memory:&mut impl Memory)->u16{
     let mut value:u16 = memory.read(cpu.stack_pointer) as u16;
     value |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
     cpu.stack_pointer+=2;
