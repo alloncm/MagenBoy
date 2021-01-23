@@ -29,6 +29,8 @@ const SPRITE_MAX_HEIGHT:u8 = 16;
 const BG_SPRITES_PER_LINE:u16 = 32;
 const SPRITE_SIZE_IN_MEMORY:u16 = 16;
 
+const BLANK_SCREEN_BUFFER:[u32; SCREEN_HEIGHT * SCREEN_WIDTH] = [GbPpu::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
+
 pub struct GbPpu {
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
     pub screen_enable: bool,
@@ -51,7 +53,8 @@ pub struct GbPpu {
     window_active:bool,
     window_line_counter:u8,
     line_rendered:bool,
-    current_cycle:u32
+    current_cycle:u32,
+    last_screen_state:bool
 }
 
 impl Default for GbPpu {
@@ -77,13 +80,14 @@ impl Default for GbPpu {
             line_rendered:false,
             window_line_counter:0,
             window_active:false,
-            current_cycle:0
+            current_cycle:0,
+            last_screen_state:true
         }
     }
 }
 
 impl GbPpu {
-    fn color_as_uint(color: &Color) -> u32 {
+    const fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
 
@@ -133,14 +137,20 @@ impl GbPpu {
     }
 
     pub fn update_gb_screen(&mut self, memory: &impl UnprotectedMemory, cycles_passed:u32){
-        if !self.screen_enable{
+        if !self.screen_enable && self.last_screen_state {
             self.current_line_drawn = 0;
             self.current_cycle = 0;
-            self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
+            self.screen_buffer = BLANK_SCREEN_BUFFER;
             self.state = PpuState::Hblank;
             self.window_active = false;
+            self.last_screen_state = self.screen_enable;
             return;
         }
+        else if !self.screen_enable{
+            return;
+        }
+        
+        self.last_screen_state = self.screen_enable;
 
         self.current_cycle += cycles_passed as u32;
         self.update_ly();
