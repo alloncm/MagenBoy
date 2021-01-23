@@ -147,14 +147,13 @@ fn main() {
 
                 last_time = current_time;
 
+                let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
+                let scaled_buffer = extend_vec(frame_buffer, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
+
                 let mut pixels: *mut c_void = std::ptr::null_mut();
                 let mut length: std::os::raw::c_int = 0;
-
-                let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
-                let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
-
                 SDL_LockTexture(texture, std::ptr::null(), &mut pixels, &mut length);
-                std::ptr::copy_nonoverlapping(other_vec.as_ptr(),pixels as *mut u32,  other_vec.len());
+                std::ptr::copy_nonoverlapping(scaled_buffer.as_ptr(),pixels as *mut u32,  scaled_buffer.len());
                 SDL_UnlockTexture(texture);
 
                 SDL_RenderClear(renderer);
