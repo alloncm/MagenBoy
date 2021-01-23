@@ -1,4 +1,0 @@
-[submodule "stupid_gfx"]
-	path = stupid_gfx
-	url = https://github.com/alloncm/stupid_gfx.git
-	branch = master
