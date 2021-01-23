@@ -10,10 +10,14 @@ use lib_gbc::{
 };
 use std::{
     ffi::{c_void, CString},
-    fs, env, result::Result, vec::Vec
+    fs, env, result::Result, vec::Vec,
+    time::{Duration, Instant}
 };
 use log::info;
 use sdl2::sys::*;
+
+
+const FRAME_RATE:u16 = 60;
 
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
@@ -126,11 +130,10 @@ fn main() {
 
         info!("initialized gameboy successfully!");
 
+        let time:Instant = Instant::now();
+        let mut last_time:Duration = time.elapsed();
 
         loop{
-            SDL_PumpEvents();
-            SDL_RenderClear(renderer);
-
              if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
                 if event.type_ == SDL_EventType::SDL_QUIT as u32{
@@ -138,19 +141,29 @@ fn main() {
                 }
             }
 
+            let current_time:Duration = time.elapsed();
 
-            let mut pixels: *mut c_void = std::ptr::null_mut();
-            let mut length: std::os::raw::c_int = 0;
+            if current_time.as_micros() - last_time.as_micros() > 1000_000 / FRAME_RATE as u128 {
 
-            let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
-            let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
+                last_time = current_time;
 
-            SDL_LockTexture(texture, std::ptr::null(), &mut pixels, &mut length);
-            std::ptr::copy_nonoverlapping(other_vec.as_ptr(),pixels as *mut u32,  other_vec.len());
-            SDL_UnlockTexture(texture);
-            SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
-            SDL_RenderPresent(renderer);
+                let mut pixels: *mut c_void = std::ptr::null_mut();
+                let mut length: std::os::raw::c_int = 0;
+
+                let vec:Vec<u32> = gameboy.cycle_frame().to_vec();
+                let other_vec = extend_vec(vec, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+                SDL_LockTexture(texture, std::ptr::null(), &mut pixels, &mut length);
+                std::ptr::copy_nonoverlapping(other_vec.as_ptr(),pixels as *mut u32,  other_vec.len());
+                SDL_UnlockTexture(texture);
+
+                SDL_RenderClear(renderer);
+                SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
+                SDL_RenderPresent(renderer);
+            }
         }
+
+        SDL_Quit();
     }
 
     drop(gameboy);
