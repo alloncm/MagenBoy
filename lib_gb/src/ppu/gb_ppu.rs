@@ -29,6 +29,8 @@ const SPRITE_MAX_HEIGHT:u8 = 16;
 const BG_SPRITES_PER_LINE:u16 = 32;
 const SPRITE_SIZE_IN_MEMORY:u16 = 16;
 
+const BLANK_SCREEN_BUFFER:[u32; SCREEN_HEIGHT * SCREEN_WIDTH] = [GbPpu::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
+
 pub struct GbPpu {
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
     pub screen_enable: bool,
@@ -51,7 +53,8 @@ pub struct GbPpu {
     window_active:bool,
     window_line_counter:u8,
     line_rendered:bool,
-    current_cycle:u32
+    current_cycle:u32,
+    last_screen_state:bool
 }
 
 impl Default for GbPpu {
@@ -77,13 +80,14 @@ impl Default for GbPpu {
             line_rendered:false,
             window_line_counter:0,
             window_active:false,
-            current_cycle:0
+            current_cycle:0,
+            last_screen_state:true
         }
     }
 }
 
 impl GbPpu {
-    fn color_as_uint(color: &Color) -> u32 {
+    const fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
 
@@ -132,15 +136,21 @@ impl GbPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &dyn UnprotectedMemory, cycles_passed:u32){
-        if !self.screen_enable{
+    pub fn update_gb_screen(&mut self, memory: &impl UnprotectedMemory, cycles_passed:u32){
+        if !self.screen_enable && self.last_screen_state {
             self.current_line_drawn = 0;
             self.current_cycle = 0;
-            self.screen_buffer = [Self::color_as_uint(&WHITE);SCREEN_HEIGHT * SCREEN_WIDTH];
+            self.screen_buffer = BLANK_SCREEN_BUFFER;
             self.state = PpuState::Hblank;
             self.window_active = false;
+            self.last_screen_state = self.screen_enable;
             return;
         }
+        else if !self.screen_enable{
+            return;
+        }
+        
+        self.last_screen_state = self.screen_enable;
 
         self.current_cycle += cycles_passed as u32;
         self.update_ly();
@@ -163,7 +173,7 @@ impl GbPpu {
         }
     }
 
-    fn get_bg_frame_buffer(&self, memory: &dyn UnprotectedMemory)-> [Color;SCREEN_WIDTH] {
+    fn get_bg_frame_buffer(&self, memory: &impl UnprotectedMemory)-> [Color;SCREEN_WIDTH] {
         if !self.background_enabled{
             //color in BGP 0
             let color = self.get_bg_color(0);
@@ -214,7 +224,7 @@ impl GbPpu {
         return screen_line;
     }
 
-    fn get_normal_sprite(index:u8, memory:&dyn UnprotectedMemory, data_address:u16)->NormalSprite{
+    fn get_normal_sprite(index:u8, memory:&impl UnprotectedMemory, data_address:u16)->NormalSprite{
         let mut sprite = NormalSprite::new();
 
         let mut line_number = 0;
@@ -229,7 +239,7 @@ impl GbPpu {
     }
 
     
-    fn draw_window_frame_buffer(&mut self, memory: &dyn UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]) {
+    fn draw_window_frame_buffer(&mut self, memory: &impl UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]) {
         if !self.window_enable || !self.background_enabled || self.current_line_drawn < self.window_scroll.y{ 
             return;
         }
@@ -286,7 +296,7 @@ impl GbPpu {
         self.window_line_counter += 1;
     }
 
-    fn draw_objects_frame_buffer(&self, memory:&dyn UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]){
+    fn draw_objects_frame_buffer(&self, memory:&impl UnprotectedMemory, line:&mut [Color;SCREEN_WIDTH]){
         if !self.sprite_enable{
             return;
         }
@@ -370,7 +380,7 @@ impl GbPpu {
         };
     }
     
-    fn get_sprite(mut index:u8, memory:&dyn UnprotectedMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
+    fn get_sprite(mut index:u8, memory:&impl UnprotectedMemory, data_address:u16, extended:bool)->Box<dyn Sprite>{
         let mut sprite:Box<dyn Sprite>;
         if extended{
             //ignore bit 0
@@ -394,7 +404,7 @@ impl GbPpu {
         return sprite;
     }
 
-    fn get_line(memory:&dyn UnprotectedMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
+    fn get_line(memory:&impl UnprotectedMemory, sprite:*mut dyn Sprite, address:u16, line_number:u8){
         let byte = memory.read_unprotected(address);
         let next = memory.read_unprotected(address + 1);
         for k in (0..SPRITE_WIDTH).rev() {

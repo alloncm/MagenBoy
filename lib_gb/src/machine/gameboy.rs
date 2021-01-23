@@ -20,19 +20,20 @@ use std::boxed::Box;
 use log::debug;
 
 
-pub struct GameBoy<'a> {
+pub struct GameBoy<'a, JP: JoypadProvider> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
-    opcode_resolver:OpcodeResolver,
+    opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
     register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
-    cycles_counter:u32
+    cycles_counter:u32, 
+    joypad_provider: JP
 }
 
-impl<'a> GameBoy<'a>{
+impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP>{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
@@ -40,11 +41,12 @@ impl<'a> GameBoy<'a>{
             ppu:GbPpu::default(),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0
+            cycles_counter:0,
+            joypad_provider: joypad_provider
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>)->GameBoy{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP)->GameBoy<JP>{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -61,17 +63,18 @@ impl<'a> GameBoy<'a>{
             ppu:GbPpu::default(),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0
+            cycles_counter:0,
+            joypad_provider: joypad_provider
         }
     }
 
-    pub fn cycle_frame(&mut self, mut joypad_provider:impl JoypadProvider )->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
+    pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         let mut joypad = Joypad::default();
 
         let mut last_ppu_power_state:bool = self.ppu.screen_enable;
 
         while self.cycles_counter < CYCLES_PER_FRAME{
-            joypad_provider.provide(&mut joypad);
+            self.joypad_provider.provide(&mut joypad);
 
             //CPU
             let mut cpu_cycles_passed = 1;
@@ -136,7 +139,7 @@ impl<'a> GameBoy<'a>{
             a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
         
-        let opcode_func:OpcodeFuncType = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
+        let opcode_func:OpcodeFuncType<GbMmu> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
             OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),

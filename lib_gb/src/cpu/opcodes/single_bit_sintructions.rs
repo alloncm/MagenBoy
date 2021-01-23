@@ -26,7 +26,7 @@ pub fn bit_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn bit_hl(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u16)->u8{
+pub fn bit_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
     let byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
@@ -47,7 +47,7 @@ pub fn set_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn set_hl(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u16)->u8{
+pub fn set_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
     let mut byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
@@ -69,7 +69,7 @@ pub fn res_r(cpu:&mut GbCpu, opcode:u16)->u8{
     return 2;
 }
 
-pub fn res_hl(cpu:&mut GbCpu, memory:&mut dyn Memory, opcode:u16)->u8{
+pub fn res_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
     let mut byte = memory.read(*cpu.hl.value());
     let bit_number = get_bit_number(opcode);
