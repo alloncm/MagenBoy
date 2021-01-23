@@ -10,10 +10,7 @@ use lib_gbc::{
 };
 use std::{
     ffi::{c_void, CString},
-    fs,
-    env,
-    result::Result,
-    vec::Vec
+    fs, env, result::Result, vec::Vec
 };
 use log::info;
 use sdl2::sys::*;
