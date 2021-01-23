@@ -24,27 +24,27 @@ use std::boxed::Box;
 use log::debug;
 
 
-pub struct GameBoy<'a, JP: JoypadProvider> {
+pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
-    apu:GbApu<Device>,
+    apu:GbApu<AD>,
     register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
     joypad_provider: JP
 }
 
-impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
+impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD>{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            apu:GbApu::new(device),
+            apu:GbApu::new(audio_device),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
@@ -52,7 +52,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP)->GameBoy<JP>{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD)->GameBoy<JP, AD>{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -67,7 +67,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            apu:GbApu::new(device),
+            apu:GbApu::new(audio_device),
             register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,

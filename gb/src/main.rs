@@ -1,6 +1,6 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
-mod stupid_gfx_audio_device;
+mod sdl_audio_device;
 
 use crate::{mbc_handler::*, sdl_joypad_provider::SdlJoypadProvider};
 use lib_gb::{
@@ -88,7 +88,26 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let gfx_device = stupid_gfx_audio_device::StupidGfxAudioDevie::new(&gfx_initializer, 44100, 1);
+    let buffer_width = SCREEN_WIDTH as u32 * screen_scale;
+    let buffer_height = SCREEN_HEIGHT as u32* screen_scale;
+
+    let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
+        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+        let wind:*mut SDL_Window = SDL_CreateWindow(
+            CString::new("MagenBoy").unwrap().as_ptr(),
+            SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
+            buffer_width as i32, buffer_height as i32, 0);
+        
+        let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, 0);
+
+        let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
+            SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
+             buffer_width as i32, buffer_height as i32);
+        
+        (wind, rend, tex)
+    };
+
+    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100, 1);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
@@ -103,39 +122,23 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, joypad_provider, bootrom)
+            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_device, bootrom)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc, joypad_provider)
+            GameBoy::new(&mut mbc, joypad_provider, audio_device)
         }
     };
 
-    let buffer_width = SCREEN_WIDTH as u32 * screen_scale;
-    let buffer_height = SCREEN_HEIGHT as u32* screen_scale;
+    info!("initialized gameboy successfully!");
+
+
+    let time:Instant = Instant::now();
+    let mut last_time:Duration = time.elapsed();
 
     unsafe{
-        SDL_Init(SDL_INIT_VIDEO);
-        let window:*mut SDL_Window = SDL_CreateWindow(
-            CString::new("MagenBoy").unwrap().as_ptr(),
-            SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-            buffer_width as i32, buffer_height as i32, 0);
-        
-        let renderer: *mut SDL_Renderer = SDL_CreateRenderer(window, -1, 0);
-
-        let texture: *mut SDL_Texture = SDL_CreateTexture(renderer,
-            SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
-             buffer_width as i32, buffer_height as i32);
-
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
-
-
-        info!("initialized gameboy successfully!");
-
-        let time:Instant = Instant::now();
-        let mut last_time:Duration = time.elapsed();
-
         loop{
              if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
@@ -148,6 +151,7 @@ fn main() {
 
             if current_time.as_micros() - last_time.as_micros() > 1000_000 / FRAME_RATE as u128 {
 
+                log::info!("{}", current_time.as_micros() - last_time.as_micros());
                 last_time = current_time;
 
                 let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
@@ -162,6 +166,9 @@ fn main() {
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
                 SDL_RenderPresent(renderer);
+            }
+            else{
+                log::info!("should not apear");
             }
         }
 
