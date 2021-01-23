@@ -1,22 +1,22 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
 
-use lib_gbc::machine::gameboy::GameBoy;
-use lib_gbc::ppu::gb_ppu::{
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH
+use crate::{mbc_handler::*, sdl_joypad_provider::SdlJoypadProvider};
+use lib_gbc::{
+    machine::gameboy::GameBoy,
+    ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH},
+    keypad::button::Button,
+    mmu::gb_mmu::BOOT_ROM_SIZE
 };
-use lib_gbc::keypad::button::Button;
-use std::{ffi::c_void, fs};
-use std::env;
-use std::result::Result;
-use std::vec::Vec;
+use std::{
+    ffi::{c_void, CString},
+    fs,
+    env,
+    result::Result,
+    vec::Vec
+};
 use log::info;
-use lib_gbc::mmu::gb_mmu::BOOT_ROM_SIZE;
-use crate::mbc_handler::*;
 use sdl2::sys::*;
-use std::ffi::CString;
-use crate::sdl_joypad_provider::SdlJoypadProvider;
 
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
@@ -59,8 +59,6 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
 
     Ok(())
 }
-
-
 
 fn buttons_mapper(button:Button)->SDL_Scancode{
     match button{
