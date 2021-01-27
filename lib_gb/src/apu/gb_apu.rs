@@ -45,17 +45,17 @@ impl<Device: AudioDevice> GbApu<Device>{
 
         //converting m_cycles to t_cycles
         let t_cycles = m_cycles_passed * 4;
-        //add timer 
 
         if self.enabled{
+
+            self.prepare_wave_channel(memory);
+            self.prepare_tone_sweep_channel(memory);
+
             for _ in 0..t_cycles{   
                 if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
                     self.current_t_cycle = 0;
                     self.device.push_buffer(&self.audio_buffer);
                 }
-
-                self.prepare_wave_channel(memory);
-                self.prepare_tone_sweep_channel(memory);
 
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
@@ -64,14 +64,15 @@ impl<Device: AudioDevice> GbApu<Device>{
             
                 self.audio_buffer[self.current_t_cycle as usize] = sample;
                 
-                self.update_registers(memory);
-            
                 self.current_t_cycle += 1;
             }
         }
         else{
             self.current_t_cycle += t_cycles as u32;
         }
+
+        self.update_registers(memory);
+            
     }
 
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
