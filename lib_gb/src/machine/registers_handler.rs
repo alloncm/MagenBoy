@@ -45,33 +45,27 @@ impl RegisterHandler{
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
 
         Self::handle_joypad_register(memory.read(JOYP_REGISTER_ADDRESS),memory, joypad);
-        self.handle_ly_register(memory, ppu, &mut interupt_flag);
-        Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
-        self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
-        Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
-        Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
-        Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
-        Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
-        self.handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory,m_cycles);
-        Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
-        Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
-        Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
-        Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
-        self.handle_divider_register(memory,m_cycles);
-        self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag, m_cycles);
-        Self::handle_wy_register(memory.read(WY_REGISTER_ADDRESS), ppu);
-        Self::handle_wx_register(memory.read(WX_REGISTER_ADDRESS), ppu);
+        //self.handle_ly_register(memory, ppu, &mut interupt_flag);
+        //Self::handle_lcdcontrol_register(memory.read(LCDC_REGISTER_ADDRESS), ppu);
+        //self.handle_lcd_status_register(memory.read(STAT_REGISTER_ADDRESS), interrupts_handler, memory, ppu, &mut interupt_flag);
+        //Self::handle_scroll_registers(memory.read(SCX_REGISTER_ADDRESS), memory.read(SCY_REGISTER_ADDRESS), ppu);
+        //Self::handle_vrambank_register(memory.read(VBK_REGISTER_ADDRESS), memory, cpu);
+        //Self::handle_switch_mode_register(memory.read(KEYI_REGISTER_ADDRESS), memory, cpu);
+        //Self::handle_wrambank_register(memory.read(SVBK_REGISTER_ADDRESS), memory);
+        //self.handle_dma_transfer_register(memory.read(DMA_REGISTER_ADDRESS), memory,m_cycles);
+        //Self::handle_bootrom_register(memory.read(BOOT_REGISTER_ADDRESS), memory);
+        //Self::handle_bg_pallet_register(memory.read(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
+        //Self::handle_obp_pallet_register(memory.read(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
+        //Self::handle_obp_pallet_register(memory.read(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
+        //self.handle_divider_register(memory,m_cycles);
+        //self.handle_timer_counter_register(memory.read(TIMA_REGISTER_ADDRESS), memory, &mut interupt_flag, m_cycles);
+        //Self::handle_wy_register(memory.read(WY_REGISTER_ADDRESS), ppu);
+        //Self::handle_wx_register(memory.read(WX_REGISTER_ADDRESS), ppu);
 
         //This should be last cause it updated the interupt values
-        Self::handle_intreput_registers(interupt_enable, interupt_flag, cpu);
 
         memory.write(IF_REGISTER_ADDRESS, interupt_flag);
         memory.write(IE_REGISTER_ADDRESS, interupt_enable);
-    }
-
-    fn handle_intreput_registers(enable:u8, flag:u8, cpu:&mut GbCpu){
-        cpu.interupt_enable = enable;
-        cpu.interupt_flag = flag;
     }
 
     fn handle_bg_pallet_register(register:u8, pallet:&mut [Color;4] ){

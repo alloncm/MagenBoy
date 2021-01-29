@@ -12,9 +12,7 @@ pub struct GbCpu {
     pub halt:bool,
     pub stop:bool,
     pub cgb_mode:bool,
-    pub double_speed:bool,
-    pub interupt_enable:u8,
-    pub interupt_flag:u8
+    pub double_speed:bool
 }
 
 impl Default for GbCpu {
@@ -30,9 +28,7 @@ impl Default for GbCpu {
             halt:false,
             stop:false,
             cgb_mode:false,
-            double_speed:false,
-            interupt_enable:0,
-            interupt_flag:0
+            double_speed:false
         }
     }
 }

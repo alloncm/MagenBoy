@@ -1,4 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
+use crate::{cpu::gb_cpu::GbCpu, mmu, timer::gb_timer::GbTimer};
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -8,7 +8,7 @@ use crate::mmu::gb_mmu::{
 };
 use crate::cpu::opcodes::opcode_resolver::*;
 use crate::ppu::gb_ppu::GbPpu;
-use crate::machine::registers_handler::RegisterHandler;
+//use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::carts::mbc::Mbc;
 use crate::ppu::gb_ppu::{
     SCREEN_HEIGHT,
@@ -25,10 +25,11 @@ pub struct GameBoy<'a, JP: JoypadProvider> {
     mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
-    register_handler:RegisterHandler,
+    // register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
-    joypad_provider: JP
+    joypad_provider: JP,
+    timer: GbTimer
 }
 
 impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
@@ -39,10 +40,11 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            register_handler: RegisterHandler::default(),
+            // register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
-            joypad_provider: joypad_provider
+            joypad_provider: joypad_provider,
+            timer:GbTimer::default()
         }
     }
 
@@ -61,10 +63,11 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            register_handler: RegisterHandler::default(),
+            // register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
-            joypad_provider: joypad_provider
+            joypad_provider: joypad_provider,
+            timer: GbTimer::default()
         }
     }
 
@@ -84,18 +87,30 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
 
             //interrupts
             //updating the registers aftrer the CPU
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
-            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
+            //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
+            self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
+
+            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.ppu, &mut self.mmu);
             if interrupt_cycles != 0{
                 //updating the register after the interrupts (for timing)
-                self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
+                //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
             }
+
+            let ports= self.mmu.io_ports.get_ports_cycle_trigger();
+
+            self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
+
+            
+            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
+
+            self.mmu.dma.cycle(&mut self.mmu, iter_total_cycles as u8);
             
             //PPU
-            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
-            self.ppu.update_gb_screen(&self.mmu, iter_total_cycles);
+            crate::ppu::ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
+            self.ppu.update_gb_screen(&mut self.mmu, iter_total_cycles);
             //updating after the PPU
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
+            //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
+            crate::mmu::mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.mmu.dma, ports);
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame

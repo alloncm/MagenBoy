@@ -1,4 +1,4 @@
-use super::memory::*;
+use super::{dma::OamDmaTransferer, memory::*};
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
@@ -19,6 +19,7 @@ pub struct GbMmu<'a>{
     pub vram: VRam,
     pub finished_boot:bool,
     pub io_ports: IoPorts,
+    pub dma:OamDmaTransferer,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
@@ -31,7 +32,7 @@ pub struct GbMmu<'a>{
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a> Memory for GbMmu<'a>{
     fn read(&self, address:u16)->u8{
-        if let Some (bus) = &self.io_ports.dma_trasfer_trigger{
+        if let Some (bus) = &self.dma.enable{
             return match address{
                 0xFEA0..=0xFEFF | 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
@@ -63,7 +64,7 @@ impl<'a> Memory for GbMmu<'a>{
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if let Some(bus) = &self.io_ports.dma_trasfer_trigger{
+        if let Some(bus) = &self.dma.enable{
             match address{
                 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
@@ -149,7 +150,8 @@ impl<'a> GbMmu<'a>{
             interupt_enable_register:0,
             boot_rom:boot_rom,
             finished_boot:false,
-            ppu_state:PpuState::OamSearch
+            ppu_state:PpuState::OamSearch,
+            dma:OamDmaTransferer::default()
         }
     }
 
@@ -164,7 +166,8 @@ impl<'a> GbMmu<'a>{
             interupt_enable_register:0,
             boot_rom:[0;BOOT_ROM_SIZE],
             finished_boot:true,
-            ppu_state:PpuState::OamSearch
+            ppu_state:PpuState::OamSearch,
+            dma:OamDmaTransferer::default()
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)

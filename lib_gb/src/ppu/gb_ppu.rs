@@ -8,6 +8,10 @@ use super::normal_sprite::NormalSprite;
 use super::extended_sprite::ExtendedSprite;
 use super::sprite::Sprite;
 use super::sprite_attribute::SpriteAttribute;
+use crate::utils::{
+    memory_registers::*,
+    bit_masks::*
+};
 use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -50,11 +54,19 @@ pub struct GbPpu {
     pub current_line_drawn: u8,
     pub state:PpuState,
 
+    //interrupts
+    pub v_blank_interrupt_request:bool,
+    pub h_blank_interrupt_request:bool,
+    pub oam_search_interrupt_request:bool,
+    pub coincidence_interrupt_request:bool,
+
     window_active:bool,
     window_line_counter:u8,
     line_rendered:bool,
     current_cycle:u32,
-    last_screen_state:bool
+    last_screen_state:bool,
+    v_blank_triggered:bool,
+    stat_triggered:bool
 }
 
 impl Default for GbPpu {
@@ -81,7 +93,14 @@ impl Default for GbPpu {
             window_line_counter:0,
             window_active:false,
             current_cycle:0,
-            last_screen_state:true
+            last_screen_state:true,
+            v_blank_triggered:false,
+            stat_triggered:false,
+            //interrupts
+            v_blank_interrupt_request:false,
+            h_blank_interrupt_request:false,
+            oam_search_interrupt_request:false,
+            coincidence_interrupt_request:false
         }
     }
 }
@@ -95,7 +114,7 @@ impl GbPpu {
         return &self.screen_buffer;
     }
 
-    fn update_ly(&mut self){
+    fn update_ly(&mut self, memory:&mut impl UnprotectedMemory){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
         if self.current_cycle >= CYCLES_PER_FRAME {
@@ -108,10 +127,81 @@ impl GbPpu {
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
             self.line_rendered = false;
+
+            self.update_ly_register(memory);
+            self.update_stat_register(memory);
         }
         else if self.current_line_drawn > LY_MAX_VALUE{
             std::panic!("invalid LY register value: {}", self.current_line_drawn);
         }
+    }
+
+    fn update_ly_register(&mut self, memory:&mut impl UnprotectedMemory){
+        if self.current_line_drawn >= SCREEN_HEIGHT as u8 && !self.v_blank_triggered{
+            let mut if_register = memory.read_unprotected(IF_REGISTER_ADDRESS);
+            if_register |= BIT_0_MASK;
+            memory.write_unprotected(IF_REGISTER_ADDRESS, if_register);
+            
+            self.v_blank_triggered = true;
+        }
+        else if self.current_line_drawn < SCREEN_HEIGHT as u8{
+            self.v_blank_triggered = false;
+        }
+
+        memory.write_unprotected(LY_REGISTER_ADDRESS, self.current_line_drawn);
+    }
+
+    fn update_stat_register(&mut self, memory: &mut impl UnprotectedMemory){
+        let mut register = memory.read_unprotected(STAT_REGISTER_ADDRESS);
+        let mut lcd_stat_interrupt:bool = false;
+
+        if self.current_line_drawn == memory.read_unprotected(LYC_REGISTER_ADDRESS){
+            register |= BIT_2_MASK;
+            if self.coincidence_interrupt_request {
+                lcd_stat_interrupt = true;
+            }
+        }
+        else{
+            register &= !BIT_2_MASK;
+        }
+        
+        //clears the 2 lower bits
+        register = (register >> 2)<<2;
+        register |= self.state as u8;
+
+        match self.state{
+            PpuState::OamSearch=>{
+                if self.oam_search_interrupt_request{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            PpuState::Hblank=>{
+                if self.h_blank_interrupt_request{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            PpuState::Vblank=>{
+                if self.v_blank_interrupt_request{
+                    lcd_stat_interrupt = true;
+                }
+            },
+            _=>{}
+        }
+
+        if lcd_stat_interrupt{
+            if !self.stat_triggered{
+                let mut if_register = memory.read_unprotected(IF_REGISTER_ADDRESS);
+                if_register |= BIT_1_MASK;
+                memory.write_unprotected(IF_REGISTER_ADDRESS, if_register);
+                
+                self.stat_triggered = true;
+            }
+        }
+        else{
+            self.stat_triggered = false;
+        }
+        
+        memory.write_unprotected(STAT_REGISTER_ADDRESS, register);
     }
 
     fn get_ppu_state(cycle_counter:u32, last_ly:u8)->PpuState{
@@ -136,7 +226,7 @@ impl GbPpu {
         };
     }
 
-    pub fn update_gb_screen(&mut self, memory: &impl UnprotectedMemory, cycles_passed:u32){
+    pub fn update_gb_screen(&mut self, memory: &mut impl UnprotectedMemory, cycles_passed:u32){
         if !self.screen_enable && self.last_screen_state {
             self.current_line_drawn = 0;
             self.current_cycle = 0;
@@ -153,7 +243,7 @@ impl GbPpu {
         self.last_screen_state = self.screen_enable;
 
         self.current_cycle += cycles_passed as u32;
-        self.update_ly();
+        self.update_ly(memory);
         self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
 
         if self.state as u8 == PpuState::PixelTransfer as u8{

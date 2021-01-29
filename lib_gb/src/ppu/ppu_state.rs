@@ -1,3 +1,4 @@
+#[repr(u8)]
 pub enum PpuState{
     Hblank = 0b00,
     Vblank = 0b01,
@@ -10,5 +11,12 @@ impl Copy for PpuState{}
 impl Clone for PpuState{
     fn clone(&self)->Self{
         *self
+    }
+}
+
+impl PpuState{
+    pub fn from_u8(mut value:u8)->Self{
+        value = value & 0b0000_0011;
+        return unsafe{std::mem::transmute(value)};
     }
 }
