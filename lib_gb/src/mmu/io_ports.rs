@@ -54,8 +54,8 @@ impl IoPorts{
         self.ports[address as usize] = value;
     }
 
-    pub fn get_ports_cycle_trigger(&mut self)->&[bool; IO_PORTS_SIZE]{
-        return &self.ports_cycle_trigger;
+    pub fn get_ports_cycle_trigger(&mut self)->[bool; IO_PORTS_SIZE]{
+        return self.ports_cycle_trigger;
     }
 }
 

@@ -176,6 +176,10 @@ impl<'a> GbMmu<'a>{
         mmu
     }
 
+    pub fn cycle(&mut self, m_cycles:u8){
+        self.dma.cycle(self, m_cycles)
+    }
+
     fn is_oam_ready_for_io(&self)->bool{
         let ppu_state = self.ppu_state as u8;
         return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8

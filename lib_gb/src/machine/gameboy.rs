@@ -110,7 +110,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             self.ppu.update_gb_screen(&mut self.mmu, iter_total_cycles);
             //updating after the PPU
             //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
-            crate::mmu::mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.mmu.dma, ports);
+            crate::mmu::mmu_register_updater::update_mmu_registers(&mut self.mmu, &ports);
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
