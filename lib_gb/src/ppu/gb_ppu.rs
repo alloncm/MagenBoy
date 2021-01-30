@@ -127,9 +127,6 @@ impl GbPpu {
         else if self.current_line_drawn != line as u8{
             self.current_line_drawn = line as u8;
             self.line_rendered = false;
-
-            self.update_ly_register(memory);
-            self.update_stat_register(memory);
         }
         else if self.current_line_drawn > LY_MAX_VALUE{
             std::panic!("invalid LY register value: {}", self.current_line_drawn);
@@ -245,6 +242,9 @@ impl GbPpu {
         self.current_cycle += cycles_passed as u32;
         self.update_ly(memory);
         self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
+        
+        self.update_ly_register(memory);
+        self.update_stat_register(memory);
 
         if self.state as u8 == PpuState::PixelTransfer as u8{
             if !self.line_rendered {
