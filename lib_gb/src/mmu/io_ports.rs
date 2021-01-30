@@ -45,7 +45,7 @@ impl IoPorts{
             _=>{}
         }
 
-        self.ports_cycle_trigger[address as usize] = false;
+        self.ports_cycle_trigger[address as usize] = true;
 
         self.ports[address as usize] = value;
     }

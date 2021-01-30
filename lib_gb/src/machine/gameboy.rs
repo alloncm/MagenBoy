@@ -1,4 +1,4 @@
-use crate::{cpu::{gb_cpu::GbCpu}, mmu, timer::gb_timer::GbTimer};
+use crate::{cpu::{gb_cpu::GbCpu}, mmu, timer::{gb_timer::GbTimer, timer_register_updater}};
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -92,6 +92,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             //interrupts
             //updating the registers aftrer the CPU
             //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
+            timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
             self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
             self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
             
@@ -104,6 +105,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
                 //self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
                 
                 self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
+                timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
                 self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
 
                 crate::mmu::mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);

@@ -1,7 +1,7 @@
 use crate::{mmu::memory::UnprotectedMemory, utils::{bit_masks::BIT_2_MASK, memory_registers::*}};
 
 pub struct GbTimer{
-    system_counter:u16,
+    pub system_counter:u16,
     timer_clock_interval_counter:u16,
 }
 
