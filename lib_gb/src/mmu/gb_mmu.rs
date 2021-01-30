@@ -115,7 +115,7 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_ports.read(address - 0xFF00),
+            0xFF00..=0xFF7F=>self.io_ports.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         };
@@ -131,7 +131,7 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
+            0xFF00..=0xFF7F=>self.io_ports.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }

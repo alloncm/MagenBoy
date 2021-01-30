@@ -1,5 +1,5 @@
 use crate::utils::memory_registers::*;
-use super::access_bus::AccessBus;
+use super::memory::{UnprotectedMemory, Memory};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 
@@ -18,29 +18,32 @@ pub struct IoPorts{
     ports_cycle_trigger:[bool; IO_PORTS_SIZE]
 }
 
-impl IoPorts{
-    pub fn read(&self, address:u16)->u8{
-        self.ports[address as usize]
-    }
-
-    pub fn write(&mut self, address:u16, mut value:u8){
+impl Memory for IoPorts{
+    fn read(&self, address:u16)->u8{
+        let mut value = self.ports[address as usize];
         match address{
-            DIV_REGISTER_INDEX=>{
-                value = 0;
-                //self.system_counter = 0;
-            },
             TAC_REGISTER_INDEX=> value &= 0b111,
             STAT_REGISTER_INDEX => value = (value >> 2) << 2,
             JOYP_REGISTER_INDEX => {
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
             },
-            DMA_REGISTER_INDEX=> {
-                //self.dma_trasfer_trigger = match value{
-                //    0..=0x7F=>Some(AccessBus::External),
-                //    0x80..=0x9F=>Some(AccessBus::Video),
-                //    0xA0..=0xFF=>Some(AccessBus::External)
-                //}
+            _=>{}
+        }
+
+        value
+    }
+
+    fn write(&mut self, address:u16, mut value:u8){
+        match address{
+            DIV_REGISTER_INDEX=>{
+                value = 0;
+            },
+            TAC_REGISTER_INDEX=> value &= 0b111,
+            STAT_REGISTER_INDEX => value = (value >> 2) << 2,
+            JOYP_REGISTER_INDEX => {
+                let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
+                value = (joypad_value & 0xF) | (value & 0xF0);
             },
             _=>{}
         }
@@ -49,10 +52,21 @@ impl IoPorts{
 
         self.ports[address as usize] = value;
     }
+}
 
-    pub fn write_unprotected(&mut self, address:u16, value:u8){
+impl UnprotectedMemory for IoPorts{
+    fn write_unprotected(&mut self, address:u16, value:u8){
         self.ports[address as usize] = value;
     }
+
+    fn read_unprotected(&self, address:u16) ->u8 {
+        self.ports[address as usize]
+    }
+}
+
+impl IoPorts{
+
+    
 
     pub fn get_ports_cycle_trigger(&mut self)->&mut [bool; IO_PORTS_SIZE]{
         return &mut self.ports_cycle_trigger;
