@@ -34,7 +34,8 @@ impl<'a> Memory for GbMmu<'a>{
     fn read(&self, address:u16)->u8{
         if let Some (bus) = &self.dma_state{
             return match address{
-                0xFEA0..=0xFEFF | 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
+                0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
+                0xFEA0..=0xFEFF | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 _=>Self::bad_dma_read(address)
@@ -59,6 +60,7 @@ impl<'a> Memory for GbMmu<'a>{
                     return BAD_READ_VALUE;
                 }
             },
+            0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
             _=>self.read_unprotected(address)
         };
     }
@@ -66,7 +68,8 @@ impl<'a> Memory for GbMmu<'a>{
     fn write(&mut self, address:u16, value:u8){
         if let Some(bus) = &self.dma_state{
             match address{
-                0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
+                0xFF00..=0xFF7F => self.io_ports.write(address- 0xFF00, value),
+                0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
                 _=>Self::bad_dma_write(address)
@@ -90,6 +93,7 @@ impl<'a> Memory for GbMmu<'a>{
                         log::warn!("bad oam write")
                     }
                 },
+                0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
                 _=>self.write_unprotected(address, value)
             }
         }

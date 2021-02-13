@@ -2,7 +2,7 @@ use crate::{mmu::memory::UnprotectedMemory, utils::{bit_masks::BIT_2_MASK, memor
 
 pub struct GbTimer{
     pub system_counter:u16,
-    timer_clock_interval_counter:u16,
+    pub timer_clock_interval_counter:u16,
 }
 
 impl Default for GbTimer{
@@ -38,6 +38,7 @@ impl GbTimer{
 
                     value = memory.read_unprotected(TMA_REGISTER_ADDRESS);
                 }
+                //println!("ignore write tima");
 
                 memory.write_unprotected(TIMA_REGISTER_ADDRESS, value);
             }

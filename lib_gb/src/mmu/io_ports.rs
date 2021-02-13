@@ -31,6 +31,10 @@ impl Memory for IoPorts{
             _=>{}
         }
 
+        if address == 0x05 && value != 0{
+            //println!("read TIMA register: {}", value);
+        }
+
         value
     }
 
@@ -47,7 +51,9 @@ impl Memory for IoPorts{
             },
             _=>{}
         }
-
+        if address == 0x05 {
+            //println!("write TIMA register: {}", value);
+        }
         self.ports_cycle_trigger[address as usize] = true;
 
         self.ports[address as usize] = value;
@@ -56,18 +62,21 @@ impl Memory for IoPorts{
 
 impl UnprotectedMemory for IoPorts{
     fn write_unprotected(&mut self, address:u16, value:u8){
+        if address == 0x05 {
+            //println!("unptorected write TIMA register: {}", value);
+        }
         self.ports[address as usize] = value;
     }
 
     fn read_unprotected(&self, address:u16) ->u8 {
+        if address == 0x05 && self.ports[address as usize]!=0{
+            //println!("unprotected read TIMA register: {}", self.ports[address as usize]);
+        }
         self.ports[address as usize]
     }
 }
 
 impl IoPorts{
-
-    
-
     pub fn get_ports_cycle_trigger(&mut self)->&mut [bool; IO_PORTS_SIZE]{
         return &mut self.ports_cycle_trigger;
     }
