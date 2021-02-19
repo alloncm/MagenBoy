@@ -6,7 +6,6 @@ pub fn update_timer_registers(timer:&mut GbTimer, memory:&mut IoPorts){
     let ports = memory.get_ports_cycle_trigger();
     if ports[0x04]{
         timer.system_counter = 0;
-        timer.timer_clock_interval_counter = 0;
         ports[0x04] = false;
     }
 }
