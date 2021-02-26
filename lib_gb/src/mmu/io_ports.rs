@@ -12,8 +12,6 @@ const JOYP_REGISTER_INDEX:u16 = JOYP_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const DMA_REGISTER_INDEX:u16 = DMA_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 
 pub struct IoPorts{
-    //pub system_counter:u16,
-    //pub dma_trasfer_trigger:Option<AccessBus>,
     ports:[u8;IO_PORTS_SIZE], 
     ports_cycle_trigger:[bool; IO_PORTS_SIZE]
 }
@@ -29,10 +27,6 @@ impl Memory for IoPorts{
                 value = (joypad_value & 0xF) | (value & 0xF0);
             },
             _=>{}
-        }
-
-        if address == 0x05 && value != 0{
-            //println!("read TIMA register: {}", value);
         }
 
         value
@@ -62,16 +56,10 @@ impl Memory for IoPorts{
 
 impl UnprotectedMemory for IoPorts{
     fn write_unprotected(&mut self, address:u16, value:u8){
-        if address == 0x05 {
-            //println!("unptorected write TIMA register: {}", value);
-        }
         self.ports[address as usize] = value;
     }
 
     fn read_unprotected(&self, address:u16) ->u8 {
-        if address == 0x05 && self.ports[address as usize]!=0{
-            //println!("unprotected read TIMA register: {}", self.ports[address as usize]);
-        }
         self.ports[address as usize]
     }
 }
@@ -86,8 +74,6 @@ impl Default for IoPorts{
     fn default()->Self{
         let mut io_ports = IoPorts{
             ports:[0;IO_PORTS_SIZE],
-            //dma_trasfer_trigger:None,
-            //system_counter: 0,
             ports_cycle_trigger:[false;IO_PORTS_SIZE]
         };
 
