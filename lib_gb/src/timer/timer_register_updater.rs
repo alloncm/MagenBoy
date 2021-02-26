@@ -8,4 +8,8 @@ pub fn update_timer_registers(timer:&mut GbTimer, memory:&mut IoPorts){
         timer.system_counter = 0;
         ports[0x04] = false;
     }
+    if ports[0x05]{
+        timer.tima_overflow = false;
+        ports[0x05] = false;
+    }
 }

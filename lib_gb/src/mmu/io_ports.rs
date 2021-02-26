@@ -51,8 +51,8 @@ impl Memory for IoPorts{
             },
             _=>{}
         }
-        if address == 0x05 {
-            //println!("write TIMA register: {}", value);
+        if address == 0x07 {
+            println!("write TAC register: {}", value);
         }
         self.ports_cycle_trigger[address as usize] = true;
 
