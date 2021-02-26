@@ -1,5 +1,5 @@
 use crate::{ppu::ppu_state::PpuState, utils::memory_registers::*};
-use super::{access_bus::AccessBus, dma::OamDmaTransferer, gb_mmu::GbMmu, memory::UnprotectedMemory};
+use super::{access_bus::AccessBus, oam_dma_transferer::OamDmaTransferer, gb_mmu::GbMmu, memory::UnprotectedMemory};
 
 
 pub fn update_mmu_registers(memory: &mut GbMmu,dma:&mut OamDmaTransferer){

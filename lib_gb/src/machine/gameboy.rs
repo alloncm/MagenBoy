@@ -17,7 +17,7 @@ use crate::ppu::gb_ppu::{
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
-use mmu::dma::OamDmaTransferer;
+use mmu::oam_dma_transferer::OamDmaTransferer;
 
 
 pub struct GameBoy<'a, JP: JoypadProvider> {

@@ -12,6 +12,4 @@ impl Clone for AccessBus{
     }
 }
 
-impl Copy for AccessBus{
-
-}
+impl Copy for AccessBus{}

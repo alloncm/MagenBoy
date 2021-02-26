@@ -6,4 +6,4 @@ pub mod io_ports;
 pub mod carts;
 pub mod access_bus; 
 pub mod mmu_register_updater;
-pub mod dma;
+pub mod oam_dma_transferer;
