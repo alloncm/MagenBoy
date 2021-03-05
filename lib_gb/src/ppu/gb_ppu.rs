@@ -240,7 +240,7 @@ impl GbPpu {
         self.last_screen_state = self.screen_enable;
 
         self.current_cycle += cycles_passed as u32;
-        self.update_ly(memory);
+        self.update_ly();
         self.state = Self::get_ppu_state(self.current_cycle, self.current_line_drawn);
         
         self.update_ly_register(memory);
