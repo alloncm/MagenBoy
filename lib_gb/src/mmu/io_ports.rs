@@ -3,13 +3,12 @@ use super::memory::{UnprotectedMemory, Memory};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 
-const IO_PORTS_MEMORY_OFFSET:u16 = 0xFF00;
+pub const IO_PORTS_MEMORY_OFFSET:u16 = 0xFF00;
 
 pub const DIV_REGISTER_INDEX:u16 = DIV_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const TAC_REGISTER_INDEX:u16 = TAC_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const STAT_REGISTER_INDEX:u16 = STAT_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 const JOYP_REGISTER_INDEX:u16 = JOYP_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
-const DMA_REGISTER_INDEX:u16 = DMA_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET;
 
 pub struct IoPorts{
     ports:[u8;IO_PORTS_SIZE], 
@@ -45,9 +44,7 @@ impl Memory for IoPorts{
             },
             _=>{}
         }
-        if address == 0x07 {
-            println!("write TAC register: {}", value);
-        }
+        
         self.ports_cycle_trigger[address as usize] = true;
 
         self.ports[address as usize] = value;

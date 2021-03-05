@@ -70,15 +70,6 @@ impl GbTimer{
         let timer_controller = memory.read_unprotected(TAC_REGISTER_ADDRESS);
         let timer_enable:bool = timer_controller & BIT_2_MASK != 0;
 
-        //those are the the number of m_cycles to wait bwtween each update
-        let interval = match timer_controller & 0b11{
-            0b00=>256,
-            0b01=>4,
-            0b10=>16,
-            0b11=>64,
-            _=>std::panic!("timer controller value is out of range")
-        };
-
         return (timer_controller & 0b11, timer_enable);
     }
 }

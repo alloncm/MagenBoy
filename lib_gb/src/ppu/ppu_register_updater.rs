@@ -1,36 +1,44 @@
-use crate::mmu::memory::UnprotectedMemory;
+use crate::mmu::{gb_mmu::GbMmu, io_ports::IO_PORTS_MEMORY_OFFSET, memory::UnprotectedMemory};
 use crate::utils::{memory_registers::*, bit_masks::*};
 use super::{ gb_ppu::GbPpu, color::*,  colors::*};
 
 const WX_OFFSET:u8 = 7;
 
+const LCDC_REGISTER_INDEX:usize = (LCDC_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const STAT_REGISTER_INDEX:usize = (STAT_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const SCX_REGISTER_INDEX:usize = (SCX_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const SCY_REGISTER_INDEX:usize = (SCY_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const BGP_REGISTER_INDEX:usize = (BGP_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const OBP0_REGISTER_INDEX:usize = (OBP0_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const OBP1_REGISTER_INDEX:usize = (OBP1_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const WX_REGISTER_INDEX:usize = (WX_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
+const WY_REGISTER_INDEX:usize = (WY_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
 
-
-pub fn update_ppu_regsiters(memory:&mut impl UnprotectedMemory, ppu: &mut GbPpu){
-    //if ports[0x40] {
+pub fn update_ppu_regsiters(memory:&mut GbMmu, ppu: &mut GbPpu){
+    if memory.io_ports.get_ports_cycle_trigger()[LCDC_REGISTER_INDEX] {
         handle_lcdcontrol_register(memory.read_unprotected(LCDC_REGISTER_ADDRESS), ppu);
-    //}
-    //if ports[0x41]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[STAT_REGISTER_INDEX]{
         update_stat_register(memory.read_unprotected(STAT_REGISTER_ADDRESS), ppu);
-    //}
-    //if ports[0x43] || ports[0x42]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[SCX_REGISTER_INDEX] || memory.io_ports.get_ports_cycle_trigger()[SCY_REGISTER_INDEX]{
         handle_scroll_registers(memory.read_unprotected(SCX_REGISTER_ADDRESS), memory.read_unprotected(SCY_REGISTER_ADDRESS), ppu);
-    //}
-    //if ports[0x47]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[BGP_REGISTER_INDEX]{
         handle_bg_pallet_register(memory.read_unprotected(BGP_REGISTER_ADDRESS), &mut ppu.bg_color_mapping);
-    //}
-    //if ports[0x48]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[OBP0_REGISTER_INDEX]{
         handle_obp_pallet_register(memory.read_unprotected(OBP0_REGISTER_ADDRESS), &mut ppu.obj_color_mapping0);
-    //}
-    //if ports[0x49]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[OBP1_REGISTER_INDEX]{
         handle_obp_pallet_register(memory.read_unprotected(OBP1_REGISTER_ADDRESS), &mut ppu.obj_color_mapping1);
-    //}
-    //if ports[0x4A]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[WY_REGISTER_INDEX]{
         handle_wy_register(memory.read_unprotected(WY_REGISTER_ADDRESS), ppu);
-    //}
-    //if ports[0x4B]{
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[WX_REGISTER_INDEX]{
         handle_wx_register(memory.read_unprotected(WX_REGISTER_ADDRESS), ppu);
-    //}
+    }
 }
 
 
