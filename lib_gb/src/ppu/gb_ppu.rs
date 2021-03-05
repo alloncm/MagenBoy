@@ -114,7 +114,7 @@ impl GbPpu {
         return &self.screen_buffer;
     }
 
-    fn update_ly(&mut self, memory:&mut impl UnprotectedMemory){
+    fn update_ly(&mut self){
         
         let line = self.current_cycle/DRAWING_CYCLE_CLOCKS as u32;
         if self.current_cycle >= CYCLES_PER_FRAME {
