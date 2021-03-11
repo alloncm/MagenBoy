@@ -1,8 +1,6 @@
-use crate::cpu::gb_cpu::GbCpu;
+use crate::{cpu::gb_cpu::GbCpu, utils::memory_registers::{IE_REGISTER_ADDRESS, JOYP_REGISTER_ADDRESS}};
 use crate::cpu::flag::Flag;
 use crate::mmu::memory::Memory;
-
-const P1:u16 = 0xFF00;
 
 pub fn ccf(cpu:&mut GbCpu)->u8{
     let carry:bool = cpu.get_flag(Flag::Carry);
@@ -30,8 +28,8 @@ pub fn halt(cpu:&mut GbCpu)->u8{
     return 1;
 }
 
-pub fn stop(cpu:&mut GbCpu, memory: &mut impl  Memory)->u8{
-    if (cpu.interupt_enable & 0b11111 == 0) && (memory.read(P1) & 0b1111 == 0){
+pub fn stop(cpu:&mut GbCpu, memory: &mut impl Memory)->u8{
+    if (memory.read(IE_REGISTER_ADDRESS) & 0b11111 == 0) && (memory.read(JOYP_REGISTER_ADDRESS) & 0b1111 == 0){
         cpu.stop = true;
     }
 
