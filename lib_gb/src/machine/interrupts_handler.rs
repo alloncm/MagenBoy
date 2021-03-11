@@ -27,7 +27,7 @@ impl Default for InterruptsHandler{
 impl InterruptsHandler{
 
     pub fn handle_interrupts(&mut self, cpu:&mut GbCpu,ppu:&mut GbPpu, memory:&mut impl Memory)->u8{
-        //this is delatey by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
+        //this is delayed by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
         
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);

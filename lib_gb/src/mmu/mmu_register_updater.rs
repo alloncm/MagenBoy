@@ -1,6 +1,7 @@
 use crate::{ppu::ppu_state::PpuState, utils::memory_registers::*};
-use super::{access_bus::AccessBus, oam_dma_transferer::OamDmaTransferer, gb_mmu::GbMmu, memory::UnprotectedMemory};
+use super::{access_bus::AccessBus, gb_mmu::GbMmu, io_ports::IO_PORTS_MEMORY_OFFSET, memory::UnprotectedMemory, oam_dma_transferer::OamDmaTransferer};
 
+const DMA_REGISTER_INDEX:usize = (DMA_REGISTER_ADDRESS - IO_PORTS_MEMORY_OFFSET) as usize;
 
 pub fn update_mmu_registers(memory: &mut GbMmu,dma:&mut OamDmaTransferer){
      
@@ -8,8 +9,8 @@ pub fn update_mmu_registers(memory: &mut GbMmu,dma:&mut OamDmaTransferer){
     handle_wram_register(memory, memory.read_unprotected(SVBK_REGISTER_ADDRESS));
     handle_bootrom_register(memory, memory.read_unprotected(BOOT_REGISTER_ADDRESS));
     let ports = memory.io_ports.get_ports_cycle_trigger();
-    if ports[0x46]{
-        ports[0x46] = false;
+    if ports[DMA_REGISTER_INDEX]{
+        ports[DMA_REGISTER_INDEX] = false;
         handle_dma_transfer_register(memory.read_unprotected(DMA_REGISTER_ADDRESS), dma, memory);
     }
 }
