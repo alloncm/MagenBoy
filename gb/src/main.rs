@@ -151,7 +151,7 @@ fn main() {
 
             if current_time.as_micros() - last_time.as_micros() > 1000_000 / FRAME_RATE as u128 {
 
-                log::info!("{}", current_time.as_micros() - last_time.as_micros());
+                //log::info!("{}", current_time.as_micros() - last_time.as_micros());
                 last_time = current_time;
 
                 let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
@@ -166,9 +166,6 @@ fn main() {
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
                 SDL_RenderPresent(renderer);
-            }
-            else{
-                log::info!("should not apear");
             }
         }
 

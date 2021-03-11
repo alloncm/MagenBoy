@@ -24,6 +24,7 @@ pub struct GbMmu<'a>{
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
     hram: [u8;HRAM_SIZE],
     interupt_enable_register:u8,
+    pub dma_state:Option<AccessBus>,
     pub ppu_state:PpuState
 }
 
@@ -31,9 +32,10 @@ pub struct GbMmu<'a>{
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a> Memory for GbMmu<'a>{
     fn read(&self, address:u16)->u8{
-        if let Some (bus) = &self.io_ports.dma_trasfer_trigger{
+        if let Some (bus) = &self.dma_state{
             return match address{
-                0xFEA0..=0xFEFF | 0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
+                0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
+                0xFEA0..=0xFEFF | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 _=>Self::bad_dma_read(address)
@@ -58,14 +60,16 @@ impl<'a> Memory for GbMmu<'a>{
                     return BAD_READ_VALUE;
                 }
             },
+            0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
             _=>self.read_unprotected(address)
         };
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if let Some(bus) = &self.io_ports.dma_trasfer_trigger{
+        if let Some(bus) = &self.dma_state{
             match address{
-                0xFF00..=0xFF7F | 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
+                0xFF00..=0xFF7F => self.io_ports.write(address- 0xFF00, value),
+                0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
                 _=>Self::bad_dma_write(address)
@@ -89,6 +93,7 @@ impl<'a> Memory for GbMmu<'a>{
                         log::warn!("bad oam write")
                     }
                 },
+                0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
                 _=>self.write_unprotected(address, value)
             }
         }
@@ -114,7 +119,7 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_ports.read(address - 0xFF00),
+            0xFF00..=0xFF7F=>self.io_ports.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         };
@@ -130,7 +135,7 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
+            0xFF00..=0xFF7F=>self.io_ports.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }
@@ -149,7 +154,8 @@ impl<'a> GbMmu<'a>{
             interupt_enable_register:0,
             boot_rom:boot_rom,
             finished_boot:false,
-            ppu_state:PpuState::OamSearch
+            ppu_state:PpuState::OamSearch,
+            dma_state: None
         }
     }
 
@@ -164,7 +170,8 @@ impl<'a> GbMmu<'a>{
             interupt_enable_register:0,
             boot_rom:[0;BOOT_ROM_SIZE],
             finished_boot:true,
-            ppu_state:PpuState::OamSearch
+            ppu_state:PpuState::OamSearch,
+            dma_state:None
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)

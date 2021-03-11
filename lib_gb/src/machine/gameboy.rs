@@ -1,4 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
+use crate::{cpu::{gb_cpu::GbCpu}, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -8,7 +8,6 @@ use crate::mmu::gb_mmu::{
 };
 use crate::cpu::opcodes::opcode_resolver::*;
 use crate::ppu::gb_ppu::GbPpu;
-use crate::machine::registers_handler::RegisterHandler;
 use crate::mmu::carts::mbc::Mbc;
 use crate::ppu::gb_ppu::{
     SCREEN_HEIGHT,
@@ -22,6 +21,7 @@ use crate::apu::{
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
+use mmu::oam_dma_transferer::OamDmaTransferer;
 
 
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
@@ -30,10 +30,11 @@ pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
     apu:GbApu<AD>,
-    register_handler:RegisterHandler,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
-    joypad_provider: JP
+    joypad_provider: JP,
+    timer: GbTimer,
+    dma:OamDmaTransferer
 }
 
 impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
@@ -45,10 +46,11 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
             apu:GbApu::new(audio_device),
-            register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
-            joypad_provider: joypad_provider
+            joypad_provider: joypad_provider,
+            timer:GbTimer::default(),
+            dma: OamDmaTransferer::default()
         }
     }
 
@@ -68,10 +70,11 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
             apu:GbApu::new(audio_device),
-            register_handler: RegisterHandler::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
-            joypad_provider: joypad_provider
+            joypad_provider: joypad_provider,
+            timer: GbTimer::default(),
+            dma: OamDmaTransferer::default()
         }
     }
 
@@ -89,20 +92,31 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
                 cpu_cycles_passed = self.execute_opcode();
             }
 
+            timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
+            self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
+            self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
+            
+            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
+
+            ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
+            
             //interrupts
-            //updating the registers aftrer the CPU
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, cpu_cycles_passed);
-            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
+            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.ppu, &mut self.mmu);
             if interrupt_cycles != 0{
-                //updating the register after the interrupts (for timing)
-                self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, interrupt_cycles);
+                self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
+                timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
+                self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
+
+                mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
             }
+
+            
+            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             
             //PPU
-            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
-            self.ppu.update_gb_screen(&self.mmu, iter_total_cycles);
-            //updating after the PPU
-            self.register_handler.update_registers_state(&mut self.mmu, &mut self.cpu, &mut self.ppu, &mut self.interrupts_handler, &joypad, 0);
+            ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
+            self.ppu.update_gb_screen(&mut self.mmu, iter_total_cycles);
+            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             //APU
             self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);

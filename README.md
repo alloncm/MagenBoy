@@ -20,6 +20,7 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 - Accurate emulation - 
     - CPU cycle accurate (https://github.com/retrio/gb-test-roms/tree/master/instr_timing) - :thumbsup:
     - PPU currently opcoce accurate - :thumbsup:
+    - Timer cycle acurate, passes most of mooneye-gb tests (https://github.com/wilbertpol/mooneye-gb/tree/master/tests/acceptance/timer) - :thumbsup:
 
 #### Games Booting
 - Pokemon Red - :thumbsup:
