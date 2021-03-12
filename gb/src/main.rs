@@ -149,7 +149,7 @@ fn main() {
 
             let current_time:Duration = time.elapsed();
 
-            if current_time.as_micros() - last_time.as_micros() > 1000_000 / FRAME_RATE as u128 {
+            if current_time.as_micros() - last_time.as_micros() >= 1000_000 / FRAME_RATE as u128 {
 
                 //log::info!("{}", current_time.as_micros() - last_time.as_micros());
                 last_time = current_time;
