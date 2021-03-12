@@ -1,4 +1,4 @@
-use crate::{cpu::{gb_cpu::GbCpu}, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
+use crate::{apu, cpu::{gb_cpu::GbCpu}, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -119,6 +119,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             //APU
+            apu::update_apu_registers(&mut self.mmu, &mut self.apu);
             self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish

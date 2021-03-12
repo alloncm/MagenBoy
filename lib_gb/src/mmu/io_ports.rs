@@ -21,11 +21,21 @@ pub_io_port_index!(DIV_REGISTER_INDEX, DIV_REGISTER_ADDRESS);
 io_port_index!(TAC_REGISTER_INDEX, TAC_REGISTER_ADDRESS);
 io_port_index!(STAT_REGISTER_INDEX, STAT_REGISTER_ADDRESS);
 io_port_index!(JOYP_REGISTER_INDEX, JOYP_REGISTER_ADDRESS);
+io_port_index!(NR10_REGISTER_INDEX, NR10_REGISTER_ADDRESS);
+io_port_index!(NR11_REGISTER_INDEX, NR11_REGISTER_ADDRESS);
+io_port_index!(NR13_REGISTER_INDEX, NR13_REGISTER_ADDRESS);
+io_port_index!(NR14_REGISTER_INDEX, NR14_REGISTER_ADDRESS);
+io_port_index!(NR21_REGISTER_INDEX, NR21_REGISTER_ADDRESS);
+io_port_index!(NR23_REGISTER_INDEX, NR23_REGISTER_ADDRESS);
+io_port_index!(NR24_REGISTER_INDEX, NR24_REGISTER_ADDRESS);
 io_port_index!(NR30_REGISTER_INDEX, NR30_REGISTER_ADDRESS);
 io_port_index!(NR31_REGISTER_INDEX, NR31_REGISTER_ADDRESS);
 io_port_index!(NR32_REGISTER_INDEX, NR32_REGISTER_ADDRESS);
 io_port_index!(NR33_REGISTER_INDEX, NR33_REGISTER_ADDRESS);
 io_port_index!(NR34_REGISTER_INDEX, NR34_REGISTER_ADDRESS);
+io_port_index!(NR41_REGISTER_INDEX, NR41_REGISTER_ADDRESS);
+io_port_index!(NR44_REGISTER_INDEX, NR44_REGISTER_ADDRESS);
+io_port_index!(NR52_REGISTER_INDEX, NR52_REGISTER_ADDRESS);
 
 pub struct IoPorts{
     ports:[u8;IO_PORTS_SIZE], 
@@ -36,11 +46,23 @@ impl Memory for IoPorts{
     fn read(&self, address:u16)->u8{
         let value = self.ports[address as usize];
         match address{
-            NR30_REGISTER_INDEX=> value | 0x7F,
+            NR10_REGISTER_INDEX=> value | 0b1000_0000,
+            NR11_REGISTER_INDEX=> value | 0b0011_1111,
+            NR13_REGISTER_INDEX=> 0xFF,
+            NR14_REGISTER_INDEX=> value | 0b1011_1111,
+            0x15 => 0xFF,
+            NR21_REGISTER_INDEX=> value | 0b0011_1111,
+            NR23_REGISTER_INDEX=> 0xFF,
+            NR24_REGISTER_INDEX=> value | 0b1011_1111,
+            NR30_REGISTER_INDEX=> value | 0b0111_1111,
             NR31_REGISTER_INDEX=> value | 0xFF,
-            NR32_REGISTER_INDEX=> value | 0x9F,
+            NR32_REGISTER_INDEX=> value | 0b1001_1111,
             NR33_REGISTER_INDEX=> value | 0xFF,
-            NR34_REGISTER_INDEX=> value | 0xBF,
+            NR34_REGISTER_INDEX=> value | 0b1011_1111,
+            0x1F => 0xFF,
+            NR41_REGISTER_INDEX=> 0xFF,
+            NR44_REGISTER_INDEX=> value | 0b1011_1111,
+            NR52_REGISTER_INDEX=> value | 0b0111_0000,
             0x27..=0x2F => 0xFF,//Not used
             TAC_REGISTER_INDEX=> value & 0b111,
             STAT_REGISTER_INDEX => (value >> 2) << 2,
@@ -63,7 +85,8 @@ impl Memory for IoPorts{
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
             },
-            NR31_REGISTER_INDEX=>self.ports[NR31_REGISTER_INDEX as usize] = 0xFF,
+            NR31_REGISTER_INDEX=> value = 0xFF,
+            NR52_REGISTER_INDEX=> value &= 0xF0,
             _=>{}
         }
         
