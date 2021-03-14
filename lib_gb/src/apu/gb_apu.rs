@@ -1,4 +1,4 @@
-use super::channel::Channel;
+use super::{channel::Channel, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
 use super::wave_sample_producer::WaveSampleProducer;
 use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
 use super::audio_device::AudioDevice;
@@ -14,6 +14,8 @@ pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
     pub sweep_tone_channel:Channel<ToneSweepSampleProducer>,
+    pub tone_channel: Channel<ToneSampleProducer>,
+    pub noise_channel: Channel<NoiseSampleProducer>,
 
     frame_sequencer: FrameSequencer,
     audio_buffer:[f32;AUDIO_BUFFER_SIZE],
@@ -32,6 +34,8 @@ impl<Device: AudioDevice> GbApu<Device>{
             frame_sequencer:FrameSequencer::default(),
             sweep_tone_channel: Channel::<ToneSweepSampleProducer>::new(),
             wave_channel:Channel::<WaveSampleProducer>::new(),
+            tone_channel: Channel::<ToneSampleProducer>::new(),
+            noise_channel: Channel::<NoiseSampleProducer>::new(),
             audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
             device:device,
@@ -100,12 +104,10 @@ impl<Device: AudioDevice> GbApu<Device>{
             }
         }
         if tick.length_counter{
-            if self.sweep_tone_channel.length_enable && self.sweep_tone_channel.enabled{
-                self.sweep_tone_channel.sound_length -= 1;
-                if self.sweep_tone_channel.sound_length == 0{
-                    self.sweep_tone_channel.enabled = false;
-                }
-            }
+            self.sweep_tone_channel.update_length_register();
+            self.wave_channel.update_length_register();
+            self.noise_channel.update_length_register();
+            self.tone_channel.update_length_register();
         }
         if tick.volume_envelope{
             if self.sweep_tone_channel.enabled{
@@ -131,10 +133,15 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     fn update_registers(&mut self, memory:&mut impl UnprotectedMemory){
-        memory.write_unprotected(0xFF1B, self.wave_channel.sound_length);
+        //memory.write_unprotected(0xFF1B, self.wave_channel.sound_length);
 
         let mut control_register = memory.read_unprotected(0xFF26);
-        Self::set_bit(&mut control_register, 3, self.wave_channel.enabled);
+        Self::set_bit(&mut control_register, 3, self.noise_channel.enabled);
+        Self::set_bit(&mut control_register, 2, self.wave_channel.enabled);
+        Self::set_bit(&mut control_register, 1, self.tone_channel.enabled);
+        Self::set_bit(&mut control_register, 0, self.sweep_tone_channel.enabled);
+
+        memory.write_unprotected(NR52_REGISTER_ADDRESS, control_register);
     }
 
     fn set_bit(value:&mut u8, bit_number:u8, set:bool){

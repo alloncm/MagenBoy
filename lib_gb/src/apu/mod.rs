@@ -1,4 +1,4 @@
-use crate::{mmu::memory::UnprotectedMemory, utils::bit_masks::*};
+use crate::{mmu::memory::UnprotectedMemory, utils::{bit_masks::*, memory_registers::{NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS}}};
 use self::{audio_device::AudioDevice, gb_apu::GbApu};
 
 pub mod gb_apu;
@@ -12,6 +12,9 @@ pub mod sound_terminal;
 pub mod tone_sweep_sample_producer;
 pub mod freq_sweep;
 pub mod volume_envelop;
+pub mod tone_sample_producer;
+pub mod noise_sample_producer;
+mod sound_utils;
 
 pub fn update_apu_registers<AD:AudioDevice>(memory:&mut impl UnprotectedMemory, apu:&mut GbApu<AD>){
     prepare_control_registers(apu, memory);
@@ -19,6 +22,30 @@ pub fn update_apu_registers<AD:AudioDevice>(memory:&mut impl UnprotectedMemory, 
     if apu.enabled{
         prepare_wave_channel(apu, memory);
         prepare_tone_sweep_channel(apu, memory);
+        prepare_noise_channel(apu, memory);
+        prepare_tone_channel(apu, memory);
+    }
+}
+
+fn prepare_tone_channel<AD:AudioDevice>(apu: &mut GbApu<AD>, memory:&mut impl UnprotectedMemory){
+    let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
+    if nr24 & BIT_7_MASK != 0{
+
+        let nr21 = memory.read_unprotected(NR21_REGISTER_ADDRESS);
+        apu.tone_channel.sound_length = nr21 & 0b11_1111;
+        apu.tone_channel.length_enable = nr24 & BIT_6_MASK != 0;
+        apu.tone_channel.sample_producer.wave_duty = (nr21 & 0b1100_0000) >> 6;
+        memory.write_unprotected(NR24_REGISTER_ADDRESS, nr24 & 0b0111_1111);
+    }
+}
+
+fn prepare_noise_channel<AD:AudioDevice>(apu: &mut GbApu<AD>, memory:&mut impl UnprotectedMemory){
+    let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
+    if nr44 & BIT_7_MASK != 0{
+        let nr41 = memory.read_unprotected(NR41_REGISTER_ADDRESS);
+        apu.noise_channel.sound_length = nr41 & 0b11_1111;
+        apu.noise_channel.length_enable = nr44 & BIT_6_MASK != 0;
+        memory.write_unprotected(NR44_REGISTER_ADDRESS, nr44 & 0b0111_1111);
     }
 }
 
@@ -84,6 +111,8 @@ fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut im
         // sound length and wave pattern register (nr11)
         apu.sweep_tone_channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
         apu.sweep_tone_channel.sound_length = nr11 & 0b11_1111;
+
+        log::warn!("got len: {}", apu.sweep_tone_channel.sound_length);
 
         // Volume envelop register (nr12)
         apu.sweep_tone_channel.volume = (nr12 & 0b1111_0000) >> 4;

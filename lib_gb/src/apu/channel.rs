@@ -30,6 +30,17 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         }   
     }
 
+    pub fn update_length_register(&mut self){
+        if self.length_enable && self.enabled{
+            self.sound_length -= 1;
+            if self.sound_length == 0{
+                self.enabled = false;
+                log::warn!("Disabling the channel");
+            }
+            log::warn!("sl: {}", self.sound_length)
+        }
+    }
+
     pub fn get_audio_sample(&mut self)->f32{
         let sample = if self.timer.cycle(){
             self.sample_producer.produce()

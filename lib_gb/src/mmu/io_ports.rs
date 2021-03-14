@@ -62,7 +62,10 @@ impl Memory for IoPorts{
             0x1F => 0xFF,
             NR41_REGISTER_INDEX=> 0xFF,
             NR44_REGISTER_INDEX=> value | 0b1011_1111,
-            NR52_REGISTER_INDEX=> value | 0b0111_0000,
+            NR52_REGISTER_INDEX=> {
+                log::warn!("{:#X}", value);
+                value | 0b0111_0000
+            },
             0x27..=0x2F => 0xFF,//Not used
             TAC_REGISTER_INDEX=> value & 0b111,
             STAT_REGISTER_INDEX => (value >> 2) << 2,
