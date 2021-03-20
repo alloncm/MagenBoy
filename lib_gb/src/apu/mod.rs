@@ -1,5 +1,5 @@
 use crate::{mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory}, utils::{bit_masks::*, memory_registers::{NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS}}};
-use self::{audio_device::AudioDevice, gb_apu::GbApu};
+use self::{audio_device::AudioDevice, channel::Channel, gb_apu::GbApu, sample_producer::SampleProducer};
 
 pub mod gb_apu;
 pub mod channel;
@@ -163,5 +163,20 @@ fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut Gb
 
         }
     }
+}
+
+fn update_channel_conrol_register<T : SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8){
+    channel.length_enable = (control_register & BIT_6_MASK) !=0;
+
+    if (control_register & BIT_7_MASK) != 0{
+        if dac_enabled{
+            channel.enabled = true;
+        }
+
+        if channel.sound_length == 0{
+            channel.sound_length = 64;
+        }
+    }
+
 }
 
