@@ -70,10 +70,16 @@ impl<Device: AudioDevice> GbApu<Device>{
             self.update_registers(memory);
         }
         else{
+            //Reseting the apu state
             self.current_t_cycle += t_cycles as u32;
             for i in NR10_REGISTER_ADDRESS..NR52_REGISTER_ADDRESS{
                 memory.write_unprotected(i, 0);
             }
+
+            self.tone_channel.reset();
+            self.sweep_tone_channel.reset();
+            self.wave_channel.reset();
+            self.noise_channel.reset();
         }            
 
         self.last_enabled_state = self.enabled;
@@ -98,7 +104,7 @@ impl<Device: AudioDevice> GbApu<Device>{
                     else{
                         sweep.time_sweep -= 1;
                         self.sweep_tone_channel.frequency = shifted_freq as u16;
-                        self.sweep_tone_channel.timer.cycles_to_tick = (2048 - self.sweep_tone_channel.frequency).wrapping_mul(4);
+                        self.sweep_tone_channel.timer.update_cycles_to_tick((2048 - self.sweep_tone_channel.frequency).wrapping_mul(4));
                     }
                 }
             }
@@ -136,10 +142,10 @@ impl<Device: AudioDevice> GbApu<Device>{
         //memory.write_unprotected(0xFF1B, self.wave_channel.sound_length);
 
         let mut control_register = memory.read_unprotected(0xFF26);
-        Self::set_bit(&mut control_register, 3, self.noise_channel.enabled);
-        Self::set_bit(&mut control_register, 2, self.wave_channel.enabled);
-        Self::set_bit(&mut control_register, 1, self.tone_channel.enabled);
-        Self::set_bit(&mut control_register, 0, self.sweep_tone_channel.enabled);
+        Self::set_bit(&mut control_register, 3, self.noise_channel.enabled && self.noise_channel.length_enable && self.noise_channel.sound_length != 0);
+        Self::set_bit(&mut control_register, 2, self.wave_channel.enabled && self.wave_channel.length_enable && self.wave_channel.sound_length != 0);
+        Self::set_bit(&mut control_register, 1, self.tone_channel.enabled && self.tone_channel.length_enable && self.tone_channel.sound_length != 0);
+        Self::set_bit(&mut control_register, 0, self.sweep_tone_channel.enabled && self.sweep_tone_channel.length_enable && self.sweep_tone_channel.sound_length != 0);
 
         memory.write_unprotected(NR52_REGISTER_ADDRESS, control_register);
     }

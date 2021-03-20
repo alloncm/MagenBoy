@@ -6,7 +6,6 @@ pub struct Channel<Procuder: SampleProducer>{
     pub frequency:u16,
     pub sound_length:u8,
     pub volume:u8,
-    pub trigger:bool,
     pub length_enable:bool,
     pub sample_producer:Procuder,
     pub timer:Timer,
@@ -21,7 +20,6 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             frequency:0,
             sound_length:0,
             volume:0,
-            trigger:false,
             length_enable:false,
             sample_producer:Procuder::default(),
             timer: Timer::new(0),
@@ -31,14 +29,25 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
     }
 
     pub fn update_length_register(&mut self){
-        if self.length_enable && self.enabled{
-            self.sound_length -= 1;
-            if self.sound_length == 0{
+        if self.enabled{
+            if self.sound_length == 0 && self.length_enable{
                 self.enabled = false;
-                log::warn!("Disabling the channel");
             }
-            log::warn!("sl: {}", self.sound_length)
+            else if self.sound_length > 0{
+                self.sound_length -= 1;
+            }
         }
+    }
+
+    pub fn reset(&mut self){
+        self.enabled = false;
+        self.frequency = 0;
+        self.length_enable = false;
+        self.sound_length = 0;
+        self.timer.update_cycles_to_tick(0);
+        self.volume = 0;
+
+        self.last_sample = 0;
     }
 
     pub fn get_audio_sample(&mut self)->f32{

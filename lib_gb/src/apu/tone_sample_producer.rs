@@ -34,4 +34,10 @@ impl SampleProducer for ToneSampleProducer{
 
         return sample;
     }
+
+    fn reset(&mut self) {
+        self.wave_duty = 0;
+        self.envelop.reset();
+        self.duty_sample_pointer = 0;
+    }
 }
