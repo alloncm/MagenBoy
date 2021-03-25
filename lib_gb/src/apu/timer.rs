@@ -1,5 +1,5 @@
 pub struct Timer{
-    pub cycles_to_tick:u16,
+    cycles_to_tick:u16,
     cycle_counter:u16
 }
 
@@ -22,5 +22,10 @@ impl Timer{
         }
 
         return false;
+    }
+
+    pub fn update_cycles_to_tick(&mut self, cycles_to_tick:u16){
+        self.cycles_to_tick = cycles_to_tick;
+        self.cycle_counter = 0;
     }
 }

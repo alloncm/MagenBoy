@@ -122,6 +122,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             apu::update_apu_registers(&mut self.mmu, &mut self.apu);
             self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);
 
+            //clears io ports
+            self.mmu.io_ports.clear_io_ports_triggers();
+
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
             if !last_ppu_power_state && self.ppu.screen_enable{

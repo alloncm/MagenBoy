@@ -113,6 +113,10 @@ impl IoPorts{
     pub fn get_ports_cycle_trigger(&mut self)->&mut [bool; IO_PORTS_SIZE]{
         return &mut self.ports_cycle_trigger;
     }
+
+    pub fn clear_io_ports_triggers(&mut self){
+        unsafe{std::ptr::write_bytes::<bool>(self.ports_cycle_trigger.as_mut_ptr(), 0, IO_PORTS_SIZE);}
+    }
 }
 
 impl Default for IoPorts{

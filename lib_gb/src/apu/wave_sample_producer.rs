@@ -37,6 +37,11 @@ impl SampleProducer for WaveSampleProducer{
 
         return self.shift_by_volume(sample) as i8;
     }
+
+    fn reset(&mut self) {
+        self.volume = 0;
+        self.sample_counter = 0;
+    }
 }
 
 impl WaveSampleProducer{

@@ -43,5 +43,13 @@ impl SampleProducer for ToneSweepSampleProducer{
 
         return sample;
     }
+
+    fn reset(&mut self) {
+        self.wave_duty = 0;
+        self.duty_sample_pointer = 0;
+
+        self.envelop.reset();
+        self.sweep.reset();
+    }
 }
 
