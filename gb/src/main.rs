@@ -90,11 +90,11 @@ fn main() {
 
     let buffer_width = SCREEN_WIDTH as u32 * screen_scale;
     let buffer_height = SCREEN_HEIGHT as u32* screen_scale;
-
+    let program_name = CString::new("MagenBoy").unwrap();
     let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
         SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
         let wind:*mut SDL_Window = SDL_CreateWindow(
-            CString::new("MagenBoy").unwrap().as_ptr(),
+            program_name.as_ptr(),
             SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
             buffer_width as i32, buffer_height as i32, 0);
         
