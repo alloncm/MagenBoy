@@ -67,7 +67,7 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
         channel.sound_length = 64 - length_data as u16
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x21]{
-        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR24_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
+        update_volume_envelope(&mut channel.volume, memory.read_unprotected(0xFF21), &mut channel.sample_producer.envelop);
         if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
