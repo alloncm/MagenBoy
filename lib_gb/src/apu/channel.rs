@@ -4,7 +4,7 @@ use super::timer::Timer;
 pub struct Channel<Procuder: SampleProducer>{
     pub enabled:bool,
     pub frequency:u16,
-    pub sound_length:u8,
+    pub sound_length:u16,
     pub volume:u8,
     pub length_enable:bool,
     pub sample_producer:Procuder,
@@ -29,11 +29,11 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
     }
 
     pub fn update_length_register(&mut self){
-        if self.enabled{
+        if self.length_enable{
             if self.sound_length > 0{
                 self.sound_length -= 1;
             }
-            if self.sound_length == 0 && self.length_enable{
+            if self.sound_length == 0{
                 self.enabled = false;
             }
         }

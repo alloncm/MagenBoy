@@ -32,12 +32,10 @@ pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD
     }
 }
 
-fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut GbMmu){
+fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut GbMmu){ 
+
     if memory.io_ports.get_ports_cycle_trigger()[0x16]{
-        channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111);
-        if channel.sound_length == 0{
-            channel.sound_length = 63;
-        }
+        channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x17]{
         update_volume_envelope(&mut channel.volume, memory.read_unprotected(0xFF17), &mut channel.sample_producer.envelop);
@@ -58,16 +56,15 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
         channel.frequency |= (nr24 as u16 & 0b111) << 8;
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
-        update_channel_conrol_register(channel, dac_enabled, nr24, 63, 0);
+        update_channel_conrol_register(channel, dac_enabled, nr24, 64, 0);
     }
 }
 
 fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut GbMmu){
+
     if memory.io_ports.get_ports_cycle_trigger()[0x20]{
-        channel.sound_length = 64 - (memory.read_unprotected(NR41_REGISTER_ADDRESS) & 0b11_1111);
-        if channel.sound_length == 0{
-            channel.sound_length = 63;
-        }
+        let length_data = memory.read_unprotected(NR41_REGISTER_ADDRESS) & 0b11_1111;
+        channel.sound_length = 64 - length_data as u16
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x21]{
         update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR24_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
@@ -79,7 +76,7 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
         
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
-        update_channel_conrol_register(channel, dac_enabled, nr44, 63, 0);
+        update_channel_conrol_register(channel, dac_enabled, nr44, 64, 0);
     }
 }
 
@@ -105,16 +102,14 @@ fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl Un
 }
 
 fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut GbMmu){
+
     if memory.io_ports.get_ports_cycle_trigger()[0x1A]{
         if (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) == 0{
             channel.enabled = false;
         }
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1B]{
-        channel.sound_length = (256 - (memory.read_unprotected(0xFF1B) as u16)) as u8;
-        if channel.sound_length == 0{
-            channel.sound_length = 255;
-        }
+        channel.sound_length = 256 - (memory.read_unprotected(0xFF1B) as u16);
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1C]{
         //I want bits 5-6
@@ -138,7 +133,7 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
-        update_channel_conrol_register(channel, dac_enabled, nr34, 0xFF, timer_cycles_to_tick)
+        update_channel_conrol_register(channel, dac_enabled, nr34, 256, timer_cycles_to_tick)
     }
 
     for i in 0..=0xF{
@@ -153,7 +148,6 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
     let nr13 = memory.read_unprotected(0xFF13);
     let nr14 = memory.read_unprotected(0xFF14);
 
-
     if memory.io_ports.get_ports_cycle_trigger()[0x10]{
         //sweep
         channel.sample_producer.sweep.sweep_decrease = (nr10 & 0b1000) != 0;
@@ -162,10 +156,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x11]{
         channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
-        channel.sound_length = 64 - (nr11 & 0b11_1111);
-        if channel.sound_length == 0{
-            channel.sound_length = 63;
-        }
+        channel.sound_length = 64 - (nr11 & 0b11_1111) as u16
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x12]{
         update_volume_envelope(&mut channel.volume, nr12, &mut channel.sample_producer.envelop);
@@ -190,7 +181,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
         
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(4);
-        update_channel_conrol_register(channel, dac_enabled, nr14, 63, timer_cycles_to_tick);
+        update_channel_conrol_register(channel, dac_enabled, nr14, 64, timer_cycles_to_tick);
 
         if nr14 & BIT_7_MASK != 0{
             //volume
@@ -203,7 +194,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
     }
 }
 
-fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8, max_sound_length:u8, timer_cycles_to_tick:u16){
+fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8, max_sound_length:u16, timer_cycles_to_tick:u16){
     channel.length_enable = (control_register & BIT_6_MASK) !=0;
 
     if (control_register & BIT_7_MASK) != 0{
@@ -214,8 +205,6 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
         if channel.sound_length == 0{
             channel.sound_length = max_sound_length;
         }
-
-        channel.length_enable = (control_register & BIT_6_MASK) != 0;
 
         channel.timer.update_cycles_to_tick(timer_cycles_to_tick);
     }
