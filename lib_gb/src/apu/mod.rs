@@ -133,7 +133,7 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
-        update_channel_conrol_register(channel, dac_enabled, nr34, 256, timer_cycles_to_tick)
+        update_channel_conrol_register(channel, dac_enabled, nr34, 256, timer_cycles_to_tick);
     }
 
     for i in 0..=0xF{

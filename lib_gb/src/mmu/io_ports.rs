@@ -79,17 +79,13 @@ impl Memory for IoPorts{
 
     fn write(&mut self, address:u16, mut value:u8){
         match address{
-            DIV_REGISTER_INDEX=>{
-                value = 0;
-            },
+            DIV_REGISTER_INDEX=> value = 0,
             TAC_REGISTER_INDEX=> value &= 0b111,
             STAT_REGISTER_INDEX => value = (value >> 2) << 2,
             JOYP_REGISTER_INDEX => {
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
-            },
-            NR31_REGISTER_INDEX=> value = 0xFF,
-            NR52_REGISTER_INDEX=> value &= 0xF0,
+            }
             _=>{}
         }
         
