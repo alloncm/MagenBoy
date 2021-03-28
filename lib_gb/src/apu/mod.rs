@@ -172,8 +172,6 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
         channel.frequency |= nr13 as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x14]{
-        channel.length_enable = (nr14 & BIT_6_MASK) != 0;
-
         //discard upper bit
         channel.frequency <<= 8;
         channel.frequency >>= 8;
@@ -192,10 +190,23 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
 
         }
     }
+    else{
+        channel.possible_extra_length_clocking = false;
+    }
 }
 
 fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8, max_sound_length:u16, timer_cycles_to_tick:u16){
+
+    let previous_length_enable = channel.length_enable;
+
     channel.length_enable = (control_register & BIT_6_MASK) !=0;
+
+    //the folowing behavior vary between gb and gbc
+    channel.possible_extra_length_clocking  = !previous_length_enable && channel.length_enable;
+
+    if channel.possible_extra_length_clocking{
+        println!("case found");
+    }
 
     if (control_register & BIT_7_MASK) != 0{
         if dac_enabled{

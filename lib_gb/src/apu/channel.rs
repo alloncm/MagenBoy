@@ -10,7 +10,10 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sample_producer:Procuder,
     pub timer:Timer,
 
-    last_sample:i8
+    last_sample:i8,
+
+    //GB specific
+    pub possible_extra_length_clocking:bool
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
@@ -24,7 +27,9 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             sample_producer:Procuder::default(),
             timer: Timer::new(0),
 
-            last_sample: 0
+            last_sample: 0,
+
+            possible_extra_length_clocking:false
         }   
     }
 
@@ -36,6 +41,13 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             if self.sound_length == 0{
                 self.enabled = false;
             }
+        }
+    }
+
+    pub fn update_extra_length_clock(&mut self){
+        if self.possible_extra_length_clocking{
+            self.update_length_register();
+            self.possible_extra_length_clocking = false;
         }
     }
 

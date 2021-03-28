@@ -115,6 +115,12 @@ impl<Device: AudioDevice> GbApu<Device>{
             self.noise_channel.update_length_register();
             self.tone_channel.update_length_register();
         }
+        if tick.extra_lenght_counter{
+            self.sweep_tone_channel.update_extra_length_clock();
+            self.wave_channel.update_extra_length_clock();
+            self.tone_channel.update_extra_length_clock();
+            self.noise_channel.update_extra_length_clock();
+        }
         if tick.volume_envelope{
             if self.sweep_tone_channel.enabled{
                 self.sweep_tone_channel.sample_producer.envelop.tick(&mut self.sweep_tone_channel.volume);
