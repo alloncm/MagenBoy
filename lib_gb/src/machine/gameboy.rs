@@ -150,7 +150,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
     fn execute_opcode(&mut self)->u8{
         let pc = self.cpu.program_counter;
-        
+        if pc == 0xC203 || pc == 0xC21C || pc == 0xC201{
+            println!("debug");
+        }
         let opcode:u8 = self.fetch_next_byte();
 
         //debug
@@ -166,6 +168,8 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             debug!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
             a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
+
+        
         
         let opcode_func:OpcodeFuncType<GbMmu> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{

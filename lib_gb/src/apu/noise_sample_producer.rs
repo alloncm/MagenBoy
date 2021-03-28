@@ -1,12 +1,18 @@
-use super::sample_producer::SampleProducer;
+use super::{sample_producer::SampleProducer, volume_envelop::VolumeEnvlope};
 
 pub struct NoiseSampleProducer{
-    
+    pub envelop: VolumeEnvlope,
 }
 
 impl Default for NoiseSampleProducer{
     fn default() -> Self {
-        Self{}
+        Self{
+            envelop:VolumeEnvlope{
+                envelop_duration_counter:0,
+                increase_envelope:false,
+                number_of_envelope_sweep:0
+            }
+        }
     }
 }
 

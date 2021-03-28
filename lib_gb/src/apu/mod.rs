@@ -1,5 +1,10 @@
-use crate::{mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory}, utils::{bit_masks::*, memory_registers::{NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS}}};
-use self::{audio_device::AudioDevice, channel::Channel, gb_apu::GbApu, sample_producer::SampleProducer};
+use crate::{
+    mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory}, 
+    utils::{bit_masks::*, memory_registers::{
+        NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR30_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS
+    }}
+};
+use self::{audio_device::AudioDevice, channel::Channel, gb_apu::GbApu, noise_sample_producer::NoiseSampleProducer, sample_producer::SampleProducer, tone_sample_producer::ToneSampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer, volume_envelop::VolumeEnvlope, wave_sample_producer::WaveSampleProducer};
 
 pub mod gb_apu;
 pub mod channel;
@@ -20,32 +25,61 @@ pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD
     prepare_control_registers(apu, memory);
 
     if apu.enabled{
-        prepare_wave_channel(apu, memory);
-        prepare_tone_sweep_channel(apu, memory);
-        prepare_noise_channel(apu, memory);
-        prepare_tone_channel(apu, memory);
+        prepare_wave_channel(&mut apu.wave_channel, memory);
+        prepare_tone_sweep_channel(&mut apu.sweep_tone_channel, memory);
+        prepare_noise_channel(&mut apu.noise_channel, memory);
+        prepare_tone_channel(&mut apu.tone_channel, memory);
     }
 }
 
-fn prepare_tone_channel<AD:AudioDevice>(apu: &mut GbApu<AD>, memory:&mut impl UnprotectedMemory){
-    let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
-    if nr24 & BIT_7_MASK != 0{
-
-        let nr21 = memory.read_unprotected(NR21_REGISTER_ADDRESS);
-        apu.tone_channel.sound_length = nr21 & 0b11_1111;
-        apu.tone_channel.length_enable = nr24 & BIT_6_MASK != 0;
-        apu.tone_channel.sample_producer.wave_duty = (nr21 & 0b1100_0000) >> 6;
-        memory.write_unprotected(NR24_REGISTER_ADDRESS, nr24 & 0b0111_1111);
+fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut GbMmu){
+    if memory.io_ports.get_ports_cycle_trigger()[0x16]{
+        channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111);
+        if channel.sound_length == 0{
+            channel.sound_length = 63;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x17]{
+        update_volume_envelope(&mut channel.volume, memory.read_unprotected(0xFF17), &mut channel.sample_producer.envelop);
+        
+        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
+            channel.enabled = false;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x18]{
+        //discard lower bit
+        channel.frequency >>= 8;
+        channel.frequency <<= 8;
+        channel.frequency |= memory.read_unprotected(0xFF18) as u16;
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x19]{
+        //log::warn!("tone triger");
+        //log::warn!("vol: {} swp: {}", channel.volume, channel.sample_producer.envelop.increase_envelope);
+        let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
+        channel.frequency |= (nr24 as u16 & 0b111) << 8;
+        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        update_channel_conrol_register(channel, dac_enabled, nr24, 63, 0);
     }
 }
 
-fn prepare_noise_channel<AD:AudioDevice>(apu: &mut GbApu<AD>, memory:&mut impl UnprotectedMemory){
-    let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
-    if nr44 & BIT_7_MASK != 0{
-        let nr41 = memory.read_unprotected(NR41_REGISTER_ADDRESS);
-        apu.noise_channel.sound_length = nr41 & 0b11_1111;
-        apu.noise_channel.length_enable = nr44 & BIT_6_MASK != 0;
-        memory.write_unprotected(NR44_REGISTER_ADDRESS, nr44 & 0b0111_1111);
+fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut GbMmu){
+    if memory.io_ports.get_ports_cycle_trigger()[0x20]{
+        channel.sound_length = 64 - (memory.read_unprotected(NR41_REGISTER_ADDRESS) & 0b11_1111);
+        if channel.sound_length == 0{
+            channel.sound_length = 63;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x21]{
+        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR24_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
+        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
+            channel.enabled = false;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x23]{
+        
+        let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
+        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        update_channel_conrol_register(channel, dac_enabled, nr44, 63, 0);
     }
 }
 
@@ -70,35 +104,49 @@ fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl Un
     apu.enabled = master_sound & BIT_7_MASK != 0;
 }
 
-fn prepare_wave_channel<AD:AudioDevice>(apu: &mut GbApu<AD>, memory:&impl UnprotectedMemory){
-    apu.wave_channel.sound_length = memory.read_unprotected(0xFF1B);
-    apu.wave_channel.enabled = memory.read_unprotected(0xFF1A) & BIT_7_MASK != 0;
-    //I want bits 5-6
-    apu.wave_channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b011;
-    let mut freq = memory.read_unprotected(0xFF1D) as u16;
-    let nr34 = memory.read_unprotected(0xFF1E);
-    freq |= ((nr34 & 0b111) as u16) << 8;
-    apu.wave_channel.frequency = freq;
+fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut GbMmu){
+    if memory.io_ports.get_ports_cycle_trigger()[0x1A]{
+        if (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) == 0{
+            channel.enabled = false;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x1B]{
+        channel.sound_length = (256 - (memory.read_unprotected(0xFF1B) as u16)) as u8;
+        if channel.sound_length == 0{
+            channel.sound_length = 255;
+        }
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x1C]{
+        //I want bits 5-6
+        channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b011;
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x1D]{
+        
+        channel.frequency = memory.read_unprotected(0xFF1D) as u16;
+    }
+    if memory.io_ports.get_ports_cycle_trigger()[0x1E]{
+        let nr34 = memory.read_unprotected(0xFF1E);
+        channel.frequency |= ((nr34 & 0b111) as u16) << 8;
 
-    // According to the docs the frequency is 65536/(2048-x) Hz
-    // After some calculations if we are running in 0x400000 Hz this should be the 
-    // amount of cycles we should trigger a new sample
-    // 
-    // Rate is for how many cycles I should trigger.
-    // So I did the frequency of the cycles divided by the frequency of this channel
-    // which is 0x400000 / 65536 (2048 - x) = 64(2048 - x)
-    apu.wave_channel.timer.update_cycles_to_tick((2048 - freq).wrapping_mul(64));
-    
-    apu.wave_channel.length_enable = nr34 & BIT_6_MASK != 0;
+        // According to the docs the frequency is 65536/(2048-x) Hz
+        // After some calculations if we are running in 0x400000 Hz this should be the 
+        // amount of cycles we should trigger a new sample
+        // 
+        // Rate is for how many cycles I should trigger.
+        // So I did the frequency of the cycles divided by the frequency of this channel
+        // which is 0x400000 / 65536 (2048 - x) = 64(2048 - x)
+        let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
+
+        let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
+        update_channel_conrol_register(channel, dac_enabled, nr34, 0xFF, timer_cycles_to_tick)
+    }
 
     for i in 0..=0xF{
-        apu.wave_channel.sample_producer.wave_samples[i] = memory.read_unprotected(0xFF30 + i as u16);
+        channel.sample_producer.wave_samples[i] = memory.read_unprotected(0xFF30 + i as u16);
     }
 }
 
-fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut GbMmu){
-    let channel = &mut apu.sweep_tone_channel;
-
+fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, memory:&mut GbMmu){
     let nr10 = memory.read_unprotected(0xFF10);
     let nr11 = memory.read_unprotected(0xFF11);
     let nr12 = memory.read_unprotected(0xFF12);
@@ -114,17 +162,15 @@ fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x11]{
         channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
-        let sound_length = nr11 & 0b11_1111;
-        if sound_length != 0{
-            channel.sound_length = sound_length;
+        channel.sound_length = 64 - (nr11 & 0b11_1111);
+        if channel.sound_length == 0{
+            channel.sound_length = 63;
         }
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x12]{
+        update_volume_envelope(&mut channel.volume, nr12, &mut channel.sample_producer.envelop);
         
-        channel.volume = (nr12 & 0b1111_0000) >> 4;
-        channel.sample_producer.envelop.number_of_envelope_sweep = nr12 & 0b111;
-        channel.sample_producer.envelop.increase_envelope = (nr12 & BIT_3_MASK) != 0;
-        if channel.volume == 0 && channel.sample_producer.envelop.increase_envelope{
+        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
@@ -141,22 +187,14 @@ fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut Gb
         channel.frequency <<= 8;
         channel.frequency >>= 8;
         channel.frequency |= ((nr14 & 0b111) as u16) << 8;
+        
+        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(4);
+        update_channel_conrol_register(channel, dac_enabled, nr14, 63, timer_cycles_to_tick);
 
-        if nr14 & 0b1000_0000 != 0{
-            channel.enabled = true;
-            if channel.sound_length == 0{
-                channel.sound_length = 64;  
-            }
-
-            // See the wave for the calculation this channle freq is 131072/(2048-x) Hz
-            channel.timer.update_cycles_to_tick((2048 - channel.frequency).wrapping_mul(4));
-
+        if nr14 & BIT_7_MASK != 0{
             //volume
             channel.sample_producer.envelop.envelop_duration_counter = 0;
-            if channel.volume == 0 && channel.sample_producer.envelop.increase_envelope{
-                channel.enabled = false;
-                log::warn!("sweep tone is disabled");
-            }
             
             //sweep
             channel.sample_producer.sweep.shadow_frequency = channel.frequency;
@@ -165,7 +203,7 @@ fn prepare_tone_sweep_channel<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&mut Gb
     }
 }
 
-fn update_channel_conrol_register<T : SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8){
+fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8, max_sound_length:u8, timer_cycles_to_tick:u16){
     channel.length_enable = (control_register & BIT_6_MASK) !=0;
 
     if (control_register & BIT_7_MASK) != 0{
@@ -174,9 +212,21 @@ fn update_channel_conrol_register<T : SampleProducer>(channel:&mut Channel<T>, d
         }
 
         if channel.sound_length == 0{
-            channel.sound_length = 64;
+            channel.sound_length = max_sound_length;
         }
-    }
 
+        channel.length_enable = (control_register & BIT_6_MASK) != 0;
+
+        channel.timer.update_cycles_to_tick(timer_cycles_to_tick);
+    }
 }
 
+fn update_volume_envelope(volume: &mut u8, register:u8, envelop:&mut VolumeEnvlope){
+    *volume = (register & 0b1111_0000) >> 4;
+    envelop.number_of_envelope_sweep = register & 0b111;
+    envelop.increase_envelope = (register & BIT_3_MASK) != 0;
+}
+
+fn is_dac_enabled(volume:u8, envelop_increase:bool)->bool{
+    volume != 0 || envelop_increase
+}

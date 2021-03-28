@@ -117,23 +117,10 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         if tick.volume_envelope{
             if self.sweep_tone_channel.enabled{
-                let envelop = &mut self.sweep_tone_channel.sample_producer.envelop;
-
-                if envelop.number_of_envelope_sweep > 0 {
-                    envelop.envelop_duration_counter += 1;
-                    if envelop.envelop_duration_counter == envelop.number_of_envelope_sweep{
-                        if envelop.increase_envelope{
-                            let new_vol = self.sweep_tone_channel.volume + 1;
-                            self.sweep_tone_channel.volume = std::cmp::min(new_vol, 0xF);
-                        }
-                        else{
-                            let new_vol = self.sweep_tone_channel.volume as i8 - 1;
-                            self.sweep_tone_channel.volume = std::cmp::max::<i8>(new_vol, 0) as u8;
-                        }
-
-                        envelop.envelop_duration_counter = 0;
-                    }
-                }
+                self.sweep_tone_channel.sample_producer.envelop.tick(&mut self.sweep_tone_channel.volume);
+            }
+            if self.tone_channel.enabled{
+                self.tone_channel.sample_producer.envelop.tick(&mut self.tone_channel.volume);
             }
         }
     }

@@ -63,7 +63,7 @@ impl Memory for IoPorts{
             NR41_REGISTER_INDEX=> 0xFF,
             NR44_REGISTER_INDEX=> value | 0b1011_1111,
             NR52_REGISTER_INDEX=> {
-                log::warn!("{:#X}", value);
+                //log::warn!("{:#X}", value);
                 value | 0b0111_0000
             },
             0x27..=0x2F => 0xFF,//Not used

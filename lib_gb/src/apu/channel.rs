@@ -30,11 +30,11 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
     pub fn update_length_register(&mut self){
         if self.enabled{
+            if self.sound_length > 0{
+                self.sound_length -= 1;
+            }
             if self.sound_length == 0 && self.length_enable{
                 self.enabled = false;
-            }
-            else if self.sound_length > 0{
-                self.sound_length -= 1;
             }
         }
     }
@@ -59,7 +59,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         };
         
         self.last_sample = if self.enabled{
-             sample
+            sample
         }
         else{
             0
