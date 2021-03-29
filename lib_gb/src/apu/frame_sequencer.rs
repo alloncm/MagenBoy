@@ -2,7 +2,6 @@ use super::timer::Timer;
 
 pub struct TickType{
     pub length_counter:bool,
-    pub extra_lenght_counter:bool,
     pub volume_envelope:bool,
     pub frequency_sweep:bool
 }
@@ -30,8 +29,7 @@ impl FrameSequencer{
         let mut tick = TickType{
             frequency_sweep:false,
             volume_envelope: false,
-            length_counter: false,
-            extra_lenght_counter:false
+            length_counter: false
         };
 
         if self.timer.cycle(){
@@ -52,13 +50,17 @@ impl FrameSequencer{
                 tick.frequency_sweep = true;
             }
         }
-        else if self.length_counter_cycles == 0{
-            tick.extra_lenght_counter = true;
-        }
 
         return tick;
     }
 
+    pub fn should_next_step_clock_length(&self)->bool{
+        self.length_counter_cycles == 1
+    }
+
+
+    //probably redundant 
+    //TODO delete before merge if so
     pub fn reset(&mut self){
         //self.timer.update_cycles_to_tick(8192);
         self.length_counter_cycles = 1;
