@@ -51,12 +51,14 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
         channel.frequency |= memory.read_unprotected(0xFF18) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x19]{
-        //log::warn!("tone triger");
         //log::warn!("vol: {} swp: {}", channel.volume, channel.sample_producer.envelop.increase_envelope);
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
         channel.frequency |= (nr24 as u16 & 0b111) << 8;
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr24, 64, 0);
+    }
+    else{
+        channel.possible_extra_length_clocking = false;
     }
 }
 
@@ -77,6 +79,9 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr44, 64, 0);
+    }
+    else{
+        channel.possible_extra_length_clocking = false;
     }
 }
 
@@ -135,6 +140,9 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
         update_channel_conrol_register(channel, dac_enabled, nr34, 256, timer_cycles_to_tick);
     }
+    else{
+        channel.possible_extra_length_clocking = false;
+    }
 
     for i in 0..=0xF{
         channel.sample_producer.wave_samples[i] = memory.read_unprotected(0xFF30 + i as u16);
@@ -192,6 +200,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
     }
     else{
         channel.possible_extra_length_clocking = false;
+        channel.trigger = false;
     }
 }
 
@@ -202,7 +211,7 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
     channel.length_enable = (control_register & BIT_6_MASK) !=0;
 
     //the folowing behavior vary between gb and gbc
-    channel.possible_extra_length_clocking  = !previous_length_enable && channel.length_enable;
+    channel.possible_extra_length_clocking  = !previous_length_enable && channel.length_enable && channel.sound_length != 0;
 
     if channel.possible_extra_length_clocking{
         println!("case found");
@@ -215,6 +224,8 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
 
         if channel.sound_length == 0{
             channel.sound_length = max_sound_length;
+            channel.possible_extra_length_clocking = true;
+            //channel.trigger = true;
         }
 
         channel.timer.update_cycles_to_tick(timer_cycles_to_tick);
