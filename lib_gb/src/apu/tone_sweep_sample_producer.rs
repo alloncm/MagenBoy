@@ -15,10 +15,12 @@ impl Default for ToneSweepSampleProducer{
         ToneSweepSampleProducer{
             wave_duty:1,
             sweep:FreqSweep{
+                enabled:false,
                 sweep_shift:0,
                 sweep_decrease:false,
-                time_sweep:0,
-                shadow_frequency:0
+                sweep_counter:0,
+                shadow_frequency:0,
+                sweep_period:0
             },
             envelop:VolumeEnvlope{
                 increase_envelope:false,

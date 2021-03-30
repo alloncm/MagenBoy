@@ -4,7 +4,7 @@ use crate::{
         NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR30_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS
     }}
 };
-use self::{audio_device::AudioDevice, channel::Channel, frame_sequencer::FrameSequencer, gb_apu::GbApu, noise_sample_producer::NoiseSampleProducer, sample_producer::SampleProducer, tone_sample_producer::ToneSampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer, volume_envelop::VolumeEnvlope, wave_sample_producer::WaveSampleProducer};
+use self::{audio_device::AudioDevice, channel::Channel, frame_sequencer::FrameSequencer, freq_sweep::FreqSweep, gb_apu::GbApu, noise_sample_producer::NoiseSampleProducer, sample_producer::SampleProducer, tone_sample_producer::ToneSampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer, volume_envelop::VolumeEnvlope, wave_sample_producer::WaveSampleProducer};
 
 pub mod gb_apu;
 pub mod channel;
@@ -151,7 +151,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
         //sweep
         channel.sample_producer.sweep.sweep_decrease = (nr10 & 0b1000) != 0;
         channel.sample_producer.sweep.sweep_shift = nr10 & 0b111;
-        channel.sample_producer.sweep.time_sweep = (nr10 & 0b111_0000) >> 4;
+        channel.sample_producer.sweep.sweep_period = (nr10 & 0b111_0000) >> 4;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x11]{
         channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
@@ -185,8 +185,13 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
             channel.sample_producer.envelop.envelop_duration_counter = 0;
             
             //sweep
-            channel.sample_producer.sweep.shadow_frequency = channel.frequency;
-
+            channel.sample_producer.sweep.channel_trigger(channel.frequency);
+            if channel.sample_producer.sweep.sweep_shift > 0{
+                log::warn!("calclation the freq nr14: {:#X}", nr14);
+                
+                let freq = channel.sample_producer.sweep.calculate_new_frequency();
+                channel.enabled = !FreqSweep::check_overflow(freq);
+            }
         }
     }
 }
@@ -214,7 +219,7 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
 
         if channel.sound_length == 0{
             channel.sound_length = max_sound_length;
-            
+
             if channel.length_enable && !fs.should_next_step_clock_length(){
                 channel.update_length_register();
             }

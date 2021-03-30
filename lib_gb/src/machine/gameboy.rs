@@ -150,14 +150,17 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
     fn execute_opcode(&mut self)->u8{
         let pc = self.cpu.program_counter;
-        if pc == 0xC20B{
+        if pc == 0xC2A5{
             println!("debug");
         }
-        if pc == 0xC644{
+        if pc == 0xC158{
             println!("Begin test: {}", self.cycles_counter*4);
         }
-        if pc == 0xC1EF{
-            println!("End test: {}", self.cycles_counter*4);
+        if pc == 0xC168{
+            println!("almost off End test: {}", self.cycles_counter*4);
+        }
+        if pc == 0xC17B{
+            println!("off End test: {}", self.cycles_counter*4);
         }
         let opcode:u8 = self.fetch_next_byte();
 

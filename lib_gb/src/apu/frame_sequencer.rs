@@ -8,18 +8,14 @@ pub struct TickType{
 
 pub struct FrameSequencer{
     timer:Timer,
-    length_counter_cycles:u32,
-    volume_envelope_cycles:u32,
-    frequency_sweep_cycles:u32
+    counter:u8
 }
 
 impl Default for FrameSequencer{
     fn default() -> Self {
         FrameSequencer{
             timer: Timer::new(8192),
-            length_counter_cycles:1,
-            frequency_sweep_cycles:1,
-            volume_envelope_cycles:0
+            counter:0
         }
     }
 }
@@ -33,38 +29,26 @@ impl FrameSequencer{
         };
 
         if self.timer.cycle(){
-            self.length_counter_cycles += 1;
-            self.volume_envelope_cycles += 1;
-            self.frequency_sweep_cycles += 1;
+            self.counter %= 8;
 
-            if self.length_counter_cycles >= 2{
-                self.length_counter_cycles = 0;
-                tick.length_counter = true;
+            match self.counter{
+                0 | 4 => tick.length_counter = true,
+                2 | 6 => {
+                    tick.length_counter = true;
+                    tick.frequency_sweep = true;
+                },
+                7 => tick.volume_envelope = true,
+                1 | 3 | 5 => {},
+                _=>std::panic!("wrong modolu operation in the fs")
             }
-            if self.volume_envelope_cycles >=8{
-                self.volume_envelope_cycles = 0;
-                tick.volume_envelope = true;
-            }
-            if self.frequency_sweep_cycles  >= 4{
-                self.frequency_sweep_cycles = 0;
-                tick.frequency_sweep = true;
-            }
+
+            self.counter += 1;
         }
 
         return tick;
     }
 
     pub fn should_next_step_clock_length(&self)->bool{
-        self.length_counter_cycles == 1
-    }
-
-
-    //probably redundant 
-    //TODO delete before merge if so
-    pub fn reset(&mut self){
-        //self.timer.update_cycles_to_tick(8192);
-        self.length_counter_cycles = 1;
-        self.volume_envelope_cycles = 0;
-        self.frequency_sweep_cycles = 1;
+        self.counter % 2 == 0
     }
 }

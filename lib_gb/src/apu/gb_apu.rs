@@ -1,4 +1,4 @@
-use super::{channel::Channel, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
+use super::{channel::{Channel, update_sweep_frequency}, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
 use super::wave_sample_producer::WaveSampleProducer;
 use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
 use super::audio_device::AudioDevice;
@@ -18,7 +18,7 @@ pub struct GbApu<Device: AudioDevice>{
     pub noise_channel: Channel<NoiseSampleProducer>,
 
     pub frame_sequencer: FrameSequencer,
-    
+
     audio_buffer:[f32;AUDIO_BUFFER_SIZE],
     current_t_cycle:u32,
     device:Device,
@@ -89,24 +89,15 @@ impl<Device: AudioDevice> GbApu<Device>{
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
         if tick.frequency_sweep{
             if self.sweep_tone_channel.enabled{
-                let sweep = &mut self.sweep_tone_channel.sample_producer.sweep;
-                if sweep.time_sweep != 0 && sweep.sweep_shift != 0{
-                    let mut shifted_freq:i32 = (sweep.shadow_frequency >> sweep.sweep_shift) as i32;
+                let sweep:&mut FreqSweep = &mut self.sweep_tone_channel.sample_producer.sweep;
+                if sweep.sweep_counter > 0{
+                    sweep.sweep_counter -= 1;
+                }
+                if sweep.sweep_counter == 0{
+                    log::warn!("running the sweep");
+                    sweep.reload_sweep_time();
 
-                    if sweep.sweep_decrease{
-                        shifted_freq *= -1;
-                    }
-
-                    shifted_freq += sweep.shadow_frequency as i32;
-
-                    if shifted_freq >= 2048 || shifted_freq <= 0{
-                        self.sweep_tone_channel.enabled = false;
-                    }
-                    else{
-                        sweep.time_sweep -= 1;
-                        self.sweep_tone_channel.frequency = shifted_freq as u16;
-                        self.sweep_tone_channel.timer.update_cycles_to_tick((2048 - self.sweep_tone_channel.frequency).wrapping_mul(4));
-                    }
+                    update_sweep_frequency(&mut self.sweep_tone_channel);
                 }
             }
         }
