@@ -8,7 +8,7 @@ pub struct Channel<Procuder: SampleProducer>{
     pub volume:u8,
     pub length_enable:bool,
     pub sample_producer:Procuder,
-    pub timer:Timer,
+    pub timer:Option<Timer>,
 
     last_sample:i8,
 }
@@ -22,7 +22,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             volume:0,
             length_enable:false,
             sample_producer:Procuder::default(),
-            timer: Timer::new(0),
+            timer: None,
 
             last_sample: 0
         }   
@@ -44,32 +44,39 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         self.frequency = 0;
         self.length_enable = false;
         self.sound_length = 0;
-        self.timer.update_cycles_to_tick(0);
+        self.timer = None;
         self.volume = 0;
 
         self.last_sample = 0;
     }
 
     pub fn get_audio_sample(&mut self)->f32{
-        let sample = if self.timer.cycle(){
-            self.sample_producer.produce()
-        }
-        else{
-            self.last_sample
-        };
-        
-        self.last_sample = if self.enabled{
-            sample
-        }
-        else{
-            0
-        };
+        let mut sample:i8 = 0; // default value
+        if self.enabled{
+            if let Some(timer) = &mut self.timer{
 
-        self.convert_digtial_to_analog(self.last_sample)
+                sample = if timer.cycle(){
+                    timer.update_cycles_to_tick(Procuder::get_updated_frequency_ticks(self.frequency));
+                    self.sample_producer.produce()
+                }
+                else{
+                    self.last_sample
+                };
+            }
+            else{
+                self.timer = Some(Timer::new(Procuder::get_updated_frequency_ticks(self.frequency)));
+            }
+
+            self.last_sample = sample;
+    
+            return self.convert_digtial_to_analog(self.last_sample);
+        }
+        
+        return 0.0;
     }
 
     fn convert_digtial_to_analog(&self, sample:i8)->f32{
-        (sample * self.volume as i8) as f32 / 100.0
+        ((sample * self.volume as i8) as f32 / 7.5 ) - 1.0
     }
 }
 
@@ -86,7 +93,6 @@ pub fn update_sweep_frequency(channel:&mut Channel<ToneSweepSampleProducer>){
         if new_freq <= 2047 && sweep.sweep_shift > 0{
             sweep.shadow_frequency = new_freq;
             channel.frequency = new_freq;
-            channel.timer.update_cycles_to_tick((2048 - channel.frequency).wrapping_mul(4));
 
             //Another overflow check
             new_freq = sweep.calculate_new_frequency();

@@ -46,6 +46,10 @@ impl SampleProducer for ToneSweepSampleProducer{
         return sample;
     }
 
+    fn get_updated_frequency_ticks(freq:u16) ->u16 {
+        (2048 - freq).wrapping_mul(4)
+    }
+
     fn reset(&mut self) {
         self.wave_duty = 0;
         self.duty_sample_pointer = 0;

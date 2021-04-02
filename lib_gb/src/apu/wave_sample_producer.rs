@@ -42,6 +42,10 @@ impl SampleProducer for WaveSampleProducer{
         self.volume = 0;
         self.sample_counter = 0;
     }
+
+    fn get_updated_frequency_ticks(freq:u16)->u16 {
+        (2048 - freq).wrapping_mul(2)
+    }
 }
 
 impl WaveSampleProducer{

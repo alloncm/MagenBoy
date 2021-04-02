@@ -55,7 +55,7 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
         channel.frequency |= (nr24 as u16 & 0b111) << 8;
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
-        update_channel_conrol_register(channel, dac_enabled, nr24, 64, 0, fs);
+        update_channel_conrol_register(channel, dac_enabled, nr24, 64, fs);
     }
 }
 
@@ -75,7 +75,7 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
         
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
-        update_channel_conrol_register(channel, dac_enabled, nr44, 64, 0, fs);
+        update_channel_conrol_register(channel, dac_enabled, nr44, 64, fs);
     }
 }
 
@@ -129,10 +129,10 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         // Rate is for how many cycles I should trigger.
         // So I did the frequency of the cycles divided by the frequency of this channel
         // which is 0x400000 / 65536 (2048 - x) = 64(2048 - x)
-        let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
+        //let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
-        update_channel_conrol_register(channel, dac_enabled, nr34, 256, timer_cycles_to_tick,fs);
+        update_channel_conrol_register(channel, dac_enabled, nr34, 256, fs);
     }
 
     for i in 0..=0xF{
@@ -177,8 +177,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
         channel.frequency |= ((nr14 & 0b111) as u16) << 8;
         
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
-        let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(4);
-        update_channel_conrol_register(channel, dac_enabled, nr14, 64, timer_cycles_to_tick,fs);
+        update_channel_conrol_register(channel, dac_enabled, nr14, 64, fs);
 
         if nr14 & BIT_7_MASK != 0{
             //volume
@@ -197,7 +196,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
 }
 
 fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac_enabled:bool, control_register:u8, 
-    max_sound_length:u16, timer_cycles_to_tick:u16, fs:&FrameSequencer){
+    max_sound_length:u16, fs:&FrameSequencer){
 
     let previous_length_enable = channel.length_enable;
 
@@ -224,8 +223,6 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
                 channel.update_length_register();
             }
         }
-
-        channel.timer.update_cycles_to_tick(timer_cycles_to_tick);
     }
 }
 
