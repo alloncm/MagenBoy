@@ -94,12 +94,10 @@ impl SdlAudioDevie{
 
 impl AudioDevice for SdlAudioDevie{
     fn push_buffer(&mut self, buffer:&[f32]){
-        let mut counter = 0;
+        let mut counter = 0; 
         for sample in buffer.into_iter(){
-            if *sample != 0.0{
-                //log::info!("{}", sample)
-            }
             
+            counter += 1;
             if counter == self.to_skip{
                 self.buffer.push(*sample);
                 counter = 0;
@@ -109,9 +107,10 @@ impl AudioDevice for SdlAudioDevie{
                     self.buffer.clear();
                 }
             }
-            else{
-                counter += 1;
-            }
+        }
+        if !self.buffer.is_empty(){
+            self.push_audio_to_device(&self.buffer).unwrap();
+            self.buffer.clear();
         }
     }
 }

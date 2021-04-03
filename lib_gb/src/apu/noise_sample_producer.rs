@@ -26,6 +26,6 @@ impl SampleProducer for NoiseSampleProducer{
     }
 
     fn get_updated_frequency_ticks(_freq:u16)->u16 {
-        todo!()
+        0
     }
 }

@@ -72,7 +72,12 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         else{
             //Reseting the apu state
-            self.current_t_cycle += t_cycles as u32;
+            //self.current_t_cycle += t_cycles as u32;
+            if self.current_t_cycle != 0{
+                self.device.push_buffer(&self.audio_buffer[0 .. self.current_t_cycle as usize]);
+            }
+            self.current_t_cycle = 0;
+
             for i in NR10_REGISTER_ADDRESS..NR52_REGISTER_ADDRESS{
                 memory.write_unprotected(i, 0);
             }
@@ -94,7 +99,6 @@ impl<Device: AudioDevice> GbApu<Device>{
                     sweep.sweep_counter -= 1;
                 }
                 if sweep.sweep_counter == 0{
-                    log::warn!("running the sweep");
                     sweep.reload_sweep_time();
 
                     update_sweep_frequency(&mut self.sweep_tone_channel);

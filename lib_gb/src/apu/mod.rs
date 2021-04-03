@@ -186,7 +186,6 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
             //sweep
             channel.sample_producer.sweep.channel_trigger(channel.frequency);
             if channel.sample_producer.sweep.sweep_shift > 0{
-                log::warn!("calclation the freq nr14: {:#X}", nr14);
                 
                 let freq = channel.sample_producer.sweep.calculate_new_frequency();
                 channel.enabled = !FreqSweep::check_overflow(freq);
@@ -223,6 +222,8 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
                 channel.update_length_register();
             }
         }
+
+        channel.timer.update_cycles_to_tick(T::get_updated_frequency_ticks(channel.frequency));
     }
 }
 

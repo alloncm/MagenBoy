@@ -76,7 +76,6 @@ fn buttons_mapper(button:Button)->SDL_Scancode{
 }
 
 fn main() {
-
     let screen_scale:u32 = 4;
 
     let args: Vec<String> = env::args().collect();    
@@ -136,6 +135,10 @@ fn main() {
 
     let time:Instant = Instant::now();
     let mut last_time:Duration = time.elapsed();
+
+
+    let mut s = String::new();
+    std::io::stdin().read_line(&mut s).unwrap();
 
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
