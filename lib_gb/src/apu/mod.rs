@@ -181,7 +181,7 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
 
         if nr14 & BIT_7_MASK != 0{
             //volume
-            channel.sample_producer.envelop.envelop_duration_counter = 0;
+            channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
             
             //sweep
             channel.sample_producer.sweep.channel_trigger(channel.frequency);
@@ -223,6 +223,7 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
             }
         }
 
+        channel.current_volume = channel.volume;
         channel.timer.update_cycles_to_tick(T::get_updated_frequency_ticks(channel.frequency));
     }
 }
