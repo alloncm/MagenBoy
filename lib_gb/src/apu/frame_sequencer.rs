@@ -51,4 +51,9 @@ impl FrameSequencer{
     pub fn should_next_step_clock_length(&self)->bool{
         self.counter % 2 == 0
     }
+
+    pub fn reset(&mut self){
+        self.timer.update_cycles_to_tick(8192);
+        self.counter = 0;
+    }
 }

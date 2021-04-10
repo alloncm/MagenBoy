@@ -63,7 +63,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             
                 let sample = self.sweep_tone_channel.get_audio_sample();
             
-                self.audio_buffer[self.current_t_cycle as usize] = sample;
+                self.audio_buffer[self.current_t_cycle as usize] = sample / 4.0;
                 
                 self.current_t_cycle += 1;
             }
@@ -72,11 +72,16 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         else{
             //Reseting the apu state
-            //self.current_t_cycle += t_cycles as u32;
-            if self.current_t_cycle != 0{
-                self.device.push_buffer(&self.audio_buffer[0 .. self.current_t_cycle as usize]);
+            
+            for _ in 0..t_cycles{
+                if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
+                    self.current_t_cycle = 0;
+                    self.device.push_buffer(&self.audio_buffer);
+                }
+
+                self.audio_buffer[self.current_t_cycle as usize] = 0.0;
+                self.current_t_cycle += 1;
             }
-            self.current_t_cycle = 0;
 
             for i in NR10_REGISTER_ADDRESS..NR52_REGISTER_ADDRESS{
                 memory.write_unprotected(i, 0);
@@ -86,6 +91,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             self.sweep_tone_channel.reset();
             self.wave_channel.reset();
             self.noise_channel.reset();
+            self.frame_sequencer.reset();
         }            
 
         self.last_enabled_state = self.enabled;
@@ -113,10 +119,10 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         if tick.volume_envelope{
             if self.sweep_tone_channel.enabled{
-                self.sweep_tone_channel.sample_producer.envelop.tick(&mut self.sweep_tone_channel.volume);
+                self.sweep_tone_channel.sample_producer.envelop.tick(&mut self.sweep_tone_channel.current_volume);
             }
             if self.tone_channel.enabled{
-                self.tone_channel.sample_producer.envelop.tick(&mut self.tone_channel.volume);
+                self.tone_channel.sample_producer.envelop.tick(&mut self.tone_channel.current_volume);
             }
         }
     }
