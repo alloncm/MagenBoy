@@ -182,14 +182,10 @@ fn main() {
     let time:Instant = Instant::now();
     let mut last_time:Duration = time.elapsed();
 
-
-    let mut s = String::new();
-    std::io::stdin().read_line(&mut s).unwrap();
-
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
         loop{
-             if SDL_PollEvent(event.as_mut_ptr()) != 0{
+            if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
                 if event.type_ == SDL_EventType::SDL_QUIT as u32{
                     break;

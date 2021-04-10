@@ -15,6 +15,8 @@ const BUFFER_SIZE:usize = 1024;
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
     to_skip:u32,
+    sampling_buffer:Vec<f32>,
+    sampling_counter:u32,
 
     buffer: Vec<f32>
 }
@@ -64,7 +66,9 @@ impl SdlAudioDevie{
         return SdlAudioDevie{
             device_id: device_id,
             to_skip:to_skip,
-            buffer:Vec::with_capacity(BUFFER_SIZE)
+            buffer:Vec::with_capacity(BUFFER_SIZE),
+            sampling_counter:0,
+            sampling_buffer:Vec::with_capacity(to_skip as usize)
         };
     }
 
@@ -94,23 +98,26 @@ impl SdlAudioDevie{
 
 impl AudioDevice for SdlAudioDevie{
     fn push_buffer(&mut self, buffer:&[f32]){
-        let mut counter = 0; 
         for sample in buffer.into_iter(){
-            
-            counter += 1;
-            if counter == self.to_skip{
-                self.buffer.push(*sample);
-                counter = 0;
+            if self.sampling_counter == self.to_skip - 1{
+                let interpulated_sample = self.sampling_buffer.iter().fold(0.0, |acc, x| acc + *x) / self.sampling_buffer.len() as f32;
+                self.buffer.push(interpulated_sample);
+                self.sampling_counter = 0;
+                self.sampling_buffer.clear();
 
                 if self.buffer.len() == BUFFER_SIZE{
                     self.push_audio_to_device(&self.buffer).unwrap();
                     self.buffer.clear();
                 }
             }
+            else{
+                self.sampling_buffer.push(*sample);
+                self.sampling_counter += 1;
+            }
         }
-        if !self.buffer.is_empty(){
-            self.push_audio_to_device(&self.buffer).unwrap();
-            self.buffer.clear();
-        }
+        //if !self.buffer.is_empty(){
+        //    self.push_audio_to_device(&self.buffer).unwrap();
+        //    self.buffer.clear();
+        //}
     }
 }

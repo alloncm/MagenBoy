@@ -71,8 +71,6 @@ impl<Device: AudioDevice> GbApu<Device>{
             self.update_registers(memory);
         }
         else{
-            //Reseting the apu state
-            
             for _ in 0..t_cycles{
                 if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
                     self.current_t_cycle = 0;
@@ -83,6 +81,7 @@ impl<Device: AudioDevice> GbApu<Device>{
                 self.current_t_cycle += 1;
             }
 
+            //Reseting the apu state
             for i in NR10_REGISTER_ADDRESS..NR52_REGISTER_ADDRESS{
                 memory.write_unprotected(i, 0);
             }
