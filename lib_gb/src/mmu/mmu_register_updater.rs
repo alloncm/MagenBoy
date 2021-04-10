@@ -13,6 +13,9 @@ pub fn update_mmu_registers(memory: &mut GbMmu,dma:&mut OamDmaTransferer){
         ports[DMA_REGISTER_INDEX] = false;
         handle_dma_transfer_register(memory.read_unprotected(DMA_REGISTER_ADDRESS), dma, memory);
     }
+    else{
+        memory.dma_state = dma.enable;
+    }
 }
 
 fn handle_ppu_state(memory:&mut GbMmu, stat:u8){
