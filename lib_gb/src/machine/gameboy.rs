@@ -1,4 +1,4 @@
-use crate::{cpu::{gb_cpu::GbCpu}, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
+use crate::{cpu::{gb_cpu::GbCpu}, keypad::joypad_register_updater, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
 use crate::keypad::joypad::Joypad;
 use crate::keypad::joypad_provider::JoypadProvider;
 use crate::mmu::memory::Memory;
@@ -78,12 +78,15 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
 
         while self.cycles_counter < CYCLES_PER_FRAME{
             self.joypad_provider.provide(&mut joypad);
+            joypad_register_updater::update_joypad_registers(&joypad, &mut self.mmu);
 
             //CPU
             let mut cpu_cycles_passed = 1;
             if !self.cpu.halt{
                 cpu_cycles_passed = self.execute_opcode();
             }
+
+            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
             self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
