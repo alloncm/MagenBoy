@@ -8,3 +8,14 @@ pub const BIT_6_MASK:u8 = 1 << 6;
 pub const BIT_7_MASK:u8 = 1 << 7;
 
 pub const BIT_9_MASK:u16 = 1 << 9;
+
+pub fn set_bit(value:&mut u8, bit_number:u8, set:bool){
+    let mask = 1 << bit_number;
+    if set{
+        *value |= mask;
+    }
+    else{
+        let inverse_mask = !mask;
+        *value &= inverse_mask;
+    }
+}

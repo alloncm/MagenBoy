@@ -20,7 +20,6 @@ impl Memory for IoPorts{
         let mut value = self.ports[address as usize];
         match address{
             TAC_REGISTER_INDEX=> value &= 0b111,
-            STAT_REGISTER_INDEX => value = (value >> 2) << 2,
             JOYP_REGISTER_INDEX => {
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];
                 value = (joypad_value & 0xF) | (value & 0xF0);
