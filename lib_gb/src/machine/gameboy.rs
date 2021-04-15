@@ -95,6 +95,8 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
+            self.ppu.update_gb_screen(&mut self.mmu, cpu_cycles_passed as u32);
+            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
             
             //interrupts
             let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.ppu, &mut self.mmu);
@@ -102,17 +104,17 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
                 self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
                 timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
                 self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
-
+                mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
+                
+                //PPU
+                ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
+                self.ppu.update_gb_screen(&mut self.mmu, interrupt_cycles as u32);
                 mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
             }
 
             
             let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             
-            //PPU
-            ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
-            self.ppu.update_gb_screen(&mut self.mmu, iter_total_cycles);
-            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
