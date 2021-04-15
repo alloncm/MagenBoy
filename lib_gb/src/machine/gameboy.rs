@@ -86,12 +86,14 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
                 cpu_cycles_passed = self.execute_opcode();
             }
 
+            //For the DMA controller
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
             self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
             self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
             
+            //For the PPU
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
             ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
