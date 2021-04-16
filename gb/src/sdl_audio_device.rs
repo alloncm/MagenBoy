@@ -11,6 +11,7 @@ use sdl2::{
 
 const GB_SOUND_FREQUENCY:u32 = 4_194_304;
 const BUFFER_SIZE:usize = 1024;
+const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 4;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
@@ -86,6 +87,8 @@ impl SdlAudioDevie{
         let data_byte_len = (audio.len() * std::mem::size_of::<f32>()) as u32;
 
         unsafe{
+            while SDL_GetQueuedAudioSize(self.device_id) > SAMPLES_TO_WAIT{}
+
             SDL_ClearError();
             if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{
                 return Err(Self::get_sdl_error_message());
@@ -99,7 +102,10 @@ impl SdlAudioDevie{
 impl AudioDevice for SdlAudioDevie{
     fn push_buffer(&mut self, buffer:&[f32]){
         for sample in buffer.into_iter(){
-            if self.sampling_counter == self.to_skip - 1{
+            self.sampling_buffer.push(*sample);
+            self.sampling_counter += 1;
+
+            if self.sampling_counter == self.to_skip {
                 let interpulated_sample = self.sampling_buffer.iter().fold(0.0, |acc, x| acc + *x) / self.sampling_buffer.len() as f32;
                 self.buffer.push(interpulated_sample);
                 self.sampling_counter = 0;
@@ -110,14 +116,6 @@ impl AudioDevice for SdlAudioDevie{
                     self.buffer.clear();
                 }
             }
-            else{
-                self.sampling_buffer.push(*sample);
-                self.sampling_counter += 1;
-            }
         }
-        //if !self.buffer.is_empty(){
-        //    self.push_audio_to_device(&self.buffer).unwrap();
-        //    self.buffer.clear();
-        //}
     }
 }

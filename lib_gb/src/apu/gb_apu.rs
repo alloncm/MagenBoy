@@ -53,10 +53,6 @@ impl<Device: AudioDevice> GbApu<Device>{
 
         if self.enabled{
             for _ in 0..t_cycles{   
-                if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
-                    self.current_t_cycle = 0;
-                    self.device.push_buffer(&self.audio_buffer);
-                }
 
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
@@ -66,19 +62,18 @@ impl<Device: AudioDevice> GbApu<Device>{
                 self.audio_buffer[self.current_t_cycle as usize] = sample / 4.0;
                 
                 self.current_t_cycle += 1;
+
+                self.push_buffer_if_full();
             }
 
             self.update_registers(memory);
         }
         else{
             for _ in 0..t_cycles{
-                if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
-                    self.current_t_cycle = 0;
-                    self.device.push_buffer(&self.audio_buffer);
-                }
-
                 self.audio_buffer[self.current_t_cycle as usize] = 0.0;
                 self.current_t_cycle += 1;
+
+                self.push_buffer_if_full();
             }
 
             //Reseting the apu state
@@ -94,6 +89,13 @@ impl<Device: AudioDevice> GbApu<Device>{
         }            
 
         self.last_enabled_state = self.enabled;
+    }
+
+    fn push_buffer_if_full(&mut self){
+        if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
+            self.current_t_cycle = 0;
+            self.device.push_buffer(&self.audio_buffer);
+        }
     }
 
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
