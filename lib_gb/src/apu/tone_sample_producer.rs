@@ -37,7 +37,7 @@ impl SampleProducer for ToneSampleProducer{
         self.duty_sample_pointer = 0;
     }
 
-    fn get_updated_frequency_ticks(freq:u16)->u16 {
+    fn get_updated_frequency_ticks(&self, freq:u16)->u16 {
         (2048 - freq).wrapping_mul(4)
     }
 }

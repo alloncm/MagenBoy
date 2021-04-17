@@ -224,7 +224,7 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
         }
 
         channel.current_volume = channel.volume;
-        channel.timer.update_cycles_to_tick(T::get_updated_frequency_ticks(channel.frequency));
+        channel.timer.update_cycles_to_tick(channel.sample_producer.get_updated_frequency_ticks(channel.frequency));
     }
 }
 

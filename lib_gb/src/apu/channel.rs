@@ -16,6 +16,7 @@ pub struct Channel<Procuder: SampleProducer>{
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
     pub fn new()->Self{
+        let sample_producer = Procuder::default();
         Channel{
             enabled:false,
             frequency:0,
@@ -23,9 +24,8 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             volume:0,
             current_volume:0,
             length_enable:false,
-            sample_producer:Procuder::default(),
-            timer: Timer::new(Procuder::get_updated_frequency_ticks(0)),
-
+            timer: Timer::new(sample_producer.get_updated_frequency_ticks(0)),
+            sample_producer,
             last_sample: 0
         }   
     }
@@ -46,7 +46,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         self.frequency = 0;
         self.length_enable = false;
         self.sound_length = 0;
-        self.timer.update_cycles_to_tick(Procuder::get_updated_frequency_ticks(self.frequency));
+        self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
         self.volume = 0;
         self.current_volume = 0;
 
@@ -57,7 +57,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         if self.enabled{
 
             let sample = if self.timer.cycle(){
-                self.timer.update_cycles_to_tick(Procuder::get_updated_frequency_ticks(self.frequency));
+                self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
                 self.sample_producer.produce()
             }
             else{
