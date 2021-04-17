@@ -57,9 +57,12 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                let sample = self.sweep_tone_channel.get_audio_sample();
+                let ch1_sample = self.sweep_tone_channel.get_audio_sample();
+                let ch2_sample = self.tone_channel.get_audio_sample();
+
+                let mixed_sample = (ch1_sample + ch2_sample ) / 4.0;
             
-                self.audio_buffer[self.current_t_cycle as usize] = sample / 4.0;
+                self.audio_buffer[self.current_t_cycle as usize] = mixed_sample;
                 
                 self.current_t_cycle += 1;
 
