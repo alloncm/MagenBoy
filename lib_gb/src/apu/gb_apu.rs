@@ -59,8 +59,9 @@ impl<Device: AudioDevice> GbApu<Device>{
             
                 let ch1_sample = self.sweep_tone_channel.get_audio_sample();
                 let ch2_sample = self.tone_channel.get_audio_sample();
+                let ch4_sample = self.noise_channel.get_audio_sample();
 
-                let mixed_sample = (ch1_sample + ch2_sample ) / 4.0;
+                let mixed_sample = (ch1_sample + ch2_sample + ch4_sample ) / 4.0;
             
                 self.audio_buffer[self.current_t_cycle as usize] = mixed_sample;
                 

@@ -1,8 +1,9 @@
 use crate::{
-    mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory}, 
-    utils::{bit_masks::*, memory_registers::{
-        NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR30_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS
-    }}
+    mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory},
+    utils::{
+        bit_masks::*, 
+        memory_registers::{NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR30_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR43_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS}
+    }
 };
 use self::{audio_device::AudioDevice, channel::Channel, frame_sequencer::FrameSequencer, freq_sweep::FreqSweep, gb_apu::GbApu, noise_sample_producer::NoiseSampleProducer, sample_producer::SampleProducer, tone_sample_producer::ToneSampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer, volume_envelop::VolumeEnvlope, wave_sample_producer::WaveSampleProducer};
 
@@ -53,9 +54,16 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
     if memory.io_ports.get_ports_cycle_trigger()[0x19]{
         //log::warn!("vol: {} swp: {}", channel.volume, channel.sample_producer.envelop.increase_envelope);
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
+        //discrad upper bit
+        channel.frequency <<= 8;
+        channel.frequency >>= 8;
         channel.frequency |= (nr24 as u16 & 0b111) << 8;
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr24, 64, fs);
+        if nr24 & BIT_7_MASK != 0{
+            //volume
+            channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
+        }
     }
 }
 
@@ -71,11 +79,20 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
             channel.enabled = false;
         }
     }
+    if memory.io_ports.get_ports_cycle_trigger()[0x22]{
+        let nr43 = memory.read_unprotected(NR43_REGISTER_ADDRESS);
+        channel.sample_producer.bits_to_shift_divisor = (nr43 & 0b1110_0000) >> 5;
+        channel.sample_producer.width_mode = (nr43 & BIT_3_MASK) != 0;
+        channel.sample_producer.divisor_code = nr43 & 0b111;
+    }
     if memory.io_ports.get_ports_cycle_trigger()[0x23]{
-        
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr44, 64, fs);
+        if (nr44 & BIT_7_MASK) != 0{
+            //On trigger all the LFSR bits are set (lfsr is 15 bit register)
+            channel.sample_producer.lfsr = 0x7FFF;
+        }
     }
 }
 
