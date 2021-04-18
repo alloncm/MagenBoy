@@ -1,3 +1,5 @@
+use crate::utils::bit_masks::set_bit_u16;
+
 use super::{sample_producer::SampleProducer, volume_envelop::VolumeEnvlope};
 
 pub struct NoiseSampleProducer{
@@ -31,6 +33,7 @@ impl SampleProducer for NoiseSampleProducer{
         self.lfsr |= xor_result << 14;
 
         if self.width_mode{
+            set_bit_u16(&mut self.lfsr, 6, false);
             self.lfsr |= xor_result << 6;
         }
 

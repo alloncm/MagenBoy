@@ -81,7 +81,7 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x22]{
         let nr43 = memory.read_unprotected(NR43_REGISTER_ADDRESS);
-        channel.sample_producer.bits_to_shift_divisor = (nr43 & 0b1110_0000) >> 5;
+        channel.sample_producer.bits_to_shift_divisor = (nr43 & 0b1111_0000) >> 4;
         channel.sample_producer.width_mode = (nr43 & BIT_3_MASK) != 0;
         channel.sample_producer.divisor_code = nr43 & 0b111;
     }

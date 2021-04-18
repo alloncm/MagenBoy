@@ -129,6 +129,9 @@ impl<Device: AudioDevice> GbApu<Device>{
             if self.tone_channel.enabled{
                 self.tone_channel.sample_producer.envelop.tick(&mut self.tone_channel.current_volume);
             }
+            if self.noise_channel.enabled{
+                self.noise_channel.sample_producer.envelop.tick(&mut self.noise_channel.current_volume);
+            }
         }
     }
 
