@@ -129,7 +129,7 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1C]{
         //I want bits 5-6
-        channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b011;
+        channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b11;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1D]{
         
@@ -137,6 +137,9 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1E]{
         let nr34 = memory.read_unprotected(0xFF1E);
+
+        //clear the upper 8 bits
+        channel.frequency &= 0xFF;
         channel.frequency |= ((nr34 & 0b111) as u16) << 8;
 
         // According to the docs the frequency is 65536/(2048-x) Hz

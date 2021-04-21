@@ -21,19 +21,14 @@ impl SampleProducer for WaveSampleProducer{
     fn produce(&mut self) ->i8 {
         let mut sample = self.wave_samples[(self.sample_counter/2) as usize];
 
-        if self.sample_counter % 2 != 0{
-            sample &= 0x0F;
+        if self.sample_counter % 2 == 0{
+            sample >>= 4;
         }
         else{
-            sample &= 0xF0;
-            sample >>=4;
+            sample &= 0x0F;
         }
 
-        self.sample_counter+=1;
-
-        if self.sample_counter >= 32{
-            self.sample_counter = 0;
-        }
+        self.sample_counter = (self.sample_counter + 1) % 32;
 
         return self.shift_by_volume(sample) as i8;
     }
