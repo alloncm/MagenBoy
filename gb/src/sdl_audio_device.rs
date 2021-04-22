@@ -11,7 +11,7 @@ use sdl2::{
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
-const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 8;
+const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 4;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
