@@ -27,6 +27,7 @@ impl Default for NoiseSampleProducer{
 }
 
 impl SampleProducer for NoiseSampleProducer{
+    //Step the scranble opertaion one step.
     fn produce(&mut self)->u8 {
         let xor_result = (self.lfsr & 0b01) ^ ((self.lfsr & 0b10) >> 1);
         self.lfsr >>= 1;
@@ -49,6 +50,7 @@ impl SampleProducer for NoiseSampleProducer{
     }
 
     fn get_updated_frequency_ticks(&self, _freq:u16)->u16 {
+        //Divider code 0 is treated as 8
         let divisor:u16 = if self.divisor_code == 0{
             8
         }

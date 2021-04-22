@@ -1,14 +1,16 @@
+use super::sound_utils::NUMBER_OF_CHANNELS;
+
 pub struct SoundTerminal{
     pub enabled:bool,
     pub volume:u8,
-    pub channels:[bool;4]
+    pub channels:[bool;NUMBER_OF_CHANNELS]
 }
 
 impl Default for SoundTerminal{
     fn default() -> Self {
         SoundTerminal{
             enabled:false,
-            channels:[false;4],
+            channels:[false;NUMBER_OF_CHANNELS],
             volume:0
         }
     }
