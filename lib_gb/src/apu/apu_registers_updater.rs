@@ -11,7 +11,8 @@ use super::{
     tone_sample_producer::ToneSampleProducer, 
     tone_sweep_sample_producer::ToneSweepSampleProducer, 
     volume_envelop::VolumeEnvlope, 
-    wave_sample_producer::WaveSampleProducer
+    wave_sample_producer::WaveSampleProducer,
+    sound_utils::NUMBER_OF_CHANNELS
 };
 
 pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD>){
@@ -96,10 +97,10 @@ fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl Un
 
     let channels_output_terminals = memory.read_unprotected(NR51_REGISTER_ADDRESS);
 
-    for i in 0..4{
+    for i in 0..NUMBER_OF_CHANNELS{
         apu.right_terminal.channels[i as usize] = channels_output_terminals & (1 << i) != 0;
     }
-    for i in 0..4{
+    for i in 0..NUMBER_OF_CHANNELS{
         apu.left_terminal.channels[i as usize] = channels_output_terminals & (0b1_0000 << i) != 0;
     }
 

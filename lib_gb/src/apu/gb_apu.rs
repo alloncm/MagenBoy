@@ -7,7 +7,8 @@ use super::{
     sound_terminal::SoundTerminal, 
     tone_sample_producer::ToneSampleProducer, 
     tone_sweep_sample_producer::ToneSweepSampleProducer, 
-    wave_sample_producer::WaveSampleProducer
+    wave_sample_producer::WaveSampleProducer,
+    sound_utils::NUMBER_OF_CHANNELS
 };
 use crate::{
     mmu::memory::UnprotectedMemory, 
@@ -60,7 +61,7 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                let mut samples:[f32;4] = [0.0;4];
+                let mut samples:[f32;NUMBER_OF_CHANNELS] = [0.0;NUMBER_OF_CHANNELS];
                 samples[0] = self.sweep_tone_channel.get_audio_sample();
                 samples[1] = self.tone_channel.get_audio_sample();
                 samples[2] = self.wave_channel.get_audio_sample();
