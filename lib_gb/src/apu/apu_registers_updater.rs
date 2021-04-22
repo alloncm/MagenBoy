@@ -46,8 +46,7 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x18]{
         //discard lower bit
-        channel.frequency >>= 8;
-        channel.frequency <<= 8;
+        channel.frequency &= 0xFF00;
         channel.frequency |= memory.read_unprotected(0xFF18) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x19]{
@@ -108,7 +107,7 @@ fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl Un
         apu.right_terminal.channels[i as usize] = channels_output_terminals & (1 << i) != 0;
     }
     for i in 0..4{
-        apu.left_terminal.channels[i as usize] = channels_output_terminals & (0b10000 << i) != 0;
+        apu.left_terminal.channels[i as usize] = channels_output_terminals & (0b1_0000 << i) != 0;
     }
 
     let master_sound = memory.read_unprotected(0xFF26);
@@ -130,8 +129,9 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b11;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1D]{
-        
-        channel.frequency = memory.read_unprotected(0xFF1D) as u16;
+        //discard lower 8 bits
+        channel.frequency &= 0xFF00;
+        channel.frequency |= memory.read_unprotected(0xFF1D) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x1E]{
         let nr34 = memory.read_unprotected(0xFF1E);
@@ -178,15 +178,13 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
         }
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x13]{
-        //discard lower bit
-        channel.frequency >>= 8;
-        channel.frequency <<= 8;
+        //discard lower bits
+        channel.frequency &= 0xFF00;
         channel.frequency |= nr13 as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x14]{
-        //discard upper bit
-        channel.frequency <<= 8;
-        channel.frequency >>= 8;
+        //discard upper bits
+        channel.frequency &= 0xFF;
         channel.frequency |= ((nr14 & 0b111) as u16) << 8;
         
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
