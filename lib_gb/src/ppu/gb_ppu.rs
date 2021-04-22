@@ -16,7 +16,8 @@ use std::cmp;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
-//CPU frequrncy: 1,048,326 / 60 
+
+//CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
 pub const CYCLES_PER_FRAME:u32 = 17556;
 
 const OAM_CLOCKS:u8 = 20;

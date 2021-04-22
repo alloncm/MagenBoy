@@ -3,13 +3,11 @@ use std::{
     mem::MaybeUninit,
     ffi::{CStr, c_void}
 };
-use lib_gb::apu::audio_device::{AudioDevice, Sample};
+use lib_gb::{GB_FREQUENCY, apu::audio_device::{AudioDevice, Sample}};
 use sdl2::{
     sys::*,
     libc::c_char
 };
-
-const GB_SOUND_FREQUENCY:u32 = 4_194_304;
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
@@ -26,7 +24,7 @@ pub struct SdlAudioDevie{
 
 impl SdlAudioDevie{
     pub fn new(frequency:i32)->Self{
-        let to_skip = GB_SOUND_FREQUENCY / frequency as u32;
+        let to_skip = GB_FREQUENCY / frequency as u32;
         if to_skip == 0{
             std::panic!("freqency is too high: {}", frequency);
         }
