@@ -1,5 +1,5 @@
 use sdl2::sys::*;
-use lib_gbc::keypad::{
+use lib_gb::keypad::{
     joypad::Joypad,
     joypad_provider::JoypadProvider,
     button::Button

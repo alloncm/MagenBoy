@@ -1,4 +1,4 @@
-use lib_gbc::mmu::carts::*;
+use lib_gb::mmu::carts::*;
 use std::boxed::Box;
 use std::fs;
 use log::info;
@@ -18,7 +18,7 @@ pub fn initialize_mbc(program_name:&String)->Box<dyn Mbc>{
     
     let save_data = try_get_save_data(program_name);
     
-    return lib_gbc::machine::mbc_initializer::initialize_mbc(mbc_type, program, save_data);
+    return lib_gb::machine::mbc_initializer::initialize_mbc(mbc_type, program, save_data);
 }
 
 fn try_get_save_data(name:&String)->Option<Vec<u8>>{

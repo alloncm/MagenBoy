@@ -1,30 +1,21 @@
-use crate::{cpu::{gb_cpu::GbCpu}, keypad::joypad_register_updater, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
-use crate::keypad::joypad::Joypad;
-use crate::keypad::joypad_provider::JoypadProvider;
-use crate::mmu::memory::Memory;
-use crate::mmu::gb_mmu::{
-    GbMmu,
-    BOOT_ROM_SIZE
-};
-use crate::cpu::opcodes::opcode_resolver::*;
-use crate::ppu::gb_ppu::GbPpu;
-use crate::mmu::carts::mbc::Mbc;
-use crate::ppu::gb_ppu::{
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
-    CYCLES_PER_FRAME
+use crate::{
+    apu::{self, audio_device::AudioDevice, gb_apu::GbApu}, 
+    cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, 
+    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
+    mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory, mmu_register_updater, oam_dma_transferer::OamDmaTransferer}, 
+    ppu::{gb_ppu::{CYCLES_PER_FRAME, GbPpu, SCREEN_HEIGHT, SCREEN_WIDTH}, ppu_register_updater}, timer::{gb_timer::GbTimer, timer_register_updater}
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
-use mmu::oam_dma_transferer::OamDmaTransferer;
 
 
-pub struct GameBoy<'a, JP: JoypadProvider> {
+pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a>,
     opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
     ppu:GbPpu,
+    apu:GbApu<AD>,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
     joypad_provider: JP,
@@ -32,14 +23,15 @@ pub struct GameBoy<'a, JP: JoypadProvider> {
     dma:OamDmaTransferer
 }
 
-impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
+impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD>{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
+            apu:GbApu::new(audio_device),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
@@ -48,7 +40,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP)->GameBoy<JP>{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD)->GameBoy<JP, AD>{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -63,6 +55,7 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             mmu:GbMmu::new(mbc),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
+            apu:GbApu::new(audio_device),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
@@ -118,6 +111,13 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             
 
+            //APU
+            apu::update_apu_registers(&mut self.mmu, &mut self.apu);
+            self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);
+
+            //clears io ports
+            self.mmu.io_ports.clear_io_ports_triggers();
+
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
             if !last_ppu_power_state && self.ppu.screen_enable{
@@ -143,7 +143,6 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
 
     fn execute_opcode(&mut self)->u8{
         let pc = self.cpu.program_counter;
-        
         let opcode:u8 = self.fetch_next_byte();
 
         //debug
@@ -159,6 +158,8 @@ impl<'a, JP:JoypadProvider> GameBoy<'a, JP>{
             debug!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
             a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
+
+        
         
         let opcode_func:OpcodeFuncType<GbMmu> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{

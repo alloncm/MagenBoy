@@ -1,7 +1,7 @@
 mod memory_stub;
 
-use lib_gbc::cpu::gb_cpu::GbCpu;
-use lib_gbc::cpu::opcodes::jump_instructions::rst;
+use lib_gb::cpu::gb_cpu::GbCpu;
+use lib_gb::cpu::opcodes::jump_instructions::rst;
 use crate::memory_stub::MemoryStub;
 
 macro_rules! rst_test{

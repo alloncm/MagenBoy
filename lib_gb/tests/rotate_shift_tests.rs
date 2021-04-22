@@ -1,7 +1,7 @@
-use lib_gbc::cpu::opcodes::rotate_shift_instructions::*;
-use lib_gbc::cpu::gb_cpu::*;
-use lib_gbc::cpu::flag::Flag;
-use lib_gbc::mmu::memory::Memory;
+use lib_gb::cpu::opcodes::rotate_shift_instructions::*;
+use lib_gb::cpu::gb_cpu::*;
+use lib_gb::cpu::flag::Flag;
+use lib_gb::mmu::memory::Memory;
 
 struct MemoryStub{
     pub data:[u8;0xFFFF]

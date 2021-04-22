@@ -1,4 +1,4 @@
-use lib_gbc::cpu::gb_cpu::GbCpu;
+use lib_gb::cpu::gb_cpu::GbCpu;
 
 #[test]
 fn test_inc_hl(){

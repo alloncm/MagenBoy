@@ -1,4 +1,4 @@
-use lib_gbc::mmu::memory::Memory;
+use lib_gb::mmu::memory::Memory;
 
 pub struct MemoryStub{
     pub data:[u8;0xFFFF]

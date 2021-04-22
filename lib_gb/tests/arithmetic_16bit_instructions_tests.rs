@@ -1,6 +1,6 @@
-use lib_gbc::cpu::gb_cpu::GbCpu;
-use lib_gbc::cpu::flag::Flag;
-use lib_gbc::cpu::opcodes::arithmetic_16bit_instructions;
+use lib_gb::cpu::gb_cpu::GbCpu;
+use lib_gb::cpu::flag::Flag;
+use lib_gb::cpu::opcodes::arithmetic_16bit_instructions;
 
 #[test]
 fn test_add_sp_dd_positive_dd(){

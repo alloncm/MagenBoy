@@ -1,4 +1,4 @@
-use lib_gbc::cpu::register::Reg;
+use lib_gb::cpu::register::Reg;
 
 #[test]
 fn test_low_reg(){
