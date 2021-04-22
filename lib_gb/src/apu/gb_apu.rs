@@ -1,4 +1,4 @@
-use super::{audio_device::Sample, channel::{Channel, update_sweep_frequency}, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
+use super::{audio_device::Sample, channel::Channel, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
 use super::wave_sample_producer::WaveSampleProducer;
 use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
 use super::audio_device::AudioDevice;
@@ -7,7 +7,7 @@ use super::frame_sequencer::{
     FrameSequencer,
     TickType,
 };
-use crate::{mmu::memory::UnprotectedMemory, utils::memory_registers::{NR10_REGISTER_ADDRESS, NR52_REGISTER_ADDRESS}};
+use crate::{mmu::memory::UnprotectedMemory, utils::{bit_masks::set_bit_u8, memory_registers::{NR10_REGISTER_ADDRESS, NR52_REGISTER_ADDRESS}}};
 
 pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 
@@ -116,7 +116,7 @@ impl<Device: AudioDevice> GbApu<Device>{
                 if sweep.sweep_counter == 0{
                     sweep.reload_sweep_time();
 
-                    update_sweep_frequency(&mut self.sweep_tone_channel);
+                    Self::update_sweep_frequency(&mut self.sweep_tone_channel);
                 }
             }
         }
@@ -142,23 +142,34 @@ impl<Device: AudioDevice> GbApu<Device>{
     fn update_registers(&mut self, memory:&mut impl UnprotectedMemory){
 
         let mut control_register = memory.read_unprotected(0xFF26);
-        Self::set_bit(&mut control_register, 3, self.noise_channel.enabled && self.noise_channel.length_enable && self.noise_channel.sound_length != 0);
-        Self::set_bit(&mut control_register, 2, self.wave_channel.enabled && self.wave_channel.length_enable && self.wave_channel.sound_length != 0);
-        Self::set_bit(&mut control_register, 1, self.tone_channel.enabled && self.tone_channel.length_enable && self.tone_channel.sound_length != 0);
-        Self::set_bit(&mut control_register, 0, self.sweep_tone_channel.enabled && self.sweep_tone_channel.length_enable && self.sweep_tone_channel.sound_length != 0);
+        set_bit_u8(&mut control_register, 3, self.noise_channel.enabled && self.noise_channel.length_enable && self.noise_channel.sound_length != 0);
+        set_bit_u8(&mut control_register, 2, self.wave_channel.enabled && self.wave_channel.length_enable && self.wave_channel.sound_length != 0);
+        set_bit_u8(&mut control_register, 1, self.tone_channel.enabled && self.tone_channel.length_enable && self.tone_channel.sound_length != 0);
+        set_bit_u8(&mut control_register, 0, self.sweep_tone_channel.enabled && self.sweep_tone_channel.length_enable && self.sweep_tone_channel.sound_length != 0);
 
         memory.write_unprotected(NR52_REGISTER_ADDRESS, control_register);
     }
 
-    fn set_bit(value:&mut u8, bit_number:u8, set:bool){
-        let mask = 1 << bit_number;
-        if set{
-            *value |= mask;
-        }
-        else{
-            let inverse_mask = !mask;
-            *value &= inverse_mask;
+    pub fn update_sweep_frequency(channel:&mut Channel<ToneSweepSampleProducer>){
+        let sweep:&mut FreqSweep = &mut channel.sample_producer.sweep;
+        if sweep.enabled && sweep.sweep_period != 0{
+            //calculate a new freq
+            let mut new_freq = sweep.calculate_new_frequency();
+            if FreqSweep::check_overflow(new_freq){
+                channel.enabled = false;
+            }
+    
+            //load shadow and freq register with new value
+            if new_freq <= 2047 && sweep.sweep_shift > 0{
+                sweep.shadow_frequency = new_freq;
+                channel.frequency = new_freq;
+    
+                //Another overflow check
+                new_freq = sweep.calculate_new_frequency();
+                if FreqSweep::check_overflow(new_freq){
+                    channel.enabled = false;
+                }
+            }
         }
     }
 }
-

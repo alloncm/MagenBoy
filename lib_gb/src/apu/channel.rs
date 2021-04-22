@@ -1,4 +1,4 @@
-use super::{freq_sweep::FreqSweep, sample_producer::SampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer};
+use super::sample_producer::SampleProducer;
 use super::timer::Timer;
 
 pub struct Channel<Procuder: SampleProducer>{
@@ -74,28 +74,5 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
     fn convert_digtial_to_analog(&self, sample:u8)->f32{
         ((sample * self.current_volume) as f32 / 7.5 ) - 1.0
-    }
-}
-
-pub fn update_sweep_frequency(channel:&mut Channel<ToneSweepSampleProducer>){
-    let sweep:&mut FreqSweep = &mut channel.sample_producer.sweep;
-    if sweep.enabled && sweep.sweep_period != 0{
-        //calculate a new freq
-        let mut new_freq = sweep.calculate_new_frequency();
-        if FreqSweep::check_overflow(new_freq){
-            channel.enabled = false;
-        }
-
-        //load shadow and freq register with new value
-        if new_freq <= 2047 && sweep.sweep_shift > 0{
-            sweep.shadow_frequency = new_freq;
-            channel.frequency = new_freq;
-
-            //Another overflow check
-            new_freq = sweep.calculate_new_frequency();
-            if FreqSweep::check_overflow(new_freq){
-                channel.enabled = false;
-            }
-        }
     }
 }
