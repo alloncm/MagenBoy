@@ -140,7 +140,6 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     fn update_registers(&mut self, memory:&mut impl UnprotectedMemory){
-        //memory.write_unprotected(0xFF1B, self.wave_channel.sound_length);
 
         let mut control_register = memory.read_unprotected(0xFF26);
         Self::set_bit(&mut control_register, 3, self.noise_channel.enabled && self.noise_channel.length_enable && self.noise_channel.sound_length != 0);

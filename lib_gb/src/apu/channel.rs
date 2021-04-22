@@ -68,16 +68,12 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
     
             return self.convert_digtial_to_analog(self.last_sample);
         }
-        else{
-            //self.last_sample = 0;
-        }
         
         return 0.0;
     }
 
     fn convert_digtial_to_analog(&self, sample:u8)->f32{
         ((sample * self.current_volume) as f32 / 7.5 ) - 1.0
-        //(sample * self.current_volume as i8) as f32 / 15.0
     }
 }
 

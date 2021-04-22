@@ -52,7 +52,6 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
         channel.frequency |= memory.read_unprotected(0xFF18) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[0x19]{
-        //log::warn!("vol: {} swp: {}", channel.volume, channel.sample_producer.envelop.increase_envelope);
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
         //discrad upper bit
         channel.frequency <<= 8;
@@ -141,15 +140,6 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
         //clear the upper 8 bits
         channel.frequency &= 0xFF;
         channel.frequency |= ((nr34 & 0b111) as u16) << 8;
-
-        // According to the docs the frequency is 65536/(2048-x) Hz
-        // After some calculations if we are running in 0x400000 Hz this should be the 
-        // amount of cycles we should trigger a new sample
-        // 
-        // Rate is for how many cycles I should trigger.
-        // So I did the frequency of the cycles divided by the frequency of this channel
-        // which is 0x400000 / 65536 (2048 - x) = 64(2048 - x)
-        //let timer_cycles_to_tick = (2048 - channel.frequency).wrapping_mul(64);
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
         update_channel_conrol_register(channel, dac_enabled, nr34, 256, fs);
