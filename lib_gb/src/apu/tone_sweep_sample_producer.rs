@@ -34,7 +34,7 @@ impl Default for ToneSweepSampleProducer{
 
 impl SampleProducer for ToneSweepSampleProducer{
 
-    fn produce(&mut self)->i8{
+    fn produce(&mut self)->u8{
         self.duty_sample_pointer = (self.duty_sample_pointer + 1) % 8;
 
         let sample = DUTY_TABLE[self.wave_duty as usize][self.duty_sample_pointer as usize];

@@ -18,7 +18,7 @@ impl Default for WaveSampleProducer{
 }
 
 impl SampleProducer for WaveSampleProducer{
-    fn produce(&mut self) ->i8 {
+    fn produce(&mut self) ->u8 {
         let mut sample = self.wave_samples[(self.sample_counter/2) as usize];
 
         if self.sample_counter % 2 == 0{
@@ -30,7 +30,7 @@ impl SampleProducer for WaveSampleProducer{
 
         self.sample_counter = (self.sample_counter + 1) % 32;
 
-        return self.shift_by_volume(sample) as i8;
+        return self.shift_by_volume(sample);
     }
 
     fn reset(&mut self) {

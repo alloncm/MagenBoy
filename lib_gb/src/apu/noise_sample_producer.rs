@@ -27,7 +27,7 @@ impl Default for NoiseSampleProducer{
 }
 
 impl SampleProducer for NoiseSampleProducer{
-    fn produce(&mut self)->i8 {
+    fn produce(&mut self)->u8 {
         let xor_result = (self.lfsr & 0b01) ^ ((self.lfsr & 0b10) >> 1);
         self.lfsr >>= 1;
         self.lfsr |= xor_result << 14;
@@ -37,7 +37,7 @@ impl SampleProducer for NoiseSampleProducer{
             self.lfsr |= xor_result << 6;
         }
 
-        return ((!self.lfsr) & 1) as i8;
+        return ((!self.lfsr) & 1) as u8;
     }
 
     fn reset(&mut self) {

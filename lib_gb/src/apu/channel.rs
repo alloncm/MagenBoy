@@ -11,7 +11,7 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sample_producer:Procuder,
     pub timer:Timer,
 
-    last_sample:i8,
+    last_sample:u8,
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
@@ -75,8 +75,8 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         return 0.0;
     }
 
-    fn convert_digtial_to_analog(&self, sample:i8)->f32{
-        ((sample * self.current_volume as i8) as f32 / 7.5 ) - 1.0
+    fn convert_digtial_to_analog(&self, sample:u8)->f32{
+        ((sample * self.current_volume) as f32 / 7.5 ) - 1.0
         //(sample * self.current_volume as i8) as f32 / 15.0
     }
 }
