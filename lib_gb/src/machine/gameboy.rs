@@ -1,27 +1,13 @@
-use crate::{apu, cpu::{gb_cpu::GbCpu}, keypad::joypad_register_updater, mmu::{self, mmu_register_updater}, ppu::ppu_register_updater, timer::{gb_timer::GbTimer, timer_register_updater}};
-use crate::keypad::joypad::Joypad;
-use crate::keypad::joypad_provider::JoypadProvider;
-use crate::mmu::memory::Memory;
-use crate::mmu::gb_mmu::{
-    GbMmu,
-    BOOT_ROM_SIZE
-};
-use crate::cpu::opcodes::opcode_resolver::*;
-use crate::ppu::gb_ppu::GbPpu;
-use crate::mmu::carts::mbc::Mbc;
-use crate::ppu::gb_ppu::{
-    SCREEN_HEIGHT,
-    SCREEN_WIDTH,
-    CYCLES_PER_FRAME
-};
-use crate::apu::{
-    gb_apu::GbApu,
-    audio_device::AudioDevice
+use crate::{
+    apu::{self, audio_device::AudioDevice, gb_apu::GbApu}, 
+    cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, 
+    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
+    mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory, mmu_register_updater, oam_dma_transferer::OamDmaTransferer}, 
+    ppu::{gb_ppu::{CYCLES_PER_FRAME, GbPpu, SCREEN_HEIGHT, SCREEN_WIDTH}, ppu_register_updater}, timer::{gb_timer::GbTimer, timer_register_updater}
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
-use mmu::oam_dma_transferer::OamDmaTransferer;
 
 
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {

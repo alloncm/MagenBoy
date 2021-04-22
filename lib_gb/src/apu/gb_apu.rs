@@ -1,13 +1,18 @@
-use super::{audio_device::Sample, channel::Channel, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
-use super::wave_sample_producer::WaveSampleProducer;
-use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
-use super::audio_device::AudioDevice;
-use super::sound_terminal::SoundTerminal;
-use super::frame_sequencer::{
-    FrameSequencer,
-    TickType,
+use super::{
+    audio_device::*, 
+    channel::Channel, 
+    frame_sequencer::*,
+    freq_sweep::FreqSweep, 
+    noise_sample_producer::NoiseSampleProducer, 
+    sound_terminal::SoundTerminal, 
+    tone_sample_producer::ToneSampleProducer, 
+    tone_sweep_sample_producer::ToneSweepSampleProducer, 
+    wave_sample_producer::WaveSampleProducer
 };
-use crate::{mmu::memory::UnprotectedMemory, utils::{bit_masks::set_bit_u8, memory_registers::{NR10_REGISTER_ADDRESS, NR52_REGISTER_ADDRESS}}};
+use crate::{
+    mmu::memory::UnprotectedMemory, 
+    utils::{bit_masks::set_bit_u8, memory_registers::{NR10_REGISTER_ADDRESS, NR52_REGISTER_ADDRESS}}
+};
 
 pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 

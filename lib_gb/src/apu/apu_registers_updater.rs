@@ -6,7 +6,19 @@ use crate::{
     }
 };
 
-use super::{audio_device::AudioDevice, channel::Channel, frame_sequencer::FrameSequencer, freq_sweep::FreqSweep, gb_apu::GbApu, noise_sample_producer::NoiseSampleProducer, sample_producer::SampleProducer, tone_sample_producer::ToneSampleProducer, tone_sweep_sample_producer::ToneSweepSampleProducer, volume_envelop::VolumeEnvlope, wave_sample_producer::WaveSampleProducer};
+use super::{
+    audio_device::AudioDevice, 
+    channel::Channel, 
+    frame_sequencer::FrameSequencer, 
+    freq_sweep::FreqSweep, 
+    gb_apu::GbApu, 
+    noise_sample_producer::NoiseSampleProducer, 
+    sample_producer::SampleProducer, 
+    tone_sample_producer::ToneSampleProducer, 
+    tone_sweep_sample_producer::ToneSweepSampleProducer, 
+    volume_envelop::VolumeEnvlope, 
+    wave_sample_producer::WaveSampleProducer
+};
 
 
 pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD>){
