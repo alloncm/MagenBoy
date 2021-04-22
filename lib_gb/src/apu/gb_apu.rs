@@ -4,9 +4,8 @@ use super::{
     frame_sequencer::*,
     freq_sweep::FreqSweep, 
     noise_sample_producer::NoiseSampleProducer, 
-    sound_terminal::SoundTerminal, 
-    tone_sample_producer::ToneSampleProducer, 
-    tone_sweep_sample_producer::ToneSweepSampleProducer, 
+    sound_terminal::SoundTerminal,
+    square_sample_producer::SquareSampleProducer, 
     wave_sample_producer::WaveSampleProducer,
     sound_utils::NUMBER_OF_CHANNELS
 };
@@ -19,8 +18,8 @@ pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
-    pub sweep_tone_channel:Channel<ToneSweepSampleProducer>,
-    pub tone_channel: Channel<ToneSampleProducer>,
+    pub sweep_tone_channel:Channel<SquareSampleProducer>,
+    pub tone_channel: Channel<SquareSampleProducer>,
     pub noise_channel: Channel<NoiseSampleProducer>,
     pub frame_sequencer: FrameSequencer,
     pub right_terminal:SoundTerminal,
@@ -37,10 +36,10 @@ impl<Device: AudioDevice> GbApu<Device>{
     pub fn new(device: Device) -> Self {
         GbApu{
             frame_sequencer:FrameSequencer::default(),
-            sweep_tone_channel: Channel::<ToneSweepSampleProducer>::new(),
-            wave_channel:Channel::<WaveSampleProducer>::new(),
-            tone_channel: Channel::<ToneSampleProducer>::new(),
-            noise_channel: Channel::<NoiseSampleProducer>::new(),
+            sweep_tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new_with_sweep()),
+            wave_channel:Channel::<WaveSampleProducer>::new(WaveSampleProducer::default()),
+            tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
+            noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
             audio_buffer:[Sample{left_sample:0.0, right_sample:0.0}; AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
             device:device,
@@ -113,7 +112,7 @@ impl<Device: AudioDevice> GbApu<Device>{
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){
         if tick.frequency_sweep{
             if self.sweep_tone_channel.enabled{
-                let sweep:&mut FreqSweep = &mut self.sweep_tone_channel.sample_producer.sweep;
+                let sweep:&mut FreqSweep = &mut self.sweep_tone_channel.sample_producer.sweep.as_mut().unwrap();
                 if sweep.sweep_counter > 0{
                     sweep.sweep_counter -= 1;
                 }
@@ -154,8 +153,8 @@ impl<Device: AudioDevice> GbApu<Device>{
         memory.write_unprotected(NR52_REGISTER_ADDRESS, control_register);
     }
 
-    pub fn update_sweep_frequency(channel:&mut Channel<ToneSweepSampleProducer>){
-        let sweep:&mut FreqSweep = &mut channel.sample_producer.sweep;
+    pub fn update_sweep_frequency(channel:&mut Channel<SquareSampleProducer>){
+        let sweep:&mut FreqSweep = &mut channel.sample_producer.sweep.as_mut().unwrap();
         if sweep.enabled && sweep.sweep_period != 0{
             //calculate a new freq
             let mut new_freq = sweep.calculate_new_frequency();

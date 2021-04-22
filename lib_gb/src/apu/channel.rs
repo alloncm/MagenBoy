@@ -15,8 +15,7 @@ pub struct Channel<Procuder: SampleProducer>{
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
-    pub fn new()->Self{
-        let sample_producer = Procuder::default();
+    pub fn new(sample_producer:Procuder)->Self{
         Channel{
             enabled:false,
             frequency:0,

@@ -8,8 +8,7 @@ use super::{
     gb_apu::GbApu, 
     noise_sample_producer::NoiseSampleProducer, 
     sample_producer::SampleProducer, 
-    tone_sample_producer::ToneSampleProducer, 
-    tone_sweep_sample_producer::ToneSweepSampleProducer, 
+    square_sample_producer::SquareSampleProducer, 
     volume_envelop::VolumeEnvlope, 
     wave_sample_producer::WaveSampleProducer,
     sound_utils::NUMBER_OF_CHANNELS
@@ -26,7 +25,7 @@ pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD
     }
 }
 
-fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut GbMmu,fs:&FrameSequencer){ 
+fn prepare_tone_channel(channel:&mut Channel<SquareSampleProducer>, memory:&mut GbMmu,fs:&FrameSequencer){ 
 
     if memory.io_ports.get_ports_cycle_trigger()[NR21_REGISTER_INDEX as usize]{
         channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111) as u16;
@@ -147,7 +146,7 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
     }
 }
 
-fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, memory:&mut GbMmu, fs:&FrameSequencer){
+fn prepare_tone_sweep_channel(channel:&mut Channel<SquareSampleProducer>, memory:&mut GbMmu, fs:&FrameSequencer){
     let nr10 = memory.read_unprotected(NR10_REGISTER_ADDRESS);
     let nr11 = memory.read_unprotected(NR11_REGISTER_ADDRESS);
     let nr12 = memory.read_unprotected(NR12_REGISTER_ADDRESS);
@@ -156,9 +155,10 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
 
     if memory.io_ports.get_ports_cycle_trigger()[NR10_REGISTER_INDEX as usize]{
         //sweep
-        channel.sample_producer.sweep.sweep_decrease = (nr10 & 0b1000) != 0;
-        channel.sample_producer.sweep.sweep_shift = nr10 & 0b111;
-        channel.sample_producer.sweep.sweep_period = (nr10 & 0b111_0000) >> 4;
+        let sweep = channel.sample_producer.sweep.as_mut().unwrap();
+        sweep.sweep_decrease = (nr10 & 0b1000) != 0;
+        sweep.sweep_shift = nr10 & 0b111;
+        sweep.sweep_period = (nr10 & 0b111_0000) >> 4;
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR11_REGISTER_INDEX as usize]{
         channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
@@ -189,12 +189,13 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, mem
             channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
             
             //sweep
-            channel.sample_producer.sweep.channel_trigger(channel.frequency);
-            if channel.sample_producer.sweep.sweep_shift > 0{
-                
-                let freq = channel.sample_producer.sweep.calculate_new_frequency();
+            let sweep = channel.sample_producer.sweep.as_mut().unwrap();
+            sweep.channel_trigger(channel.frequency);
+            if sweep.sweep_shift > 0{
+                let freq = sweep.calculate_new_frequency();
                 channel.enabled = !FreqSweep::check_overflow(freq);
             }
+        
         }
     }
 }
