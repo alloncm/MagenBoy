@@ -21,16 +21,14 @@ pub struct GbApu<Device: AudioDevice>{
     pub sweep_tone_channel:Channel<ToneSweepSampleProducer>,
     pub tone_channel: Channel<ToneSampleProducer>,
     pub noise_channel: Channel<NoiseSampleProducer>,
-
     pub frame_sequencer: FrameSequencer,
-
-    audio_buffer:[Sample;AUDIO_BUFFER_SIZE],
-    current_t_cycle:u32,
-    device:Device,
     pub right_terminal:SoundTerminal,
     pub left_terminal:SoundTerminal,
     pub enabled:bool,
 
+    audio_buffer:[Sample;AUDIO_BUFFER_SIZE],
+    current_t_cycle:u32,
+    device:Device,
     last_enabled_state:bool
 }
 
