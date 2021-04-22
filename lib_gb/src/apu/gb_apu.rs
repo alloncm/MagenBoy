@@ -1,4 +1,4 @@
-use super::{channel::{Channel, update_sweep_frequency}, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
+use super::{audio_device::Sample, channel::{Channel, update_sweep_frequency}, freq_sweep::FreqSweep, noise_sample_producer::NoiseSampleProducer, tone_sample_producer::ToneSampleProducer};
 use super::wave_sample_producer::WaveSampleProducer;
 use super::tone_sweep_sample_producer::ToneSweepSampleProducer;
 use super::audio_device::AudioDevice;
@@ -19,11 +19,11 @@ pub struct GbApu<Device: AudioDevice>{
 
     pub frame_sequencer: FrameSequencer,
 
-    audio_buffer:[f32;AUDIO_BUFFER_SIZE],
+    audio_buffer:[Sample;AUDIO_BUFFER_SIZE],
     current_t_cycle:u32,
     device:Device,
-    pub terminal1:SoundTerminal,
-    pub terminal2:SoundTerminal,
+    pub right_terminal:SoundTerminal,
+    pub left_terminal:SoundTerminal,
     pub enabled:bool,
 
     last_enabled_state:bool
@@ -37,11 +37,11 @@ impl<Device: AudioDevice> GbApu<Device>{
             wave_channel:Channel::<WaveSampleProducer>::new(),
             tone_channel: Channel::<ToneSampleProducer>::new(),
             noise_channel: Channel::<NoiseSampleProducer>::new(),
-            audio_buffer:[0.0; AUDIO_BUFFER_SIZE],
+            audio_buffer:[Sample{left_sample:0.0, right_sample:0.0}; AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
             device:device,
-            terminal1: SoundTerminal::default(),
-            terminal2: SoundTerminal::default(),
+            right_terminal: SoundTerminal::default(),
+            left_terminal: SoundTerminal::default(),
             enabled:false, 
             last_enabled_state: false
         }
@@ -57,14 +57,17 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                let ch1_sample = self.sweep_tone_channel.get_audio_sample();
-                let ch2_sample = self.tone_channel.get_audio_sample();
-                let ch3_sample = self.wave_channel.get_audio_sample();
-                let ch4_sample = self.noise_channel.get_audio_sample();
+                let mut samples:[f32;4] = [0.0;4];
+                samples[0] = self.sweep_tone_channel.get_audio_sample();
+                samples[1] = self.tone_channel.get_audio_sample();
+                samples[2] = self.wave_channel.get_audio_sample();
+                samples[3] = self.noise_channel.get_audio_sample();
 
-                let mixed_sample = (ch1_sample + ch2_sample + ch3_sample + ch4_sample ) / 4.0;
+                let left_sample = self.left_terminal.mix_terminal_samples(&samples);
+                let right_sample = self.right_terminal.mix_terminal_samples(&samples);
             
-                self.audio_buffer[self.current_t_cycle as usize] = mixed_sample;
+                self.audio_buffer[self.current_t_cycle as usize].left_sample = left_sample;
+                self.audio_buffer[self.current_t_cycle as usize].right_sample = right_sample;
                 
                 self.current_t_cycle += 1;
 
@@ -75,7 +78,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         else{
             for _ in 0..t_cycles{
-                self.audio_buffer[self.current_t_cycle as usize] = 0.0;
+                self.audio_buffer[self.current_t_cycle as usize] = Sample{right_sample:0.0, left_sample:0.0};
                 self.current_t_cycle += 1;
 
                 self.push_buffer_if_full();

@@ -98,19 +98,19 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
 
 fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl UnprotectedMemory){
     let channel_control = memory.read_unprotected(0xFF24);
-    apu.terminal1.enabled = channel_control & BIT_3_MASK != 0;
-    apu.terminal2.enabled = channel_control & BIT_7_MASK != 0;
-    //todo: add volume
-    apu.terminal1.volume = 7;
-    apu.terminal2.volume = 7;
+    apu.right_terminal.enabled = channel_control & BIT_3_MASK != 0;
+    apu.left_terminal.enabled = channel_control & BIT_7_MASK != 0;
+    
+    apu.right_terminal.volume = channel_control & 0b111;
+    apu.left_terminal.volume = (channel_control & 0b111_0000) >> 4;
 
     let channels_output_terminals = memory.read_unprotected(0xFF25);
 
     for i in 0..4{
-        apu.terminal1.channels[i as usize] = channels_output_terminals & (1 << i) != 0;
+        apu.right_terminal.channels[i as usize] = channels_output_terminals & (1 << i) != 0;
     }
     for i in 0..4{
-        apu.terminal2.channels[i as usize] = channels_output_terminals & (0b10000 << i) != 0;
+        apu.left_terminal.channels[i as usize] = channels_output_terminals & (0b10000 << i) != 0;
     }
 
     let master_sound = memory.read_unprotected(0xFF26);
@@ -153,6 +153,10 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
         update_channel_conrol_register(channel, dac_enabled, nr34, 256, fs);
+
+        if nr34 & BIT_7_MASK != 0{
+            channel.sample_producer.reset_counter();
+        }
     }
 
     for i in 0..=0xF{

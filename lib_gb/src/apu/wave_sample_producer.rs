@@ -44,6 +44,10 @@ impl SampleProducer for WaveSampleProducer{
 }
 
 impl WaveSampleProducer{
+    pub fn reset_counter(&mut self){
+        self.sample_counter = 0;
+    }
+    
     fn shift_by_volume(&self, sample:u8)->u8{
         match self.volume{
             0=>0,

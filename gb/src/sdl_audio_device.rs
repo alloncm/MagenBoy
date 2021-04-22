@@ -3,27 +3,29 @@ use std::{
     mem::MaybeUninit,
     ffi::{CStr, c_void}
 };
-use lib_gb::apu::audio_device::AudioDevice;
+use lib_gb::apu::audio_device::{AudioDevice, Sample};
 use sdl2::{
     sys::*,
     libc::c_char
 };
 
 const GB_SOUND_FREQUENCY:u32 = 4_194_304;
-const BUFFER_SIZE:usize = 1024;
-const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 4;
+
+//After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
+const BUFFER_SIZE:usize = 1024 * 2;
+const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 8;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
     to_skip:u32,
-    sampling_buffer:Vec<f32>,
+    sampling_buffer:Vec<Sample>,
     sampling_counter:u32,
 
     buffer: Vec<f32>
 }
 
 impl SdlAudioDevie{
-    pub fn new(frequency:i32, channels:u8)->Self{
+    pub fn new(frequency:i32)->Self{
         let to_skip = GB_SOUND_FREQUENCY / frequency as u32;
         if to_skip == 0{
             std::panic!("freqency is too high: {}", frequency);
@@ -32,7 +34,7 @@ impl SdlAudioDevie{
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
             format: AUDIO_F32SYS as u16,
-            channels: channels,
+            channels: 2,
             silence: 0,
             samples: BUFFER_SIZE as u16,
             padding: 0,
@@ -97,17 +99,26 @@ impl SdlAudioDevie{
             Ok(())
         }
     }
+
+    fn interpolate_sample(samples:&[Sample])->(f32, f32){
+        
+        let interpulated_left_sample = samples.iter().fold(0.0, |acc, x| acc + x.left_sample) / samples.len() as f32;
+        let interpulated_right_sample = samples.iter().fold(0.0, |acc, x| acc + x.right_sample) / samples.len() as f32;
+
+        return (interpulated_left_sample, interpulated_right_sample);
+    }
 }
 
 impl AudioDevice for SdlAudioDevie{
-    fn push_buffer(&mut self, buffer:&[f32]){
+    fn push_buffer(&mut self, buffer:&[Sample]){
         for sample in buffer.into_iter(){
             self.sampling_buffer.push(*sample);
             self.sampling_counter += 1;
 
             if self.sampling_counter == self.to_skip {
-                let interpulated_sample = self.sampling_buffer.iter().fold(0.0, |acc, x| acc + *x) / self.sampling_buffer.len() as f32;
-                self.buffer.push(interpulated_sample);
+                let (interpulated_left_sample, interpulated_right_sample) = Self::interpolate_sample(&self.sampling_buffer);
+                self.buffer.push(interpulated_left_sample);
+                self.buffer.push(interpulated_right_sample);
                 self.sampling_counter = 0;
                 self.sampling_buffer.clear();
 
