@@ -15,55 +15,55 @@ use sdl2::sys::*;
 
 const FRAME_RATE:u16 = 60;
 
-struct WavAudioDevice{
-    buffer:Vec<f32>,
-    to_skip:u32,
-    counter:u32,
-    sampling_buffer:Vec<f32>
-}
+// struct WavAudioDevice{
+//     buffer:Vec<f32>,
+//     to_skip:u32,
+//     counter:u32,
+//     sampling_buffer:Vec<f32>
+// }
 
-impl WavAudioDevice{
-    pub fn new()->Self{
-        let ts = (0x40_0000 / 44100) as u32;
-        WavAudioDevice{
-            buffer:Vec::new(),
-            to_skip: ts,
-            counter:0,
-            sampling_buffer:Vec::with_capacity(ts as usize)
-        }
-    }
+// impl WavAudioDevice{
+//     pub fn new()->Self{
+//         let ts = (0x40_0000 / 44100) as u32;
+//         WavAudioDevice{
+//             buffer:Vec::new(),
+//             to_skip: ts,
+//             counter:0,
+//             sampling_buffer:Vec::with_capacity(ts as usize)
+//         }
+//     }
 
-    pub fn to_file(&self){
-        let header:wav::header::Header = wav::header::Header::new(wav::WAV_FORMAT_IEEE_FLOAT,1,44100,32);
-        let mut outfile = std::fs::File::create("sound.wav").unwrap();
-        let data = wav::BitDepth::ThirtyTwoFloat(self.buffer.clone());
-        wav::write(header, &data, &mut outfile).unwrap();
-    }
-}
+//     pub fn to_file(&self){
+//         let header:wav::header::Header = wav::header::Header::new(wav::WAV_FORMAT_IEEE_FLOAT,1,44100,32);
+//         let mut outfile = std::fs::File::create("sound.wav").unwrap();
+//         let data = wav::BitDepth::ThirtyTwoFloat(self.buffer.clone());
+//         wav::write(header, &data, &mut outfile).unwrap();
+//     }
+// }
 
-impl AudioDevice for WavAudioDevice{
-    fn push_buffer(&mut self, buffer:&[f32]){
-        for sample in buffer.into_iter(){
+// impl AudioDevice for WavAudioDevice{
+//     fn push_buffer(&mut self, buffer:&[f32]){
+//         for sample in buffer.into_iter(){
             
-            if self.counter == self.to_skip - 1{
-                let interpulated_sample = self.sampling_buffer.iter().fold(0.0, |acc, x| acc + *x) / self.sampling_buffer.len() as f32;
-                self.buffer.push(interpulated_sample);
-                self.counter = 0;
-                self.sampling_buffer.clear();
-            }
-            else{
-                self.sampling_buffer.push(*sample);
-                self.counter += 1;
-            }
-        }
-    }
-}
+//             if self.counter == self.to_skip - 1{
+//                 let interpulated_sample = self.sampling_buffer.iter().fold(0.0, |acc, x| acc + *x) / self.sampling_buffer.len() as f32;
+//                 self.buffer.push(interpulated_sample);
+//                 self.counter = 0;
+//                 self.sampling_buffer.clear();
+//             }
+//             else{
+//                 self.sampling_buffer.push(*sample);
+//                 self.counter += 1;
+//             }
+//         }
+//     }
+// }
 
-impl Drop for WavAudioDevice{
-    fn drop(&mut self) {
-        self.to_file();
-    }
-}
+// impl Drop for WavAudioDevice{
+//     fn drop(&mut self) {
+//         self.to_file();
+//     }
+// }
 
 
 fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
@@ -151,7 +151,7 @@ fn main() {
         (wind, rend, tex)
     };
 
-    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100, 1);
+    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
     //let audio_device = WavAudioDevice::new();
 
     let program_name = &args[1];
@@ -180,7 +180,7 @@ fn main() {
 
 
     let time:Instant = Instant::now();
-    let mut last_time:Duration = time.elapsed();
+    //let mut last_time:Duration = time.elapsed();
 
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
@@ -192,12 +192,12 @@ fn main() {
                 }
             }
 
-            let current_time:Duration = time.elapsed();
+            //let current_time:Duration = time.elapsed();
 
-            if current_time.as_micros() - last_time.as_micros() >= 1000_000 / FRAME_RATE as u128 {
+            //if current_time.as_micros() - last_time.as_micros() >= 1000_000 / FRAME_RATE as u128 {
 
                 //log::info!("{}", current_time.as_micros() - last_time.as_micros());
-                last_time = current_time;
+                //last_time = current_time;
 
                 let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
                 let scaled_buffer = extend_vec(frame_buffer, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -211,7 +211,7 @@ fn main() {
                 SDL_RenderClear(renderer);
                 SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
                 SDL_RenderPresent(renderer);
-            }
+            //}
         }
 
         SDL_Quit();
