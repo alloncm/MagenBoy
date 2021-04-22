@@ -1,10 +1,4 @@
-use crate::{
-    mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory},
-    utils::{
-        bit_masks::*, 
-        memory_registers::{NR21_REGISTER_ADDRESS, NR24_REGISTER_ADDRESS, NR30_REGISTER_ADDRESS, NR41_REGISTER_ADDRESS, NR43_REGISTER_ADDRESS, NR44_REGISTER_ADDRESS}
-    }
-};
+use crate::{mmu::{gb_mmu::GbMmu, memory::UnprotectedMemory, io_ports::*}, utils::{bit_masks::*, memory_registers::*}};
 
 use super::{
     audio_device::AudioDevice, 
@@ -20,7 +14,6 @@ use super::{
     wave_sample_producer::WaveSampleProducer
 };
 
-
 pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD>){
     prepare_control_registers(apu, memory);
 
@@ -34,22 +27,22 @@ pub fn update_apu_registers<AD:AudioDevice>(memory:&mut GbMmu, apu:&mut GbApu<AD
 
 fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut GbMmu,fs:&FrameSequencer){ 
 
-    if memory.io_ports.get_ports_cycle_trigger()[0x16]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR21_REGISTER_INDEX as usize]{
         channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111) as u16;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x17]{
-        update_volume_envelope(&mut channel.volume, memory.read_unprotected(0xFF17), &mut channel.sample_producer.envelop);
+    if memory.io_ports.get_ports_cycle_trigger()[NR22_REGISTER_INDEX as usize]{
+        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR22_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
         
         if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x18]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR23_REGISTER_INDEX as usize]{
         //discard lower bit
         channel.frequency &= 0xFF00;
-        channel.frequency |= memory.read_unprotected(0xFF18) as u16;
+        channel.frequency |= memory.read_unprotected(NR23_REGISTER_ADDRESS) as u16;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x19]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR24_REGISTER_INDEX as usize]{
         let nr24  = memory.read_unprotected(NR24_REGISTER_ADDRESS);
         //discrad upper bit
         channel.frequency <<= 8;
@@ -66,23 +59,23 @@ fn prepare_tone_channel(channel:&mut Channel<ToneSampleProducer>, memory:&mut Gb
 
 fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut GbMmu,fs:&FrameSequencer){
 
-    if memory.io_ports.get_ports_cycle_trigger()[0x20]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR41_REGISTER_INDEX as usize]{
         let length_data = memory.read_unprotected(NR41_REGISTER_ADDRESS) & 0b11_1111;
         channel.sound_length = 64 - length_data as u16
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x21]{
-        update_volume_envelope(&mut channel.volume, memory.read_unprotected(0xFF21), &mut channel.sample_producer.envelop);
+    if memory.io_ports.get_ports_cycle_trigger()[NR42_REGISTER_INDEX as usize]{
+        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR42_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
         if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x22]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR43_REGISTER_INDEX as usize]{
         let nr43 = memory.read_unprotected(NR43_REGISTER_ADDRESS);
         channel.sample_producer.bits_to_shift_divisor = (nr43 & 0b1111_0000) >> 4;
         channel.sample_producer.width_mode = (nr43 & BIT_3_MASK) != 0;
         channel.sample_producer.divisor_code = nr43 & 0b111;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x23]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR44_REGISTER_INDEX as usize]{
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
         let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr44, 64, fs);
@@ -94,14 +87,14 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
 }
 
 fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl UnprotectedMemory){
-    let channel_control = memory.read_unprotected(0xFF24);
+    let channel_control = memory.read_unprotected(NR50_REGISTER_ADDRESS);
     apu.right_terminal.enabled = channel_control & BIT_3_MASK != 0;
     apu.left_terminal.enabled = channel_control & BIT_7_MASK != 0;
     
     apu.right_terminal.volume = channel_control & 0b111;
     apu.left_terminal.volume = (channel_control & 0b111_0000) >> 4;
 
-    let channels_output_terminals = memory.read_unprotected(0xFF25);
+    let channels_output_terminals = memory.read_unprotected(NR51_REGISTER_ADDRESS);
 
     for i in 0..4{
         apu.right_terminal.channels[i as usize] = channels_output_terminals & (1 << i) != 0;
@@ -110,31 +103,31 @@ fn prepare_control_registers<AD:AudioDevice>(apu:&mut GbApu<AD>, memory:&impl Un
         apu.left_terminal.channels[i as usize] = channels_output_terminals & (0b1_0000 << i) != 0;
     }
 
-    let master_sound = memory.read_unprotected(0xFF26);
+    let master_sound = memory.read_unprotected(NR52_REGISTER_ADDRESS);
     apu.enabled = master_sound & BIT_7_MASK != 0;
 }
 
 fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut GbMmu,fs:&FrameSequencer){
 
-    if memory.io_ports.get_ports_cycle_trigger()[0x1A]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR30_REGISTER_INDEX as usize]{
         if (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) == 0{
             channel.enabled = false;
         }
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x1B]{
-        channel.sound_length = 256 - (memory.read_unprotected(0xFF1B) as u16);
+    if memory.io_ports.get_ports_cycle_trigger()[NR31_REGISTER_INDEX as usize]{
+        channel.sound_length = 256 - (memory.read_unprotected(NR31_REGISTER_ADDRESS) as u16);
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x1C]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR32_REGISTER_INDEX as usize]{
         //I want bits 5-6
-        channel.sample_producer.volume = (memory.read_unprotected(0xFF1C)>>5) & 0b11;
+        channel.sample_producer.volume = (memory.read_unprotected(NR32_REGISTER_ADDRESS) >> 5) & 0b11;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x1D]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR33_REGISTER_INDEX as usize]{
         //discard lower 8 bits
         channel.frequency &= 0xFF00;
-        channel.frequency |= memory.read_unprotected(0xFF1D) as u16;
+        channel.frequency |= memory.read_unprotected(NR33_REGISTER_ADDRESS) as u16;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x1E]{
-        let nr34 = memory.read_unprotected(0xFF1E);
+    if memory.io_ports.get_ports_cycle_trigger()[NR34_REGISTER_INDEX as usize]{
+        let nr34 = memory.read_unprotected(NR34_REGISTER_ADDRESS);
 
         //clear the upper 8 bits
         channel.frequency &= 0xFF;
@@ -154,35 +147,35 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
 }
 
 fn prepare_tone_sweep_channel(channel:&mut Channel<ToneSweepSampleProducer>, memory:&mut GbMmu, fs:&FrameSequencer){
-    let nr10 = memory.read_unprotected(0xFF10);
-    let nr11 = memory.read_unprotected(0xFF11);
-    let nr12 = memory.read_unprotected(0xFF12);
-    let nr13 = memory.read_unprotected(0xFF13);
-    let nr14 = memory.read_unprotected(0xFF14);
+    let nr10 = memory.read_unprotected(NR10_REGISTER_ADDRESS);
+    let nr11 = memory.read_unprotected(NR11_REGISTER_ADDRESS);
+    let nr12 = memory.read_unprotected(NR12_REGISTER_ADDRESS);
+    let nr13 = memory.read_unprotected(NR13_REGISTER_ADDRESS);
+    let nr14 = memory.read_unprotected(NR14_REGISTER_ADDRESS);
 
-    if memory.io_ports.get_ports_cycle_trigger()[0x10]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR10_REGISTER_INDEX as usize]{
         //sweep
         channel.sample_producer.sweep.sweep_decrease = (nr10 & 0b1000) != 0;
         channel.sample_producer.sweep.sweep_shift = nr10 & 0b111;
         channel.sample_producer.sweep.sweep_period = (nr10 & 0b111_0000) >> 4;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x11]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR11_REGISTER_INDEX as usize]{
         channel.sample_producer.wave_duty = (nr11 & 0b1100_0000) >> 6;
         channel.sound_length = 64 - (nr11 & 0b11_1111) as u16
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x12]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR12_REGISTER_INDEX as usize]{
         update_volume_envelope(&mut channel.volume, nr12, &mut channel.sample_producer.envelop);
         
         if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x13]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR13_REGISTER_INDEX as usize]{
         //discard lower bits
         channel.frequency &= 0xFF00;
         channel.frequency |= nr13 as u16;
     }
-    if memory.io_ports.get_ports_cycle_trigger()[0x14]{
+    if memory.io_ports.get_ports_cycle_trigger()[NR14_REGISTER_INDEX as usize]{
         //discard upper bits
         channel.frequency &= 0xFF;
         channel.frequency |= ((nr14 & 0b111) as u16) << 8;
