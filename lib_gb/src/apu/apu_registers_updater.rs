@@ -31,9 +31,9 @@ fn prepare_tone_channel(channel:&mut Channel<SquareSampleProducer>, memory:&mut 
         channel.sound_length = 64 - (memory.read_unprotected(NR21_REGISTER_ADDRESS) & 0b11_1111) as u16;
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR22_REGISTER_INDEX as usize]{
-        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR22_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
+        update_volume_envelope(memory.read_unprotected(NR22_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
         
-        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
+        if !is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
@@ -48,11 +48,12 @@ fn prepare_tone_channel(channel:&mut Channel<SquareSampleProducer>, memory:&mut 
         channel.frequency <<= 8;
         channel.frequency >>= 8;
         channel.frequency |= (nr24 as u16 & 0b111) << 8;
-        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        let dac_enabled = is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr24, 64, fs);
         if nr24 & BIT_7_MASK != 0{
             //volume
             channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
+            channel.sample_producer.envelop.current_volume = channel.sample_producer.envelop.volume;
         }
     }
 }
@@ -64,8 +65,8 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
         channel.sound_length = 64 - length_data as u16
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR42_REGISTER_INDEX as usize]{
-        update_volume_envelope(&mut channel.volume, memory.read_unprotected(NR42_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
-        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
+        update_volume_envelope( memory.read_unprotected(NR42_REGISTER_ADDRESS), &mut channel.sample_producer.envelop);
+        if !is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
@@ -77,11 +78,14 @@ fn prepare_noise_channel(channel:&mut Channel<NoiseSampleProducer>, memory:&mut 
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR44_REGISTER_INDEX as usize]{
         let nr44 = memory.read_unprotected(NR44_REGISTER_ADDRESS);
-        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        let dac_enabled = is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr44, 64, fs);
         if (nr44 & BIT_7_MASK) != 0{
             //On trigger all the LFSR bits are set (lfsr is 15 bit register)
             channel.sample_producer.lfsr = 0x7FFF;
+
+            
+            channel.sample_producer.envelop.current_volume = channel.sample_producer.envelop.volume;
         }
     }
 }
@@ -119,7 +123,8 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR32_REGISTER_INDEX as usize]{
         //I want bits 5-6
-        channel.sample_producer.volume = (memory.read_unprotected(NR32_REGISTER_ADDRESS) >> 5) & 0b11;
+        let nr32 = memory.read_unprotected(NR32_REGISTER_ADDRESS);
+        channel.sample_producer.volume = (nr32 & 0b110_0000) >> 5;
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR33_REGISTER_INDEX as usize]{
         //discard lower 8 bits
@@ -165,9 +170,9 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<SquareSampleProducer>, memory
         channel.sound_length = 64 - (nr11 & 0b11_1111) as u16
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR12_REGISTER_INDEX as usize]{
-        update_volume_envelope(&mut channel.volume, nr12, &mut channel.sample_producer.envelop);
+        update_volume_envelope(nr12, &mut channel.sample_producer.envelop);
         
-        if !is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope){
+        if !is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope){
             channel.enabled = false;
         }
     }
@@ -181,12 +186,13 @@ fn prepare_tone_sweep_channel(channel:&mut Channel<SquareSampleProducer>, memory
         channel.frequency &= 0xFF;
         channel.frequency |= ((nr14 & 0b111) as u16) << 8;
         
-        let dac_enabled = is_dac_enabled(channel.volume, channel.sample_producer.envelop.increase_envelope);
+        let dac_enabled = is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope);
         update_channel_conrol_register(channel, dac_enabled, nr14, 64, fs);
 
         if nr14 & BIT_7_MASK != 0{
             //volume
             channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
+            channel.sample_producer.envelop.current_volume = channel.sample_producer.envelop.volume;
             
             //sweep
             let sweep = channel.sample_producer.sweep.as_mut().unwrap();
@@ -229,13 +235,12 @@ fn update_channel_conrol_register<T:SampleProducer>(channel:&mut Channel<T>, dac
             }
         }
 
-        channel.current_volume = channel.volume;
         channel.timer.update_cycles_to_tick(channel.sample_producer.get_updated_frequency_ticks(channel.frequency));
     }
 }
 
-fn update_volume_envelope(volume: &mut u8, register:u8, envelop:&mut VolumeEnvlope){
-    *volume = (register & 0b1111_0000) >> 4;
+fn update_volume_envelope(register:u8, envelop:&mut VolumeEnvlope){
+    envelop.volume = (register & 0b1111_0000) >> 4;
     envelop.number_of_envelope_sweep = register & 0b111;
     envelop.increase_envelope = (register & BIT_3_MASK) != 0;
 }

@@ -131,13 +131,13 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         if tick.volume_envelope{
             if self.sweep_tone_channel.enabled{
-                self.sweep_tone_channel.sample_producer.envelop.tick(&mut self.sweep_tone_channel.current_volume);
+                self.sweep_tone_channel.sample_producer.envelop.tick();
             }
             if self.tone_channel.enabled{
-                self.tone_channel.sample_producer.envelop.tick(&mut self.tone_channel.current_volume);
+                self.tone_channel.sample_producer.envelop.tick();
             }
             if self.noise_channel.enabled{
-                self.noise_channel.sample_producer.envelop.tick(&mut self.noise_channel.current_volume);
+                self.noise_channel.sample_producer.envelop.tick();
             }
         }
     }

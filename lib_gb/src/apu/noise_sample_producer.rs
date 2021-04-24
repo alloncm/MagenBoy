@@ -13,11 +13,7 @@ pub struct NoiseSampleProducer{
 impl Default for NoiseSampleProducer{
     fn default() -> Self {
         Self{
-            envelop:VolumeEnvlope{
-                envelop_duration_counter:0,
-                increase_envelope:false,
-                number_of_envelope_sweep:0
-            },
+            envelop:VolumeEnvlope::default(),
             divisor_code:0,
             width_mode:false,
             bits_to_shift_divisor:0,
@@ -38,7 +34,9 @@ impl SampleProducer for NoiseSampleProducer{
             self.lfsr |= xor_result << 6;
         }
 
-        return ((!self.lfsr) & 1) as u8;
+        let sample = ((!self.lfsr) & 1) as u8;
+
+        return sample * self.envelop.current_volume;
     }
 
     fn reset(&mut self) {

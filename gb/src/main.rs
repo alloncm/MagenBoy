@@ -1,9 +1,12 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
 mod sdl_audio_device;
+mod audio_resampler;
+mod wav_file_audio_device;
+mod multi_device_audio;
 
-use crate::{mbc_handler::*, sdl_joypad_provider::SdlJoypadProvider};
-use lib_gb::{keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
+use crate::{mbc_handler::*, sdl_joypad_provider::*, multi_device_audio::*};
+use lib_gb::{keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY, apu::audio_device::*};
 use std::{
     ffi::{c_void, CString},
     fs, env, result::Result, vec::Vec
@@ -66,12 +69,16 @@ fn buttons_mapper(button:Button)->SDL_Scancode{
     }
 }
 
+fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
+    args.len() >= 3 && args.contains(&String::from(flag))
+}
+
 fn main() {
     let screen_scale:u32 = 4;
 
     let args: Vec<String> = env::args().collect();    
 
-    let debug_level = args.len() >= 3 && args[2].eq(&String::from("--log"));
+    let debug_level = check_for_terminal_feature_flag(&args, "--log");
     
     match init_logger(debug_level){
         Result::Ok(())=>{},
@@ -98,6 +105,14 @@ fn main() {
     };
 
     let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
+    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+    devices.push(Box::new(audio_device));
+    if check_for_terminal_feature_flag(&args, "--file-audio"){
+        let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
+        devices.push(Box::new(wav_ad));
+    }
+    
+    let audio_devices = MultiAudioDevice::new(devices);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
@@ -112,12 +127,12 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_device, bootrom)
+            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_devices, bootrom)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc, joypad_provider, audio_device)
+            GameBoy::new(&mut mbc, joypad_provider, audio_devices)
         }
     };
 
