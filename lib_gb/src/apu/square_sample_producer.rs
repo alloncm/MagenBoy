@@ -22,11 +22,7 @@ impl SquareSampleProducer{
                 shadow_frequency:0,
                 sweep_period:0
             }),
-            envelop:VolumeEnvlope{
-                increase_envelope:false,
-                number_of_envelope_sweep:0,
-                envelop_duration_counter:0
-            },
+            envelop:VolumeEnvlope::default(),
             duty_sample_pointer:0
         }
     }
@@ -35,11 +31,7 @@ impl SquareSampleProducer{
         SquareSampleProducer{
             wave_duty:1,
             sweep:Option::None,
-            envelop:VolumeEnvlope{
-                increase_envelope:false,
-                number_of_envelope_sweep:0,
-                envelop_duration_counter:0
-            },
+            envelop:VolumeEnvlope::default(),
             duty_sample_pointer:0
         }
     }
@@ -52,7 +44,7 @@ impl SampleProducer for SquareSampleProducer{
 
         let sample = DUTY_TABLE[self.wave_duty as usize][self.duty_sample_pointer as usize];
 
-        return sample;
+        return sample * self.envelop.current_volume;
     }
 
     fn get_updated_frequency_ticks(&self, freq:u16) ->u16 {

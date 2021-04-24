@@ -5,8 +5,6 @@ pub struct Channel<Procuder: SampleProducer>{
     pub enabled:bool,
     pub frequency:u16,
     pub sound_length:u16,
-    pub volume:u8,
-    pub current_volume:u8,
     pub length_enable:bool,
     pub sample_producer:Procuder,
     pub timer:Timer,
@@ -20,8 +18,6 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             enabled:false,
             frequency:0,
             sound_length:0,
-            volume:0,
-            current_volume:0,
             length_enable:false,
             timer: Timer::new(sample_producer.get_updated_frequency_ticks(0)),
             sample_producer,
@@ -46,8 +42,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         self.length_enable = false;
         self.sound_length = 0;
         self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
-        self.volume = 0;
-        self.current_volume = 0;
+        self.sample_producer.reset();
 
         self.last_sample = 0;
     }
@@ -72,6 +67,6 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
     }
 
     fn convert_digtial_to_analog(&self, sample:u8)->f32{
-        ((sample * self.current_volume) as f32 / 7.5 ) - 1.0
+        (sample as f32 / 7.5 ) - 1.0
     }
 }
