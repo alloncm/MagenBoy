@@ -69,12 +69,16 @@ fn buttons_mapper(button:Button)->SDL_Scancode{
     }
 }
 
+fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
+    args.len() >= 3 && args.contains(&String::from(flag))
+}
+
 fn main() {
     let screen_scale:u32 = 4;
 
     let args: Vec<String> = env::args().collect();    
 
-    let debug_level = args.len() >= 3 && args[2].eq(&String::from("--log"));
+    let debug_level = check_for_terminal_feature_flag(&args, "--log");
     
     match init_logger(debug_level){
         Result::Ok(())=>{},
@@ -101,8 +105,13 @@ fn main() {
     };
 
     let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
-    let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
-    let devices:[Box::<dyn AudioDevice>;2] = [Box::new(audio_device), Box::new(wav_ad)];
+    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+    devices.push(Box::new(audio_device));
+    if check_for_terminal_feature_flag(&args, "--file-audio"){
+        let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
+        devices.push(Box::new(wav_ad));
+    }
+    
     let audio_devices = MultiAudioDevice::new(devices);
 
     let program_name = &args[1];
