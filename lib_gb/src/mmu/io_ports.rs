@@ -68,7 +68,7 @@ impl Memory for IoPorts{
             NR41_REGISTER_INDEX=> 0xFF,
             NR44_REGISTER_INDEX=> value | 0b1011_1111,
             NR52_REGISTER_INDEX=> value | 0b0111_0000,
-            0x27..=0x2F => 0xFF, //Wave ram, write only
+            0x27..=0x2F => 0xFF, //Not used
             TAC_REGISTER_INDEX=> value & 0b111,
             JOYP_REGISTER_INDEX => {
                 let joypad_value = self.ports[JOYP_REGISTER_INDEX as usize];

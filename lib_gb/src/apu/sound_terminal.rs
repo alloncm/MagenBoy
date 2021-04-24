@@ -17,15 +17,15 @@ impl Default for SoundTerminal{
 }
 
 impl SoundTerminal{
-    pub fn mix_terminal_samples(&self, samples:&[f32;4])->f32{
+    pub fn mix_terminal_samples(&self, samples:&[f32;NUMBER_OF_CHANNELS])->f32{
         let mut mixed_sample:f32 = 0.0;
-        for i in 0..4{
+        for i in 0..NUMBER_OF_CHANNELS{
             if self.channels[i]{
                 mixed_sample += samples[i];
             }
         }
 
-        mixed_sample /= 4.0;
+        mixed_sample /= NUMBER_OF_CHANNELS as f32;
 
         return mixed_sample * (self.volume as f32 + 1.0);
     }

@@ -64,8 +64,9 @@ impl SampleProducer for SquareSampleProducer{
         self.duty_sample_pointer = 0;
 
         self.envelop.reset();
-        let sweep = self.sweep.as_mut().unwrap();
-        sweep.reset();
+        if let Some(sweep) = self.sweep.as_mut(){
+            sweep.reset();   
+        }
     }
 }
 
