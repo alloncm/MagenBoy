@@ -126,7 +126,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "lib_gb"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "log",
 ]
@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "fern",
