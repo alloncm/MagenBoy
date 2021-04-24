@@ -119,7 +119,8 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR32_REGISTER_INDEX as usize]{
         //I want bits 5-6
-        channel.sample_producer.volume = (memory.read_unprotected(NR32_REGISTER_ADDRESS) >> 5) & 0b11;
+        let nr32 = memory.read_unprotected(NR32_REGISTER_ADDRESS);
+        channel.sample_producer.volume = (nr32 & 0b110_0000) >> 5;
     }
     if memory.io_ports.get_ports_cycle_trigger()[NR33_REGISTER_INDEX as usize]{
         //discard lower 8 bits
@@ -135,6 +136,10 @@ fn prepare_wave_channel(channel:&mut Channel<WaveSampleProducer>, memory:&mut Gb
 
         let dac_enabled = (memory.read_unprotected(NR30_REGISTER_ADDRESS) & BIT_7_MASK) != 0;
         update_channel_conrol_register(channel, dac_enabled, nr34, 256, fs);
+
+        //Since in the wave channel the volume is shifted and managed by the sampler producer
+        //the channel current_volume - which the DAC uses, should always be one.
+        channel.current_volume = 1;
 
         if nr34 & BIT_7_MASK != 0{
             channel.sample_producer.reset_counter();
