@@ -1,13 +1,7 @@
-use std::{
-    vec::Vec,
-    mem::MaybeUninit,
-    ffi::{CStr, c_void}
-};
-use lib_gb::{GB_FREQUENCY, apu::audio_device::{AudioDevice, Sample}};
-use sdl2::{
-    sys::*,
-    libc::c_char
-};
+use std::{vec::Vec,mem::MaybeUninit,ffi::{CStr, c_void}};
+use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
+use sdl2::{sys::*,libc::c_char};
+use crate::audio_resampler::AudioResampler;
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
@@ -15,19 +9,13 @@ const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 4;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
-    to_skip:u32,
-    sampling_buffer:Vec<Sample>,
-    sampling_counter:u32,
+    resampler: AudioResampler,
 
     buffer: Vec<f32>
 }
 
 impl SdlAudioDevie{
     pub fn new(frequency:i32)->Self{
-        let to_skip = GB_FREQUENCY / frequency as u32;
-        if to_skip == 0{
-            std::panic!("freqency is too high: {}", frequency);
-        }
 
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
@@ -66,10 +54,8 @@ impl SdlAudioDevie{
         
         return SdlAudioDevie{
             device_id: device_id,
-            to_skip:to_skip,
             buffer:Vec::with_capacity(BUFFER_SIZE),
-            sampling_counter:0,
-            sampling_buffer:Vec::with_capacity(to_skip as usize)
+            resampler: AudioResampler::new(GB_FREQUENCY, frequency as u32)
         };
     }
 
@@ -97,33 +83,18 @@ impl SdlAudioDevie{
             Ok(())
         }
     }
-
-    fn interpolate_sample(samples:&[Sample])->(f32, f32){
-        
-        let interpulated_left_sample = samples.iter().fold(0.0, |acc, x| acc + x.left_sample) / samples.len() as f32;
-        let interpulated_right_sample = samples.iter().fold(0.0, |acc, x| acc + x.right_sample) / samples.len() as f32;
-
-        return (interpulated_left_sample, interpulated_right_sample);
-    }
 }
 
 impl AudioDevice for SdlAudioDevie{
     fn push_buffer(&mut self, buffer:&[Sample]){
-        for sample in buffer.into_iter(){
-            self.sampling_buffer.push(*sample);
-            self.sampling_counter += 1;
+        for sample in self.resampler.resample(buffer){
 
-            if self.sampling_counter == self.to_skip {
-                let (interpulated_left_sample, interpulated_right_sample) = Self::interpolate_sample(&self.sampling_buffer);
-                self.buffer.push(interpulated_left_sample);
-                self.buffer.push(interpulated_right_sample);
-                self.sampling_counter = 0;
-                self.sampling_buffer.clear();
+            self.buffer.push(sample.left_sample);
+            self.buffer.push(sample.right_sample);
 
-                if self.buffer.len() == BUFFER_SIZE{
-                    self.push_audio_to_device(&self.buffer).unwrap();
-                    self.buffer.clear();
-                }
+            if self.buffer.len() == BUFFER_SIZE{
+                self.push_audio_to_device(&self.buffer).unwrap();
+                self.buffer.clear();
             }
         }
     }

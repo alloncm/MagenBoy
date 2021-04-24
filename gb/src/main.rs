@@ -1,9 +1,12 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
 mod sdl_audio_device;
+mod audio_resampler;
+mod wav_file_audio_device;
+mod multi_device_audio;
 
-use crate::{mbc_handler::*, sdl_joypad_provider::SdlJoypadProvider};
-use lib_gb::{keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
+use crate::{mbc_handler::*, sdl_joypad_provider::*, multi_device_audio::*};
+use lib_gb::{keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY, apu::audio_device::*};
 use std::{
     ffi::{c_void, CString},
     fs, env, result::Result, vec::Vec
@@ -98,6 +101,9 @@ fn main() {
     };
 
     let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
+    let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
+    let devices:[Box::<dyn AudioDevice>;2] = [Box::new(audio_device), Box::new(wav_ad)];
+    let audio_devices = MultiAudioDevice::new(devices);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 
@@ -112,12 +118,12 @@ fn main() {
                 bootrom[i] = file[i];
             }
             
-            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_device, bootrom)
+            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_devices, bootrom)
         }
         Result::Err(_)=>{
             info!("could not find bootrom... booting directly to rom");
 
-            GameBoy::new(&mut mbc, joypad_provider, audio_device)
+            GameBoy::new(&mut mbc, joypad_provider, audio_devices)
         }
     };
 
