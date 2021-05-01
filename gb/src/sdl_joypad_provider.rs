@@ -5,7 +5,7 @@ use lib_gb::keypad::{
     button::Button
 };
 
-const PUMP_THRESHOLD:u32 = 1000;
+const PUMP_THRESHOLD:u32 = 500;
 
 pub struct SdlJoypadProvider<F:Fn(Button)->SDL_Scancode>{
     mapper: F,
