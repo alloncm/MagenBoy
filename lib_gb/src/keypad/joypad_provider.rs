@@ -1,5 +1,5 @@
 use super::joypad::Joypad;
 
 pub trait JoypadProvider{
-    fn provide(&self, joypad:&mut Joypad);
+    fn provide(&mut self, joypad:&mut Joypad);
 }
