@@ -1,6 +1,6 @@
 # MagenBoy
 
-A GameBoy emulator developped by me.
+A GameBoy emulator developed by me.
 
 The main goal of this project is to be able to play Pokemon on my own emulator.
 
@@ -31,3 +31,11 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 ## GameBoy Color
 
 Curerently there is no Support (support is planned in the future)
+
+## Resources
+- [The Pandocs](https://gbdev.io/pandocs/)
+- [gbops](https://izik1.github.io/gbops/index.html)
+- [The GameBoy Programming Manual](http://index-of.es/Varios-2/Game%20Boy%20Programming%20Manual.pdf)
+- [gbdev gameboy sound hardware](https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware)
+- [Hactix's awsome blog post](https://hacktix.github.io/GBEDG/)
+- [Nightshade's awsome blog post](https://nightshade256.github.io/2021/03/27/gb-sound-emulation.html)
