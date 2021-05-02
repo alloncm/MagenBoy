@@ -10,7 +10,7 @@ pub struct Mbc3 {
     current_bank: u8,
     ram_timer_enable: u8,
     ram_rtc_select: u8,
-    latch_clock_data: u8,
+    // latch_clock_data: u8,
     rtc_registers: [u8; 4],
 }
 
@@ -40,7 +40,7 @@ impl Mbc for Mbc3 {
             0..=0x1FFF => self.ram_timer_enable = value,
             0x2000..=0x3FFF => self.current_bank = value,
             0x4000..=0x5FFF => self.ram_rtc_select = value,
-            0x6000..=0x7FFF => self.latch_clock_data = value,
+            // 0x6000..=0x7FFF => self.latch_clock_data = value,
             _ => std::panic!("cannot write to this address in mbc3 cartridge"),
         }
     }
@@ -81,7 +81,7 @@ impl Mbc3 {
         let mut mbc = Mbc3 {
             current_bank: 0,
             battery: battery,
-            latch_clock_data: 0,
+            // latch_clock_data: 0,
             program: program,
             ram: Vec::new(),
             ram_rtc_select: 0,

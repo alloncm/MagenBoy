@@ -4,7 +4,7 @@ use std::vec::Vec;
 pub struct Mbc1 {
     program: Vec<u8>,
     ram: Vec<u8>,
-    register0: u8,
+    // register0: u8,
     register1: u8,
     register2: u8,
     register3: u8,
@@ -31,7 +31,7 @@ impl Mbc for Mbc1 {
 
     fn write_rom(&mut self, address: u16, value: u8) {
         match address {
-            0..=0x1FFF => self.register0 = value,
+            // 0..=0x1FFF => self.register0 = value,
             0x2000..=0x3FFF => self.register1 = value,
             0x4000..=0x5FFF => self.register2 = value,
             0x6000..=0x7FFF => self.register3 = value,
@@ -55,7 +55,7 @@ impl Mbc1 {
         let mut mbc = Mbc1 {
             program: v,
             ram: Vec::new(),
-            register0: 0,
+            // register0: 0,
             register1: 0,
             register2: 0,
             register3: 0,

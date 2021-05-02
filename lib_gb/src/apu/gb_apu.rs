@@ -27,7 +27,7 @@ pub struct GbApu<Device: AudioDevice> {
     audio_buffer: [Sample; AUDIO_BUFFER_SIZE],
     current_t_cycle: u32,
     device: Device,
-    last_enabled_state: bool,
+    // last_enabled_state: bool,
 }
 
 impl<Device: AudioDevice> GbApu<Device> {
@@ -49,7 +49,7 @@ impl<Device: AudioDevice> GbApu<Device> {
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
             enabled: false,
-            last_enabled_state: false,
+            // last_enabled_state: false,
         }
     }
 
@@ -103,7 +103,7 @@ impl<Device: AudioDevice> GbApu<Device> {
             self.frame_sequencer.reset();
         }
 
-        self.last_enabled_state = self.enabled;
+        // self.last_enabled_state = self.enabled;
     }
 
     fn push_buffer_if_full(&mut self) {
