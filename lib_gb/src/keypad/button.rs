@@ -1,5 +1,5 @@
 #[repr(u8)]
-pub enum Button{
+pub enum Button {
     A,
     B,
     Start,
@@ -7,5 +7,5 @@ pub enum Button{
     Up,
     Down,
     Right,
-    Left
+    Left,
 }

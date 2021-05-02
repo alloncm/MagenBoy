@@ -1,15 +1,15 @@
-pub enum AccessBus{
+pub enum AccessBus {
     External,
-    Video
+    Video,
 }
 
-impl Clone for AccessBus{
+impl Clone for AccessBus {
     fn clone(&self) -> Self {
-        match *self{
-            AccessBus::External=>AccessBus::External,
-            AccessBus::Video=>AccessBus::Video
+        match *self {
+            AccessBus::External => AccessBus::External,
+            AccessBus::Video => AccessBus::Video,
         }
     }
 }
 
-impl Copy for AccessBus{}
+impl Copy for AccessBus {}

@@ -5,7 +5,7 @@ use lib_gb::cpu::opcodes::load_8bit_instructions;
 fn test_ld_r_r() {
     let mut cpu = GbCpu::default();
     *cpu.af.high() = 6;
-    load_8bit_instructions::ld_r_r(&mut cpu,0x47);
+    load_8bit_instructions::ld_r_r(&mut cpu, 0x47);
     assert_eq!(*cpu.af.high(), *cpu.bc.high());
 }
 
