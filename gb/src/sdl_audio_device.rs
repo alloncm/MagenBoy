@@ -5,13 +5,11 @@ use crate::audio_resampler::AudioResampler;
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
-const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 16;
-const SAMPLES_TO_WAIT:u32 = BYTES_TO_WAIT / 4;
+const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 8;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
     resampler: AudioResampler,
-    freq:u32,
 
     buffer: Vec<f32>
 }
@@ -57,8 +55,7 @@ impl SdlAudioDevie{
         return SdlAudioDevie{
             device_id: device_id,
             buffer:Vec::with_capacity(BUFFER_SIZE),
-            resampler: AudioResampler::new(GB_FREQUENCY, frequency as u32),
-            freq: frequency as u32
+            resampler: AudioResampler::new(GB_FREQUENCY, frequency as u32)
         };
     }
 
@@ -76,15 +73,7 @@ impl SdlAudioDevie{
         let data_byte_len = (audio.len() * std::mem::size_of::<f32>()) as u32;
 
         unsafe{
-            let mut queued_audio_size = SDL_GetQueuedAudioSize(self.device_id);
-            while queued_audio_size > BYTES_TO_WAIT{
-                let samples_in_queue=  queued_audio_size / 4;
-                let ms_to_delay = ((samples_in_queue - SAMPLES_TO_WAIT) as f64 / self.freq as f64) * 1000.0;
-                log::warn!("sleeping for {} ms", ms_to_delay);
-                SDL_Delay(ms_to_delay as u32);
-                queued_audio_size = SDL_GetQueuedAudioSize(self.device_id);
-                log::warn!("current audio q size {}", queued_audio_size);
-            }
+            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{}
 
             SDL_ClearError();
             if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{
