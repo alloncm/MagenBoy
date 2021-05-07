@@ -172,6 +172,9 @@ fn main() {
             if elapsed_ms < FRAME_TIME_MS{
                 SDL_Delay((FRAME_TIME_MS - elapsed_ms).floor() as u32);
             }
+            else{
+                log::warn!("too long frame, took: {}", elapsed_ms);
+            }
         }
 
         SDL_Quit();
