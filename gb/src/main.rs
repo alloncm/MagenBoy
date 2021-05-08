@@ -18,7 +18,7 @@ const FPS:f64 = GB_FREQUENCY as f64 / 70224.0;
 const FRAME_TIME_MS:f64 = (1.0 / FPS) * 1000.0;
 
 
-fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
+fn extend_vec(vec:&[u32], scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
     for y in 0..h{
         let sy = y*scale;
@@ -153,7 +153,7 @@ fn main() {
                 }
             }
 
-            let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
+            let frame_buffer = gameboy.cycle_frame();
             let scaled_buffer = extend_vec(frame_buffer, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             let mut pixels: *mut c_void = std::ptr::null_mut();
@@ -171,7 +171,7 @@ fn main() {
             if elapsed_ms < FRAME_TIME_MS{
                 SDL_Delay((FRAME_TIME_MS - elapsed_ms).floor() as u32);
             }
-            
+
             start = SDL_GetPerformanceCounter();
         }
 
