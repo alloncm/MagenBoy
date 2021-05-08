@@ -1,9 +1,9 @@
-use super::memory::*;
+use super::{io_comps::IoComps, memory::*};
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
 use super::access_bus::AccessBus;
-use crate::utils::memory_registers::BOOT_REGISTER_ADDRESS;
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
@@ -14,11 +14,11 @@ const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbMmu<'a>{
+pub struct GbMmu<'a, D:AudioDevice>{
     pub ram: Ram,
     pub vram: VRam,
     pub finished_boot:bool,
-    pub io_ports: IoPorts,
+    pub io_comps: IoComps<D>,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
     sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
@@ -30,11 +30,11 @@ pub struct GbMmu<'a>{
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
-impl<'a> Memory for GbMmu<'a>{
+impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
     fn read(&self, address:u16)->u8{
         if let Some (bus) = &self.dma_state{
             return match address{
-                0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
+                0xFF00..=0xFF7F => self.io_comps.read(address - 0xFF00),
                 0xFEA0..=0xFEFF | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
@@ -60,7 +60,7 @@ impl<'a> Memory for GbMmu<'a>{
                     return BAD_READ_VALUE;
                 }
             },
-            0xFF00..=0xFF7F => self.io_ports.read(address - 0xFF00),
+            0xFF00..=0xFF7F => self.io_comps.read(address - 0xFF00),
             _=>self.read_unprotected(address)
         };
     }
@@ -68,7 +68,7 @@ impl<'a> Memory for GbMmu<'a>{
     fn write(&mut self, address:u16, value:u8){
         if let Some(bus) = &self.dma_state{
             match address{
-                0xFF00..=0xFF7F => self.io_ports.write(address- 0xFF00, value),
+                0xFF00..=0xFF7F => self.io_comps.write(address- 0xFF00, value),
                 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
@@ -93,14 +93,14 @@ impl<'a> Memory for GbMmu<'a>{
                         log::warn!("bad oam write")
                     }
                 },
-                0xFF00..=0xFF7F=>self.io_ports.write(address - 0xFF00, value),
+                0xFF00..=0xFF7F=>self.io_comps.write(address - 0xFF00, value),
                 _=>self.write_unprotected(address, value)
             }
         }
     }
 }
 
-impl<'a> UnprotectedMemory for GbMmu<'a>{
+impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
     fn read_unprotected(&self, address:u16) ->u8 {
         return match address{
             0x0..=0xFF=>{
@@ -119,7 +119,7 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_ports.read_unprotected(address - 0xFF00),
+            0xFF00..=0xFF7F=>self.io_comps.ports.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         };
@@ -135,18 +135,18 @@ impl<'a> UnprotectedMemory for GbMmu<'a>{
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_ports.write_unprotected(address - 0xFF00, value),
+            0xFF00..=0xFF7F=>self.io_comps.ports.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }
     }
 }
 
-impl<'a> GbMmu<'a>{
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE])->Self{
+impl<'a, D:AudioDevice> GbMmu<'a, D>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>)->Self{
         GbMmu{
             ram:Ram::default(),
-            io_ports:IoPorts::default(),
+            io_comps:IoComps{apu, ports:IoPorts::default()},
             mbc:mbc,
             vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
@@ -159,10 +159,10 @@ impl<'a> GbMmu<'a>{
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>)->Self{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>)->Self{
         let mut mmu = GbMmu{
             ram:Ram::default(),
-            io_ports:IoPorts::default(),
+            io_comps:IoComps{apu, ports:IoPorts::default()},
             mbc:mbc,
             vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
@@ -175,7 +175,7 @@ impl<'a> GbMmu<'a>{
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)
-        mmu.io_ports.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
+        mmu.io_comps.ports.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
         
         mmu
     }

@@ -12,10 +12,9 @@ use log::debug;
 
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     cpu: GbCpu,
-    mmu: GbMmu::<'a>,
-    opcode_resolver:OpcodeResolver::<GbMmu::<'a>>,
+    mmu: GbMmu::<'a, AD>,
+    opcode_resolver:OpcodeResolver::<GbMmu::<'a, AD>>,
     ppu:GbPpu,
-    apu:GbApu<AD>,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
     joypad_provider: JP,
@@ -28,10 +27,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD>{
         GameBoy{
             cpu:GbCpu::default(),
-            mmu:GbMmu::new_with_bootrom(mbc, boot_rom),
+            mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device)),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            apu:GbApu::new(audio_device),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
@@ -52,10 +50,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
         GameBoy{
             cpu:cpu,
-            mmu:GbMmu::new(mbc),
+            mmu:GbMmu::new(mbc, GbApu::new(audio_device)),
             opcode_resolver:OpcodeResolver::default(),
             ppu:GbPpu::default(),
-            apu:GbApu::new(audio_device),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
@@ -82,7 +79,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             //For the DMA controller
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
-            timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
+            timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_comps.ports);
             self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
             self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
             
@@ -97,7 +94,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.ppu, &mut self.mmu);
             if interrupt_cycles != 0{
                 self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
-                timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_ports);
+                timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_comps.ports);
                 self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
                 mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
                 
@@ -112,11 +109,12 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             
 
             //APU
-            apu::update_apu_registers(&mut self.mmu, &mut self.apu);
-            self.apu.cycle(&mut self.mmu, iter_total_cycles as u8);
+            // apu::update_apu_registers(&mut self.mmu, &mut self.apu);
+            // self.apu.cycle(iter_total_cycles as u8);
+            self.mmu.io_comps.cycle(iter_total_cycles);
 
             //clears io ports
-            self.mmu.io_ports.clear_io_ports_triggers();
+            self.mmu.io_comps.ports.clear_io_ports_triggers();
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
@@ -161,7 +159,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
         
         
-        let opcode_func:OpcodeFuncType<GbMmu> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
+        let opcode_func:OpcodeFuncType<GbMmu<AD>> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
         match opcode_func{
             OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
             OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),
