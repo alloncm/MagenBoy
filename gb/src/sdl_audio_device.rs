@@ -5,7 +5,7 @@ use crate::audio_resampler::AudioResampler;
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
-const SAMPLES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 4;
+const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 8;
 
 pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
@@ -73,7 +73,7 @@ impl SdlAudioDevie{
         let data_byte_len = (audio.len() * std::mem::size_of::<f32>()) as u32;
 
         unsafe{
-            while SDL_GetQueuedAudioSize(self.device_id) > SAMPLES_TO_WAIT{}
+            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{}
 
             SDL_ClearError();
             if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{

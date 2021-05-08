@@ -14,8 +14,11 @@ use std::{
 use log::info;
 use sdl2::sys::*;
 
+const FPS:f64 = GB_FREQUENCY as f64 / 70224.0;
+const FRAME_TIME_MS:f64 = (1.0 / FPS) * 1000.0;
 
-fn extend_vec(vec:Vec<u32>, scale:usize, w:usize, h:usize)->Vec<u32>{
+
+fn extend_vec(vec:&[u32], scale:usize, w:usize, h:usize)->Vec<u32>{
     let mut new_vec = vec![0;vec.len()*scale*scale];
     for y in 0..h{
         let sy = y*scale;
@@ -140,7 +143,9 @@ fn main() {
 
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+        let mut start:u64 = SDL_GetPerformanceCounter();
         loop{
+
             if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
                 if event.type_ == SDL_EventType::SDL_QUIT as u32{
@@ -148,7 +153,7 @@ fn main() {
                 }
             }
 
-            let frame_buffer:Vec<u32> = gameboy.cycle_frame().to_vec();
+            let frame_buffer = gameboy.cycle_frame();
             let scaled_buffer = extend_vec(frame_buffer, screen_scale as usize, SCREEN_WIDTH, SCREEN_HEIGHT);
 
             let mut pixels: *mut c_void = std::ptr::null_mut();
@@ -160,6 +165,14 @@ fn main() {
             SDL_RenderClear(renderer);
             SDL_RenderCopy(renderer, texture, std::ptr::null(), std::ptr::null());
             SDL_RenderPresent(renderer);
+
+            let end = SDL_GetPerformanceCounter();
+            let elapsed_ms:f64 = (end - start) as f64 / SDL_GetPerformanceFrequency() as f64 * 1000.0;
+            if elapsed_ms < FRAME_TIME_MS{
+                SDL_Delay((FRAME_TIME_MS - elapsed_ms).floor() as u32);
+            }
+
+            start = SDL_GetPerformanceCounter();
         }
 
         SDL_Quit();
