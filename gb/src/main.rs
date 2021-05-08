@@ -143,9 +143,8 @@ fn main() {
 
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+        let mut start:u64 = SDL_GetPerformanceCounter();
         loop{
-
-            let start = SDL_GetPerformanceCounter();
 
             if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
@@ -172,9 +171,8 @@ fn main() {
             if elapsed_ms < FRAME_TIME_MS{
                 SDL_Delay((FRAME_TIME_MS - elapsed_ms).floor() as u32);
             }
-            else{
-                log::warn!("too long frame, took: {}", elapsed_ms);
-            }
+            
+            start = SDL_GetPerformanceCounter();
         }
 
         SDL_Quit();
