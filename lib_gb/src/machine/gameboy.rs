@@ -1,10 +1,4 @@
-use crate::{
-    apu::{self, audio_device::AudioDevice, gb_apu::GbApu}, 
-    cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, 
-    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
-    mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory, mmu_register_updater, oam_dma_transferer::OamDmaTransferer}, 
-    ppu::{gb_ppu::{CYCLES_PER_FRAME, GbPpu, SCREEN_HEIGHT, SCREEN_WIDTH}, ppu_register_updater}, timer::{gb_timer::GbTimer, timer_register_updater}
-};
+use crate::{apu::{self, audio_device::AudioDevice, gb_apu::GbApu}, cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::{Memory, UnprotectedMemory}, mmu_register_updater, oam_dma_transferer::OamDmaTransferer}, ppu::{gb_ppu::{CYCLES_PER_FRAME, GbPpu, SCREEN_HEIGHT, SCREEN_WIDTH}, ppu_register_updater}, timer::{gb_timer::GbTimer, timer_register_updater}, utils::memory_registers::IF_REGISTER_ADDRESS};
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
@@ -18,7 +12,6 @@ pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
     joypad_provider: JP,
-    timer: GbTimer,
     dma:OamDmaTransferer
 }
 
@@ -33,7 +26,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
-            timer:GbTimer::default(),
             dma: OamDmaTransferer::default()
         }
     }
@@ -56,7 +48,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
-            timer: GbTimer::default(),
             dma: OamDmaTransferer::default()
         }
     }
@@ -79,10 +70,11 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             //For the DMA controller
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
-            timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_comps.ports);
-            self.timer.cycle(&mut self.mmu, cpu_cycles_passed);
             self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
             
+            
+            self.mmu.io_comps.cycle(cpu_cycles_passed as u32);
+
             //For the PPU
             mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
 
@@ -94,8 +86,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.ppu, &mut self.mmu);
             if interrupt_cycles != 0{
                 self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
-                timer_register_updater::update_timer_registers(&mut self.timer, &mut self.mmu.io_comps.ports);
-                self.timer.cycle(&mut self.mmu, interrupt_cycles as u8);
                 mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
                 
                 //PPU
@@ -104,6 +94,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
                 mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
             }
 
+            self.mmu.io_comps.cycle(interrupt_cycles as u32);
             
             let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             
@@ -111,7 +102,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             //APU
             // apu::update_apu_registers(&mut self.mmu, &mut self.apu);
             // self.apu.cycle(iter_total_cycles as u8);
-            self.mmu.io_comps.cycle(iter_total_cycles);
 
             //clears io ports
             self.mmu.io_comps.ports.clear_io_ports_triggers();

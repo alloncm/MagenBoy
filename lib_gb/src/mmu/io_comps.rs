@@ -1,4 +1,4 @@
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, set_nr13, volume_envelop::VolumeEnvlope}, utils::{bit_masks::BIT_3_MASK, memory_registers::*}};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, set_nr13, volume_envelop::VolumeEnvlope}, timer::timer_register_updater::*, utils::{bit_masks::BIT_3_MASK, memory_registers::*}};
 use crate::ppu::gb_ppu::GbPpu;
 use crate::apu::*;
 use crate::timer::gb_timer::GbTimer;
@@ -7,6 +7,7 @@ use super::io_ports::*;
 
 pub struct IoComps<AD:AudioDevice>{
     pub apu: GbApu<AD>,
+    pub timer: GbTimer,
     pub ports:IoPorts,
 }
 
@@ -14,7 +15,9 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
     fn read(&self, address:u16)->u8 {
         let mut value = self.ports.read(address);
         match address {
-            NR52_REGISTER_INDEX=>get_nr52(&self.apu, &mut value),
+            DIV_REGISTER_INDEX=> value = get_div(&self.timer),
+            TIMA_REGISTER_INDEX=> value = self.timer.tima_register,
+            NR52_REGISTER_INDEX=> get_nr52(&self.apu, &mut value),
             _=>{}
         }
 
@@ -23,6 +26,12 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
 
     fn write(&mut self, address:u16, value:u8) {
         match address{
+            //timer
+            DIV_REGISTER_INDEX=> reset_div(&mut self.timer),
+            TIMA_REGISTER_INDEX=> set_tima(&mut self.timer, value),
+            TMA_REGISTER_INDEX=> set_tma(&mut self.timer, value),
+            TAC_REGISTER_INDEX=> set_tac(&mut self.timer, value),
+            //APU
             NR10_REGISTER_INDEX=> set_nr10(&mut self.apu.sweep_tone_channel, value),
             NR11_REGISTER_INDEX=> set_nr11(&mut self.apu.sweep_tone_channel, value),
             NR12_REGISTER_INDEX=> set_nr12(&mut self.apu.sweep_tone_channel, value),
@@ -53,6 +62,9 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
 
 impl<AD:AudioDevice> IoComps<AD>{
     pub fn cycle(&mut self, cycles:u32){
+        let mut if_register = self.ports.read_unprotected(IF_REGISTER_ADDRESS - 0xFF00);
+        self.timer.cycle(&mut if_register, cycles as u8);
         self.apu.cycle(cycles as u8);
+        self.ports.write_unprotected(IF_REGISTER_ADDRESS - 0xFF00, if_register);
     }
 }

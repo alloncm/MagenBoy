@@ -3,7 +3,7 @@ use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
 use super::access_bus::AccessBus;
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, timer::gb_timer::GbTimer, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
@@ -146,7 +146,7 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>)->Self{
         GbMmu{
             ram:Ram::default(),
-            io_comps:IoComps{apu, ports:IoPorts::default()},
+            io_comps:IoComps{apu, ports:IoPorts::default(), timer:GbTimer::default()},
             mbc:mbc,
             vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
@@ -162,7 +162,7 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>)->Self{
         let mut mmu = GbMmu{
             ram:Ram::default(),
-            io_comps:IoComps{apu, ports:IoPorts::default()},
+            io_comps:IoComps{apu, ports:IoPorts::default(), timer:GbTimer::default()},
             mbc:mbc,
             vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
