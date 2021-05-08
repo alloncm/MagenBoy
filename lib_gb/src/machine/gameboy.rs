@@ -92,9 +92,10 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
                 ppu_register_updater::update_ppu_regsiters(&mut self.mmu, &mut self.ppu);
                 self.ppu.update_gb_screen(&mut self.mmu, interrupt_cycles as u32);
                 mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
-            }
 
-            self.mmu.io_comps.cycle(interrupt_cycles as u32);
+                
+                self.mmu.io_comps.cycle(interrupt_cycles as u32);
+            }
             
             let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             

@@ -1,4 +1,4 @@
-use super::{io_comps::IoComps, memory::*};
+use super::{io_comps::IoComps, memory::*, oam_dma_transferer::OamDmaTransferer};
 use super::ram::Ram;
 use super::vram::VRam;
 use super::io_ports::IoPorts;
@@ -16,7 +16,6 @@ const BAD_READ_VALUE:u8 = 0xFF;
 
 pub struct GbMmu<'a, D:AudioDevice>{
     pub ram: Ram,
-    pub vram: VRam,
     pub finished_boot:bool,
     pub io_comps: IoComps<D>,
     boot_rom:[u8;BOOT_ROM_SIZE],
@@ -44,7 +43,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
         return match address{
             0x8000..=0x9FFF=>{
                 if self.is_vram_ready_for_io(){
-                    return self.vram.read_current_bank(address-0x8000);
+                    return self.io_comps.ppu.vram.read_current_bank(address-0x8000);
                 }
                 else{
                     log::warn!("bad vram read");
@@ -79,7 +78,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
             match address{
                 0x8000..=0x9FFF=>{
                     if self.is_vram_ready_for_io(){
-                        self.vram.write_current_bank(address-0x8000, value);
+                        self.io_comps.ppu.vram.write_current_bank(address-0x8000, value);
                     }
                     else{
                         log::warn!("bad vram write")
@@ -112,7 +111,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             },
             0x100..=0x3FFF=>self.mbc.read_bank0(address),
             0x4000..=0x7FFF=>self.mbc.read_current_bank(address-0x4000),
-            0x8000..=0x9FFF=>self.vram.read_current_bank(address-0x8000),
+            0x8000..=0x9FFF=>self.io_comps.ppu.vram.read_current_bank(address-0x8000),
             0xA000..=0xBFFF=>self.mbc.read_external_ram(address-0xA000),
             0xC000..=0xCFFF =>self.ram.read_bank0(address - 0xC000), 
             0xD000..=0xDFFF=>self.ram.read_current_bank(address-0xD000),
@@ -128,7 +127,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
     fn write_unprotected(&mut self, address:u16, value:u8) {
         match address{
             0x0..=0x7FFF=>self.mbc.write_rom(address, value),
-            0x8000..=0x9FFF=>self.vram.write_current_bank(address-0x8000, value),
+            0x8000..=0x9FFF=>self.io_comps.ppu.vram.write_current_bank(address-0x8000, value),
             0xA000..=0xBFFF=>self.mbc.write_external_ram(address-0xA000,value),
             0xC000..=0xCFFF =>self.ram.write_bank0(address - 0xC000,value), 
             0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000,value),
@@ -146,9 +145,8 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>)->Self{
         GbMmu{
             ram:Ram::default(),
-            io_comps:IoComps{apu, ports:IoPorts::default(), timer:GbTimer::default()},
+            io_comps:IoComps::new(apu),
             mbc:mbc,
-            vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
@@ -162,9 +160,8 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>)->Self{
         let mut mmu = GbMmu{
             ram:Ram::default(),
-            io_comps:IoComps{apu, ports:IoPorts::default(), timer:GbTimer::default()},
+            io_comps:IoComps::new(apu),
             mbc:mbc,
-            vram:VRam::default(),
             sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
