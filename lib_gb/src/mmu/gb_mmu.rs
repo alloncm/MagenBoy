@@ -1,5 +1,4 @@
 use super::{io_comps::IoComps, memory::*};
-use super::ram::Ram;
 use super::access_bus::AccessBus;
 use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
@@ -8,26 +7,24 @@ use std::boxed::Box;
 
 pub const BOOT_ROM_SIZE:usize = 0x100;
 const HRAM_SIZE:usize = 0x7F;
+const DMA_SIZE:u16 = 0xA0;
+const DMA_DEST:u16 = 0xFE00;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
 pub struct GbMmu<'a, D:AudioDevice>{
-    pub ram: Ram,
-    pub finished_boot:bool,
     pub io_comps: IoComps<D>,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
     hram: [u8;HRAM_SIZE],
-    interupt_enable_register:u8,
-    pub dma_state:Option<AccessBus>,
-    pub ppu_state:PpuState
+    interupt_enable_register:u8
 }
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
     fn read(&self, address:u16)->u8{
-        if let Some (bus) = &self.dma_state{
+        if let Some (bus) = &self.io_comps.dma.enable{
             return match address{
                 0xFF00..=0xFF7F => self.io_comps.read(address - 0xFF00),
                 0xFEA0..=0xFEFF | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
@@ -61,7 +58,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if let Some(bus) = &self.dma_state{
+        if let Some(bus) = &self.io_comps.dma.enable{
             match address{
                 0xFF00..=0xFF7F => self.io_comps.write(address- 0xFF00, value),
                 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
@@ -99,7 +96,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
     fn read_unprotected(&self, address:u16) ->u8 {
         return match address{
             0x0..=0xFF=>{
-                if self.finished_boot{
+                if self.io_comps.finished_boot{
                     return self.mbc.read_bank0(address);
                 }
                 
@@ -109,9 +106,9 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0x4000..=0x7FFF=>self.mbc.read_current_bank(address-0x4000),
             0x8000..=0x9FFF=>self.io_comps.ppu.vram.read_current_bank(address-0x8000),
             0xA000..=0xBFFF=>self.mbc.read_external_ram(address-0xA000),
-            0xC000..=0xCFFF =>self.ram.read_bank0(address - 0xC000), 
-            0xD000..=0xDFFF=>self.ram.read_current_bank(address-0xD000),
-            0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
+            0xC000..=0xCFFF =>self.io_comps.ram.read_bank0(address - 0xC000), 
+            0xD000..=0xDFFF=>self.io_comps.ram.read_current_bank(address-0xD000),
+            0xE000..=0xFDFF=>self.io_comps.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
             0xFF00..=0xFF7F=>self.io_comps.ports.read_unprotected(address - 0xFF00),
@@ -125,9 +122,9 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0x0..=0x7FFF=>self.mbc.write_rom(address, value),
             0x8000..=0x9FFF=>self.io_comps.ppu.vram.write_current_bank(address-0x8000, value),
             0xA000..=0xBFFF=>self.mbc.write_external_ram(address-0xA000,value),
-            0xC000..=0xCFFF =>self.ram.write_bank0(address - 0xC000,value), 
-            0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000,value),
-            0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
+            0xC000..=0xCFFF =>self.io_comps.ram.write_bank0(address - 0xC000,value), 
+            0xE000..=0xFDFF=>self.io_comps.ram.write_bank0(address - 0xE000,value),
+            0xD000..=0xDFFF=>self.io_comps.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF7F=>self.io_comps.ports.write_unprotected(address - 0xFF00, value),
@@ -140,29 +137,21 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
 impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>)->Self{
         GbMmu{
-            ram:Ram::default(),
             io_comps:IoComps::new(apu),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
             boot_rom:boot_rom,
-            finished_boot:false,
-            ppu_state:PpuState::OamSearch,
-            dma_state: None
         }
     }
 
     pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>)->Self{
         let mut mmu = GbMmu{
-            ram:Ram::default(),
             io_comps:IoComps::new(apu),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
             boot_rom:[0;BOOT_ROM_SIZE],
-            finished_boot:true,
-            ppu_state:PpuState::OamSearch,
-            dma_state:None
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)
@@ -171,13 +160,33 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
         mmu
     }
 
+    pub fn cycle(&mut self, cycles:u8){
+        self.handle_dma_trasnfer(cycles);
+        self.io_comps.cycle(cycles as u32);
+    }
+
+    fn handle_dma_trasnfer(&mut self, cycles: u8) {
+        if self.io_comps.dma.enable.is_some(){
+            let cycles_to_run = std::cmp::min(self.io_comps.dma.dma_cycle_counter + cycles as u16, DMA_SIZE);
+            for i in self.io_comps.dma.dma_cycle_counter..cycles_to_run as u16{
+                self.write_unprotected(DMA_DEST + i, self.read_unprotected(self.io_comps.dma.soure_address + i));
+            }
+
+            self.io_comps.dma.dma_cycle_counter += cycles as u16;
+            if self.io_comps.dma.dma_cycle_counter >= DMA_SIZE{
+                self.io_comps.dma.dma_cycle_counter = 0;
+                self.io_comps.dma.enable = Option::None;
+            }
+        }
+    }
+
     fn is_oam_ready_for_io(&self)->bool{
-        let ppu_state = self.ppu_state as u8;
+        let ppu_state = self.io_comps.ppu.state as u8;
         return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
     }
 
     fn is_vram_ready_for_io(&self)->bool{
-        return self.ppu_state as u8 != PpuState::PixelTransfer as u8;
+        return self.io_comps.ppu.state as u8 != PpuState::PixelTransfer as u8;
     }
 
     fn bad_dma_read(address:u16)->u8{

@@ -14,21 +14,21 @@ pub fn update_mmu_registers<D:AudioDevice>(memory: &mut GbMmu<D>,dma:&mut OamDma
         handle_dma_transfer_register(memory.read_unprotected(DMA_REGISTER_ADDRESS), dma, memory);
     }
     else{
-        memory.dma_state = dma.enable;
+        // memory.dma_state = dma.enable;
     }
 }
 
 fn handle_ppu_state<D:AudioDevice>(memory:&mut GbMmu<D>, stat:u8){
-    memory.ppu_state = PpuState::from_u8(stat & 0b0000_0011);
+    // memory.ppu_state = PpuState::from_u8(stat & 0b0000_0011);
 }
 
 fn handle_wram_register<D:AudioDevice>(memory: &mut GbMmu<D>, register:u8){
     let bank:u8 = register & 0b00000111;
-    memory.ram.set_bank(bank);
+    // memory.ram.set_bank(bank);
 }
 
 fn handle_bootrom_register<D:AudioDevice>(memory: &mut GbMmu<D>, register:u8){
-    memory.finished_boot = register == 1;
+    // memory.finished_boot = register == 1;
 }
 
 fn handle_dma_transfer_register<D:AudioDevice>(register:u8, dma: &mut OamDmaTransferer, mmu:&mut GbMmu<D>){
@@ -39,5 +39,5 @@ fn handle_dma_transfer_register<D:AudioDevice>(register:u8, dma: &mut OamDmaTran
         0xA0..=0xFF=>Some(AccessBus::External)
     };
 
-    mmu.dma_state = dma.enable;
+    // mmu.dma_state = dma.enable;
 }

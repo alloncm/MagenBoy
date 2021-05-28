@@ -2,14 +2,17 @@ use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, 
 use crate::ppu::gb_ppu::GbPpu;
 use crate::apu::*;
 use crate::timer::gb_timer::GbTimer;
-use super::{io_ports::IoPorts, memory::{Memory, UnprotectedMemory}};
+use super::{access_bus::AccessBus, io_ports::IoPorts, memory::{Memory, UnprotectedMemory}, oam_dma_transferer::OamDmaTransferer, ram::Ram};
 use super::io_ports::*;
 
 pub struct IoComps<AD:AudioDevice>{
+    pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
     pub ppu:GbPpu,
     pub ports:IoPorts,
+    pub dma:OamDmaTransferer,
+    pub finished_boot:bool,
 }
 
 io_port_index!(LCDC_REGISTER_INDEX, LCDC_REGISTER_ADDRESS);
@@ -18,8 +21,10 @@ io_port_index!(SCY_REGISTER_INDEX, SCY_REGISTER_ADDRESS);
 io_port_index!(SCX_REGISTER_INDEX, SCX_REGISTER_ADDRESS);
 io_port_index!(LY_REGISTER_INDEX, LY_REGISTER_ADDRESS);
 io_port_index!(LYC_REGISTER_INDEX, LYC_REGISTER_ADDRESS);
+io_port_index!(DMA_REGISTER_INDEX, DMA_REGISTER_ADDRESS);
 io_port_index!(WY_REGISTER_INDEX, WY_REGISTER_ADDRESS);
 io_port_index!(WX_REGISTER_INDEX, WX_REGISTER_ADDRESS);
+io_port_index!(BOOT_REGISTER_INDEX, BOOT_REGISTER_ADDRESS);
 io_port_index!(BGP_REGISTER_INDEX, BGP_REGISTER_ADDRESS);
 io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
 io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
@@ -78,11 +83,22 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
             SCY_REGISTER_INDEX=> set_scy(&mut self.ppu, value),
             SCX_REGISTER_INDEX=> set_scx(&mut self.ppu, value),
             LYC_REGISTER_INDEX=> set_lyc(&mut self.ppu, value),
+            DMA_REGISTER_INDEX=>{
+                let address = (value as u16) << 8;
+                self.dma.soure_address = address;
+                self.dma.enable = match value{
+                    0..=0x7F=>Some(AccessBus::External),
+                    0x80..=0x9F=>Some(AccessBus::Video),
+                    0xA0..=0xFF=>Some(AccessBus::External)
+                }
+            }
             BGP_REGISTER_INDEX=> handle_bg_pallet_register(value,&mut self.ppu.bg_color_mapping),
             OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0),
             OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1),
             WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
             WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
+            BOOT_REGISTER_INDEX=> self.finished_boot = value != 0,
+            // TODO: handle gbc registers (expecailly ram and vram)
             _=>{}
         }
 
@@ -92,7 +108,7 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
 
 impl<AD:AudioDevice> IoComps<AD>{
     pub fn new(apu:GbApu<AD>)->Self{
-        Self{apu, ports:IoPorts::default(), timer:GbTimer::default(), ppu:GbPpu::default()}
+        Self{apu, ports:IoPorts::default(), timer:GbTimer::default(), ppu:GbPpu::default(), dma:OamDmaTransferer::default(),finished_boot:false, ram:Ram::default()}
     }
 
     pub fn cycle(&mut self, cycles:u32){

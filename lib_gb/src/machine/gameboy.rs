@@ -1,4 +1,4 @@
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory, mmu_register_updater, oam_dma_transferer::OamDmaTransferer}, ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH} }};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH} }};
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
@@ -10,8 +10,7 @@ pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     opcode_resolver:OpcodeResolver::<GbMmu::<'a, AD>>,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
-    joypad_provider: JP,
-    dma:OamDmaTransferer
+    joypad_provider: JP
 }
 
 impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
@@ -23,8 +22,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             opcode_resolver:OpcodeResolver::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
-            joypad_provider: joypad_provider,
-            dma: OamDmaTransferer::default()
+            joypad_provider: joypad_provider
         }
     }
 
@@ -45,7 +43,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
-            dma: OamDmaTransferer::default()
         }
     }
 
@@ -63,38 +60,17 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             if !self.cpu.halt{
                 cpu_cycles_passed = self.execute_opcode();
             }
-
-            //For the DMA controller
-            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
-
-            self.dma.cycle(&mut self.mmu, cpu_cycles_passed as u8);
             
-            
-            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
-            self.mmu.io_comps.cycle(cpu_cycles_passed as u32);
-
-            //For the PPU
-
-            mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
+            self.mmu.cycle(cpu_cycles_passed);
             
             //interrupts
             let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
-            if interrupt_cycles != 0{
-                self.dma.cycle(&mut self.mmu, interrupt_cycles as u8);
-                mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
-                
-                //PPU
-                mmu_register_updater::update_mmu_registers(&mut self.mmu, &mut self.dma);
-
-                
-                self.mmu.io_comps.cycle(interrupt_cycles as u32);
+            if interrupt_cycles != 0{                
+                self.mmu.cycle(interrupt_cycles);
             }
             
             let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
             
-
-            //clears io ports
-            self.mmu.io_comps.ports.clear_io_ports_triggers();
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
@@ -124,7 +100,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
         let opcode:u8 = self.fetch_next_byte();
 
         //debug
-        if self.mmu.finished_boot{
+        if self.mmu.io_comps.finished_boot{
             let a = *self.cpu.af.high();
             let b = *self.cpu.bc.high(); 
             let c = *self.cpu.bc.low();
