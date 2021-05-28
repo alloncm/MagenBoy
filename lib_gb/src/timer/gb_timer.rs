@@ -1,4 +1,4 @@
-use crate::utils::{bit_masks::*, memory_registers::*};
+use crate::utils::bit_masks::*;
 
 pub struct GbTimer{
     pub system_counter:u16,

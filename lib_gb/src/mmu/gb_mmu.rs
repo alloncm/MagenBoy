@@ -1,16 +1,13 @@
-use super::{io_comps::IoComps, memory::*, oam_dma_transferer::OamDmaTransferer};
+use super::{io_comps::IoComps, memory::*};
 use super::ram::Ram;
-use super::vram::VRam;
-use super::io_ports::IoPorts;
 use super::access_bus::AccessBus;
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, timer::gb_timer::GbTimer, utils::memory_registers::BOOT_REGISTER_ADDRESS};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
 use std::boxed::Box;
 
 pub const BOOT_ROM_SIZE:usize = 0x100;
 const HRAM_SIZE:usize = 0x7F;
-const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
@@ -20,7 +17,6 @@ pub struct GbMmu<'a, D:AudioDevice>{
     pub io_comps: IoComps<D>,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
-    sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
     hram: [u8;HRAM_SIZE],
     interupt_enable_register:u8,
     pub dma_state:Option<AccessBus>,
@@ -52,7 +48,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
             },
             0xFE00..=0xFE9F=>{
                 if self.is_oam_ready_for_io(){
-                    return self.sprite_attribute_table[(address-0xFE00) as usize];
+                    return self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize];
                 }
                 else{
                     log::warn!("bad oam read");
@@ -86,7 +82,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
                 },
                 0xFE00..=0xFE9F=>{
                     if self.is_oam_ready_for_io(){
-                        self.sprite_attribute_table[(address-0xFE00) as usize] = value;
+                        self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value;
                     }
                     else{
                         log::warn!("bad oam write")
@@ -116,7 +112,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xC000..=0xCFFF =>self.ram.read_bank0(address - 0xC000), 
             0xD000..=0xDFFF=>self.ram.read_current_bank(address-0xD000),
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
-            0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize],
+            0xFE00..=0xFE9F=>self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
             0xFF00..=0xFF7F=>self.io_comps.ports.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
@@ -132,7 +128,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xC000..=0xCFFF =>self.ram.write_bank0(address - 0xC000,value), 
             0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000,value),
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000,value),
-            0xFE00..=0xFE9F=>self.sprite_attribute_table[(address-0xFE00) as usize] = value,
+            0xFE00..=0xFE9F=>self.io_comps.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF7F=>self.io_comps.ports.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
@@ -147,7 +143,6 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
             ram:Ram::default(),
             io_comps:IoComps::new(apu),
             mbc:mbc,
-            sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
             boot_rom:boot_rom,
@@ -162,7 +157,6 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
             ram:Ram::default(),
             io_comps:IoComps::new(apu),
             mbc:mbc,
-            sprite_attribute_table:[0;SPRITE_ATTRIBUTE_TABLE_SIZE],
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
             boot_rom:[0;BOOT_ROM_SIZE],

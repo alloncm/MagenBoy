@@ -58,6 +58,8 @@ pub fn update_stat_register(register:u8, ppu: &mut GbPpu){
     ppu.v_blank_interrupt_request = register & BIT_4_MASK != 0;
     ppu.oam_search_interrupt_request = register & BIT_5_MASK != 0;
     ppu.coincidence_interrupt_request = register & BIT_6_MASK != 0;
+
+    ppu.stat_register = register & 0b111_1000;
 }
 
 pub fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu: &mut GbPpu){
@@ -66,11 +68,11 @@ pub fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu: &mut GbPpu){
 }
 
 pub fn set_scx(ppu: &mut GbPpu, value:u8){
-    ppu.window_scroll.x = value;
+    ppu.background_scroll.x = value;
 }
 
 pub fn set_scy(ppu:&mut GbPpu, value:u8){
-    ppu.window_scroll.y = value;
+    ppu.background_scroll.y = value;
 }
 
 pub fn handle_bg_pallet_register(register:u8, pallet:&mut [Color;4] ){

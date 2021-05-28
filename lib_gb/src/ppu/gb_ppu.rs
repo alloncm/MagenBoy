@@ -1,4 +1,4 @@
-use crate::mmu::{memory::UnprotectedMemory, vram::VRam};
+use crate::mmu::vram::VRam;
 use super::ppu_state::PpuState;
 use super::color::Color;
 use super::colors::*;
@@ -9,7 +9,6 @@ use super::extended_sprite::ExtendedSprite;
 use super::sprite::Sprite;
 use super::sprite_attribute::SpriteAttribute;
 use crate::utils::{
-    memory_registers::*,
     bit_masks::*
 };
 use std::cmp;
@@ -25,7 +24,7 @@ const PIXEL_TRANSFER_CLOCKS:u8 = 43;
 const H_BLANK_CLOCKS:u8 = 51;
 const DRAWING_CYCLE_CLOCKS: u8 = OAM_CLOCKS + H_BLANK_CLOCKS + PIXEL_TRANSFER_CLOCKS;
 const LY_MAX_VALUE:u8 = 153;
-const OAM_ADDRESS:u16 = 0xFE00;
+const SPRITE_ATTRIBUTE_TABLE_SIZE:usize = 0xA0;
 const OAM_SIZE:u16 = 0xA0;
 const OBJ_PER_LINE:usize = 10;
 const SPRITE_WIDTH:u8 = 8;
@@ -38,6 +37,7 @@ const BLANK_SCREEN_BUFFER:[u32; SCREEN_HEIGHT * SCREEN_WIDTH] = [GbPpu::color_as
 
 pub struct GbPpu {
     pub vram: VRam,
+    pub sprite_attribute_table:[u8;SPRITE_ATTRIBUTE_TABLE_SIZE],
 
     pub screen_buffer: [u32; SCREEN_HEIGHT*SCREEN_WIDTH],
     pub screen_enable: bool,
@@ -79,6 +79,7 @@ impl Default for GbPpu {
     fn default() -> Self {
         GbPpu {
             vram:VRam::default(),
+            sprite_attribute_table: [0;SPRITE_ATTRIBUTE_TABLE_SIZE],
             stat_register:0,
             lyc_register:0,
             background_enabled: false,
@@ -151,8 +152,6 @@ impl GbPpu {
         else if self.current_line_drawn < SCREEN_HEIGHT as u8{
             self.v_blank_triggered = false;
         }
-
-        // memory.write_unprotected(LY_REGISTER_ADDRESS, self.current_line_drawn);
     }
 
     fn update_stat_register(&mut self, if_register:&mut u8){
@@ -201,8 +200,6 @@ impl GbPpu {
         else{
             self.stat_triggered = false;
         }
-        
-        // memory.write_unprotected(STAT_REGISTER_ADDRESS, register);
     }
 
     fn get_ppu_state(cycle_counter:u32, last_ly:u8)->PpuState{
@@ -408,8 +405,8 @@ impl GbPpu {
                 break;
             }
             
-            let end_y = self.read_vram(OAM_ADDRESS + i);
-            let end_x = self.read_vram(OAM_ADDRESS + i + 1);
+            let end_y = self.sprite_attribute_table[i as usize];
+            let end_x = self.sprite_attribute_table[(i + 1) as usize];
             let start_y = cmp::max(0, (end_y as i16) - SPRITE_MAX_HEIGHT as i16) as u8;
 
              //cheks if this sprite apears in this line
@@ -424,8 +421,8 @@ impl GbPpu {
                 continue;
             }
             
-            let tile_number = self.read_vram(OAM_ADDRESS + i + 2);
-            let attributes = self.read_vram(OAM_ADDRESS + i + 3);
+            let tile_number = self.sprite_attribute_table[(i + 2) as usize];
+            let attributes = self.sprite_attribute_table[(i + 3) as usize];
 
             obj_attributes.push(SpriteAttribute::new(end_y, end_x, tile_number, attributes));
         }
