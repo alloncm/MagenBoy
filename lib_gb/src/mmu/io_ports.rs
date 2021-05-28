@@ -47,8 +47,7 @@ pub_io_port_index!(NR51_REGISTER_INDEX, NR51_REGISTER_ADDRESS);
 pub_io_port_index!(NR52_REGISTER_INDEX, NR52_REGISTER_ADDRESS);
 
 pub struct IoPorts{
-    ports:[u8;IO_PORTS_SIZE], 
-    ports_cycle_trigger:[bool; IO_PORTS_SIZE]
+    ports:[u8;IO_PORTS_SIZE]
 }
 
 impl Memory for IoPorts{
@@ -93,8 +92,6 @@ impl Memory for IoPorts{
             }
             _=>{}
         }
-        
-        self.ports_cycle_trigger[address as usize] = true;
 
         self.ports[address as usize] = value;
     }
@@ -110,21 +107,10 @@ impl UnprotectedMemory for IoPorts{
     }
 }
 
-impl IoPorts{
-    pub fn get_ports_cycle_trigger(&mut self)->&mut [bool; IO_PORTS_SIZE]{
-        return &mut self.ports_cycle_trigger;
-    }
-
-    pub fn clear_io_ports_triggers(&mut self){
-        unsafe{std::ptr::write_bytes::<bool>(self.ports_cycle_trigger.as_mut_ptr(), 0, IO_PORTS_SIZE);}
-    }
-}
-
 impl Default for IoPorts{
     fn default()->Self{
         let mut io_ports = IoPorts{
-            ports:[0;IO_PORTS_SIZE],
-            ports_cycle_trigger:[false;IO_PORTS_SIZE]
+            ports:[0;IO_PORTS_SIZE]
         };
 
         //joypad register initiall value
