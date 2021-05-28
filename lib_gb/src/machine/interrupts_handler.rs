@@ -40,6 +40,7 @@ impl InterruptsHandler{
             if interupt_flag & BIT_0_MASK != 0 && interupt_enable & BIT_0_MASK != 0{
                 return Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
             }
+            // Checking those STAT register bits for the STAT interrupts requests
             if interupt_flag & BIT_1_MASK != 0 && interupt_enable & BIT_1_MASK != 0 && (stat_register & 0b111_1000) != 0{
                 return Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
             }

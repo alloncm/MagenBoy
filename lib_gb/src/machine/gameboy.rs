@@ -1,4 +1,10 @@
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH} }};
+use crate::{
+    apu::{audio_device::AudioDevice, gb_apu::GbApu}, 
+    cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, 
+    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater},
+    mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
+    ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH}}
+};
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;

@@ -128,13 +128,14 @@ pub fn set_nr11(channel:&mut Channel<SquareSampleProducer>, value:u8){
     if !is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope){
         channel.enabled = false;
     }
- }
+}
 
  pub fn set_nr13(channel:&mut Channel<SquareSampleProducer>, value:u8){
     //discard lower bits
     channel.frequency &= 0xFF00;
     channel.frequency |= value as u16;
- }
+}
+
 pub fn set_nr14(channel:&mut Channel<SquareSampleProducer>, fs:&FrameSequencer, nr14:u8){
     //discard upper bits
     channel.frequency &= 0xFF;
