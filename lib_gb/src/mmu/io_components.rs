@@ -5,7 +5,7 @@ use crate::timer::gb_timer::GbTimer;
 use super::{access_bus::AccessBus, io_ports::IoPorts, memory::{Memory, UnprotectedMemory}, oam_dma_transferer::OamDmaTransferer, ram::Ram};
 use super::io_ports::*;
 
-pub struct IoComps<AD:AudioDevice>{
+pub struct IoComponents<AD:AudioDevice>{
     pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
@@ -30,7 +30,7 @@ io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
 io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
 
 
-impl<AD:AudioDevice> Memory for IoComps<AD>{
+impl<AD:AudioDevice> Memory for IoComponents<AD>{
     fn read(&self, address:u16)->u8 {
         let mut value = self.ports.read(address);
         match address {
@@ -106,7 +106,7 @@ impl<AD:AudioDevice> Memory for IoComps<AD>{
     }
 }
 
-impl<AD:AudioDevice> IoComps<AD>{
+impl<AD:AudioDevice> IoComponents<AD>{
     pub fn new(apu:GbApu<AD>)->Self{
         Self{apu, ports:IoPorts::default(), timer:GbTimer::default(), ppu:GbPpu::default(), dma:OamDmaTransferer::default(),finished_boot:false, ram:Ram::default()}
     }

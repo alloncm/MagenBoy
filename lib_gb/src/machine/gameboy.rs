@@ -55,7 +55,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
     pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
         let mut joypad = Joypad::default();
 
-        let mut last_ppu_power_state:bool = self.mmu.io_comps.ppu.screen_enable;
+        let mut last_ppu_power_state:bool = self.mmu.io_components.ppu.screen_enable;
 
         while self.cycles_counter < CYCLES_PER_FRAME{
             self.joypad_provider.provide(&mut joypad);
@@ -80,19 +80,19 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
             //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
             //the frame when the ppu finishes the frame
-            if !last_ppu_power_state && self.mmu.io_comps.ppu.screen_enable{
+            if !last_ppu_power_state && self.mmu.io_components.ppu.screen_enable{
                 self.cycles_counter = 0;
             }
 
             self.cycles_counter += iter_total_cycles;
-            last_ppu_power_state = self.mmu.io_comps.ppu.screen_enable;
+            last_ppu_power_state = self.mmu.io_components.ppu.screen_enable;
         }
 
         if self.cycles_counter >= CYCLES_PER_FRAME{
             self.cycles_counter -= CYCLES_PER_FRAME; 
         }
 
-        return self.mmu.io_comps.ppu.get_frame_buffer();
+        return self.mmu.io_components.ppu.get_frame_buffer();
     }
 
     fn fetch_next_byte(&mut self)->u8{
@@ -106,7 +106,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
         let opcode:u8 = self.fetch_next_byte();
 
         //debug
-        if self.mmu.io_comps.finished_boot{
+        if self.mmu.io_components.finished_boot{
             let a = *self.cpu.af.high();
             let b = *self.cpu.bc.high(); 
             let c = *self.cpu.bc.low();
