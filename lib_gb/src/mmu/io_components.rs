@@ -32,6 +32,7 @@ io_port_index!(BOOT_REGISTER_INDEX, BOOT_REGISTER_ADDRESS);
 io_port_index!(BGP_REGISTER_INDEX, BGP_REGISTER_ADDRESS);
 io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
 io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
+io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
 
 
 impl<AD:AudioDevice> Memory for IoComponents<AD>{
@@ -163,10 +164,10 @@ impl<AD:AudioDevice> IoComponents<AD>{
     }
 
     pub fn cycle(&mut self, cycles:u32){
-        let mut if_register = self.ports[IF_REGISTER_ADDRESS as usize - 0xFF00];
+        let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
         self.timer.cycle(&mut if_register, cycles as u8);
         self.apu.cycle(cycles as u8);
         self.ppu.update_gb_screen(&mut if_register, cycles);
-        self.ports[IF_REGISTER_ADDRESS as usize - 0xFF00] = if_register;
+        self.ports[IF_REGISTER_INDEX as usize] = if_register;
     }
 }

@@ -28,7 +28,6 @@ impl Default for GbTimer{
 
 impl GbTimer{
     pub fn cycle(&mut self, if_register:&mut u8, m_cycles:u8){
-        // let mut tima_register = memory.read_unprotected(TIMA_REGISTER_ADDRESS);
         let (timer_interval, timer_enable) = self.get_timer_controller_data();
 
         for _ in 0..m_cycles * 4{
@@ -65,9 +64,6 @@ impl GbTimer{
             }
             self.last_and_result = current_and_result;
         }
-
-        // memory.write_unprotected(DIV_REGISTER_ADDRESS, (self.system_counter >> 8) as u8);
-        // memory.write_unprotected(TIMA_REGISTER_ADDRESS, tima_register);
     }
 
     fn get_timer_controller_data(&self)->(u8, bool){
