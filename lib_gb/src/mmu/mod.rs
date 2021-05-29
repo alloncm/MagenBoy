@@ -6,5 +6,5 @@ pub mod vram;
 pub mod io_ports;
 pub mod carts;
 pub mod access_bus;
-pub mod oam_dma_transferer;
+pub mod oam_dma_transfer;
 pub mod io_components;

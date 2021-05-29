@@ -2,7 +2,7 @@ use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, 
 use crate::ppu::gb_ppu::GbPpu;
 use crate::apu::*;
 use crate::timer::gb_timer::GbTimer;
-use super::{access_bus::AccessBus, io_ports::IoPorts, memory::{Memory, UnprotectedMemory}, oam_dma_transferer::OamDmaTransferer, ram::Ram};
+use super::{access_bus::AccessBus, io_ports::IoPorts, memory::{Memory, UnprotectedMemory}, oam_dma_transfer::OamDmaTransfer, ram::Ram};
 use super::io_ports::*;
 
 pub struct IoComponents<AD:AudioDevice>{
@@ -11,7 +11,7 @@ pub struct IoComponents<AD:AudioDevice>{
     pub timer: GbTimer,
     pub ppu:GbPpu,
     pub ports:IoPorts,
-    pub dma:OamDmaTransferer,
+    pub dma:OamDmaTransfer,
     pub finished_boot:bool,
 }
 
@@ -108,7 +108,7 @@ impl<AD:AudioDevice> Memory for IoComponents<AD>{
 
 impl<AD:AudioDevice> IoComponents<AD>{
     pub fn new(apu:GbApu<AD>)->Self{
-        Self{apu, ports:IoPorts::default(), timer:GbTimer::default(), ppu:GbPpu::default(), dma:OamDmaTransferer::default(),finished_boot:false, ram:Ram::default()}
+        Self{apu, ports:IoPorts::default(), timer:GbTimer::default(), ppu:GbPpu::default(), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
     }
 
     pub fn cycle(&mut self, cycles:u32){
