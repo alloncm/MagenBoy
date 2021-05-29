@@ -155,7 +155,7 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)
-        mmu.io_components.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
+        mmu.write(BOOT_REGISTER_ADDRESS, 1);
         
         mmu
     }
