@@ -111,7 +111,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xE000..=0xFDFF=>self.io_components.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_components.ports.read_unprotected(address - 0xFF00),
+            0xFF00..=0xFF7F=>self.io_components.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         };
@@ -127,7 +127,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xD000..=0xDFFF=>self.io_components.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_components.ports.write_unprotected(address - 0xFF00, value),
+            0xFF00..=0xFF7F=>self.io_components.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }
@@ -155,7 +155,7 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
         };
 
         //Setting the bootrom register to be set (the boot sequence has over)
-        mmu.io_components.ports.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
+        mmu.io_components.write_unprotected(BOOT_REGISTER_ADDRESS - 0xFF00, 1);
         
         mmu
     }

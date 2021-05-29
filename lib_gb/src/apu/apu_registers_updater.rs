@@ -1,4 +1,4 @@
-use crate::{mmu::{memory::UnprotectedMemory, io_ports::*}, utils::bit_masks::*};
+use crate::{mmu::io_ports::*, utils::bit_masks::*};
 
 use super::{
     audio_device::AudioDevice, 
@@ -62,11 +62,11 @@ pub fn set_nr51<AD:AudioDevice>(apu:&mut GbApu<AD>, nr51:u8){
     }
 }
 
-pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, ports:&mut IoPorts, nr52:u8){
+pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, ports:&mut [u8;IO_PORTS_SIZE], nr52:u8){
     apu.enabled = nr52 & BIT_7_MASK != 0;
 
     for i in NR10_REGISTER_INDEX..NR52_REGISTER_INDEX{
-        ports.write_unprotected(i, 0);
+        ports[i as usize] = 0;
     }
 }
 
