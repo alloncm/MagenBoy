@@ -6,8 +6,7 @@ pub struct VRam{
 }
 
 impl VRam{
-    pub fn set_bank(&mut self, bank:u8)
-    {
+    pub fn set_bank(&mut self, bank:u8){
         self.current_bank_register = bank;
     }
 

@@ -14,5 +14,5 @@ pub mod noise_sample_producer;
 mod sound_utils;
 mod apu_registers_updater;
 
-pub use apu_registers_updater::update_apu_registers;
+pub use apu_registers_updater::*;
 

@@ -9,10 +9,6 @@ use super::{
     wave_sample_producer::WaveSampleProducer,
     sound_utils::NUMBER_OF_CHANNELS
 };
-use crate::{
-    mmu::memory::UnprotectedMemory, 
-    utils::{bit_masks::set_bit_u8, memory_registers::{NR10_REGISTER_ADDRESS, NR52_REGISTER_ADDRESS}}
-};
 
 pub const AUDIO_BUFFER_SIZE:usize = 0x400;
 
@@ -50,7 +46,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    pub fn cycle(&mut self, memory:&mut impl UnprotectedMemory, m_cycles_passed:u8){
+    pub fn cycle(&mut self, m_cycles_passed:u8){
         //converting m_cycles to t_cycles
         let t_cycles = m_cycles_passed * 4;
 
@@ -76,8 +72,6 @@ impl<Device: AudioDevice> GbApu<Device>{
 
                 self.push_buffer_if_full();
             }
-
-            self.update_registers(memory);
         }
         else{
             for _ in 0..t_cycles{
@@ -85,11 +79,6 @@ impl<Device: AudioDevice> GbApu<Device>{
                 self.current_t_cycle += 1;
 
                 self.push_buffer_if_full();
-            }
-
-            //Reseting the apu state
-            for i in NR10_REGISTER_ADDRESS..NR52_REGISTER_ADDRESS{
-                memory.write_unprotected(i, 0);
             }
 
             self.tone_channel.reset();
@@ -142,16 +131,6 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    fn update_registers(&mut self, memory:&mut impl UnprotectedMemory){
-
-        let mut control_register = memory.read_unprotected(0xFF26);
-        set_bit_u8(&mut control_register, 3, self.noise_channel.enabled && self.noise_channel.length_enable && self.noise_channel.sound_length != 0);
-        set_bit_u8(&mut control_register, 2, self.wave_channel.enabled && self.wave_channel.length_enable && self.wave_channel.sound_length != 0);
-        set_bit_u8(&mut control_register, 1, self.tone_channel.enabled && self.tone_channel.length_enable && self.tone_channel.sound_length != 0);
-        set_bit_u8(&mut control_register, 0, self.sweep_tone_channel.enabled && self.sweep_tone_channel.length_enable && self.sweep_tone_channel.sound_length != 0);
-
-        memory.write_unprotected(NR52_REGISTER_ADDRESS, control_register);
-    }
 
     pub fn update_sweep_frequency(channel:&mut Channel<SquareSampleProducer>){
         let sweep:&mut FreqSweep = &mut channel.sample_producer.sweep.as_mut().unwrap();

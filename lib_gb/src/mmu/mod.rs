@@ -5,6 +5,6 @@ pub mod vram;
 #[macro_use]
 pub mod io_ports;
 pub mod carts;
-pub mod access_bus; 
-pub mod mmu_register_updater;
-pub mod oam_dma_transferer;
+pub mod access_bus;
+pub mod oam_dma_transfer;
+pub mod io_components;
