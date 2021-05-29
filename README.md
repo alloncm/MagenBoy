@@ -15,14 +15,17 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 
 ### Development Status
 
-- [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
-- [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
-- [TurtleTests](https://github.com/Powerlated/TurtleTests) - :thumbsup:
-- Accurate emulation - 
+- CPU - Cycle accurate CPU
+- PPU - Scan line accurate PPU
+- Timer - Mostly accurate timer
+- APU - Mostly accurate APU
+- Tests
+    - [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
+    - [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
+    - [TurtleTests](https://github.com/Powerlated/TurtleTests) - :thumbsup:
     - [CPU cycle accurate](https://github.com/retrio/gb-test-roms/tree/master/instr_timing) - :thumbsup:
-    - PPU currently opcoce accurate - :thumbsup:
-    - APU currently cycle accurate, passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)- :thumbsup:
-    - Timer cycle acurate, passes most of [mooneye-gb tests](https://github.com/wilbertpol/mooneye-gb/tree/master/tests/acceptance/timer) - :thumbsup:
+    - APU passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)- :thumbsup:
+    - Timer passes most of [mooneye-gb tests](https://github.com/Gekkio/mooneye-gb/tree/master/tests/acceptance/timer) - :thumbsup:
 
 ### Games Tested
 - Pokemon Red - :thumbsup:
