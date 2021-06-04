@@ -7,5 +7,3 @@ pub mod jump_instructions;
 pub mod cpu_control_instructions;
 pub mod rotate_shift_instructions;
 pub mod single_bit_sintructions;
-pub mod opcodes_resolvers;
-pub mod opcode_resolver;
