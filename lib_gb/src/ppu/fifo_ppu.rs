@@ -1,11 +1,27 @@
+use crate::utils::{vec2::Vec2, bit_masks::*};
+use crate::mmu::vram::VRam;
 use super::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
+
+enum FethcingState{
+    TileNumber,
+    LowTileData(u8),
+    HighTileData(u8),
+    Push(u8)
+}
 
 pub struct FifoPpu{
     oam_entries:[SpriteAttribute; 10],
+    vram: VRam,
     current_oam_entry:u8,
     t_cycles_passed:u16,
     state:PpuState,
+    lcd_control:u8,
     ly_register:u8,
+    window_pos:Vec2<u8>,
+    bg_pos:Vec2<u8>,
+    pixel_fething_state: FethcingState,
+
+    x_pos_counter: u8,
 }
 
 impl FifoPpu{
@@ -59,7 +75,23 @@ impl FifoPpu{
                     }
                 }
                 PpuState::PixelTransfer=>{
+                    match self.pixel_fething_state{
+                        FethcingState::TileNumber=>{
+                            let rendering_wnd = self.window_pos.x >= self.bg_pos.x && self.window_pos.y >= self.bg_pos.y && self.lcd_control & BIT_5_MASK != 0;
+                            let tile_num = if rendering_wnd{
+                                let tile_map_address:u16 = if self.lcd_control & BIT_6_MASK == 0 {0x1800} else {0x1C00};
+                                self.vram.read_current_bank(tile_map_address + self.x_pos_counter as u16)
+                            }
+                            else{
+                                let tile_map_address = if self.lcd_control & BIT_3_MASK == 0 {0x1800} else {0x1C00};
+                                let scx_offset = (self.bg_pos.x as u16 / 8) & 0x1F; //Anding with 31 in order to 
+                                self.vram.read_current_bank(tile_map_address + self.x_pos_counter as u16 + scx_offset)
+                            };
 
+
+                        }
+                        _=>{}
+                    }
                 }
             }
         }
