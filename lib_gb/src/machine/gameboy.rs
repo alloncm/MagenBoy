@@ -1,6 +1,6 @@
 use crate::{
     apu::{audio_device::AudioDevice, gb_apu::GbApu}, 
-    cpu::{gb_cpu::GbCpu, opcodes::opcode_resolver::*}, 
+    cpu::gb_cpu::GbCpu, 
     keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater},
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
     ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH}}
@@ -13,7 +13,6 @@ use log::debug;
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a, AD>,
-    opcode_resolver:OpcodeResolver::<GbMmu::<'a, AD>>,
     interrupts_handler:InterruptsHandler,
     cycles_counter:u32, 
     joypad_provider: JP
@@ -25,7 +24,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device)),
-            opcode_resolver:OpcodeResolver::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider
@@ -45,7 +43,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
         GameBoy{
             cpu:cpu,
             mmu:GbMmu::new(mbc, GbApu::new(audio_device)),
-            opcode_resolver:OpcodeResolver::default(),
             interrupts_handler: InterruptsHandler::default(),
             cycles_counter:0,
             joypad_provider: joypad_provider,
@@ -95,15 +92,8 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
         return self.mmu.io_components.ppu.get_frame_buffer();
     }
 
-    fn fetch_next_byte(&mut self)->u8{
-        let byte:u8 = self.mmu.read(self.cpu.program_counter);
-        self.cpu.program_counter+=1;
-        return byte;
-    }
-
     fn execute_opcode(&mut self)->u8{
         let pc = self.cpu.program_counter;
-        let opcode:u8 = self.fetch_next_byte();
 
         //debug
         if self.mmu.io_components.finished_boot{
@@ -119,35 +109,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
         }
 
-        
-        
-        let opcode_func:OpcodeFuncType<GbMmu<AD>> = self.opcode_resolver.get_opcode(opcode, &self.mmu, &mut self.cpu.program_counter);
-        match opcode_func{
-            OpcodeFuncType::OpcodeFunc(func)=>func(&mut self.cpu),
-            OpcodeFuncType::MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu),
-            OpcodeFuncType::U8OpcodeFunc(func)=>func(&mut self.cpu, opcode),
-            OpcodeFuncType::U8MemoryOpcodeFunc(func)=>func(&mut self.cpu, &mut self.mmu, opcode),
-            OpcodeFuncType::U16OpcodeFunc(func)=>{
-                let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                func(&mut self.cpu, u16_opcode)
-            },
-            OpcodeFuncType::U16MemoryOpcodeFunc(func)=>{
-                let u16_opcode:u16 = ((opcode as u16)<<8) | (self.fetch_next_byte() as u16);
-                func(&mut self.cpu, &mut self.mmu, u16_opcode)
-            },
-            OpcodeFuncType::U32OpcodeFunc(func)=>{
-                let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
-                u32_opcode <<= 8;
-                u32_opcode |= self.fetch_next_byte() as u32;
-                func(&mut self.cpu, u32_opcode)
-            },
-            OpcodeFuncType::U32MemoryOpcodeFunc(func)=>{
-                let mut u32_opcode:u32 = ((opcode as u32)<<8) | (self.fetch_next_byte() as u32);
-                u32_opcode <<= 8;
-                u32_opcode |= self.fetch_next_byte() as u32;
-                func(&mut self.cpu, &mut self.mmu, u32_opcode)
-            }
-        }
+        self.cpu.run_opcode(&mut self.mmu)
     }
 }
 
