@@ -5,8 +5,8 @@ use super::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 enum FethcingState{
     TileNumber,
     LowTileData(u8),
-    HighTileData(u8),
-    Push(u8)
+    HighTileData(u8,u8),
+    Push(u8,u8)
 }
 
 pub struct FifoPpu{
@@ -21,12 +21,15 @@ pub struct FifoPpu{
     bg_pos:Vec2<u8>,
     pixel_fething_state: FethcingState,
 
-    x_pos_counter: u8,
+    pos_counter: Vec2<u8>,
+    bg_fifo: Vec<u8>
 }
 
 impl FifoPpu{
-    pub fn cycle(&mut self, m_cycles:u8, oam:&[u8;0xA0], extended_sprite:bool)->(){
+    pub fn cycle(&mut self, m_cycles:u8, oam:&[u8;0xA0], extended_sprite:bool)->Vec<u8>{
         let sprite_height = if extended_sprite {16} else {8};
+
+        let mut pixels_to_push_to_lcd = Vec::<u8>::new();
 
         for _ in 0..m_cycles{
             match self.state{
@@ -77,24 +80,67 @@ impl FifoPpu{
                 PpuState::PixelTransfer=>{
                     match self.pixel_fething_state{
                         FethcingState::TileNumber=>{
-                            let rendering_wnd = self.window_pos.x >= self.bg_pos.x && self.window_pos.y >= self.bg_pos.y && self.lcd_control & BIT_5_MASK != 0;
-                            let tile_num = if rendering_wnd{
+                            let tile_num = if self.is_redering_wnd(){
                                 let tile_map_address:u16 = if self.lcd_control & BIT_6_MASK == 0 {0x1800} else {0x1C00};
-                                self.vram.read_current_bank(tile_map_address + self.x_pos_counter as u16)
+                                self.vram.read_current_bank(tile_map_address + ((32 * (self.pos_counter. y / 8)) + (self.pos_counter.x / 8) )as u16)
                             }
                             else{
                                 let tile_map_address = if self.lcd_control & BIT_3_MASK == 0 {0x1800} else {0x1C00};
-                                let scx_offset = (self.bg_pos.x as u16 / 8) & 0x1F; //Anding with 31 in order to 
-                                self.vram.read_current_bank(tile_map_address + self.x_pos_counter as u16 + scx_offset)
+                                let scx_offset = self.bg_pos.x as u16 / 8;
+                                let scy_offset = (((self.bg_pos.y + self.pos_counter.y) & 0xFF) / 8) as u16;
+                                self.vram.read_current_bank(tile_map_address + (32 * scy_offset + (self.pos_counter.x as u16 + scx_offset) & 31))
                             };
 
-
+                            self.pixel_fething_state = FethcingState::LowTileData(tile_num);
+                            self.t_cycles_passed += 2;
                         }
-                        _=>{}
+                        FethcingState::LowTileData(tile_num)=>{
+                            let current_tile_base_data_address = if self.lcd_control & BIT_4_MASK == 0 && tile_num & BIT_7_MASK == 0 {0x1000} else {0};
+                            let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
+                            let low_data = if self.is_redering_wnd(){
+                                self.vram.read_current_bank(current_tile_data_address + (2 * (self.pos_counter.y % 8)) as u16)
+                            } else{
+                                self.vram.read_current_bank(current_tile_data_address + (2 * ((self.bg_pos.y + self.ly_register) % 8)) as u16)
+                            };
+
+                            self.pixel_fething_state = FethcingState::HighTileData(tile_num, low_data);
+                            self.t_cycles_passed += 2;
+                        }
+                        FethcingState::HighTileData(tile_num, low_data)=>{
+                            let current_tile_base_data_address = if self.lcd_control & BIT_4_MASK == 0 && tile_num & BIT_7_MASK == 0 {0x1000} else {0};
+                            let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
+                            let high_data = if self.is_redering_wnd(){
+                                self.vram.read_current_bank(current_tile_data_address + (2 * (self.pos_counter.y % 8)) as u16 + 1)
+                            } else{
+                                self.vram.read_current_bank(current_tile_data_address + (2 * ((self.bg_pos.y + self.ly_register) % 8)) as u16 + 1)
+                            };
+
+                            self.pixel_fething_state = FethcingState::Push(low_data, high_data);
+                            self.t_cycles_passed += 2;
+                        }
+                        FethcingState::Push(low_data, high_data)=>{
+                            for i in (0..8).rev(){
+                                let mask = 1 << i;
+                                let mut pixel = (low_data & mask) >> i;
+                                pixel |= (high_data & mask) >> (i - 1);
+                                self.bg_fifo.push(pixel);
+                            }
+
+                            self.pixel_fething_state = FethcingState::TileNumber;
+                            self.t_cycles_passed += 2;
+                        }
                     }
                 }
             }
-        }
+            
+            pixels_to_push_to_lcd.append(&mut self.bg_fifo);
+        }   
+        
+        return pixels_to_push_to_lcd;
+    }
+
+    fn is_redering_wnd(&self)->bool{
+        self.window_pos.x >= self.bg_pos.x && self.window_pos.y >= self.bg_pos.y && self.lcd_control & BIT_5_MASK != 0
     }
 }
 
