@@ -12,6 +12,7 @@ enum FethcingState{
 pub struct FifoPpu{
     oam_entries:[SpriteAttribute; 10],
     vram: VRam,
+    oam:[u8;0xA0],
     current_oam_entry:u8,
     t_cycles_passed:u16,
     state:PpuState,
@@ -26,7 +27,12 @@ pub struct FifoPpu{
 }
 
 impl FifoPpu{
-    pub fn cycle(&mut self, m_cycles:u8, oam:&[u8;0xA0], extended_sprite:bool)->Vec<u8>{
+
+    pub fn cycle(&mut self, m_cycles:u8){
+        
+    }
+
+    pub fn cycle_fetcher(&mut self, m_cycles:u8, extended_sprite:bool)->Vec<u8>{
         let sprite_height = if extended_sprite {16} else {8};
 
         let mut pixels_to_push_to_lcd = Vec::<u8>::new();
@@ -38,12 +44,12 @@ impl FifoPpu{
                         self.t_cycles_passed += 2; //half a m_cycle
                         let oam_index = self.t_cycles_passed / 2;
                         let oam_entry_address = (oam_index * 4) as usize;
-                        let end_y = oam[oam_entry_address];
-                        let end_x = oam[oam_entry_address + 1];
+                        let end_y = self.oam[oam_entry_address];
+                        let end_x = self.oam[oam_entry_address + 1];
                     
                         if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.current_oam_entry < 10{
-                            let tile_number = oam[oam_entry_address + 2];
-                            let attributes = oam[oam_entry_address + 3];
+                            let tile_number = self.oam[oam_entry_address + 2];
+                            let attributes = self.oam[oam_entry_address + 3];
                             self.oam_entries[self.current_oam_entry as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
                             self.current_oam_entry += 1;
                         }
@@ -129,6 +135,11 @@ impl FifoPpu{
                             self.pixel_fething_state = FethcingState::TileNumber;
                             self.t_cycles_passed += 2;
                         }
+                    }
+
+                    if self.pos_counter.x == 160{
+                        self.state = PpuState::Hblank;
+                        self.pos_counter.x = 0;
                     }
                 }
             }
