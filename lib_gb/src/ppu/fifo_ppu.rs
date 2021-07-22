@@ -1,5 +1,6 @@
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
+use super::color::Color;
 use super::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
 enum FethcingState{
@@ -16,11 +17,24 @@ pub struct FifoPpu{
     current_oam_entry:u8,
     t_cycles_passed:u16,
     state:PpuState,
-    lcd_control:u8,
+    pub lcd_control:u8,
+    pub stat_register:u8,
+    pub lyc_register:u8,
     ly_register:u8,
     window_pos:Vec2<u8>,
-    bg_pos:Vec2<u8>,
+    pub bg_pos:Vec2<u8>,
     pixel_fething_state: FethcingState,
+    extended_sprite: bool,
+    bg_color_mapping: [Color; 4],
+
+    screen_buffer: [u32; 160*144],
+    screen_buffer_index:usize,
+
+    //interrupts
+    pub v_blank_interrupt_request:bool,
+    pub h_blank_interrupt_request:bool,
+    pub oam_search_interrupt_request:bool,
+    pub coincidence_interrupt_request:bool,
 
     pos_counter: Vec2<u8>,
     bg_fifo: Vec<u8>
@@ -28,12 +42,32 @@ pub struct FifoPpu{
 
 impl FifoPpu{
 
-    pub fn cycle(&mut self, m_cycles:u8){
-        
+    pub fn get_frame_buffer(&self)->&[u32; 160 * 144]{
+        &self.screen_buffer
     }
 
-    pub fn cycle_fetcher(&mut self, m_cycles:u8, extended_sprite:bool)->Vec<u8>{
-        let sprite_height = if extended_sprite {16} else {8};
+    pub fn cycle(&mut self, m_cycles:u8, if_register:&mut u8){
+        let pixels = self.cycle_fetcher(m_cycles, if_register);
+
+        //update stat register
+        self.stat_register &= 0b1111_1100; //clear first 2 bits
+        self.stat_register |= self.state as u8;
+
+        for pixel in pixels.as_slice(){
+            let p = self.bg_color_mapping[*pixel as usize].clone();
+            self.screen_buffer[self.screen_buffer_index] = Self::color_as_uint(&p);
+            self.screen_buffer_index += 1;
+            if self.screen_buffer_index == self.screen_buffer.len(){
+                self.screen_buffer_index = 0;
+                unsafe{
+                    std::ptr::write_bytes(self.screen_buffer.as_mut_ptr(), 0, self.screen_buffer.len());
+                }
+            }
+        }
+    }
+
+    fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8)->Vec<u8>{
+        let sprite_height = if self.extended_sprite {16} else {8};
 
         let mut pixels_to_push_to_lcd = Vec::<u8>::new();
 
@@ -64,9 +98,15 @@ impl FifoPpu{
                     if self.t_cycles_passed == 456{
                         if self.ly_register == 143{
                             self.state = PpuState::Vblank;
+                            if self.v_blank_interrupt_request{
+                                *if_register |= BIT_1_MASK;
+                            }
                         }
                         else{
                             self.state = PpuState::OamSearch;
+                            if self.oam_search_interrupt_request{
+                                *if_register |= BIT_1_MASK;
+                            }
                         }
                         self.t_cycles_passed = 0;
                         self.ly_register += 1;
@@ -76,6 +116,9 @@ impl FifoPpu{
                     self.t_cycles_passed += 4;
                     if self.t_cycles_passed == 4560{
                         self.state = PpuState::OamSearch;
+                        if self.oam_search_interrupt_request{
+                            *if_register |= BIT_1_MASK;
+                        }
                         self.t_cycles_passed = 0;
                         self.ly_register = 0;
                     }
@@ -139,9 +182,22 @@ impl FifoPpu{
 
                     if self.pos_counter.x == 160{
                         self.state = PpuState::Hblank;
+                        if self.h_blank_interrupt_request{
+                            *if_register |= BIT_1_MASK;
+                        }
                         self.pos_counter.x = 0;
                     }
                 }
+            }
+
+            if self.ly_register == self.lyc_register{
+                self.stat_register |= BIT_2_MASK;
+                if self.coincidence_interrupt_request{
+                    *if_register |= BIT_1_MASK;
+                }
+            }
+            else{
+                self.stat_register &= !BIT_2_MASK;
             }
             
             pixels_to_push_to_lcd.append(&mut self.bg_fifo);
@@ -152,6 +208,10 @@ impl FifoPpu{
 
     fn is_redering_wnd(&self)->bool{
         self.window_pos.x >= self.bg_pos.x && self.window_pos.y >= self.bg_pos.y && self.lcd_control & BIT_5_MASK != 0
+    }
+
+    const fn color_as_uint(color: &Color) -> u32 {
+        ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
 }
 
