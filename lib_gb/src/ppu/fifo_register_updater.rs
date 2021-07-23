@@ -1,13 +1,20 @@
 use crate::utils::bit_masks::*;
-use super::{ fifo_ppu::FifoPpu, color::*,  colors::*};
+use super::{color::*, colors::*, fifo_ppu::FifoPpu, gfx_device::GfxDevice};
 
 const WX_OFFSET:u8 = 7;
 
-pub fn handle_lcdcontrol_register( register:u8, ppu:&mut FifoPpu){
+pub fn handle_lcdcontrol_register<GFX:GfxDevice>( register:u8, ppu:&mut FifoPpu<GFX>){
+    if ppu.lcd_control & BIT_7_MASK != 0 && register & BIT_7_MASK == 0{
+        ppu.turn_off();
+    }
+    else if ppu.lcd_control & BIT_7_MASK == 0 && register & BIT_7_MASK != 0{
+        ppu.turn_on();
+    }
+    
     ppu.lcd_control = register;
 }
 
-pub fn update_stat_register(register:u8, ppu: &mut FifoPpu){
+pub fn update_stat_register<GFX:GfxDevice>(register:u8, ppu: &mut FifoPpu<GFX>){
     ppu.h_blank_interrupt_request = register & BIT_3_MASK != 0;
     ppu.v_blank_interrupt_request = register & BIT_4_MASK != 0;
     ppu.oam_search_interrupt_request = register & BIT_5_MASK != 0;
@@ -16,11 +23,11 @@ pub fn update_stat_register(register:u8, ppu: &mut FifoPpu){
     ppu.stat_register = register & 0b111_1000;
 }
 
-pub fn set_scx(ppu: &mut FifoPpu, value:u8){
+pub fn set_scx<GFX:GfxDevice>(ppu: &mut FifoPpu<GFX>, value:u8){
     ppu.bg_pos.x = value;
 }
 
-pub fn set_scy(ppu:&mut FifoPpu, value:u8){
+pub fn set_scy<GFX:GfxDevice>(ppu:&mut FifoPpu<GFX>, value:u8){
     ppu.bg_pos.y = value;
 }
 
@@ -48,11 +55,11 @@ fn get_matching_color(number:u8)->Color{
     };
 }
 
-pub fn handle_wy_register(register:u8, ppu:&mut FifoPpu){
+pub fn handle_wy_register<GFX:GfxDevice>(register:u8, ppu:&mut FifoPpu<GFX>){
     ppu.window_pos.y = register;
 }
 
-pub fn handle_wx_register(register:u8, ppu:&mut FifoPpu){
+pub fn handle_wx_register<GFX:GfxDevice>(register:u8, ppu:&mut FifoPpu<GFX>){
     if register < WX_OFFSET{
         ppu.window_pos.x = 0;
     }
@@ -61,14 +68,14 @@ pub fn handle_wx_register(register:u8, ppu:&mut FifoPpu){
     }
 }
 
-pub fn get_ly(ppu:&FifoPpu)->u8{
+pub fn get_ly<GFX:GfxDevice>(ppu:&FifoPpu<GFX>)->u8{
     ppu.ly_register
 }
 
-pub fn get_stat(ppu:&FifoPpu)->u8{
+pub fn get_stat<GFX:GfxDevice>(ppu:&FifoPpu<GFX>)->u8{
     ppu.stat_register
 }
 
-pub fn set_lyc(ppu:&mut FifoPpu, value:u8){
+pub fn set_lyc<GFX:GfxDevice>(ppu:&mut FifoPpu<GFX>, value:u8){
     ppu.lyc_register = value;
 }
