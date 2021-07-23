@@ -1,6 +1,9 @@
+use std::mem::{self, MaybeUninit};
+
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
 use super::color::Color;
+use super::colors::*;
 use super::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
 enum FethcingState{
@@ -20,11 +23,10 @@ pub struct FifoPpu{
     pub lcd_control:u8,
     pub stat_register:u8,
     pub lyc_register:u8,
-    ly_register:u8,
-    window_pos:Vec2<u8>,
+    pub ly_register:u8,
+    pub window_pos:Vec2<u8>,
     pub bg_pos:Vec2<u8>,
     pixel_fething_state: FethcingState,
-    extended_sprite: bool,
     bg_color_mapping: [Color; 4],
 
     screen_buffer: [u32; 160*144],
@@ -38,6 +40,48 @@ pub struct FifoPpu{
 
     pos_counter: Vec2<u8>,
     bg_fifo: Vec<u8>
+}
+
+impl Default for FifoPpu{
+    fn default() -> Self {
+        let oam_entries = {
+            let mut data: [MaybeUninit<SpriteAttribute>; 10] = unsafe{
+                MaybeUninit::uninit().assume_init()
+            };
+
+            for elem in &mut data[..]{
+                *elem = MaybeUninit::new(SpriteAttribute::new(0, 0, 0, 0));
+            }
+
+            unsafe{mem::transmute::<_, [SpriteAttribute;10]>(data)}
+        };
+
+        Self{
+            vram: VRam::default(),
+            oam: [0;0xA0],
+            stat_register: 0,
+            lyc_register: 0,
+            lcd_control: 0,
+            bg_pos: Vec2::<u8>{x:0, y:0},
+            window_pos: Vec2::<u8>{x:0,y:0},
+            screen_buffer:[0;160*144],
+            bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            ly_register:0,
+            state: PpuState::OamSearch,
+            pos_counter: Vec2::<u8>{x:0,y:0},
+            //interrupts
+            v_blank_interrupt_request:false, 
+            h_blank_interrupt_request:false,
+            oam_search_interrupt_request:false, 
+            coincidence_interrupt_request:false,
+            oam_entries:oam_entries,
+            current_oam_entry:0,
+            pixel_fething_state:FethcingState::TileNumber,
+            screen_buffer_index:0, 
+            t_cycles_passed:0,
+            bg_fifo:Vec::<u8>::with_capacity(16)
+        }
+    }
 }
 
 impl FifoPpu{
@@ -67,7 +111,7 @@ impl FifoPpu{
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8)->Vec<u8>{
-        let sprite_height = if self.extended_sprite {16} else {8};
+        let sprite_height = if self.lcd_control & BIT_2_MASK != 0 {16} else {8};
 
         let mut pixels_to_push_to_lcd = Vec::<u8>::new();
 
@@ -213,14 +257,4 @@ impl FifoPpu{
     const fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
-}
-
-struct PixelFetcher{
-
-}
-
-impl PixelFetcher{
-    pub fn cycle(&mut self){
-
-    }
-}
+}    

@@ -16,17 +16,12 @@ pub fn update_stat_register(register:u8, ppu: &mut FifoPpu){
     ppu.stat_register = register & 0b111_1000;
 }
 
-pub fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu: &mut FifoPpu){
-    ppu.background_scroll.x = scroll_x;
-    ppu.background_scroll.y = scroll_y;
+pub fn set_scx(ppu: &mut FifoPpu, value:u8){
+    ppu.bg_pos.x = value;
 }
 
-pub fn set_scx(ppu: &mut GbPpu, value:u8){
-    ppu.background_scroll.x = value;
-}
-
-pub fn set_scy(ppu:&mut GbPpu, value:u8){
-    ppu.background_scroll.y = value;
+pub fn set_scy(ppu:&mut FifoPpu, value:u8){
+    ppu.bg_pos.y = value;
 }
 
 pub fn handle_bg_pallet_register(register:u8, pallet:&mut [Color;4] ){
@@ -53,27 +48,27 @@ fn get_matching_color(number:u8)->Color{
     };
 }
 
-pub fn handle_wy_register(register:u8, ppu:&mut GbPpu){
-    ppu.window_scroll.y = register;
+pub fn handle_wy_register(register:u8, ppu:&mut FifoPpu){
+    ppu.window_pos.y = register;
 }
 
-pub fn handle_wx_register(register:u8, ppu:&mut GbPpu){
+pub fn handle_wx_register(register:u8, ppu:&mut FifoPpu){
     if register < WX_OFFSET{
-        ppu.window_scroll.x = 0;
+        ppu.window_pos.x = 0;
     }
     else{
-        ppu.window_scroll.x = register - WX_OFFSET;
+        ppu.window_pos.x = register - WX_OFFSET;
     }
 }
 
-pub fn get_ly(ppu:&GbPpu)->u8{
-    ppu.current_line_drawn
+pub fn get_ly(ppu:&FifoPpu)->u8{
+    ppu.ly_register
 }
 
 pub fn get_stat(ppu:&FifoPpu)->u8{
     ppu.stat_register
 }
 
-pub fn set_lyc(ppu:&mut GbPpu, value:u8){
+pub fn set_lyc(ppu:&mut FifoPpu, value:u8){
     ppu.lyc_register = value;
 }
