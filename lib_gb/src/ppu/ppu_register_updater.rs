@@ -23,11 +23,6 @@ pub fn update_stat_register(register:u8, ppu: &mut GbPpu){
     ppu.stat_register = register & 0b111_1000;
 }
 
-pub fn handle_scroll_registers(scroll_x:u8, scroll_y:u8, ppu: &mut GbPpu){
-    ppu.background_scroll.x = scroll_x;
-    ppu.background_scroll.y = scroll_y;
-}
-
 pub fn set_scx(ppu: &mut GbPpu, value:u8){
     ppu.background_scroll.x = value;
 }
