@@ -70,7 +70,7 @@ impl GfxDevice for SdlGfxDevice{
             std::ptr::copy_nonoverlapping(extended_buffer.as_ptr(),pixels as *mut u32,  extended_buffer.len());
             SDL_UnlockTexture(self.texture);
             
-            SDL_RenderClear(self.renderer);
+            //There is no need to call SDL_RenderClear since im replacing the whole buffer 
             SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
             SDL_RenderPresent(self.renderer);
         }
