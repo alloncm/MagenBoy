@@ -160,6 +160,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.t_cycles_passed == 456{
                         if self.ly_register == 143{
                             self.state = PpuState::Vblank;
+                            *if_register |= BIT_0_MASK;
                             if self.v_blank_interrupt_request{
                                 *if_register |= BIT_1_MASK;
                             }
