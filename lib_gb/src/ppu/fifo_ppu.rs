@@ -199,9 +199,10 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                                 }
                                 else{
                                     let tile_map_address = if (self.lcd_control & BIT_3_MASK) == 0 {0x1800} else {0x1C00};
-                                    let scx_offset = self.bg_pos.x as u16 / 8;
-                                    let scy_offset = (((self.bg_pos.y + self.pos_counter.y) & 0xFF) / 8) as u16;
-                                    self.vram.read_current_bank(tile_map_address + (32 * scy_offset + (self.pos_counter.x as u16 + scx_offset) & 31))
+                                    let scx_offset = ((self.bg_pos.x as u16 + self.pos_counter.x as u16) / 8 ) & 31;
+                                    let scy_offset = ((self.bg_pos.y as u16 + self.ly_register as u16) & 0xFF) / 8;
+
+                                    self.vram.read_current_bank(tile_map_address + ((32 * scy_offset) + scx_offset))
                                 };
 
                                 self.pixel_fething_state = FethcingState::LowTileData(tile_num);
