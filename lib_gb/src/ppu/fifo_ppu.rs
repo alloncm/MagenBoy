@@ -43,6 +43,8 @@ pub struct FifoPpu<GFX: GfxDevice>{
 
     pos_counter: Vec2<u8>,
     bg_fifo: Vec<u8>,
+    stat_triggered:bool,
+    trigger_stat_interrupt:bool,
 }
 
 impl<GFX:GfxDevice> FifoPpu<GFX>{
@@ -84,7 +86,9 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             pixel_fething_state:FethcingState::TileNumber,
             screen_buffer_index:0, 
             t_cycles_passed:0,
-            bg_fifo:Vec::<u8>::with_capacity(16),
+            bg_fifo:Vec::<u8>::with_capacity(8),
+            stat_triggered:false,
+            trigger_stat_interrupt:false,
         }
     }
 
@@ -98,7 +102,8 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         self.state = PpuState::Hblank;
         self.bg_fifo.clear();
         self.ly_register = 0;
-
+        self.stat_triggered = false;
+        self.trigger_stat_interrupt = false;
     }
 
     pub fn turn_on(&mut self){
@@ -115,6 +120,26 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         //update stat register
         self.stat_register &= 0b1111_1100; //clear first 2 bits
         self.stat_register |= self.state as u8;
+
+        if self.ly_register == self.lyc_register{
+            if self.coincidence_interrupt_request {
+                self.stat_triggered = true;
+            }
+            self.stat_register |= BIT_2_MASK;
+        }
+        else{
+            self.stat_register &= !BIT_2_MASK;
+        }
+
+        if self.trigger_stat_interrupt{
+            if !self.stat_triggered{
+                *if_register |= BIT_1_MASK;
+                self.stat_triggered = true;
+            }
+        }
+        else{
+            self.stat_triggered = false;
+        }
 
         for pixel in pixels.as_slice(){
             let p = self.bg_color_mapping[*pixel as usize].clone();
@@ -162,13 +187,13 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                             self.state = PpuState::Vblank;
                             *if_register |= BIT_0_MASK;
                             if self.v_blank_interrupt_request{
-                                *if_register |= BIT_1_MASK;
+                                self.stat_triggered = true;
                             }
                         }
                         else{
                             self.state = PpuState::OamSearch;
                             if self.oam_search_interrupt_request{
-                                *if_register |= BIT_1_MASK;
+                                self.stat_triggered = true;
                             }
                         }
                         self.t_cycles_passed = 0;
@@ -179,7 +204,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.t_cycles_passed == 4560{
                         self.state = PpuState::OamSearch;
                         if self.oam_search_interrupt_request{
-                            *if_register |= BIT_1_MASK;
+                            self.stat_triggered = true;
                         }
                         self.t_cycles_passed = 0;
                         self.ly_register = 0;
@@ -250,21 +275,11 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.pos_counter.x == 160{
                         self.state = PpuState::Hblank;
                         if self.h_blank_interrupt_request{
-                            *if_register |= BIT_1_MASK;
+                            self.stat_triggered = true;
                         }
                         self.pos_counter.x = 0;
                     }
                 }
-            }
-
-            if self.ly_register == self.lyc_register{
-                self.stat_register |= BIT_2_MASK;
-                if self.coincidence_interrupt_request{
-                    *if_register |= BIT_1_MASK;
-                }
-            }
-            else{
-                self.stat_register &= !BIT_2_MASK;
             }
             
             pixels_to_push_to_lcd.append(&mut self.bg_fifo);
