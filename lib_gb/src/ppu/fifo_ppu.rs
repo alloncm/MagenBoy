@@ -123,7 +123,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
 
         if self.ly_register == self.lyc_register{
             if self.coincidence_interrupt_request {
-                self.stat_triggered = true;
+                self.trigger_stat_interrupt = true;
             }
             self.stat_register |= BIT_2_MASK;
         }
@@ -187,13 +187,13 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                             self.state = PpuState::Vblank;
                             *if_register |= BIT_0_MASK;
                             if self.v_blank_interrupt_request{
-                                self.stat_triggered = true;
+                                self.trigger_stat_interrupt = true;
                             }
                         }
                         else{
                             self.state = PpuState::OamSearch;
                             if self.oam_search_interrupt_request{
-                                self.stat_triggered = true;
+                                self.trigger_stat_interrupt = true;
                             }
                         }
                         self.t_cycles_passed = 0;
@@ -204,7 +204,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.t_cycles_passed == 4560{
                         self.state = PpuState::OamSearch;
                         if self.oam_search_interrupt_request{
-                            self.stat_triggered = true;
+                            self.trigger_stat_interrupt = true;
                         }
                         self.t_cycles_passed = 0;
                         self.ly_register = 0;
@@ -275,7 +275,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.pos_counter.x == 160{
                         self.state = PpuState::Hblank;
                         if self.h_blank_interrupt_request{
-                            self.stat_triggered = true;
+                            self.trigger_stat_interrupt = true;
                         }
                         self.pos_counter.x = 0;
                     }
