@@ -40,7 +40,7 @@ impl SpriteFetcher{
         self.fifo.clear();
     }
 
-    pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8, lcd_control:u8){
+    pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8){
         match self.current_fetching_state{
             FethcingState::TileNumber=>{
                 if self.oam_entries.len() > self.current_oam_entry as usize{
@@ -48,12 +48,12 @@ impl SpriteFetcher{
                 }
             }
             FethcingState::LowTileData(tile_num)=>{
-                let current_tile_data_address = 0x8000 + (tile_num as u16 * 16);
+                let current_tile_data_address = tile_num as u16 * 16;
                 let low_data = vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16);
                 self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
             }
             FethcingState::HighTileData(tile_num, low_data)=>{
-                let current_tile_data_address = 0x8000 + (tile_num as u16 * 16);
+                let current_tile_data_address = tile_num as u16 * 16;
                 let high_data = vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16 + 1);
                 self.current_fetching_state = FethcingState::Push(low_data, high_data);
             }

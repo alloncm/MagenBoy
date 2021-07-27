@@ -130,8 +130,8 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
                 }
             }
             BGP_REGISTER_INDEX=> handle_bg_pallet_register(value,&mut self.ppu.bg_color_mapping),
-            //OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0),
-            //OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1),
+            OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0),
+            OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1),
             WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
             WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
             BOOT_REGISTER_INDEX=> self.finished_boot = value != 0,
