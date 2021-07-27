@@ -7,7 +7,7 @@ use crate::ppu::colors::*;
 use crate::ppu::gfx_device::GfxDevice;
 use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
-use super::fetching_state::FethcingState;
+use super::bg_fetcher::BGFetcher;
 
 
 pub struct FifoPpu<GFX: GfxDevice>{
@@ -25,7 +25,6 @@ pub struct FifoPpu<GFX: GfxDevice>{
     pub ly_register:u8,
     pub window_pos:Vec2<u8>,
     pub bg_pos:Vec2<u8>,
-    pixel_fething_state: FethcingState,
     pub bg_color_mapping: [Color; 4],
 
     screen_buffer: [u32; 160*144],
@@ -37,8 +36,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
     pub oam_search_interrupt_request:bool,
     pub coincidence_interrupt_request:bool,
 
-    pos_counter: Vec2<u8>,
-    bg_fifo: Vec<u8>,
+    bg_fetcher:BGFetcher,
     stat_triggered:bool,
     trigger_stat_interrupt:bool,
 }
@@ -71,7 +69,6 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             ly_register:0,
             state: PpuState::OamSearch,
-            pos_counter: Vec2::<u8>{x:0,y:0},
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -79,12 +76,11 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             coincidence_interrupt_request:false,
             oam_entries:oam_entries,
             current_oam_entry:0,
-            pixel_fething_state:FethcingState::TileNumber,
             screen_buffer_index:0, 
             t_cycles_passed:0,
-            bg_fifo:Vec::<u8>::with_capacity(8),
             stat_triggered:false,
             trigger_stat_interrupt:false,
+            bg_fetcher:BGFetcher::new(),
         }
     }
 
@@ -96,7 +92,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         }
         self.gfx_device.swap_buffer(&self.screen_buffer);
         self.state = PpuState::Hblank;
-        self.bg_fifo.clear();
+        self.bg_fetcher.fifo.clear();
         self.ly_register = 0;
         self.stat_triggered = false;
         self.trigger_stat_interrupt = false;
@@ -172,7 +168,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     
                     if self.t_cycles_passed == 80{
                         self.state = PpuState::PixelTransfer;
-                        self.pixel_fething_state = FethcingState::TileNumber;
+                        self.bg_fetcher.reset();
                     }
                 }
                 PpuState::Hblank=>{
@@ -212,83 +208,26 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
-                    match self.pixel_fething_state{
-                        FethcingState::TileNumber=>{
-                            let tile_num = if self.is_redering_wnd(){
-                                let tile_map_address:u16 = if (self.lcd_control & BIT_6_MASK) == 0 {0x1800} else {0x1C00};
-                                self.vram.read_current_bank(tile_map_address + ((32 * (self.pos_counter. y / 8)) + (self.pos_counter.x / 8) )as u16)
-                            }
-                            else{
-                                let tile_map_address = if (self.lcd_control & BIT_3_MASK) == 0 {0x1800} else {0x1C00};
-                                let scx_offset = ((self.bg_pos.x as u16 + self.pos_counter.x as u16) / 8 ) & 31;
-                                let scy_offset = ((self.bg_pos.y as u16 + self.ly_register as u16) & 0xFF) / 8;
+                    self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
 
-                                self.vram.read_current_bank(tile_map_address + ((32 * scy_offset) + scx_offset))
-                            };
+                    pixels_to_push_to_lcd.append(&mut self.bg_fetcher.fifo);
 
-                            self.pixel_fething_state = FethcingState::LowTileData(tile_num);
-                            self.t_cycles_passed += 2;
-                        }
-                        FethcingState::LowTileData(tile_num)=>{
-                            let current_tile_base_data_address = if (self.lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
-                            let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
-                            let low_data = if self.is_redering_wnd(){
-                                self.vram.read_current_bank(current_tile_data_address + (2 * (self.pos_counter.y % 8)) as u16)
-                            } else{
-                                self.vram.read_current_bank(current_tile_data_address + (2 * ((self.bg_pos.y + self.ly_register) % 8)) as u16)
-                            };
-
-                            self.pixel_fething_state = FethcingState::HighTileData(tile_num, low_data);
-                            self.t_cycles_passed += 2;
-                        }
-                        FethcingState::HighTileData(tile_num, low_data)=>{
-                            let current_tile_base_data_address = if (self.lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
-                            let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
-                            let high_data = if self.is_redering_wnd(){
-                                self.vram.read_current_bank(current_tile_data_address + (2 * (self.pos_counter.y % 8)) as u16 + 1)
-                            } else{
-                                self.vram.read_current_bank(current_tile_data_address + (2 * ((self.bg_pos.y + self.ly_register) % 8)) as u16 + 1)
-                            };
-
-                            self.pixel_fething_state = FethcingState::Push(low_data, high_data);
-                            self.t_cycles_passed += 2;
-                        }
-                        FethcingState::Push(low_data, high_data)=>{
-                            for i in (0..8).rev(){
-                                let mask = 1 << i;
-                                let mut pixel = (low_data & mask) >> i;
-                                pixel |= ((high_data & mask) >> i) << 1;
-                                self.bg_fifo.push(pixel);
-                            }
-
-                            self.pixel_fething_state = FethcingState::TileNumber;
-                            self.t_cycles_passed += 2;
-                        
-                            self.pos_counter.x += 8;
-                        }
-                    }
-
-                    if self.pos_counter.x == 160{
+                    if self.bg_fetcher.current_x_pos == 160{
                         self.state = PpuState::Hblank;
                         if self.h_blank_interrupt_request{
                             self.trigger_stat_interrupt = true;
                         }
-                        self.pos_counter.x = 0;
+                        self.bg_fetcher.reset();
                     }
+                    self.t_cycles_passed += 2;
                 }
             }
-            
-            pixels_to_push_to_lcd.append(&mut self.bg_fifo);
         }   
         
         return pixels_to_push_to_lcd;
     }
 
-    fn is_redering_wnd(&self)->bool{
-        self.window_pos.x >= self.bg_pos.x && self.window_pos.y >= self.bg_pos.y && (self.lcd_control & BIT_5_MASK) != 0
-    }
-
     fn color_as_uint(color: &Color) -> u32 {
         ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
-}    
+}
