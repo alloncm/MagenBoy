@@ -1,5 +1,5 @@
 use crate::utils::bit_masks::*;
-use super::{color::*, colors::*, fifo_ppu::FifoPpu, gfx_device::GfxDevice};
+use crate::ppu::{color::*, colors::*, fifo::fifo_ppu::FifoPpu, gfx_device::GfxDevice};
 
 const WX_OFFSET:u8 = 7;
 

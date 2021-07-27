@@ -2,17 +2,13 @@ use std::mem::{self, MaybeUninit};
 
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
-use super::color::Color;
-use super::colors::*;
-use super::gfx_device::GfxDevice;
-use super::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
+use crate::ppu::color::Color;
+use crate::ppu::colors::*;
+use crate::ppu::gfx_device::GfxDevice;
+use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
-enum FethcingState{
-    TileNumber,
-    LowTileData(u8),
-    HighTileData(u8,u8),
-    Push(u8,u8)
-}
+use super::fetching_state::FethcingState;
+
 
 pub struct FifoPpu<GFX: GfxDevice>{
     gfx_device: GFX,
