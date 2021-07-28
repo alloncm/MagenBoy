@@ -65,13 +65,22 @@ impl BGFetcher{
             }
             FethcingState::Push(low_data, high_data)=>{
                 if self.fifo.is_empty(){
-                    for i in (0..8).rev(){
-                        let mask = 1 << i;
-                        let mut pixel = (low_data & mask) >> i;
-                        pixel |= ((high_data & mask) >> i) << 1;
-                        self.fifo.push(pixel);
-                        self.current_x_pos += 1;
+                    if lcd_control & BIT_0_MASK == 0{
+                        for _ in 0..8{
+                            self.fifo.push(0);
+                            self.current_x_pos += 1;
+                        }
                     }
+                    else{
+                        for i in (0..8).rev(){
+                            let mask = 1 << i;
+                            let mut pixel = (low_data & mask) >> i;
+                            pixel |= ((high_data & mask) >> i) << 1;
+                            self.fifo.push(pixel);
+                            self.current_x_pos += 1;
+                        }
+                    }
+
                     self.current_fetching_state = FethcingState::TileNumber;
                 }
             }

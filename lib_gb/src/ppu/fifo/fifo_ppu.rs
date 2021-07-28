@@ -126,6 +126,8 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         else{
             self.stat_triggered = false;
         }
+        
+        self.trigger_stat_interrupt = false;
 
         for pixel in self.push_lcd_buffer.iter(){
             self.screen_buffer[self.screen_buffer_index] = Self::color_as_uint(&pixel);
