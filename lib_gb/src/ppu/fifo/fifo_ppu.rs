@@ -237,10 +237,10 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 }
                 else{
                     let sprite_pixel = if pixel_oam_attribute.palette_number{
-                        self.obj_color_mapping0[sprite_color_num.0 as usize]
+                        self.obj_color_mapping1[sprite_color_num.0 as usize]
                     }
                     else{
-                        self.obj_color_mapping1[sprite_color_num.0 as usize]
+                        self.obj_color_mapping0[sprite_color_num.0 as usize]
                     };
 
                     if let Some(color) = sprite_pixel{

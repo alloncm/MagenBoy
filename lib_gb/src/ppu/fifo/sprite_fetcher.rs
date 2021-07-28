@@ -65,12 +65,22 @@ impl SpriteFetcher{
             }
             FethcingState::Push(low_data, high_data)=>{
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let range = if oam_attribute.flip_x {0..=7} else {7..=0};
-                for i in range{
-                    let mask = 1 << i;
-                    let mut pixel = (low_data & mask) >> i;
-                    pixel |= ((high_data & mask) >> i) << 1;
-                    self.fifo.push((pixel, self.current_oam_entry));
+
+                if !oam_attribute.flip_x{
+                    for i in (0..8).rev(){
+                        let mask = 1 << i;
+                        let mut pixel = (low_data & mask) >> i;
+                        pixel |= ((high_data & mask) >> i) << 1;
+                        self.fifo.push((pixel, self.current_oam_entry));
+                    }
+                }
+                else{
+                    for i in 0..8{
+                        let mask = 1 << i;
+                        let mut pixel = (low_data & mask) >> i;
+                        pixel |= ((high_data & mask) >> i) << 1;
+                        self.fifo.push((pixel, self.current_oam_entry));
+                    }
                 }
 
                 self.current_fetching_state = FethcingState::TileNumber;
