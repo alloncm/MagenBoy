@@ -28,6 +28,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
     pub obj_color_mapping1: [Option<Color>;4],
 
     screen_buffer: [u32; 160*144],
+    push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
 
     //interrupts
@@ -74,6 +75,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             trigger_stat_interrupt:false,
             bg_fetcher:BGFetcher::new(),
             sprite_fetcher:SpriteFetcher::new(),
+            push_lcd_buffer:Vec::<Color>::new(),
         }
     }
 
@@ -100,7 +102,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             return;
         }
 
-        let pixels = self.cycle_fetcher(m_cycles, if_register);
+        self.cycle_fetcher(m_cycles, if_register);
 
         //update stat register
         self.stat_register &= 0b1111_1100; //clear first 2 bits
@@ -126,7 +128,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             self.stat_triggered = false;
         }
 
-        for pixel in pixels.as_slice(){
+        for pixel in self.push_lcd_buffer.iter(){
             self.screen_buffer[self.screen_buffer_index] = Self::color_as_uint(&pixel);
             self.screen_buffer_index += 1;
             if self.screen_buffer_index == self.screen_buffer.len(){
@@ -134,12 +136,12 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 self.screen_buffer_index = 0;
             }
         }
+
+        self.push_lcd_buffer.clear();
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8)->Vec<Color>{
+    fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8){
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {16} else {8};
-
-        let mut pixels_to_push_to_lcd = Vec::<Color>::new();
 
         for _ in 0..m_cycles * 2{
             match self.state{
@@ -203,36 +205,12 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 PpuState::PixelTransfer=>{
                     self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
                     if self.lcd_control & BIT_1_MASK != 0{
-                        self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register);
+                        self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.bg_fetcher.current_x_pos);
                     }
-
-                    while !self.sprite_fetcher.fifo.is_empty(){
-                        let bg_pixel = self.bg_fetcher.fifo.remove(0);
-                        let sprite_pixel = self.sprite_fetcher.fifo.remove(0);
-                        let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_pixel.1 as usize];
-
-                        if sprite_pixel.0 == 0 || pixel_oam_attribute.is_bg_priority{
-                            pixels_to_push_to_lcd.push(self.bg_color_mapping[bg_pixel as usize]);
-                        }
-                        else{
-                            let pixel = if pixel_oam_attribute.palette_number{
-                                self.obj_color_mapping0[sprite_pixel.0 as usize]
-                            }
-                            else{
-                                self.obj_color_mapping1[sprite_pixel.0 as usize]
-                            };
-
-                            if let Some(color) = pixel{
-                                pixels_to_push_to_lcd.push(color);
-                            }
-                            else{
-                                std::panic!("Corruption in the object color pallete");
-                            }
-                        }
+                    
+                    for _ in 0..2{
+                        self.try_push_to_lcd();
                     }
-
-                    pixels_to_push_to_lcd.extend(self.bg_fetcher.fifo.iter().map(|c| self.bg_color_mapping[*c as usize]));
-                    self.bg_fetcher.fifo.clear();
 
                     if self.bg_fetcher.current_x_pos == 160{
                         self.state = PpuState::Hblank;
@@ -245,9 +223,40 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
             }
-        }   
-        
-        return pixels_to_push_to_lcd;
+        }
+    }
+
+    fn try_push_to_lcd(&mut self){
+        if !self.bg_fetcher.fifo.is_empty(){
+            let bg_pixel = self.bg_color_mapping[self.bg_fetcher.fifo.remove(0) as usize];
+            let pixel = if !self.sprite_fetcher.fifo.is_empty(){
+                let sprite_color_num = self.sprite_fetcher.fifo.remove(0);
+                let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
+
+                if sprite_color_num.0 == 0 || pixel_oam_attribute.is_bg_priority{
+
+                }
+                let sprite_pixel = if pixel_oam_attribute.palette_number{
+                    self.obj_color_mapping0[sprite_color_num.0 as usize]
+                }
+                else{
+                    self.obj_color_mapping1[sprite_color_num.0 as usize]
+                };
+
+                if let Some(color) = sprite_pixel{
+                    color
+                }
+                else{
+                    std::panic!("Corruption in the object color pallete");
+                }
+            }
+            else{
+                bg_pixel
+            };
+
+            self.push_lcd_buffer.push(pixel);
+            self.bg_fetcher.current_x_pos += 1;
+        }
     }
 
     fn color_as_uint(color: &Color) -> u32 {

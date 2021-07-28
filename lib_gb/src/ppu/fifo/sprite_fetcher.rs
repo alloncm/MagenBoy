@@ -40,11 +40,14 @@ impl SpriteFetcher{
         self.fifo.clear();
     }
 
-    pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8){
+    pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8, current_x_pos:u8){
         match self.current_fetching_state{
             FethcingState::TileNumber=>{
                 if self.oam_entries.len() > self.current_oam_entry as usize{
-                    self.current_fetching_state = FethcingState::LowTileData(self.oam_entries[self.current_oam_entry as usize].tile_number);
+                    let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
+                    if oam_entry.x <= current_x_pos + 8{
+                        self.current_fetching_state = FethcingState::LowTileData(oam_entry.tile_number);
+                    }
                 }
             }
             FethcingState::LowTileData(tile_num)=>{
