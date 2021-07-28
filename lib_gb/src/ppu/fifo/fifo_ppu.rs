@@ -14,7 +14,6 @@ pub struct FifoPpu<GFX: GfxDevice>{
 
     pub vram: VRam,
     pub oam:[u8;0xA0],
-    current_oam_entry:u8,
     t_cycles_passed:u16,
     pub state:PpuState,
     pub lcd_control:u8,
@@ -68,7 +67,6 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             h_blank_interrupt_request:false,
             oam_search_interrupt_request:false, 
             coincidence_interrupt_request:false,
-            current_oam_entry:0,
             screen_buffer_index:0, 
             t_cycles_passed:0,
             stat_triggered:false,
@@ -87,10 +85,11 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         }
         self.gfx_device.swap_buffer(&self.screen_buffer);
         self.state = PpuState::Hblank;
-        self.bg_fetcher.fifo.clear();
         self.ly_register = 0;
         self.stat_triggered = false;
         self.trigger_stat_interrupt = false;
+        self.bg_fetcher.reset();
+        self.sprite_fetcher.reset();
     }
 
     pub fn turn_on(&mut self){
@@ -151,19 +150,17 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     let end_y = self.oam[oam_entry_address];
                     let end_x = self.oam[oam_entry_address + 1];
                 
-                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.current_oam_entry < 10{
+                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.sprite_fetcher.oam_entries_len < 10{
                         let tile_number = self.oam[oam_entry_address + 2];
                         let attributes = self.oam[oam_entry_address + 3];
-                        self.sprite_fetcher.oam_entries[self.current_oam_entry as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
-                        self.current_oam_entry += 1;
+                        self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
+                        self.sprite_fetcher.oam_entries_len += 1;
                     }
                     
                     self.t_cycles_passed += 2; //half a m_cycle
                     
                     if self.t_cycles_passed == 80{
                         self.state = PpuState::PixelTransfer;
-                        self.bg_fetcher.reset();
-                        self.sprite_fetcher.reset();
                     }
                 }
                 PpuState::Hblank=>{
@@ -203,16 +200,18 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
-                    self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
-                    if self.lcd_control & BIT_1_MASK != 0{
-                        self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.bg_fetcher.current_x_pos);
+                    if self.bg_fetcher.current_x_pos < 160{
+                        self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
+                        if self.lcd_control & BIT_1_MASK != 0{
+                            self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.bg_fetcher.current_x_pos);
+                        }
                     }
                     
                     for _ in 0..2{
                         self.try_push_to_lcd();
                     }
 
-                    if self.bg_fetcher.current_x_pos == 160{
+                    if self.bg_fetcher.current_x_pos == 160 && self.bg_fetcher.fifo.is_empty(){
                         self.state = PpuState::Hblank;
                         if self.h_blank_interrupt_request{
                             self.trigger_stat_interrupt = true;
@@ -234,20 +233,22 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
 
                 if sprite_color_num.0 == 0 || pixel_oam_attribute.is_bg_priority{
-
-                }
-                let sprite_pixel = if pixel_oam_attribute.palette_number{
-                    self.obj_color_mapping0[sprite_color_num.0 as usize]
+                    bg_pixel
                 }
                 else{
-                    self.obj_color_mapping1[sprite_color_num.0 as usize]
-                };
+                    let sprite_pixel = if pixel_oam_attribute.palette_number{
+                        self.obj_color_mapping0[sprite_color_num.0 as usize]
+                    }
+                    else{
+                        self.obj_color_mapping1[sprite_color_num.0 as usize]
+                    };
 
-                if let Some(color) = sprite_pixel{
-                    color
-                }
-                else{
-                    std::panic!("Corruption in the object color pallete");
+                    if let Some(color) = sprite_pixel{
+                        color
+                    }
+                    else{
+                        std::panic!("Corruption in the object color pallete");
+                    }
                 }
             }
             else{
@@ -255,7 +256,6 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             };
 
             self.push_lcd_buffer.push(pixel);
-            self.bg_fetcher.current_x_pos += 1;
         }
     }
 

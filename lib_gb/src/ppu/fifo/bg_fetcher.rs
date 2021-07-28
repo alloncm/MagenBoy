@@ -47,7 +47,7 @@ impl BGFetcher{
                 let low_data = if Self::is_redering_wnd(lcd_control, window_pos, bg_pos){
                     vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16)
                 } else{
-                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y + ly_register) % 8)) as u16)
+                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8)) )
                 };
 
                 self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
@@ -58,7 +58,7 @@ impl BGFetcher{
                 let high_data = if Self::is_redering_wnd(lcd_control, window_pos, bg_pos){
                     vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16 + 1)
                 } else{
-                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y + ly_register) % 8)) as u16 + 1)
+                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8)) + 1)
                 };
 
                 self.current_fetching_state = FethcingState::Push(low_data, high_data);
@@ -70,6 +70,7 @@ impl BGFetcher{
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
                         self.fifo.push(pixel);
+                        self.current_x_pos += 1;
                     }
                     self.current_fetching_state = FethcingState::TileNumber;
                 }

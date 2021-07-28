@@ -7,6 +7,7 @@ use super::fetching_state::FethcingState;
 pub struct SpriteFetcher{
     pub fifo:Vec<(u8, u8)>,
     pub oam_entries:[SpriteAttribute; 10],
+    pub oam_entries_len:u8,
 
     current_fetching_state:FethcingState,
     current_oam_entry:u8,
@@ -29,6 +30,7 @@ impl SpriteFetcher{
         SpriteFetcher{
             current_fetching_state:FethcingState::TileNumber,
             current_oam_entry:0,
+            oam_entries_len:0,
             oam_entries,
             fifo:Vec::<(u8,u8)>::with_capacity(8)
         }
@@ -36,6 +38,7 @@ impl SpriteFetcher{
 
     pub fn reset(&mut self){
         self.current_oam_entry = 0;
+        self.oam_entries_len = 0;
         self.current_fetching_state = FethcingState::TileNumber;
         self.fifo.clear();
     }
@@ -43,7 +46,7 @@ impl SpriteFetcher{
     pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8, current_x_pos:u8){
         match self.current_fetching_state{
             FethcingState::TileNumber=>{
-                if self.oam_entries.len() > self.current_oam_entry as usize{
+                if self.oam_entries_len > self.current_oam_entry{
                     let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
                     if oam_entry.x <= current_x_pos + 8{
                         self.current_fetching_state = FethcingState::LowTileData(oam_entry.tile_number);
