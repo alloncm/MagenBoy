@@ -171,6 +171,8 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     if self.t_cycles_passed == 456{
                         if self.ly_register == 143{
                             self.state = PpuState::Vblank;
+                            //reseting the window counter on vblank
+                            self.bg_fetcher.window_line_counter = 0;
                             *if_register |= BIT_0_MASK;
                             if self.v_blank_interrupt_request{
                                 self.trigger_stat_interrupt = true;
@@ -184,6 +186,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                         }
                         self.t_cycles_passed = 0;
                         self.ly_register += 1;
+                        self.bg_fetcher.try_increment_window_counter();
                     }
                 }
                 PpuState::Vblank=>{
