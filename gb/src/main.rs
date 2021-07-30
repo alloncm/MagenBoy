@@ -83,7 +83,7 @@ fn main() {
     let mut mbc = initialize_mbc(program_name); 
     let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
 
-    let mut gameboy = match fs::read("Dependencies\\Init\\dmg_boot.bin"){
+    let mut gameboy = match fs::read("Dependencies/Init/dmg_boot.bin"){
         Result::Ok(file)=>{
             info!("found bootrom!");
 

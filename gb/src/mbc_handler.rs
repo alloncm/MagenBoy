@@ -10,7 +10,8 @@ pub const SAVE_SUFFIX:&str = ".sav";
 pub fn initialize_mbc(program_name:&String)->Box<dyn Mbc>{
 
     let program_path = format!("{}{}",program_name,PROGRAM_SUFFIX);
-    let program = fs::read(program_path).expect("No program found, notice that function must have a `.gb` suffix");
+    let error_message = format!("No program found, notice that the file must have a `.gb` suffix - {}\n", program_name);
+    let program = fs::read(program_path).expect(error_message.as_str());
 
     let mbc_type = program[CARTRIDGE_TYPE_ADDRESS];
 
