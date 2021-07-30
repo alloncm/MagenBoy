@@ -162,6 +162,8 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2; //half a m_cycle
                     
                     if self.t_cycles_passed == 80{
+                        let slice = self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize].as_mut();
+                        slice.sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                         self.state = PpuState::PixelTransfer;
                     }
                 }
