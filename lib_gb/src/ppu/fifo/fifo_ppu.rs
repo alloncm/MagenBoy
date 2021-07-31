@@ -29,6 +29,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
     screen_buffer: [u32; 160*144],
     push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
+    pixel_x_pos:u8,
 
     //interrupts
     pub v_blank_interrupt_request:bool,
@@ -74,6 +75,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             bg_fetcher:BGFetcher::new(),
             sprite_fetcher:SpriteFetcher::new(),
             push_lcd_buffer:Vec::<Color>::new(),
+            pixel_x_pos:0,
         }
     }
 
@@ -90,6 +92,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         self.trigger_stat_interrupt = false;
         self.bg_fetcher.reset();
         self.sprite_fetcher.reset();
+        self.pixel_x_pos = 0;
     }
 
     pub fn turn_on(&mut self){
@@ -186,6 +189,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                                 self.trigger_stat_interrupt = true;
                             }
                         }
+                        self.pixel_x_pos = 0;
                         self.t_cycles_passed = 0;
                         self.ly_register += 1;
                     }
@@ -196,6 +200,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                         if self.oam_search_interrupt_request{
                             self.trigger_stat_interrupt = true;
                         }
+                        self.pixel_x_pos = 0;
                         self.t_cycles_passed = 0;
                         self.ly_register = 0;
                     }
@@ -206,10 +211,10 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
-                    if self.bg_fetcher.current_x_pos < 160{
+                    if self.pixel_x_pos < 160{
                         self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
                         if self.lcd_control & BIT_1_MASK != 0{
-                            self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.bg_fetcher.current_x_pos);
+                            self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.pixel_x_pos);
                         }
                     }
                     
@@ -217,7 +222,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                         self.try_push_to_lcd();
                     }
 
-                    if self.bg_fetcher.current_x_pos == 160 && self.bg_fetcher.fifo.is_empty(){
+                    if self.pixel_x_pos == 160 {
                         self.state = PpuState::Hblank;
                         if self.h_blank_interrupt_request{
                             self.trigger_stat_interrupt = true;
@@ -263,6 +268,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             };
 
             self.push_lcd_buffer.push(pixel);
+            self.pixel_x_pos += 1;
         }
     }
 

@@ -3,10 +3,10 @@ use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
 use super::fetching_state::FethcingState;
 
 pub struct BGFetcher{
-    pub current_x_pos:u8,
     pub fifo:Vec<u8>,
     pub window_line_counter:u8,
 
+    current_x_pos:u8,
     rendered_window:bool,
     rendering_window:bool,
     current_fetching_state:FethcingState,
