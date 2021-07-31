@@ -32,6 +32,10 @@ impl BGFetcher{
         self.rendering_window = false;
     }
 
+    pub fn pause(&mut self){
+        self.current_fetching_state = FethcingState::TileNumber;
+    }
+
     pub fn try_increment_window_counter(&mut self){
         if self.rendered_window{
             self.window_line_counter += 1;

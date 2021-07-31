@@ -8,6 +8,7 @@ pub struct SpriteFetcher{
     pub fifo:Vec<(u8, u8)>,
     pub oam_entries:[SpriteAttribute; 10],
     pub oam_entries_len:u8,
+    pub rendering:bool,
 
     current_fetching_state:FethcingState,
     current_oam_entry:u8,
@@ -32,7 +33,8 @@ impl SpriteFetcher{
             current_oam_entry:0,
             oam_entries_len:0,
             oam_entries,
-            fifo:Vec::<(u8,u8)>::with_capacity(8)
+            fifo:Vec::<(u8,u8)>::with_capacity(8),
+            rendering:false
         }
     }
 
@@ -41,6 +43,7 @@ impl SpriteFetcher{
         self.oam_entries_len = 0;
         self.current_fetching_state = FethcingState::TileNumber;
         self.fifo.clear();
+        self.rendering = false;
     }
 
     pub fn fetch_pixels(&mut self, vram:&VRam, ly_register:u8, current_x_pos:u8){
@@ -50,8 +53,12 @@ impl SpriteFetcher{
                     let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
                     if oam_entry.x <= current_x_pos + 8{
                         self.current_fetching_state = FethcingState::LowTileData(oam_entry.tile_number);
+                        self.rendering = true;
+                        return;
                     }
                 }
+                // Reach here if not rendering this time a sprite
+                self.rendering = false;
             }
             FethcingState::LowTileData(tile_num)=>{
                 let current_tile_data_address = tile_num as u16 * 16;

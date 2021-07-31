@@ -212,15 +212,20 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 }
                 PpuState::PixelTransfer=>{
                     if self.pixel_x_pos < 160{
-                        self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
                         if self.lcd_control & BIT_1_MASK != 0{
                             self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.pixel_x_pos);
                         }
+                        if self.sprite_fetcher.rendering{
+                            self.bg_fetcher.pause();
+                        }
+                        else{
+                            self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
+                            for _ in 0..2{
+                                self.try_push_to_lcd();
+                            }
+                        }
                     }
-                    
-                    for _ in 0..2{
-                        self.try_push_to_lcd();
-                    }
+                
 
                     if self.pixel_x_pos == 160 {
                         self.state = PpuState::Hblank;
