@@ -51,7 +51,7 @@ impl SpriteFetcher{
             FethcingState::TileNumber=>{
                 if self.oam_entries_len > self.current_oam_entry{
                     let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
-                    if oam_entry.x <= current_x_pos + 8{
+                    if oam_entry.x <= current_x_pos + 8 && current_x_pos < oam_entry.x{
                         self.current_fetching_state = FethcingState::LowTileData(oam_entry.tile_number);
                         self.rendering = true;
                         return;
@@ -72,9 +72,10 @@ impl SpriteFetcher{
             }
             FethcingState::Push(low_data, high_data)=>{
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                let start_x = self.fifo.len();
 
-                if !oam_attribute.flip_x{
-                    for i in (0..8).rev(){
+                if oam_attribute.flip_x{
+                    for i in start_x..8{
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
@@ -82,7 +83,7 @@ impl SpriteFetcher{
                     }
                 }
                 else{
-                    for i in 0..8{
+                    for i in (start_x..8).rev(){
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
