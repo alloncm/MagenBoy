@@ -213,7 +213,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                 PpuState::PixelTransfer=>{
                     if self.pixel_x_pos < 160{
                         if self.lcd_control & BIT_1_MASK != 0{
-                            self.sprite_fetcher.fetch_pixels(&self.vram, self.ly_register, self.pixel_x_pos);
+                            self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
                         }
                         if self.sprite_fetcher.rendering{
                             self.bg_fetcher.pause();
