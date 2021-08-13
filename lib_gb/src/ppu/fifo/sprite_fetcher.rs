@@ -61,13 +61,23 @@ impl SpriteFetcher{
                 self.rendering = false;
             }
             FethcingState::LowTileData(tile_num)=>{
-                let current_tile_data_address = tile_num as u16 * 16;
-                let low_data = vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16);
+                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                let current_tile_data_address = if !oam_attribute.flip_y {
+                    tile_num as u16 * 16 + (2 * (ly_register % 8)) as u16
+                }else{
+                    tile_num as u16 * 16 + (2 * (7 - (ly_register % 8))) as u16
+                };
+                let low_data = vram.read_current_bank(current_tile_data_address);
                 self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
             }
             FethcingState::HighTileData(tile_num, low_data)=>{
-                let current_tile_data_address = tile_num as u16 * 16;
-                let high_data = vram.read_current_bank(current_tile_data_address + (2 * (ly_register % 8)) as u16 + 1);
+                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                let current_tile_data_address = if !oam_attribute.flip_y {
+                    tile_num as u16 * 16 + (2 * (ly_register % 8)) as u16
+                }else{
+                    tile_num as u16 * 16 + (2 * (7 - (ly_register % 8))) as u16
+                };
+                let high_data = vram.read_current_bank(current_tile_data_address + 1);
                 self.current_fetching_state = FethcingState::Push(low_data, high_data);
             }
             FethcingState::Push(low_data, high_data)=>{
