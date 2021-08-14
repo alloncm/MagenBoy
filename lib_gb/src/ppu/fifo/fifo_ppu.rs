@@ -244,12 +244,13 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
 
     fn try_push_to_lcd(&mut self){
         if !self.bg_fetcher.fifo.is_empty(){
-            let bg_pixel = self.bg_color_mapping[self.bg_fetcher.fifo.remove(0) as usize];
+            let bg_pixel_color_num = self.bg_fetcher.fifo.remove(0);
+            let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
             let pixel = if !self.sprite_fetcher.fifo.is_empty(){
                 let sprite_color_num = self.sprite_fetcher.fifo.remove(0);
                 let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
 
-                if sprite_color_num.0 == 0 || pixel_oam_attribute.is_bg_priority{
+                if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
                     bg_pixel
                 }
                 else{
