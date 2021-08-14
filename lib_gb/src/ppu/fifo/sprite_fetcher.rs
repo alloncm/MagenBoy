@@ -83,19 +83,39 @@ impl SpriteFetcher{
                 let start_x = self.fifo.len();
 
                 if oam_attribute.flip_x{
-                    for i in start_x..8{
+                    for i in 0..8{
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        self.fifo.push((pixel, self.current_oam_entry));
+                        if i < start_x {
+                            if self.fifo[i].0 != 0{
+                                continue;
+                            }
+                            else{
+                                self.fifo[i].0 = pixel;
+                            }
+                        }
+                        else{
+                            self.fifo.push((pixel, self.current_oam_entry));
+                        }
                     }
                 }
                 else{
-                    for i in (start_x..8).rev(){
+                    for i in (0..8).rev(){
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        self.fifo.push((pixel, self.current_oam_entry));
+                        if i > 7 - start_x {
+                            if self.fifo[7 - i].0 != 0{
+                                continue;
+                            }
+                            else{
+                                self.fifo[7 - i].0 = pixel;
+                            }
+                        }
+                        else{
+                            self.fifo.push((pixel, self.current_oam_entry));
+                        }
                     }
                 }
 
