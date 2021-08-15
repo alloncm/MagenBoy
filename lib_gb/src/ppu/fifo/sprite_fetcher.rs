@@ -88,11 +88,8 @@ impl SpriteFetcher{
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
                         if i < start_x {
-                            if self.fifo[i].0 != 0{
-                                continue;
-                            }
-                            else{
-                                self.fifo[i].0 = pixel;
+                            if self.fifo[i].0 == 0{
+                                // self.fifo[i].0 = pixel;
                             }
                         }
                         else{
@@ -105,12 +102,9 @@ impl SpriteFetcher{
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        if i > 7 - start_x {
-                            if self.fifo[7 - i].0 != 0{
-                                continue;
-                            }
-                            else{
-                                self.fifo[7 - i].0 = pixel;
+                        if 7 - i < start_x {
+                            if self.fifo[7 - i].0 == 0{
+                                // self.fifo[7 - i].0 = pixel;
                             }
                         }
                         else{

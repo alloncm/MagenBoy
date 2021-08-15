@@ -261,12 +261,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                         self.obj_color_mapping0[sprite_color_num.0 as usize]
                     };
 
-                    if let Some(color) = sprite_pixel{
-                        color
-                    }
-                    else{
-                        std::panic!("Corruption in the object color pallete");
-                    }
+                    sprite_pixel.expect("Corruption in the object color pallete")
                 }
             }
             else{
