@@ -82,33 +82,31 @@ impl SpriteFetcher{
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
                 let start_x = self.fifo.len();
 
+                let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
+
                 if oam_attribute.flip_x{
-                    for i in 0..8{
+                    for i in (0 + skip_x)..8{
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        if i < start_x {
-                            if self.fifo[i].0 == 0{
-                                // self.fifo[i].0 = pixel;
-                            }
-                        }
-                        else{
+                        if i + skip_x >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
+                        }
+                        else if self.fifo[i + skip_x].0 == 0{
+                            self.fifo[i+ skip_x] = (pixel, self.current_oam_entry);
                         }
                     }
                 }
                 else{
-                    for i in (0..8).rev(){
+                    for i in (0..(8 - skip_x)).rev(){
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        if 7 - i < start_x {
-                            if self.fifo[7 - i].0 == 0{
-                                // self.fifo[7 - i].0 = pixel;
-                            }
-                        }
-                        else{
+                        if 7 - skip_x - i >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
+                        }
+                        else if self.fifo[7 - skip_x - i].0 == 0{
+                            self.fifo[7 - skip_x - i] = (pixel, self.current_oam_entry);
                         }
                     }
                 }
