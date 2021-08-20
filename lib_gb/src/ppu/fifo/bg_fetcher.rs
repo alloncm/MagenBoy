@@ -72,24 +72,14 @@ impl BGFetcher{
                 self.current_fetching_state = FethcingState::LowTileData(tile_num);
             }
             FethcingState::LowTileData(tile_num)=>{
-                let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
-                let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
-                let low_data = if self.rendering_window{
-                    vram.read_current_bank(current_tile_data_address + (2 * (self.window_line_counter % 8)) as u16)
-                } else{
-                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8)) )
-                };
+                let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
+                let low_data = vram.read_current_bank(address);
 
                 self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
             }
             FethcingState::HighTileData(tile_num, low_data)=>{
-                let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
-                let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
-                let high_data = if self.rendering_window{
-                    vram.read_current_bank(current_tile_data_address + (2 * (self.window_line_counter % 8)) as u16 + 1)
-                } else{
-                    vram.read_current_bank(current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8)) + 1)
-                };
+                let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
+                let high_data = vram.read_current_bank(address + 1);
 
                 self.current_fetching_state = FethcingState::Push(low_data, high_data);
             }
@@ -115,6 +105,16 @@ impl BGFetcher{
                 }
             }
         }
+    }
+
+    fn get_tila_data_address(&self, lcd_control:u8, bg_pos:&Vec2<u8>, ly_register:u8, tile_num:u8)->u16{
+        let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
+        let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
+        return if self.rendering_window{
+            current_tile_data_address + (2 * (self.window_line_counter % 8)) as u16
+        } else{
+            current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8))
+        };
     }
 
     fn is_redering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>, ly_register:u8)->bool{
