@@ -30,6 +30,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
     push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
+    scanline_started:bool,
 
     //interrupts
     pub v_blank_interrupt_request:bool,
@@ -76,6 +77,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             sprite_fetcher:SpriteFetcher::new(),
             push_lcd_buffer:Vec::<Color>::new(),
             pixel_x_pos:0,
+            scanline_started:false
         }
     }
 
@@ -168,6 +170,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                         let slice = self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize].as_mut();
                         slice.sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                         self.state = PpuState::PixelTransfer;
+                        self.scanline_started = false;
                     }
                 }
                 PpuState::Hblank=>{
@@ -222,28 +225,47 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                             self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
                             for _ in 0..2{
                                 self.try_push_to_lcd();
+                                if self.pixel_x_pos == 160 {
+                                    self.state = PpuState::Hblank;
+                                    if self.h_blank_interrupt_request{
+                                        self.trigger_stat_interrupt = true;
+                                    }
+                                    self.bg_fetcher.try_increment_window_counter();
+                                    self.bg_fetcher.reset();
+                                    self.sprite_fetcher.reset();
+
+                                    // If im on the first iteration and finished the 160 pixels break;
+                                    // In this case the number of t_cycles should be eneven but it will break
+                                    // my code way too much for now so Im leaving this as it is... (maybe in the future)
+                                    break;
+                                }
                             }
                         }
                     }
                 
 
-                    if self.pixel_x_pos == 160 {
-                        self.state = PpuState::Hblank;
-                        if self.h_blank_interrupt_request{
-                            self.trigger_stat_interrupt = true;
-                        }
-                        self.bg_fetcher.try_increment_window_counter();
-                        self.bg_fetcher.reset();
-                        self.sprite_fetcher.reset();
-                    }
+                    
                     self.t_cycles_passed += 2;
                 }
             }
+            
         }
     }
 
     fn try_push_to_lcd(&mut self){
         if !self.bg_fetcher.fifo.is_empty(){
+            if !self.scanline_started{
+                // discard the next pixel in the bg fifo
+                // the bg fifo should start with 8 pixels and not push more untill its empty again
+                if 8 - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % 8{
+                    self.scanline_started = true;
+                }
+                else{
+                    self.bg_fetcher.fifo.remove(0);
+                    return;
+                }
+            }
+
             let bg_pixel_color_num = self.bg_fetcher.fifo.remove(0);
             let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
             let pixel = if !self.sprite_fetcher.fifo.is_empty(){
