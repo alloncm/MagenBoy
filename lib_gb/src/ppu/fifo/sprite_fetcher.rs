@@ -12,6 +12,7 @@ pub struct SpriteFetcher{
 
     current_fetching_state:FethcingState,
     current_oam_entry:u8,
+    t_cycle_inner_state_counter:u8,
 }
 
 impl SpriteFetcher{
@@ -34,7 +35,8 @@ impl SpriteFetcher{
             oam_entries_len:0,
             oam_entries,
             fifo:Vec::<(u8,u8)>::with_capacity(8),
-            rendering:false
+            rendering:false,
+            t_cycle_inner_state_counter:0,
         }
     }
 
@@ -42,6 +44,7 @@ impl SpriteFetcher{
         self.current_oam_entry = 0;
         self.oam_entries_len = 0;
         self.current_fetching_state = FethcingState::TileNumber;
+        self.t_cycle_inner_state_counter = 0;
         self.fifo.clear();
         self.rendering = false;
     }
@@ -67,54 +70,63 @@ impl SpriteFetcher{
                 self.rendering = false;
             }
             FethcingState::LowTileData(tile_num)=>{
-                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
-                let low_data = vram.read_current_bank(current_tile_data_address);
-                self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
+                if self.t_cycle_inner_state_counter % 2 != 0{
+                    let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                    let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
+                    let low_data = vram.read_current_bank(current_tile_data_address);
+                    self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
+                }
             }
             FethcingState::HighTileData(tile_num, low_data)=>{
-                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
-                let high_data = vram.read_current_bank(current_tile_data_address + 1);
-                self.current_fetching_state = FethcingState::Push(low_data, high_data);
+                if self.t_cycle_inner_state_counter % 2 != 0{
+                    let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                    let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
+                    let high_data = vram.read_current_bank(current_tile_data_address + 1);
+                    self.current_fetching_state = FethcingState::Push(low_data, high_data);
+                }
             }
             FethcingState::Push(low_data, high_data)=>{
-                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let start_x = self.fifo.len();
+                if self.t_cycle_inner_state_counter % 2 != 0{
 
-                let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
+                    let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
+                    let start_x = self.fifo.len();
 
-                if oam_attribute.flip_x{
-                    for i in (0 + skip_x)..8{
-                        let mask = 1 << i;
-                        let mut pixel = (low_data & mask) >> i;
-                        pixel |= ((high_data & mask) >> i) << 1;
-                        if i + skip_x >= start_x {
-                            self.fifo.push((pixel, self.current_oam_entry));
-                        }
-                        else if self.fifo[i + skip_x].0 == 0{
-                            self.fifo[i+ skip_x] = (pixel, self.current_oam_entry);
+                    let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
+
+                    if oam_attribute.flip_x{
+                        for i in (0 + skip_x)..8{
+                            let mask = 1 << i;
+                            let mut pixel = (low_data & mask) >> i;
+                            pixel |= ((high_data & mask) >> i) << 1;
+                            if i + skip_x >= start_x {
+                                self.fifo.push((pixel, self.current_oam_entry));
+                            }
+                            else if self.fifo[i + skip_x].0 == 0{
+                                self.fifo[i+ skip_x] = (pixel, self.current_oam_entry);
+                            }
                         }
                     }
-                }
-                else{
-                    for i in (0..(8 - skip_x)).rev(){
-                        let mask = 1 << i;
-                        let mut pixel = (low_data & mask) >> i;
-                        pixel |= ((high_data & mask) >> i) << 1;
-                        if 7 - skip_x - i >= start_x {
-                            self.fifo.push((pixel, self.current_oam_entry));
-                        }
-                        else if self.fifo[7 - skip_x - i].0 == 0{
-                            self.fifo[7 - skip_x - i] = (pixel, self.current_oam_entry);
+                    else{
+                        for i in (0..(8 - skip_x)).rev(){
+                            let mask = 1 << i;
+                            let mut pixel = (low_data & mask) >> i;
+                            pixel |= ((high_data & mask) >> i) << 1;
+                            if 7 - skip_x - i >= start_x {
+                                self.fifo.push((pixel, self.current_oam_entry));
+                            }
+                            else if self.fifo[7 - skip_x - i].0 == 0{
+                                self.fifo[7 - skip_x - i] = (pixel, self.current_oam_entry);
+                            }
                         }
                     }
-                }
 
-                self.current_fetching_state = FethcingState::TileNumber;
-                self.current_oam_entry += 1;
+                    self.current_fetching_state = FethcingState::TileNumber;
+                    self.current_oam_entry += 1;
+                }
             }
         }
+
+        self.t_cycle_inner_state_counter = (self.t_cycle_inner_state_counter + 1) % 8;
     }
 
     // Receiving the tile_num since in case of extended sprite this could change (the first bit is reset)

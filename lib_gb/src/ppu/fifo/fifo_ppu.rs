@@ -214,31 +214,31 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
-                    if self.pixel_x_pos < 160{
-                        if self.lcd_control & BIT_1_MASK != 0{
-                            self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
-                        }
-                        if self.sprite_fetcher.rendering{
-                            self.bg_fetcher.pause();
-                        }
-                        else{
-                            self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
-                            for _ in 0..2{
-                                self.try_push_to_lcd();
-                                if self.pixel_x_pos == 160 {
-                                    self.state = PpuState::Hblank;
-                                    if self.h_blank_interrupt_request{
-                                        self.trigger_stat_interrupt = true;
-                                    }
-                                    self.bg_fetcher.try_increment_window_counter();
-                                    self.bg_fetcher.reset();
-                                    self.sprite_fetcher.reset();
+                    for _ in 0..2{
+                        if self.pixel_x_pos < 160{
+                            if self.lcd_control & BIT_1_MASK != 0{
+                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
+                            }
+                            if self.sprite_fetcher.rendering{
+                                self.bg_fetcher.pause();
+                            }
+                            else{
+                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
+                                    self.try_push_to_lcd();
+                                    if self.pixel_x_pos == 160 {
+                                        self.state = PpuState::Hblank;
+                                        if self.h_blank_interrupt_request{
+                                            self.trigger_stat_interrupt = true;
+                                        }
+                                        self.bg_fetcher.try_increment_window_counter();
+                                        self.bg_fetcher.reset();
+                                        self.sprite_fetcher.reset();
 
-                                    // If im on the first iteration and finished the 160 pixels break;
-                                    // In this case the number of t_cycles should be eneven but it will break
-                                    // my code way too much for now so Im leaving this as it is... (maybe in the future)
-                                    break;
-                                }
+                                        // If im on the first iteration and finished the 160 pixels break;
+                                        // In this case the number of t_cycles should be eneven but it will break
+                                        // my code way too much for now so Im leaving this as it is... (maybe in the future)
+                                        break;
+                                    }
                             }
                         }
                     }

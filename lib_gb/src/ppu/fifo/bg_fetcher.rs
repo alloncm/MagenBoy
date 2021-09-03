@@ -10,6 +10,7 @@ pub struct BGFetcher{
     rendered_window:bool,
     rendering_window:bool,
     current_fetching_state:FethcingState,
+    t_cycles_counter:u8,
 }
 
 impl BGFetcher{
@@ -20,7 +21,8 @@ impl BGFetcher{
             fifo:Vec::<u8>::with_capacity(8),
             window_line_counter:0,
             rendered_window:false,
-            rendering_window:false
+            rendering_window:false,
+            t_cycles_counter:0
         }
     }
 
@@ -30,10 +32,12 @@ impl BGFetcher{
         self.current_fetching_state = FethcingState::TileNumber;
         self.rendered_window = false;
         self.rendering_window = false;
+        self.t_cycles_counter = 0;
     }
 
     pub fn pause(&mut self){
         self.current_fetching_state = FethcingState::TileNumber;
+        self.t_cycles_counter = 0;
     }
 
     pub fn try_increment_window_counter(&mut self){
@@ -43,6 +47,11 @@ impl BGFetcher{
     }
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
+        if self.t_cycles_counter % 2 == 0{
+            self.t_cycles_counter = (self.t_cycles_counter + 1) % 8;
+            return;
+        }
+
         let last_rendering_status = self.rendering_window;
         self.rendering_window = self.is_redering_wnd(lcd_control, window_pos, ly_register);
         if self.rendering_window{
@@ -105,6 +114,8 @@ impl BGFetcher{
                 }
             }
         }
+        
+        self.t_cycles_counter = (self.t_cycles_counter + 1) % 8;
     }
 
     fn get_tila_data_address(&self, lcd_control:u8, bg_pos:&Vec2<u8>, ly_register:u8, tile_num:u8)->u16{
