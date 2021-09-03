@@ -1,5 +1,4 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
-
 use super::fetching_state::FethcingState;
 
 pub struct BGFetcher{

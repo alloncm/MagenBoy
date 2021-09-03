@@ -1,5 +1,8 @@
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, set_nr13}, ppu::{fifo::fifo_ppu::FifoPpu, fifo::fifo_register_updater::*, gfx_device::GfxDevice}, timer::timer_register_updater::*, utils::memory_registers::*};
-use crate::apu::*;
+use crate::{apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
+    ppu::{fifo::fifo_ppu::FifoPpu, fifo::fifo_register_updater::*, gfx_device::GfxDevice},
+    timer::timer_register_updater::*, 
+    utils::memory_registers::*
+};
 use crate::timer::gb_timer::GbTimer;
 use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram};
 use super::io_ports::*;

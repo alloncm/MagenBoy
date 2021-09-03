@@ -84,9 +84,8 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
     pub fn turn_off(&mut self){
         self.screen_buffer_index = 0;
         self.t_cycles_passed = 0;
-        unsafe{
-            std::ptr::write_bytes(self.screen_buffer.as_mut_ptr(), 0xFF, self.screen_buffer.len());
-        }
+        //This is an expensive operation!
+        unsafe{std::ptr::write_bytes(self.screen_buffer.as_mut_ptr(), 0xFF, self.screen_buffer.len())};
         self.gfx_device.swap_buffer(&self.screen_buffer);
         self.state = PpuState::Hblank;
         self.ly_register = 0;

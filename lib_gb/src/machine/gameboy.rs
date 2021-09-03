@@ -3,9 +3,8 @@ use crate::{
     cpu::gb_cpu::GbCpu, 
     keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
-    ppu::{gb_ppu::CYCLES_PER_FRAME, gfx_device::GfxDevice}, utils::bit_masks::BIT_7_MASK
+    ppu::{gb_ppu::CYCLES_PER_FRAME, gfx_device::GfxDevice}
 };
-
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
@@ -14,9 +13,7 @@ use log::debug;
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a, AD, GFX>,
-    opcode_resolver:OpcodeResolver::<GbMmu::<'a, AD, GFX>>, 
     interrupts_handler:InterruptsHandler,
-    cycles_counter:u32, 
     joypad_provider: JP
 }
 
@@ -27,7 +24,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device), gfx_device),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0,
             joypad_provider: joypad_provider
         }
     }
@@ -46,7 +42,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             cpu:cpu,
             mmu:GbMmu::new(mbc, GbApu::new(audio_device), gfx_device),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0,
             joypad_provider: joypad_provider,
         }
     }
@@ -54,9 +49,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
     pub fn cycle_frame(&mut self){
         let mut joypad = Joypad::default();
 
-        let mut last_ppu_power_state:bool = (self.mmu.io_components.ppu.lcd_control & BIT_7_MASK) != 0;
+        let mut cycles_counter = 0;
 
-        while self.cycles_counter < CYCLES_PER_FRAME{
+        while cycles_counter < CYCLES_PER_FRAME{
             self.joypad_provider.provide(&mut joypad);
             joypad_register_updater::update_joypad_registers(&joypad, &mut self.mmu);
 
@@ -73,22 +68,8 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             if interrupt_cycles != 0{                
                 self.mmu.cycle(interrupt_cycles);
             }
-            
-            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
-            
 
-            //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
-            //the frame when the ppu finishes the frame
-            if !last_ppu_power_state && (self.mmu.io_components.ppu.lcd_control & BIT_7_MASK) != 0{
-                self.cycles_counter = 0;
-            }
-
-            self.cycles_counter += iter_total_cycles;
-            last_ppu_power_state = (self.mmu.io_components.ppu.lcd_control & BIT_7_MASK) != 0;
-        }
-
-        if self.cycles_counter >= CYCLES_PER_FRAME{
-            self.cycles_counter -= CYCLES_PER_FRAME; 
+            cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
         }
     }
 

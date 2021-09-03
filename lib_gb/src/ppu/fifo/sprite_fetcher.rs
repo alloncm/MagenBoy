@@ -18,9 +18,7 @@ pub struct SpriteFetcher{
 impl SpriteFetcher{
     pub fn new()->Self{
         let oam_entries = {
-            let mut data: [MaybeUninit<SpriteAttribute>; 10] = unsafe{
-                MaybeUninit::uninit().assume_init()
-            };
+            let mut data: [MaybeUninit<SpriteAttribute>; 10] = unsafe{MaybeUninit::uninit().assume_init()};
 
             for elem in &mut data[..]{
                 *elem = MaybeUninit::new(SpriteAttribute::new(0, 0, 0, 0));
