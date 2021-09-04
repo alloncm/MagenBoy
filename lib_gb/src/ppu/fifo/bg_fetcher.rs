@@ -1,5 +1,5 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
-use super::fetching_state::FethcingState;
+use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
 pub struct BGFetcher{
     pub fifo:Vec<u8>,
@@ -8,35 +8,32 @@ pub struct BGFetcher{
     current_x_pos:u8,
     rendered_window:bool,
     rendering_window:bool,
-    current_fetching_state:FethcingState,
-    t_cycles_counter:u8,
+    fetcher_state_machine:FetcherStateMachine,
 }
 
 impl BGFetcher{
     pub fn new()->Self{
+        let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
         BGFetcher{
-            current_fetching_state:FethcingState::TileNumber,
+            fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
             fifo:Vec::<u8>::with_capacity(8),
             window_line_counter:0,
             rendered_window:false,
             rendering_window:false,
-            t_cycles_counter:0
         }
     }
 
     pub fn reset(&mut self){
         self.fifo.clear();
         self.current_x_pos = 0;
-        self.current_fetching_state = FethcingState::TileNumber;
+        self.fetcher_state_machine.reset();
         self.rendered_window = false;
         self.rendering_window = false;
-        self.t_cycles_counter = 0;
     }
 
     pub fn pause(&mut self){
-        self.current_fetching_state = FethcingState::TileNumber;
-        self.t_cycles_counter = 0;
+        self.fetcher_state_machine.reset();
     }
 
     pub fn try_increment_window_counter(&mut self){
@@ -46,11 +43,6 @@ impl BGFetcher{
     }
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
-        if self.t_cycles_counter % 2 == 0{
-            self.t_cycles_counter = (self.t_cycles_counter + 1) % 8;
-            return;
-        }
-
         let last_rendering_status = self.rendering_window;
         self.rendering_window = self.is_redering_wnd(lcd_control, window_pos, ly_register);
         if self.rendering_window{
@@ -59,12 +51,12 @@ impl BGFetcher{
             // In case I was rendering a background pixel need to reset the state of the fectcher 
             // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
             if !last_rendering_status{
-                self.current_fetching_state = FethcingState::TileNumber;
+                self.fetcher_state_machine.reset();
             }
         }
 
-        match self.current_fetching_state{
-            FethcingState::TileNumber=>{
+        match self.fetcher_state_machine.current_state(){
+            FetchingState::FetchTileNumber=>{
                 let tile_num = if self.rendering_window{
                     let tile_map_address:u16 = if (lcd_control & BIT_6_MASK) == 0 {0x1800} else {0x1C00};
                     vram.read_current_bank(tile_map_address + (32 * (self.window_line_counter as u16 / 8)) + ((self.current_x_pos - window_pos.x) as u16 / 8))
@@ -77,21 +69,24 @@ impl BGFetcher{
                     vram.read_current_bank(tile_map_address + ((32 * scy_offset) + scx_offset))
                 };
 
-                self.current_fetching_state = FethcingState::LowTileData(tile_num);
+                self.fetcher_state_machine.data = FetchingStateData{low_tile_data:tile_num};
             }
-            FethcingState::LowTileData(tile_num)=>{
+            FetchingState::FetchLowTile=>{
+                let tile_num = unsafe{self.fetcher_state_machine.data.low_tile_data};
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let low_data = vram.read_current_bank(address);
 
-                self.current_fetching_state = FethcingState::HighTileData(tile_num, low_data);
+                self.fetcher_state_machine.data = FetchingStateData{high_tile_data:(tile_num, low_data)};
             }
-            FethcingState::HighTileData(tile_num, low_data)=>{
+            FetchingState::FetchHighTile=>{
+                let (tile_num, low_data) = unsafe{self.fetcher_state_machine.data.high_tile_data};
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let high_data = vram.read_current_bank(address + 1);
 
-                self.current_fetching_state = FethcingState::Push(low_data, high_data);
+                self.fetcher_state_machine.data = FetchingStateData{push_data:(low_data, high_data)};
             }
-            FethcingState::Push(low_data, high_data)=>{
+            FetchingState::Push=>{
+                let (low_data, high_data) = unsafe{self.fetcher_state_machine.data.push_data};
                 if self.fifo.is_empty(){
                     if lcd_control & BIT_0_MASK == 0{
                         for _ in 0..8{
@@ -108,13 +103,12 @@ impl BGFetcher{
                             self.current_x_pos += 1;
                         }
                     }
-
-                    self.current_fetching_state = FethcingState::TileNumber;
                 }
             }
+            FetchingState::Sleep=>{}
         }
-        
-        self.t_cycles_counter = (self.t_cycles_counter + 1) % 8;
+
+        self.fetcher_state_machine.advance();
     }
 
     fn get_tila_data_address(&self, lcd_control:u8, bg_pos:&Vec2<u8>, ly_register:u8, tile_num:u8)->u16{

@@ -223,27 +223,24 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
                             }
                             else{
                                 self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
-                                    self.try_push_to_lcd();
-                                    if self.pixel_x_pos == 160 {
-                                        self.state = PpuState::Hblank;
-                                        if self.h_blank_interrupt_request{
-                                            self.trigger_stat_interrupt = true;
-                                        }
-                                        self.bg_fetcher.try_increment_window_counter();
-                                        self.bg_fetcher.reset();
-                                        self.sprite_fetcher.reset();
-
-                                        // If im on the first iteration and finished the 160 pixels break;
-                                        // In this case the number of t_cycles should be eneven but it will break
-                                        // my code way too much for now so Im leaving this as it is... (maybe in the future)
-                                        break;
+                                self.try_push_to_lcd();
+                                if self.pixel_x_pos == 160 {
+                                    self.state = PpuState::Hblank;
+                                    if self.h_blank_interrupt_request{
+                                        self.trigger_stat_interrupt = true;
                                     }
+                                    self.bg_fetcher.try_increment_window_counter();
+                                    self.bg_fetcher.reset();
+                                    self.sprite_fetcher.reset();
+
+                                    // If im on the first iteration and finished the 160 pixels break;
+                                    // In this case the number of t_cycles should be eneven but it will break
+                                    // my code way too much for now so Im leaving this as it is... (maybe in the future)
+                                    break;
+                                }
                             }
                         }
                     }
-                
-
-                    
                     self.t_cycles_passed += 2;
                 }
             }
