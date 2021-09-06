@@ -44,7 +44,7 @@ impl BGFetcher{
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
         let last_rendering_status = self.rendering_window;
-        self.rendering_window = self.is_redering_wnd(lcd_control, window_pos, ly_register);
+        self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos, ly_register);
         if self.rendering_window{
             self.rendered_window = true;
 
@@ -121,7 +121,7 @@ impl BGFetcher{
         };
     }
 
-    fn is_redering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>, ly_register:u8)->bool{
+    fn is_rendering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>, ly_register:u8)->bool{
         window_pos.x <= self.current_x_pos && window_pos.y <= ly_register && (lcd_control & BIT_5_MASK) != 0
     }
 }

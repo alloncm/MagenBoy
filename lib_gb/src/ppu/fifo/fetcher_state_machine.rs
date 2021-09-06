@@ -1,9 +1,9 @@
 use super::fetching_state::*;
 
 pub struct FetcherStateMachine{
-    pub state:usize,
     pub data:FetchingStateData,
-    pub state_machine:[FetchingState;8]
+    state:usize,
+    state_machine:[FetchingState;8]
 }
 
 impl FetcherStateMachine{

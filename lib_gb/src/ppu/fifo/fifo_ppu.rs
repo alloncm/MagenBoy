@@ -10,11 +10,9 @@ use super::sprite_fetcher::SpriteFetcher;
 
 
 pub struct FifoPpu<GFX: GfxDevice>{
-    gfx_device: GFX,
 
     pub vram: VRam,
     pub oam:[u8;0xA0],
-    t_cycles_passed:u16,
     pub state:PpuState,
     pub lcd_control:u8,
     pub stat_register:u8,
@@ -26,18 +24,19 @@ pub struct FifoPpu<GFX: GfxDevice>{
     pub obj_color_mapping0: [Option<Color>;4],
     pub obj_color_mapping1: [Option<Color>;4],
 
-    screen_buffer: [u32; 160*144],
-    push_lcd_buffer:Vec<Color>,
-    screen_buffer_index:usize,
-    pixel_x_pos:u8,
-    scanline_started:bool,
-
     //interrupts
     pub v_blank_interrupt_request:bool,
     pub h_blank_interrupt_request:bool,
     pub oam_search_interrupt_request:bool,
     pub coincidence_interrupt_request:bool,
 
+    gfx_device: GFX,
+    t_cycles_passed:u16,
+    screen_buffer: [u32; 160*144],
+    push_lcd_buffer:Vec<Color>,
+    screen_buffer_index:usize,
+    pixel_x_pos:u8,
+    scanline_started:bool,
     bg_fetcher:BGFetcher,
     sprite_fetcher:SpriteFetcher,
     stat_triggered:bool,
@@ -45,10 +44,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
 }
 
 impl<GFX:GfxDevice> FifoPpu<GFX>{
-
     pub fn new(device:GFX) -> Self {
-        
-
         Self{
             gfx_device: device,
             vram: VRam::default(),
@@ -107,31 +103,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
 
         self.cycle_fetcher(m_cycles, if_register);
 
-        //update stat register
-        self.stat_register &= 0b1111_1100; //clear first 2 bits
-        self.stat_register |= self.state as u8;
-
-        if self.ly_register == self.lyc_register{
-            if self.coincidence_interrupt_request {
-                self.trigger_stat_interrupt = true;
-            }
-            self.stat_register |= BIT_2_MASK;
-        }
-        else{
-            self.stat_register &= !BIT_2_MASK;
-        }
-
-        if self.trigger_stat_interrupt{
-            if !self.stat_triggered{
-                *if_register |= BIT_1_MASK;
-                self.stat_triggered = true;
-            }
-        }
-        else{
-            self.stat_triggered = false;
-        }
-        
-        self.trigger_stat_interrupt = false;
+        self.update_stat_register(if_register);
 
         for pixel in self.push_lcd_buffer.iter(){
             self.screen_buffer[self.screen_buffer_index] = Self::color_as_uint(&pixel);
@@ -143,6 +115,30 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         }
 
         self.push_lcd_buffer.clear();
+    }
+
+    fn update_stat_register(&mut self, if_register: &mut u8) {
+        self.stat_register &= 0b1111_1100;
+        self.stat_register |= self.state as u8;
+        if self.ly_register == self.lyc_register{
+            if self.coincidence_interrupt_request {
+                self.trigger_stat_interrupt = true;
+            }
+            self.stat_register |= BIT_2_MASK;
+        }
+        else{
+            self.stat_register &= !BIT_2_MASK;
+        }
+        if self.trigger_stat_interrupt{
+            if !self.stat_triggered{
+                *if_register |= BIT_1_MASK;
+                self.stat_triggered = true;
+            }
+        }
+        else{
+            self.stat_triggered = false;
+        }
+        self.trigger_stat_interrupt = false;
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8){
