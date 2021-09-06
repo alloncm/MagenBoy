@@ -6,8 +6,16 @@ pub enum FetchingState{
     Sleep
 }
 
-pub union FetchingStateData{
-    pub low_tile_data:u8,
-    pub high_tile_data:(u8,u8),
-    pub push_data:(u8,u8)
+pub struct FetchingStateData{
+    pub tile_data:Option<u8>,
+    pub low_tile_data:Option<u8>,
+    pub high_tile_data:Option<u8>,
+}
+
+impl FetchingStateData{
+    pub fn reset(&mut self){
+        self.high_tile_data = None;
+        self.low_tile_data = None;
+        self.tile_data = None;
+    }
 }

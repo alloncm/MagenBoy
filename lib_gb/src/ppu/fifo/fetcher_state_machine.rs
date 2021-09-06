@@ -13,7 +13,7 @@ impl FetcherStateMachine{
 
     pub fn new(state_machine:[FetchingState;8])->Self{
         Self{
-            data:FetchingStateData{low_tile_data:0},
+            data:FetchingStateData{high_tile_data:None, low_tile_data:None, tile_data:None},
             state:0,
             state_machine
         }
@@ -21,7 +21,7 @@ impl FetcherStateMachine{
 
     pub fn reset(&mut self){
         self.state = 0;
-        self.data.low_tile_data = 0;
+        self.data.reset();
     }
 
     pub fn current_state(&self)->&FetchingState{

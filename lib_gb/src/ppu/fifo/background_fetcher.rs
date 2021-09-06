@@ -69,24 +69,26 @@ impl BackgroundFetcher{
                     vram.read_current_bank(tile_map_address + ((32 * scy_offset) + scx_offset))
                 };
 
-                self.fetcher_state_machine.data = FetchingStateData{low_tile_data:tile_num};
+                self.fetcher_state_machine.data.reset();
+                self.fetcher_state_machine.data.tile_data = Some(tile_num);
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = unsafe{self.fetcher_state_machine.data.low_tile_data};
+                let tile_num = self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchLowTIle");
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let low_data = vram.read_current_bank(address);
 
-                self.fetcher_state_machine.data = FetchingStateData{high_tile_data:(tile_num, low_data)};
+                self.fetcher_state_machine.data.low_tile_data = Some(low_data);
             }
             FetchingState::FetchHighTile=>{
-                let (tile_num, low_data) = unsafe{self.fetcher_state_machine.data.high_tile_data};
+                let tile_num= self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchHighTIle");
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let high_data = vram.read_current_bank(address + 1);
 
-                self.fetcher_state_machine.data = FetchingStateData{push_data:(low_data, high_data)};
+                self.fetcher_state_machine.data.high_tile_data = Some(high_data);
             }
             FetchingState::Push=>{
-                let (low_data, high_data) = unsafe{self.fetcher_state_machine.data.push_data};
+                let low_data = self.fetcher_state_machine.data.low_tile_data.expect("State machine is corrupted, No Low data on Push");
+                let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
                 if self.fifo.is_empty(){
                     if lcd_control & BIT_0_MASK == 0{
                         for _ in 0..8{
