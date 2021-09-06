@@ -1,11 +1,11 @@
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
-use crate::ppu::color::Color;
+use crate::ppu::color::*;
 use crate::ppu::colors::*;
 use crate::ppu::gfx_device::GfxDevice;
 use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
-use super::bg_fetcher::BGFetcher;
+use super::background_fetcher::BackgroundFetcher;
 use super::sprite_fetcher::SpriteFetcher;
 
 
@@ -37,7 +37,7 @@ pub struct FifoPpu<GFX: GfxDevice>{
     screen_buffer_index:usize,
     pixel_x_pos:u8,
     scanline_started:bool,
-    bg_fetcher:BGFetcher,
+    bg_fetcher:BackgroundFetcher,
     sprite_fetcher:SpriteFetcher,
     stat_triggered:bool,
     trigger_stat_interrupt:bool,
@@ -69,7 +69,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             t_cycles_passed:0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
-            bg_fetcher:BGFetcher::new(),
+            bg_fetcher:BackgroundFetcher::new(),
             sprite_fetcher:SpriteFetcher::new(),
             push_lcd_buffer:Vec::<Color>::new(),
             pixel_x_pos:0,
@@ -106,7 +106,7 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
         self.update_stat_register(if_register);
 
         for pixel in self.push_lcd_buffer.iter(){
-            self.screen_buffer[self.screen_buffer_index] = Self::color_as_uint(&pixel);
+            self.screen_buffer[self.screen_buffer_index] = u32::from(*pixel);
             self.screen_buffer_index += 1;
             if self.screen_buffer_index == self.screen_buffer.len(){
                 self.gfx_device.swap_buffer(&self.screen_buffer);
@@ -285,9 +285,5 @@ impl<GFX:GfxDevice> FifoPpu<GFX>{
             self.push_lcd_buffer.push(pixel);
             self.pixel_x_pos += 1;
         }
-    }
-
-    fn color_as_uint(color: &Color) -> u32 {
-        ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
     }
 }

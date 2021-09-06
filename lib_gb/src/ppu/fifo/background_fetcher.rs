@@ -1,7 +1,7 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
-pub struct BGFetcher{
+pub struct BackgroundFetcher{
     pub fifo:Vec<u8>,
     pub window_line_counter:u8,
 
@@ -11,10 +11,10 @@ pub struct BGFetcher{
     fetcher_state_machine:FetcherStateMachine,
 }
 
-impl BGFetcher{
+impl BackgroundFetcher{
     pub fn new()->Self{
         let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
-        BGFetcher{
+        BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
             fifo:Vec::<u8>::with_capacity(8),
