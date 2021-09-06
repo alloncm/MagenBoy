@@ -6,12 +6,17 @@ use crate::ppu::gfx_device::GfxDevice;
 use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
 use super::fifo::background_fetcher::BackgroundFetcher;
-use super::fifo::sprite_fetcher::SpriteFetcher;
+use super::fifo::sprite_fetcher::*;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
-pub struct GbPpu<GFX: GfxDevice>{
+const OAM_ENTRY_SIZE:u16 = 4;
 
+const OAM_SEARCH_T_CYCLES_LENGTH: u16 = 80;
+const HBLANK_T_CYCLES_LENGTH: u16 = 456;
+const VBLANK_T_CYCLES_LENGTH: u16 = 4560;
+
+pub struct GbPpu<GFX: GfxDevice>{
     pub vram: VRam,
     pub oam:[u8;0xA0],
     pub state:PpuState,
@@ -55,7 +60,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             lcd_control: 0,
             bg_pos: Vec2::<u8>{x:0, y:0},
             window_pos: Vec2::<u8>{x:0,y:0},
-            screen_buffer:[0;160*144],
+            screen_buffer:[0;SCREEN_HEIGHT * SCREEN_WIDTH],
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
@@ -97,7 +102,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u8, if_register:&mut u8){
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8){
         if self.lcd_control & BIT_7_MASK == 0{
             return;
         }
@@ -142,18 +147,18 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.trigger_stat_interrupt = false;
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u8, if_register:&mut u8){
-        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {16} else {8};
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8){
+        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
 
         for _ in 0..m_cycles * 2{
             match self.state{
                 PpuState::OamSearch=>{
                     let oam_index = self.t_cycles_passed / 2;
-                    let oam_entry_address = (oam_index * 4) as usize;
+                    let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
                     let end_y = self.oam[oam_entry_address];
                     let end_x = self.oam[oam_entry_address + 1];
                 
-                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.sprite_fetcher.oam_entries_len < 10{
+                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.sprite_fetcher.oam_entries_len < MAX_SPRITES_PER_LINE as u8{
                         let tile_number = self.oam[oam_entry_address + 2];
                         let attributes = self.oam[oam_entry_address + 3];
                         self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
@@ -162,7 +167,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     
                     self.t_cycles_passed += 2; //half a m_cycle
                     
-                    if self.t_cycles_passed == 80{
+                    if self.t_cycles_passed == OAM_SEARCH_T_CYCLES_LENGTH{
                         let slice = self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize].as_mut();
                         slice.sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                         self.state = PpuState::PixelTransfer;
@@ -172,8 +177,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 PpuState::Hblank=>{
                     self.t_cycles_passed += 2;
                     
-                    if self.t_cycles_passed == 456{
-                        if self.ly_register == 143{
+                    if self.t_cycles_passed == HBLANK_T_CYCLES_LENGTH{
+                        self.pixel_x_pos = 0;
+                        self.t_cycles_passed = 0;
+                        self.ly_register += 1;
+                        if self.ly_register == SCREEN_HEIGHT as u8{
                             self.state = PpuState::Vblank;
                             //reseting the window counter on vblank
                             self.bg_fetcher.window_line_counter = 0;
@@ -188,13 +196,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                                 self.trigger_stat_interrupt = true;
                             }
                         }
-                        self.pixel_x_pos = 0;
-                        self.t_cycles_passed = 0;
-                        self.ly_register += 1;
                     }
                 }
                 PpuState::Vblank=>{
-                    if self.t_cycles_passed == 4560{
+                    if self.t_cycles_passed == VBLANK_T_CYCLES_LENGTH{
                         self.state = PpuState::OamSearch;
                         if self.oam_search_interrupt_request{
                             self.trigger_stat_interrupt = true;
@@ -204,14 +209,15 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         self.ly_register = 0;
                     }
                     else{
-                        self.ly_register = 144 + (self.t_cycles_passed / 456) as u8;
+                        //VBlank is technically 10 HBlank combined
+                        self.ly_register = SCREEN_HEIGHT as u8 + (self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH) as u8;
                     }
                     
                     self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
                     for _ in 0..2{
-                        if self.pixel_x_pos < 160{
+                        if self.pixel_x_pos < SCREEN_WIDTH as u8{
                             if self.lcd_control & BIT_1_MASK != 0{
                                 self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
                             }
@@ -221,7 +227,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                             else{
                                 self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
                                 self.try_push_to_lcd();
-                                if self.pixel_x_pos == 160 {
+                                if self.pixel_x_pos == SCREEN_WIDTH as u8{
                                     self.state = PpuState::Hblank;
                                     if self.h_blank_interrupt_request{
                                         self.trigger_stat_interrupt = true;
@@ -250,7 +256,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             if !self.scanline_started{
                 // discard the next pixel in the bg fifo
                 // the bg fifo should start with 8 pixels and not push more untill its empty again
-                if 8 - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % 8{
+                if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
                     self.scanline_started = true;
                 }
                 else{

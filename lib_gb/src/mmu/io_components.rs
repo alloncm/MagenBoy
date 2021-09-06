@@ -169,7 +169,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
         let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
         self.timer.cycle(&mut if_register, cycles as u8);
         self.apu.cycle(cycles as u8);
-        self.ppu.cycle( cycles as u8, &mut if_register);
+        self.ppu.cycle( cycles, &mut if_register);
         self.ports[IF_REGISTER_INDEX as usize] = if_register;
     }
 }

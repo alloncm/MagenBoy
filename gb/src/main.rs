@@ -14,6 +14,7 @@ use sdl2::sys::*;
 
 const FPS:f64 = GB_FREQUENCY as f64 / 70224.0;
 const FRAME_TIME_MS:f64 = (1.0 / FPS) * 1000.0;
+const SCREEN_SCALE:u8 = 4;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
@@ -77,7 +78,7 @@ fn main() {
     
     let audio_devices = MultiAudioDevice::new(devices);
 
-    let sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy");
+    let sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
 
     let program_name = &args[1];
     let mut mbc = initialize_mbc(program_name); 

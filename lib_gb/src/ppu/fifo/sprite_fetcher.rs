@@ -2,6 +2,12 @@ use std::mem::{self, MaybeUninit};
 use crate::{mmu::vram::VRam, ppu::sprite_attribute::SpriteAttribute, utils::bit_masks::{BIT_0_MASK, BIT_2_MASK}};
 use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
+pub const NORMAL_SPRITE_HIGHT:u8 = 8;
+pub const EXTENDED_SPRITE_HIGHT:u8 = 16;
+pub const FIFO_SIZE:u8 = 8;
+const SPRITE_WIDTH:u8 = 8;
+pub const MAX_SPRITES_PER_LINE:usize = 10;
+
 pub struct SpriteFetcher{
     pub fifo:Vec<(u8, u8)>,
     pub oam_entries:[SpriteAttribute; 10],
@@ -15,13 +21,13 @@ pub struct SpriteFetcher{
 impl SpriteFetcher{
     pub fn new()->Self{
         let oam_entries = {
-            let mut data: [MaybeUninit<SpriteAttribute>; 10] = unsafe{MaybeUninit::uninit().assume_init()};
+            let mut data: [MaybeUninit<SpriteAttribute>; MAX_SPRITES_PER_LINE] = unsafe{MaybeUninit::uninit().assume_init()};
 
             for elem in &mut data[..]{
                 *elem = MaybeUninit::new(SpriteAttribute::new(0, 0, 0, 0));
             }
 
-            unsafe{mem::transmute::<_, [SpriteAttribute;10]>(data)}
+            unsafe{mem::transmute::<_, [SpriteAttribute; MAX_SPRITES_PER_LINE]>(data)}
         };
         
         let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
@@ -31,7 +37,7 @@ impl SpriteFetcher{
             current_oam_entry:0,
             oam_entries_len:0,
             oam_entries,
-            fifo:Vec::<(u8,u8)>::with_capacity(8),
+            fifo:Vec::<(u8,u8)>::with_capacity(FIFO_SIZE as usize),
             rendering:false,
         }
     }
@@ -45,7 +51,7 @@ impl SpriteFetcher{
     }
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, current_x_pos:u8){
-        let sprite_size = if lcd_control & BIT_2_MASK == 0 {8} else{16};
+        let sprite_size = if lcd_control & BIT_2_MASK == 0 {NORMAL_SPRITE_HIGHT} else{EXTENDED_SPRITE_HIGHT};
 
         match self.fetcher_state_machine.current_state(){
             FetchingState::FetchTileNumber=>{
@@ -76,7 +82,7 @@ impl SpriteFetcher{
                 let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
 
                 if oam_attribute.flip_x{
-                    for i in (0 + skip_x)..8{
+                    for i in (0 + skip_x)..SPRITE_WIDTH as usize{
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
@@ -89,15 +95,16 @@ impl SpriteFetcher{
                     }
                 }
                 else{
-                    for i in (0..(8 - skip_x)).rev(){
+                    let fifo_max_index = FIFO_SIZE as usize - 1;
+                    for i in (0..(SPRITE_WIDTH as usize - skip_x)).rev(){
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        if 7 - skip_x - i >= start_x {
+                        if fifo_max_index - skip_x - i >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
                         }
-                        else if self.fifo[7 - skip_x - i].0 == 0{
-                            self.fifo[7 - skip_x - i] = (pixel, self.current_oam_entry);
+                        else if self.fifo[fifo_max_index - skip_x - i].0 == 0{
+                            self.fifo[fifo_max_index - skip_x - i] = (pixel, self.current_oam_entry);
                         }
                     }
                 }
@@ -113,7 +120,7 @@ impl SpriteFetcher{
     fn try_fetch_tile_number(&mut self, current_x_pos: u8, lcd_control: u8) {
         if self.oam_entries_len > self.current_oam_entry{
             let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
-            if oam_entry.x <= current_x_pos + 8 && current_x_pos < oam_entry.x{
+            if oam_entry.x <= current_x_pos + SPRITE_WIDTH && current_x_pos < oam_entry.x{
                 let mut tile_number = oam_entry.tile_number;
                 if lcd_control & BIT_2_MASK != 0{
                     tile_number &= !BIT_0_MASK

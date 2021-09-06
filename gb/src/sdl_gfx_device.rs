@@ -13,7 +13,7 @@ pub struct SdlGfxDevice{
 }
 
 impl SdlGfxDevice{
-    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str)->Self{
+    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8)->Self{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
@@ -38,7 +38,7 @@ impl SdlGfxDevice{
             texture,
             height:buffer_height,
             width:buffer_width,
-            sacle:4
+            sacle:screen_scale
         }
     }
 

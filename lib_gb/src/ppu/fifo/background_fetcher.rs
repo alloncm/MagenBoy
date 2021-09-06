@@ -1,6 +1,9 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
+const FIFO_SIZE:u8 = 8;
+const SPRITE_WIDTH:u8 = 8;
+
 pub struct BackgroundFetcher{
     pub fifo:Vec<u8>,
     pub window_line_counter:u8,
@@ -17,7 +20,7 @@ impl BackgroundFetcher{
         BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
-            fifo:Vec::<u8>::with_capacity(8),
+            fifo:Vec::<u8>::with_capacity(FIFO_SIZE as usize),
             window_line_counter:0,
             rendered_window:false,
             rendering_window:false,
@@ -59,12 +62,12 @@ impl BackgroundFetcher{
             FetchingState::FetchTileNumber=>{
                 let tile_num = if self.rendering_window{
                     let tile_map_address:u16 = if (lcd_control & BIT_6_MASK) == 0 {0x1800} else {0x1C00};
-                    vram.read_current_bank(tile_map_address + (32 * (self.window_line_counter as u16 / 8)) + ((self.current_x_pos - window_pos.x) as u16 / 8))
+                    vram.read_current_bank(tile_map_address + (32 * (self.window_line_counter as u16 / SPRITE_WIDTH as u16)) + ((self.current_x_pos - window_pos.x) as u16 / SPRITE_WIDTH as u16))
                 }
                 else{
                     let tile_map_address = if (lcd_control & BIT_3_MASK) == 0 {0x1800} else {0x1C00};
-                    let scx_offset = ((bg_pos.x as u16 + self.current_x_pos as u16) / 8 ) & 31;
-                    let scy_offset = ((bg_pos.y as u16 + ly_register as u16) & 0xFF) / 8;
+                    let scx_offset = ((bg_pos.x as u16 + self.current_x_pos as u16) / SPRITE_WIDTH as u16 ) & 31;
+                    let scy_offset = ((bg_pos.y as u16 + ly_register as u16) & 0xFF) / SPRITE_WIDTH as u16;
 
                     vram.read_current_bank(tile_map_address + ((32 * scy_offset) + scx_offset))
                 };
@@ -91,13 +94,14 @@ impl BackgroundFetcher{
                 let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
                 if self.fifo.is_empty(){
                     if lcd_control & BIT_0_MASK == 0{
-                        for _ in 0..8{
+                        for _ in 0..SPRITE_WIDTH{
+                            //When the baclkground is off pushes 0
                             self.fifo.push(0);
                             self.current_x_pos += 1;
                         }
                     }
                     else{
-                        for i in (0..8).rev(){
+                        for i in (0..SPRITE_WIDTH).rev(){
                             let mask = 1 << i;
                             let mut pixel = (low_data & mask) >> i;
                             pixel |= ((high_data & mask) >> i) << 1;
@@ -117,9 +121,9 @@ impl BackgroundFetcher{
         let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
         let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
         return if self.rendering_window{
-            current_tile_data_address + (2 * (self.window_line_counter % 8)) as u16
+            current_tile_data_address + (2 * (self.window_line_counter % SPRITE_WIDTH)) as u16
         } else{
-            current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % 8))
+            current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % SPRITE_WIDTH as u16))
         };
     }
 
