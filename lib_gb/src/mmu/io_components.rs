@@ -1,5 +1,5 @@
 use crate::{apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
-    ppu::{fifo::fifo_ppu::FifoPpu, fifo::fifo_register_updater::*, gfx_device::GfxDevice},
+    ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
     timer::timer_register_updater::*, 
     utils::memory_registers::*
 };
@@ -15,7 +15,7 @@ pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
     pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
-    pub ppu:FifoPpu<GFX>,
+    pub ppu:GbPpu<GFX>,
     ports:[u8;IO_PORTS_SIZE],
     pub dma:OamDmaTransfer,
     pub finished_boot:bool,
@@ -162,7 +162,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoComponents<AD, GFX>{
 
 impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
     pub fn new(apu:GbApu<AD>, gfx_device:GFX)->Self{
-        Self{apu, ports:[0;IO_PORTS_SIZE], timer:GbTimer::default(), ppu:FifoPpu::new(gfx_device), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
+        Self{apu, ports:[0;IO_PORTS_SIZE], timer:GbTimer::default(), ppu:GbPpu::new(gfx_device), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
     }
 
     pub fn cycle(&mut self, cycles:u32){

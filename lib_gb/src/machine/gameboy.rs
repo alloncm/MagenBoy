@@ -3,12 +3,14 @@ use crate::{
     cpu::gb_cpu::GbCpu, 
     keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
-    ppu::{gb_ppu::CYCLES_PER_FRAME, gfx_device::GfxDevice}
+    ppu::gfx_device::GfxDevice
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
+//CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
+pub const CYCLES_PER_FRAME:u32 = 17556;
 
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
     cpu: GbCpu,
