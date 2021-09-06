@@ -1,11 +1,8 @@
-use crate::{mmu::vram::VRam, utils::{bit_masks::*, vec2::Vec2}};
-use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
-
-const FIFO_SIZE:u8 = 8;
-const SPRITE_WIDTH:u8 = 8;
+use crate::{mmu::vram::VRam, utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}};
+use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
 pub struct BackgroundFetcher{
-    pub fifo:Vec<u8>,
+    pub fifo:FixedSizeQueue<u8, FIFO_SIZE>,
     pub window_line_counter:u8,
 
     current_x_pos:u8,
@@ -20,7 +17,7 @@ impl BackgroundFetcher{
         BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
-            fifo:Vec::<u8>::with_capacity(FIFO_SIZE as usize),
+            fifo:FixedSizeQueue::<u8, FIFO_SIZE>::new(),
             window_line_counter:0,
             rendered_window:false,
             rendering_window:false,
@@ -92,7 +89,7 @@ impl BackgroundFetcher{
             FetchingState::Push=>{
                 let low_data = self.fetcher_state_machine.data.low_tile_data.expect("State machine is corrupted, No Low data on Push");
                 let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
-                if self.fifo.is_empty(){
+                if self.fifo.len() == 0{
                     if lcd_control & BIT_0_MASK == 0{
                         for _ in 0..SPRITE_WIDTH{
                             //When the baclkground is off pushes 0

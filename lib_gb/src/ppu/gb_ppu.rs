@@ -6,7 +6,7 @@ use crate::ppu::gfx_device::GfxDevice;
 use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
 
 use super::fifo::background_fetcher::BackgroundFetcher;
-use super::fifo::sprite_fetcher::*;
+use super::fifo::{FIFO_SIZE, sprite_fetcher::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -252,7 +252,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     fn try_push_to_lcd(&mut self){
-        if !self.bg_fetcher.fifo.is_empty(){
+        if !self.bg_fetcher.fifo.len() == 0{
             if !self.scanline_started{
                 // discard the next pixel in the bg fifo
                 // the bg fifo should start with 8 pixels and not push more untill its empty again
@@ -260,15 +260,15 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.scanline_started = true;
                 }
                 else{
-                    self.bg_fetcher.fifo.remove(0);
+                    self.bg_fetcher.fifo.remove();
                     return;
                 }
             }
 
-            let bg_pixel_color_num = self.bg_fetcher.fifo.remove(0);
+            let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
             let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
-            let pixel = if !self.sprite_fetcher.fifo.is_empty(){
-                let sprite_color_num = self.sprite_fetcher.fifo.remove(0);
+            let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
+                let sprite_color_num = self.sprite_fetcher.fifo.remove();
                 let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
 
                 if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){

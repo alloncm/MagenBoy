@@ -1,15 +1,13 @@
-use std::mem::{self, MaybeUninit};
-use crate::{mmu::vram::VRam, ppu::sprite_attribute::SpriteAttribute, utils::bit_masks::{BIT_0_MASK, BIT_2_MASK}};
-use super::{fetcher_state_machine::FetcherStateMachine, fetching_state::*};
+use crate::{mmu::vram::VRam, ppu::sprite_attribute::SpriteAttribute, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}};
+use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
 pub const NORMAL_SPRITE_HIGHT:u8 = 8;
 pub const EXTENDED_SPRITE_HIGHT:u8 = 16;
-pub const FIFO_SIZE:u8 = 8;
-const SPRITE_WIDTH:u8 = 8;
+
 pub const MAX_SPRITES_PER_LINE:usize = 10;
 
 pub struct SpriteFetcher{
-    pub fifo:Vec<(u8, u8)>,
+    pub fifo:FixedSizeQueue<(u8, u8), FIFO_SIZE>,
     pub oam_entries:[SpriteAttribute; 10],
     pub oam_entries_len:u8,
     pub rendering:bool,
@@ -20,15 +18,7 @@ pub struct SpriteFetcher{
 
 impl SpriteFetcher{
     pub fn new()->Self{
-        let oam_entries = {
-            let mut data: [MaybeUninit<SpriteAttribute>; MAX_SPRITES_PER_LINE] = unsafe{MaybeUninit::uninit().assume_init()};
-
-            for elem in &mut data[..]{
-                *elem = MaybeUninit::new(SpriteAttribute::new(0, 0, 0, 0));
-            }
-
-            unsafe{mem::transmute::<_, [SpriteAttribute; MAX_SPRITES_PER_LINE]>(data)}
-        };
+        let oam_entries:[SpriteAttribute; MAX_SPRITES_PER_LINE] = utils::create_array(|| SpriteAttribute::new(0,0,0,0));
         
         let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
         
@@ -37,7 +27,7 @@ impl SpriteFetcher{
             current_oam_entry:0,
             oam_entries_len:0,
             oam_entries,
-            fifo:Vec::<(u8,u8)>::with_capacity(FIFO_SIZE as usize),
+            fifo:FixedSizeQueue::<(u8,u8), 8>::new(),
             rendering:false,
         }
     }

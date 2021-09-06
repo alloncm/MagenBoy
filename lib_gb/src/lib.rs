@@ -5,6 +5,6 @@ pub mod mmu;
 pub mod keypad;
 pub mod apu;
 pub mod timer;
+pub mod utils;
 
-mod utils;
 pub use utils::GB_FREQUENCY;
