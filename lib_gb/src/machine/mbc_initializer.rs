@@ -1,6 +1,11 @@
 use crate::mmu::carts::*;
 
-pub fn initialize_mbc(mbc_type:u8, program:Vec<u8>, save_data:Option<Vec<u8>>)->Box<dyn Mbc>{
+const CARTRIDGE_TYPE_ADDRESS:usize = 0x147;
+
+pub fn initialize_mbc(program:Vec<u8>, save_data:Option<Vec<u8>>)->Box<dyn Mbc>{
+    let mbc_type = program[CARTRIDGE_TYPE_ADDRESS];
+    log::info!("initializing cartridge of type: {:#X}", mbc_type);
+
     match mbc_type{
         0x0|0x8=>Box::new(Rom::new(program,false, None)),
         0x9=>Box::new(Rom::new(program, true, save_data)),
