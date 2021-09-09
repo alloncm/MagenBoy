@@ -252,7 +252,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     fn try_push_to_lcd(&mut self){
-        if !self.bg_fetcher.fifo.len() == 0{
+        if !(self.bg_fetcher.fifo.len() == 0){
             if !self.scanline_started{
                 // discard the next pixel in the bg fifo
                 // the bg fifo should start with 8 pixels and not push more untill its empty again
