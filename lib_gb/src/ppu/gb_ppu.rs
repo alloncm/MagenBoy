@@ -11,6 +11,7 @@ use super::fifo::{FIFO_SIZE, sprite_fetcher::*};
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
 const OAM_ENTRY_SIZE:u16 = 4;
+const OAM_MEMORY_SIZE:usize = 0xA0;
 
 const OAM_SEARCH_T_CYCLES_LENGTH: u16 = 80;
 const HBLANK_T_CYCLES_LENGTH: u16 = 456;
@@ -18,7 +19,7 @@ const VBLANK_T_CYCLES_LENGTH: u16 = 4560;
 
 pub struct GbPpu<GFX: GfxDevice>{
     pub vram: VRam,
-    pub oam:[u8;0xA0],
+    pub oam:[u8;OAM_MEMORY_SIZE],
     pub state:PpuState,
     pub lcd_control:u8,
     pub stat_register:u8,
@@ -54,7 +55,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         Self{
             gfx_device: device,
             vram: VRam::default(),
-            oam: [0;0xA0],
+            oam: [0;OAM_MEMORY_SIZE],
             stat_register: 0,
             lyc_register: 0,
             lcd_control: 0,
