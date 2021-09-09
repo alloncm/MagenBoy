@@ -1,6 +1,8 @@
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu, set_nr11, set_nr12, set_nr13}, ppu::ppu_register_updater::*, timer::timer_register_updater::*, utils::memory_registers::*};
-use crate::ppu::gb_ppu::GbPpu;
-use crate::apu::*;
+use crate::{apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
+    ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
+    timer::timer_register_updater::*, 
+    utils::memory_registers::*
+};
 use crate::timer::gb_timer::GbTimer;
 use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram};
 use super::io_ports::*;
@@ -9,11 +11,11 @@ use super::io_ports::*;
 pub const IO_PORTS_SIZE:usize = 0x80;
 
 
-pub struct IoComponents<AD:AudioDevice>{
+pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
     pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
-    pub ppu:GbPpu,
+    pub ppu:GbPpu<GFX>,
     ports:[u8;IO_PORTS_SIZE],
     pub dma:OamDmaTransfer,
     pub finished_boot:bool,
@@ -35,7 +37,7 @@ io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
 io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
 
 
-impl<AD:AudioDevice> Memory for IoComponents<AD>{
+impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
     fn read(&self, address:u16)->u8 {
         let mut value = self.ports[address as usize];
         return match address {
@@ -148,7 +150,7 @@ impl<AD:AudioDevice> Memory for IoComponents<AD>{
     }
 }
 
-impl<AD:AudioDevice> UnprotectedMemory for IoComponents<AD>{
+impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoComponents<AD, GFX>{
     fn read_unprotected(&self, address:u16)->u8 {
         self.ports[address as usize]
     }
@@ -158,16 +160,16 @@ impl<AD:AudioDevice> UnprotectedMemory for IoComponents<AD>{
     }
 }
 
-impl<AD:AudioDevice> IoComponents<AD>{
-    pub fn new(apu:GbApu<AD>)->Self{
-        Self{apu, ports:[0;IO_PORTS_SIZE], timer:GbTimer::default(), ppu:GbPpu::default(), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
+impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
+    pub fn new(apu:GbApu<AD>, gfx_device:GFX)->Self{
+        Self{apu, ports:[0;IO_PORTS_SIZE], timer:GbTimer::default(), ppu:GbPpu::new(gfx_device), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
     }
 
     pub fn cycle(&mut self, cycles:u32){
         let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
         self.timer.cycle(&mut if_register, cycles as u8);
         self.apu.cycle(cycles as u8);
-        self.ppu.update_gb_screen(&mut if_register, cycles);
+        self.ppu.cycle( cycles, &mut if_register);
         self.ports[IF_REGISTER_INDEX as usize] = if_register;
     }
 }

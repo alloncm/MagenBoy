@@ -1,5 +1,6 @@
 use super::{io_components::IoComponents, memory::*};
 use super::access_bus::AccessBus;
+use crate::ppu::gfx_device::GfxDevice;
 use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
 use crate::ppu::ppu_state::PpuState;
@@ -12,8 +13,8 @@ const DMA_DEST:u16 = 0xFE00;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbMmu<'a, D:AudioDevice>{
-    pub io_components: IoComponents<D>,
+pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice>{
+    pub io_components: IoComponents<D, G>,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
     hram: [u8;HRAM_SIZE],
@@ -22,7 +23,7 @@ pub struct GbMmu<'a, D:AudioDevice>{
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
-impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
+impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
     fn read(&self, address:u16)->u8{
         if let Some (bus) = &self.io_components.dma.enable{
             return match address{
@@ -45,7 +46,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
             },
             0xFE00..=0xFE9F=>{
                 if self.is_oam_ready_for_io(){
-                    return self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize];
+                    return self.io_components.ppu.oam[(address-0xFE00) as usize];
                 }
                 else{
                     log::warn!("bad oam read");
@@ -79,7 +80,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
                 },
                 0xFE00..=0xFE9F=>{
                     if self.is_oam_ready_for_io(){
-                        self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value;
+                        self.io_components.ppu.oam[(address-0xFE00) as usize] = value;
                     }
                     else{
                         log::warn!("bad oam write")
@@ -92,7 +93,7 @@ impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
     }
 }
 
-impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
+impl<'a, D:AudioDevice, G:GfxDevice> UnprotectedMemory for GbMmu<'a, D, G>{
     fn read_unprotected(&self, address:u16) ->u8 {
         return match address{
             0x0..=0xFF=>{
@@ -109,7 +110,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xC000..=0xCFFF =>self.io_components.ram.read_bank0(address - 0xC000), 
             0xD000..=0xDFFF=>self.io_components.ram.read_current_bank(address-0xD000),
             0xE000..=0xFDFF=>self.io_components.ram.read_bank0(address - 0xE000),
-            0xFE00..=0xFE9F=>self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize],
+            0xFE00..=0xFE9F=>self.io_components.ppu.oam[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
             0xFF00..=0xFF7F=>self.io_components.read_unprotected(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
@@ -125,7 +126,7 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
             0xC000..=0xCFFF =>self.io_components.ram.write_bank0(address - 0xC000,value), 
             0xE000..=0xFDFF=>self.io_components.ram.write_bank0(address - 0xE000,value),
             0xD000..=0xDFFF=>self.io_components.ram.write_current_bank(address-0xD000,value),
-            0xFE00..=0xFE9F=>self.io_components.ppu.sprite_attribute_table[(address-0xFE00) as usize] = value,
+            0xFE00..=0xFE9F=>self.io_components.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF7F=>self.io_components.write_unprotected(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
@@ -134,10 +135,10 @@ impl<'a, D:AudioDevice> UnprotectedMemory for GbMmu<'a, D>{
     }
 }
 
-impl<'a, D:AudioDevice> GbMmu<'a, D>{
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>)->Self{
+impl<'a, D:AudioDevice, G:GfxDevice> GbMmu<'a, D, G>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>, gfx_device:G)->Self{
         GbMmu{
-            io_components:IoComponents::new(apu),
+            io_components:IoComponents::new(apu, gfx_device),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
@@ -145,9 +146,9 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>)->Self{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>, gfx_device: G)->Self{
         let mut mmu = GbMmu{
-            io_components:IoComponents::new(apu),
+            io_components:IoComponents::new(apu, gfx_device),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,

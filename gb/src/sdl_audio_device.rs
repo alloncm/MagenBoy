@@ -33,6 +33,7 @@ impl SdlAudioDevie{
         let mut uninit_audio_spec:MaybeUninit<SDL_AudioSpec> = MaybeUninit::uninit();
 
         let device_id = unsafe{
+            SDL_Init(SDL_INIT_AUDIO);
             SDL_ClearError();
             let id = SDL_OpenAudioDevice(std::ptr::null(), 0, &desired_audio_spec, uninit_audio_spec.as_mut_ptr() , 0);
 

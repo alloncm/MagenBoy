@@ -1,36 +1,36 @@
 use crate::{
-    apu::{audio_device::AudioDevice, gb_apu::GbApu}, 
+    apu::{audio_device::AudioDevice, gb_apu::GbApu},
     cpu::gb_cpu::GbCpu, 
-    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater},
+    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
-    ppu::{gb_ppu::{CYCLES_PER_FRAME, SCREEN_HEIGHT, SCREEN_WIDTH}}
+    ppu::gfx_device::GfxDevice
 };
 use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
+//CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
+pub const CYCLES_PER_FRAME:u32 = 17556;
 
-pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice> {
+pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
     cpu: GbCpu,
-    mmu: GbMmu::<'a, AD>,
+    mmu: GbMmu::<'a, AD, GFX>,
     interrupts_handler:InterruptsHandler,
-    cycles_counter:u32, 
     joypad_provider: JP
 }
 
-impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
+impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX>{
 
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD, GFX>{
         GameBoy{
             cpu:GbCpu::default(),
-            mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device)),
+            mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device), gfx_device),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0,
             joypad_provider: joypad_provider
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD)->GameBoy<JP, AD>{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX)->GameBoy<JP, AD, GFX>{
         let mut cpu = GbCpu::default();
         //Values after the bootrom
         *cpu.af.value() = 0x190;
@@ -42,19 +42,18 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
 
         GameBoy{
             cpu:cpu,
-            mmu:GbMmu::new(mbc, GbApu::new(audio_device)),
+            mmu:GbMmu::new(mbc, GbApu::new(audio_device), gfx_device),
             interrupts_handler: InterruptsHandler::default(),
-            cycles_counter:0,
             joypad_provider: joypad_provider,
         }
     }
 
-    pub fn cycle_frame(&mut self)->&[u32;SCREEN_HEIGHT*SCREEN_WIDTH]{
+    pub fn cycle_frame(&mut self){
         let mut joypad = Joypad::default();
 
-        let mut last_ppu_power_state:bool = self.mmu.io_components.ppu.screen_enable;
+        let mut cycles_counter = 0;
 
-        while self.cycles_counter < CYCLES_PER_FRAME{
+        while cycles_counter < CYCLES_PER_FRAME{
             self.joypad_provider.provide(&mut joypad);
             joypad_register_updater::update_joypad_registers(&joypad, &mut self.mmu);
 
@@ -71,25 +70,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice> GameBoy<'a, JP, AD>{
             if interrupt_cycles != 0{                
                 self.mmu.cycle(interrupt_cycles);
             }
-            
-            let iter_total_cycles= cpu_cycles_passed as u32 + interrupt_cycles as u32;
-            
 
-            //In case the ppu just turned I want to keep it sync with the actual screen and thats why Im reseting the loop to finish
-            //the frame when the ppu finishes the frame
-            if !last_ppu_power_state && self.mmu.io_components.ppu.screen_enable{
-                self.cycles_counter = 0;
-            }
-
-            self.cycles_counter += iter_total_cycles;
-            last_ppu_power_state = self.mmu.io_components.ppu.screen_enable;
+            cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
         }
-
-        if self.cycles_counter >= CYCLES_PER_FRAME{
-            self.cycles_counter -= CYCLES_PER_FRAME; 
-        }
-
-        return self.mmu.io_components.ppu.get_frame_buffer();
     }
 
     fn execute_opcode(&mut self)->u8{
