@@ -4,6 +4,7 @@ use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine,
 pub struct BackgroundFetcher{
     pub fifo:FixedSizeQueue<u8, FIFO_SIZE>,
     pub window_line_counter:u8,
+    pub has_wy_reached_ly:bool,
 
     current_x_pos:u8,
     rendered_window:bool,
@@ -21,6 +22,7 @@ impl BackgroundFetcher{
             window_line_counter:0,
             rendered_window:false,
             rendering_window:false,
+            has_wy_reached_ly:false,
         }
     }
 
@@ -36,15 +38,16 @@ impl BackgroundFetcher{
         self.fetcher_state_machine.reset();
     }
 
-    pub fn try_increment_window_counter(&mut self){
-        if self.rendered_window{
+    pub fn try_increment_window_counter(&mut self, ly_register:u8, wy_register:u8){
+        if self.rendered_window && ly_register >= wy_register{
             self.window_line_counter += 1;
         }
     }
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
+        self.has_wy_reached_ly = self.has_wy_reached_ly || ly_register == window_pos.y;
         let last_rendering_status = self.rendering_window;
-        self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos, ly_register);
+        self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);
         if self.rendering_window{
             self.rendered_window = true;
 
@@ -124,7 +127,7 @@ impl BackgroundFetcher{
         };
     }
 
-    fn is_rendering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>, ly_register:u8)->bool{
-        window_pos.x <= self.current_x_pos && window_pos.y <= ly_register && (lcd_control & BIT_5_MASK) != 0
+    fn is_rendering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>)->bool{
+        window_pos.x <= self.current_x_pos && self.has_wy_reached_ly && (lcd_control & BIT_5_MASK) != 0
     }
 }

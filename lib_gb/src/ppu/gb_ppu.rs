@@ -93,6 +93,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.ly_register = 0;
         self.stat_triggered = false;
         self.trigger_stat_interrupt = false;
+        self.bg_fetcher.has_wy_reached_ly = false;
+        self.bg_fetcher.window_line_counter = 0;
         self.bg_fetcher.reset();
         self.sprite_fetcher.reset();
         self.pixel_x_pos = 0;
@@ -185,6 +187,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                             self.state = PpuState::Vblank;
                             //reseting the window counter on vblank
                             self.bg_fetcher.window_line_counter = 0;
+                            self.bg_fetcher.has_wy_reached_ly = false;
                             *if_register |= BIT_0_MASK;
                             if self.v_blank_interrupt_request{
                                 self.trigger_stat_interrupt = true;
@@ -232,7 +235,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                                     if self.h_blank_interrupt_request{
                                         self.trigger_stat_interrupt = true;
                                     }
-                                    self.bg_fetcher.try_increment_window_counter();
+                                    self.bg_fetcher.try_increment_window_counter(self.ly_register, self.window_pos.y);
                                     self.bg_fetcher.reset();
                                     self.sprite_fetcher.reset();
 
