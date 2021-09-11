@@ -6,10 +6,10 @@ use lib_gb::{
     machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, ppu::gfx_device::GfxDevice
 };
 
-static mut LAST_HASH:u64 = 0;
-static mut FOUND_HASH:bool = false;
 struct CheckHashGfxDevice{
-    hash:u64
+    hash:u64,
+    last_hash_p:*mut u64,
+    found_p:*mut bool,
 }
 impl GfxDevice for CheckHashGfxDevice{
     fn swap_buffer(&self, buffer:&[u32]) {
@@ -17,11 +17,11 @@ impl GfxDevice for CheckHashGfxDevice{
         buffer.hash(&mut s);
         let hash = s.finish();
         unsafe{
-            if LAST_HASH == hash && hash == self.hash{
+            if *self.last_hash_p == hash && hash == self.hash{
                 println!("{}", hash);
-                FOUND_HASH = true;
+                *self.found_p = true;
             }
-            LAST_HASH = hash;
+            *self.last_hash_p = hash;
         }
     }
 }
@@ -84,25 +84,19 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
 
 fn run_integration_test(program:Vec<u8>, frames_to_execute:u32, expected_hash:u64, fail_message:String){
     let mut mbc = initialize_mbc(program, None);
-
+    let mut last_hash:u64 = 0;
+    let mut found = false;
     let mut gameboy = GameBoy::new(
         &mut mbc,
         StubJoypadProvider{},
         StubAudioDevice{}, 
-        CheckHashGfxDevice{hash:expected_hash}
+        CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found}
     );
-    
-    unsafe{
-        FOUND_HASH = false;
-        LAST_HASH = 0;
-    }
 
     for _ in 0..frames_to_execute {
         gameboy.cycle_frame();
-        unsafe{
-            if FOUND_HASH{
-                return;
-            }
+        if found{
+            return;
         }
     }
     assert!(false, "{}", fail_message);   
