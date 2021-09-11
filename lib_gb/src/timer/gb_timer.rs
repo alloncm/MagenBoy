@@ -52,9 +52,6 @@ impl GbTimer{
                 _=> std::panic!("bad timer interval vlaue: {}", timer_interval)
             };
 
-            if self.last_and_result && !timer_enable{
-                println!("edge case");
-            }
             let current_and_result = bit_value && timer_enable;
             if !current_and_result && self.last_and_result{
                 let(value, overflow) = self.tima_register.overflowing_add(1);
