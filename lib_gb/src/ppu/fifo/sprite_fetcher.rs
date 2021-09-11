@@ -3,7 +3,6 @@ use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine,
 
 pub const NORMAL_SPRITE_HIGHT:u8 = 8;
 pub const EXTENDED_SPRITE_HIGHT:u8 = 16;
-
 pub const MAX_SPRITES_PER_LINE:usize = 10;
 
 pub struct SpriteFetcher{
@@ -19,7 +18,6 @@ pub struct SpriteFetcher{
 impl SpriteFetcher{
     pub fn new()->Self{
         let oam_entries:[SpriteAttribute; MAX_SPRITES_PER_LINE] = utils::create_array(|| SpriteAttribute::new(0,0,0,0));
-        
         let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
         
         SpriteFetcher{
@@ -68,14 +66,11 @@ impl SpriteFetcher{
                 let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
                 let start_x = self.fifo.len();
-
                 let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
 
                 if oam_attribute.flip_x{
                     for i in (0 + skip_x)..SPRITE_WIDTH as usize{
-                        let mask = 1 << i;
-                        let mut pixel = (low_data & mask) >> i;
-                        pixel |= ((high_data & mask) >> i) << 1;
+                        let pixel = Self::get_decoded_pixel(i, low_data, high_data);
                         if i + skip_x >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
                         }
@@ -87,9 +82,7 @@ impl SpriteFetcher{
                 else{
                     let fifo_max_index = FIFO_SIZE as usize - 1;
                     for i in (0..(SPRITE_WIDTH as usize - skip_x)).rev(){
-                        let mask = 1 << i;
-                        let mut pixel = (low_data & mask) >> i;
-                        pixel |= ((high_data & mask) >> i) << 1;
+                        let pixel = Self::get_decoded_pixel(i, low_data, high_data);
                         if fifo_max_index - skip_x - i >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
                         }
@@ -136,5 +129,12 @@ impl SpriteFetcher{
             // Im subtracting this from 16 (since the rects are 8X16)
             tile_num as u16 * 16 + (2 * (16 - (sprite_attrib.y - ly_register))) as u16
         };
+    }
+
+    fn get_decoded_pixel(index: usize, low_data: u8, high_data: u8) -> u8 {
+        let mask = 1 << index;
+        let mut pixel = (low_data & mask) >> index;
+        pixel |= ((high_data & mask) >> index) << 1;
+        pixel
     }
 }

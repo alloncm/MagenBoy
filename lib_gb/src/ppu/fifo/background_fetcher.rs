@@ -7,7 +7,6 @@ pub struct BackgroundFetcher{
     pub has_wy_reached_ly:bool,
 
     current_x_pos:u8,
-    rendered_window:bool,
     rendering_window:bool,
     fetcher_state_machine:FetcherStateMachine,
 }
@@ -20,7 +19,6 @@ impl BackgroundFetcher{
             current_x_pos:0,
             fifo:FixedSizeQueue::<u8, FIFO_SIZE>::new(),
             window_line_counter:0,
-            rendered_window:false,
             rendering_window:false,
             has_wy_reached_ly:false,
         }
@@ -30,7 +28,6 @@ impl BackgroundFetcher{
         self.fifo.clear();
         self.current_x_pos = 0;
         self.fetcher_state_machine.reset();
-        self.rendered_window = false;
         self.rendering_window = false;
     }
 
@@ -39,7 +36,7 @@ impl BackgroundFetcher{
     }
 
     pub fn try_increment_window_counter(&mut self, ly_register:u8, wy_register:u8){
-        if self.rendered_window && ly_register >= wy_register{
+        if self.rendering_window && ly_register >= wy_register{
             self.window_line_counter += 1;
         }
     }
@@ -48,14 +45,11 @@ impl BackgroundFetcher{
         self.has_wy_reached_ly = self.has_wy_reached_ly || ly_register == window_pos.y;
         let last_rendering_status = self.rendering_window;
         self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);
-        if self.rendering_window{
-            self.rendered_window = true;
-
-            // In case I was rendering a background pixel need to reset the state of the fectcher 
-            // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
-            if !last_rendering_status{
-                self.fetcher_state_machine.reset();
-            }
+        
+        // In case I was rendering a background pixel need to reset the state of the fetcher 
+        // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
+        if self.rendering_window && !last_rendering_status{
+            self.fetcher_state_machine.reset();
         }
 
         match self.fetcher_state_machine.current_state(){
