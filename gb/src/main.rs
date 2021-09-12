@@ -66,7 +66,9 @@ struct SpscGfxDevice{
 impl GfxDevice for SpscGfxDevice{
     fn swap_buffer(&mut self, buffer:&[u32; SCREEN_WIDTH * SCREEN_HEIGHT]) {
         self.producer.push(buffer.clone()).unwrap();
-        self.parker.park();
+        if self.producer.is_full(){
+            self.parker.park();
+        }
     }
 }
 
@@ -146,8 +148,8 @@ fn main() {
 
             if !c.is_empty(){
                 let pop = c.pop().unwrap();
-                sdl_gfx_device.swap_buffer(&pop);
                 unparker.unpark();
+                sdl_gfx_device.swap_buffer(&pop);
             }
 
             let end = SDL_GetPerformanceCounter();
