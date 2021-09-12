@@ -1,6 +1,6 @@
 use std::ffi::{CString, c_void};
 
-use lib_gb::ppu::gfx_device::GfxDevice;
+use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice};
 use sdl2::sys::*;
 
 pub struct SdlGfxDevice{
@@ -60,7 +60,7 @@ impl SdlGfxDevice{
 }
 
 impl GfxDevice for SdlGfxDevice{
-    fn swap_buffer(&self, buffer:&[u32]) {
+    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         unsafe{
             let extended_buffer = Self::extend_vec(buffer, self.sacle as usize, self.width as usize, self.height as usize);
 
