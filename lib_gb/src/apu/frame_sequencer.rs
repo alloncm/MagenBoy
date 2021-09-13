@@ -52,7 +52,7 @@ impl FrameSequencer{
     // in a rare case where the length hasnt started the second iteration there might be a length step.
     // This will happen only after if the channel is activated after being not active.
     pub fn should_next_step_clock_length(&self)->bool{
-        self.counter % 2 == 0
+        self.counter & 1 == 0
     }
 
     pub fn reset(&mut self){
