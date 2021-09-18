@@ -11,7 +11,7 @@ pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
     resampler: AudioResampler,
 
-    buffer: Vec<f32>
+    buffer: Vec<Sample>
 }
 
 impl SdlAudioDevie{
@@ -69,9 +69,9 @@ impl SdlAudioDevie{
     }
 
 
-    fn push_audio_to_device(&self, audio:&[f32])->Result<(),&str>{
+    fn push_audio_to_device(&self, audio:&[Sample])->Result<(),&str>{
         let audio_ptr: *const c_void = audio.as_ptr() as *const c_void;
-        let data_byte_len = (audio.len() * std::mem::size_of::<f32>()) as u32;
+        let data_byte_len = (audio.len() * std::mem::size_of::<Sample>()) as u32;
 
         unsafe{
             while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{}
@@ -87,7 +87,7 @@ impl SdlAudioDevie{
 }
 
 impl AudioDevice for SdlAudioDevie{
-    fn push_buffer(&mut self, buffer:&[Sample]){
+    fn push_buffer(&mut self, buffer:&[StereoSample]){
         for sample in self.resampler.resample(buffer){
 
             self.buffer.push(sample.left_sample);
