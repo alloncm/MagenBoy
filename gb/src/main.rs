@@ -60,7 +60,7 @@ fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
 
 struct SpscGfxDevice{
     producer: rtrb::Producer<[u32;SCREEN_HEIGHT * SCREEN_WIDTH ]>,
-    parker: crossbeam::sync::Parker,
+    parker: crossbeam_utils::sync::Parker,
 }
 
 impl GfxDevice for SpscGfxDevice{
@@ -85,7 +85,7 @@ fn main() {
     let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
 
     let (producer, mut c) = rtrb::RingBuffer::<[u32; SCREEN_HEIGHT * SCREEN_WIDTH]>::new(1).split();
-    let parker = crossbeam::sync::Parker::new();
+    let parker = crossbeam_utils::sync::Parker::new();
     let unparker = parker.unparker().clone();
     let spsc_gfx_device = SpscGfxDevice{producer, parker: parker};
     

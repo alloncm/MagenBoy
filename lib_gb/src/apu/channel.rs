@@ -9,7 +9,7 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sample_producer:Procuder,
     pub timer:Timer,
 
-    last_sample:u8,
+    last_sample:f32,
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
@@ -21,7 +21,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             length_enable:false,
             timer: Timer::new(sample_producer.get_updated_frequency_ticks(0)),
             sample_producer,
-            last_sample: 0
+            last_sample: 0.0
         }   
     }
 
@@ -44,7 +44,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
         self.sample_producer.reset();
 
-        self.last_sample = 0;
+        self.last_sample = 0.0;
     }
 
     pub fn get_audio_sample(&mut self)->f32{
@@ -52,7 +52,8 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
             let sample = if self.timer.cycle(){
                 self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
-                self.sample_producer.produce()
+                let s = self.sample_producer.produce();
+                self.convert_digtial_to_analog(s)
             }
             else{
                 self.last_sample
@@ -60,7 +61,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
             self.last_sample = sample;
     
-            return self.convert_digtial_to_analog(self.last_sample);
+            return self.last_sample;
         }
         
         return 0.0;
