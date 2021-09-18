@@ -11,9 +11,14 @@ impl Timer{
         }
     }
 
+    // This function is a hot spot for the APU, almost every component uses the timer
     pub fn cycle(&mut self)->bool{
         if self.cycles_to_tick != 0{
-            self.cycle_counter = (self.cycle_counter + 1) % self.cycles_to_tick;
+            // The calculation used to be this:
+            // self.cycle_counter = (self.cycle_counter + 1) % self.cycles_to_tick;
+            // After benching with a profiler I found that those 2 lines are much faster, probably cause there is no division here
+            self.cycle_counter += 1;
+            self.cycle_counter = (self.cycle_counter != self.cycles_to_tick) as u16 * self.cycle_counter;
             return self.cycle_counter == 0;
         }
 
