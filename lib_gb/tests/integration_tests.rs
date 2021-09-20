@@ -54,7 +54,7 @@ fn test_turtle_window_y_trigger(){
 }
 
 #[test]
-fn run_turtle_window_y_trigger_wx_offscreen(){
+fn test_turtle_window_y_trigger_wx_offscreen(){
     run_turtle_integration_test("window_y_trigger_wx_offscreen.gb", 15592061677463553443);
 }
 
