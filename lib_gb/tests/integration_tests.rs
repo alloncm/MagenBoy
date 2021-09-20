@@ -103,11 +103,20 @@ fn run_integration_test(program:Vec<u8>, frames_to_execute:u32, expected_hash:u6
 }
 
 
-/*
-// This test is for clcualting the hash of a new test rom
-#[test]
-fn calc_hash(){
+
+// This function is for clcualting the hash of a new test rom
+/// # Examples
+///
+///```
+///#[test]
+///fn calc_custom_rom_hash(){
+///    calc_hash("path_to_rom");
+///}
+///```
+#[allow(dead_code)]
+fn calc_hash(rom_path:&str){
     static mut FRAMES_COUNTER:u32 = 0;
+    static mut LAST_HASH:u64 = 0;
     struct GetHashGfxDevice;
     impl GfxDevice for GetHashGfxDevice{
         fn swap_buffer(&self, buffer:&[u32]) {
@@ -130,7 +139,7 @@ fn calc_hash(){
         }
     }
 
-    let program = std::fs::read("C:/Users/Alon/Downloads/GameBoy/window_y_trigger_wx_offscreen.gb")
+    let program = std::fs::read(rom_path)
         .expect("Error could not find file");
     
     let program = Vec::from(program);
@@ -141,4 +150,3 @@ fn calc_hash(){
 
     loop {gameboy.cycle_frame();}
 }
-*/
