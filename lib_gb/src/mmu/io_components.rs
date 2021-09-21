@@ -67,6 +67,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
                 value
             }
             0x27..=0x2F => 0xFF, //Not used
+            0x30..=0x3F => get_wave_ram(&self.apu.wave_channel, address),
             //PPU
             STAT_REGISTER_INDEX=> get_stat(&self.ppu),
             LY_REGISTER_INDEX=> get_ly(&self.ppu),
@@ -114,6 +115,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
             NR50_REGISTER_INDEX=> set_nr50(&mut self.apu, value),
             NR51_REGISTER_INDEX=> set_nr51(&mut self.apu, value),
             NR52_REGISTER_INDEX=> set_nr52(&mut self.apu, &mut self.ports,value),
+            0x30..=0x3F => set_wave_ram(&mut self.apu.wave_channel, address, value), 
             //PPU
             LCDC_REGISTER_INDEX=> handle_lcdcontrol_register(value, &mut self.ppu),
             STAT_REGISTER_INDEX=> {
