@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
+use lib_gb::ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use lib_gb::{
     apu::audio_device::AudioDevice, keypad::joypad_provider::JoypadProvider,
     machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, ppu::gfx_device::GfxDevice
@@ -12,7 +13,7 @@ struct CheckHashGfxDevice{
     found_p:*mut bool,
 }
 impl GfxDevice for CheckHashGfxDevice{
-    fn swap_buffer(&self, buffer:&[u32]) {
+    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         let mut s = DefaultHasher::new();
         buffer.hash(&mut s);
         let hash = s.finish();
@@ -119,7 +120,7 @@ fn calc_hash(rom_path:&str){
     static mut LAST_HASH:u64 = 0;
     struct GetHashGfxDevice;
     impl GfxDevice for GetHashGfxDevice{
-        fn swap_buffer(&self, buffer:&[u32]) {
+        fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
             unsafe{
                 if FRAMES_COUNTER < 700{
                     FRAMES_COUNTER += 1;
