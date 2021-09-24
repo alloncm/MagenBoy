@@ -27,6 +27,6 @@ impl SoundTerminal{
 
         mixed_sample /= NUMBER_OF_CHANNELS as f32;
 
-        return mixed_sample * (self.volume as f32 + 1.0);
+        return mixed_sample * ((self.volume + 1) as f32 / 10.0);
     }
 }
