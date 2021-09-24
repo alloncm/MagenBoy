@@ -4,7 +4,6 @@ pub const IO_PORTS_SIZE:usize = 0x80;
 
 pub const IO_PORTS_MEMORY_OFFSET:u16 = 0xFF00;
 
-#[macro_use]
 macro_rules! io_port_index{
     ($name:ident, $reg_address:expr) => {
         const $name:u16 = $reg_address - IO_PORTS_MEMORY_OFFSET;
