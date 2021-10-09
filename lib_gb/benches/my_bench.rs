@@ -14,7 +14,7 @@ pub fn criterion_bench(c: &mut Criterion){
         let mut apu = GbApu::new(StubApu{});
         apu.enabled = true;
         apu.sweep_tone_channel.enabled = true;
-        for _ in 0..100000{
+        for _ in 0..100{
             apu.cycle(255);
         }
     }));
