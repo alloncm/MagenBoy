@@ -7,7 +7,7 @@ use lib_gb::apu::{
 pub fn criterion_bench(c: &mut Criterion){
     struct StubApu;
     impl AudioDevice for StubApu{
-        fn push_buffer(&mut self, _buffer:&[Sample]){}
+        fn push_buffer(&mut self, _buffer:&[StereoSample]){}
     }
 
     c.bench_function("test apu", |b| b.iter(||{

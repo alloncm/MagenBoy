@@ -1,4 +1,4 @@
-use super::sound_utils::NUMBER_OF_CHANNELS;
+use super::{audio_device::{DEFAULT_SAPMPLE, Sample}, sound_utils::NUMBER_OF_CHANNELS};
 
 pub struct SoundTerminal{
     pub enabled:bool,
@@ -17,8 +17,8 @@ impl Default for SoundTerminal{
 }
 
 impl SoundTerminal{
-    pub fn mix_terminal_samples(&self, samples:&[f32;NUMBER_OF_CHANNELS])->f32{
-        let mut mixed_sample:f32 = 0.0;
+    pub fn mix_terminal_samples(&self, samples:&[Sample;NUMBER_OF_CHANNELS])->Sample{
+        let mut mixed_sample:Sample = DEFAULT_SAPMPLE;
         for i in 0..NUMBER_OF_CHANNELS{
             if self.channels[i]{
                 mixed_sample += samples[i];

@@ -6,7 +6,7 @@ pub struct WavfileAudioDevice{
     target_frequency:u32,
     resampler: AudioResampler,
     filename:&'static str,
-    samples_buffer:Vec::<Sample>
+    samples_buffer:Vec::<StereoSample>
 }
 
 impl WavfileAudioDevice{
@@ -21,7 +21,7 @@ impl WavfileAudioDevice{
 }
 
 impl AudioDevice for WavfileAudioDevice{
-    fn push_buffer(&mut self, buffer:&[Sample]) {
+    fn push_buffer(&mut self, buffer:&[StereoSample]) {
         self.samples_buffer.append(self.resampler.resample(buffer).as_mut());
     }
 }

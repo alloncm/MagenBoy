@@ -11,7 +11,7 @@ pub struct SdlAudioDevie{
     device_id: SDL_AudioDeviceID,
     resampler: AudioResampler,
 
-    buffer: Vec<f32>
+    buffer: Vec<Sample>
 }
 
 impl SdlAudioDevie{
@@ -19,7 +19,7 @@ impl SdlAudioDevie{
 
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
-            format: AUDIO_F32SYS as u16,
+            format: AUDIO_S16SYS as u16,
             channels: 2,
             silence: 0,
             samples: BUFFER_SIZE as u16,
@@ -87,7 +87,7 @@ impl SdlAudioDevie{
 }
 
 impl AudioDevice for SdlAudioDevie{
-    fn push_buffer(&mut self, buffer:&[Sample]){
+    fn push_buffer(&mut self, buffer:&[StereoSample]){
         for sample in self.resampler.resample(buffer){
 
             self.buffer.push(sample.left_sample);

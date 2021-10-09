@@ -29,7 +29,7 @@ impl GfxDevice for CheckHashGfxDevice{
 
 struct StubAudioDevice;
 impl AudioDevice for StubAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[lib_gb::apu::audio_device::Sample]) {}
+    fn push_buffer(&mut self, _buffer:&[lib_gb::apu::audio_device::StereoSample]) {}
 }
 
 struct StubJoypadProvider;
