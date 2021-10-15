@@ -28,14 +28,14 @@ impl AudioDevice for WavfileAudioDevice{
 
 impl Drop for WavfileAudioDevice{
     fn drop(&mut self) {
-        let header = wav::header::Header::new(wav::WAV_FORMAT_IEEE_FLOAT, 2, self.target_frequency, 32);
+        let header = wav::header::Header::new(wav::WAV_FORMAT_PCM, 2, self.target_frequency, 16);
         let mut floats = Vec::with_capacity(self.samples_buffer.len() * 2);
         for sample in self.samples_buffer.iter(){
             floats.push(sample.left_sample);
             floats.push(sample.right_sample);
         }
 
-        let data = wav::BitDepth::ThirtyTwoFloat(floats);
+        let data = wav::BitDepth::Sixteen(floats);
         let mut otuput_file = std::fs::File::create(self.filename).unwrap();
         wav::write(header, &data, &mut otuput_file).unwrap();
     }

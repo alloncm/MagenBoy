@@ -1,4 +1,4 @@
-pub type Sample = f32;
+pub type Sample = i16;
 pub const DEFAULT_SAPMPLE:Sample = 0 as Sample;
 
 #[derive(Copy, Clone)]

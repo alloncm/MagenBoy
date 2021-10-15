@@ -53,8 +53,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
             let sample = if self.timer.cycle(){
                 self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
-                let s = self.sample_producer.produce();
-                self.convert_digtial_to_analog(s)
+                self.sample_producer.produce() as Sample
             }
             else{
                 self.last_sample
@@ -66,9 +65,5 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         }
         
         return DEFAULT_SAPMPLE;
-    }
-
-    fn convert_digtial_to_analog(&self, sample:u8)->f32{
-        (sample as f32 / 7.5 ) - 1.0
     }
 }

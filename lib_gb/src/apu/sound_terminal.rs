@@ -20,13 +20,12 @@ impl SoundTerminal{
     pub fn mix_terminal_samples(&self, samples:&[Sample;NUMBER_OF_CHANNELS])->Sample{
         let mut mixed_sample:Sample = DEFAULT_SAPMPLE;
         for i in 0..NUMBER_OF_CHANNELS{
-            if self.channels[i]{
-                mixed_sample += samples[i];
-            }
+            // This code should add the samples[i] only if channels[i] it true.
+            // After profiling this code is faster than if and since this is a hot spot in the code
+            // Im writing it like this.
+            mixed_sample += samples[i] * self.channels[i] as u8 as Sample;
         }
 
-        mixed_sample /= NUMBER_OF_CHANNELS as f32;
-
-        return mixed_sample * ((self.volume + 1) as f32 / 10.0);
+        return mixed_sample * ((self.volume + 1) as Sample);
     }
 }
