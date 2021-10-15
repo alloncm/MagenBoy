@@ -1,5 +1,5 @@
-pub type Sample = f32;
-pub const SAMPLE_CONSTANT_DEFAULT:Sample = 0.0;
+pub type Sample = i16;
+pub const DEFAULT_SAPMPLE:Sample = 0 as Sample;
 
 #[derive(Copy, Clone)]
 pub struct StereoSample{

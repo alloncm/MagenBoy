@@ -1,5 +1,4 @@
 use crate::{mmu::io_ports::*, utils::bit_masks::*};
-
 use super::{
     audio_device::AudioDevice, 
     channel::Channel, 
@@ -172,6 +171,35 @@ pub fn set_nr24(channel:&mut Channel<SquareSampleProducer>, fs:&FrameSequencer, 
         //volume
         channel.sample_producer.envelop.envelop_duration_counter = channel.sample_producer.envelop.number_of_envelope_sweep;
         channel.sample_producer.envelop.current_volume = channel.sample_producer.envelop.volume;
+    }
+}
+
+pub fn set_wave_ram(wave_channel: &mut Channel<WaveSampleProducer>, address:u16, value:u8){
+    // This is not the most accurate behaviour.
+    // Om DMG if accessing within a small time margin after the apu accessed this ram, 
+    // you will access the current byte the apu accessed, otherwise it will do noting.
+    // On other hardware it will access the current byte the apu accessed, 
+    // currently implementing it like the original DMG on CGB will need to handle it differently.
+    if !wave_channel.enabled{
+        wave_channel.sample_producer.wave_samples[address as usize - 0x30] = value;
+    }
+    else{
+        log::warn!("Writing wave channel when its on");
+    }
+}
+
+pub fn get_wave_ram(wave_channel: &Channel<WaveSampleProducer>, address:u16)->u8{
+    // This is not the most accurate behaviour.
+    // Om DMG if accessing within a small time margin after the apu accessed this ram, 
+    // you will access the current byte the apu accessed, otherwise it will return 0xFF.
+    // On other hardware it will access the current byte the apu accessed, 
+    // currently implementing it like the original DMG on CGB will need to handle it differently.
+    if !wave_channel.enabled{
+        wave_channel.sample_producer.wave_samples[address as usize - 0x30]
+    }
+    else{
+        log::warn!("Reading wave channel when its on");
+        0xFF
     }
 }
 

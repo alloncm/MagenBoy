@@ -58,19 +58,13 @@ fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
     args.len() >= 3 && args.contains(&String::from(flag))
 }
 
-struct SpscGfxDevice{
-    producer: rtrb::Producer<[u32;SCREEN_HEIGHT * SCREEN_WIDTH ]>,
-    parker: crossbeam_utils::sync::Parker,
+struct MpmcGfxDevice{
+    sender: crossbeam_channel::Sender<[u32;SCREEN_HEIGHT * SCREEN_WIDTH]>
 }
 
-impl GfxDevice for SpscGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_WIDTH * SCREEN_HEIGHT]) {
-        if !self.producer.is_abandoned(){
-            self.producer.push(buffer.clone()).unwrap();
-            if self.producer.is_full() && !self.producer.is_abandoned() {
-                self.parker.park();
-            }
-        }
+impl GfxDevice for MpmcGfxDevice{
+    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+        self.sender.send(buffer.clone()).unwrap();
     }
 }
 
@@ -85,12 +79,9 @@ fn main() {
     }
 
     let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
-
-    let (producer, mut c) = rtrb::RingBuffer::<[u32; SCREEN_HEIGHT * SCREEN_WIDTH]>::new(1).split();
-    let parker = crossbeam_utils::sync::Parker::new();
-    let unparker = parker.unparker().clone();
-    let spsc_gfx_device = SpscGfxDevice{producer, parker: parker};
     
+    let (s,r) = crossbeam_channel::bounded(1);
+    let mpmc_device = MpmcGfxDevice{sender:s};
 
     let program_name = args[1].clone();
 
@@ -99,7 +90,7 @@ fn main() {
     let running_ptr:usize = (&running as *const bool) as usize;
     
     let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-        move || emulation_thread_main(args, program_name, spsc_gfx_device, running_ptr)
+        move || emulation_thread_main(args, program_name, mpmc_device, running_ptr)
     ).unwrap();
 
     unsafe{
@@ -113,12 +104,10 @@ fn main() {
                     break;
                 }
             }
+            
+            let buffer = r.recv().unwrap();
+            sdl_gfx_device.swap_buffer(&buffer);
 
-            if !c.is_empty(){
-                let pop = c.pop().unwrap();
-                unparker.unpark();
-                sdl_gfx_device.swap_buffer(&pop);
-            }
 
             let end = SDL_GetPerformanceCounter();
             let elapsed_ms:f64 = (end - start) as f64 / SDL_GetPerformanceFrequency() as f64 * 1000.0;
@@ -129,13 +118,6 @@ fn main() {
             start = SDL_GetPerformanceCounter();
         }
 
-        if !c.is_empty(){
-            c.pop().unwrap();
-        }
-        drop(c);
-        unparker.unpark();
-        drop(unparker);
-
         std::ptr::write_volatile(&mut running as *mut bool, false);
         emualation_thread.join().unwrap();
 
@@ -144,7 +126,7 @@ fn main() {
 }
 
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
-fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: SpscGfxDevice, running_ptr: usize) {
+fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
     let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
     devices.push(Box::new(audio_device));
@@ -176,10 +158,8 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     info!("initialized gameboy successfully!");
 
     unsafe{
-        let mut running = std::ptr::read_volatile(running_ptr as *const bool);
-        while running{
+        while std::ptr::read_volatile(running_ptr as *const bool){
             gameboy.cycle_frame();
-            running = std::ptr::read_volatile(running_ptr as *const bool);
         }
     }
     drop(gameboy);

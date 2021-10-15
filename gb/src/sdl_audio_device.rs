@@ -19,7 +19,7 @@ impl SdlAudioDevie{
 
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
-            format: AUDIO_F32SYS as u16,
+            format: AUDIO_S16SYS as u16,
             channels: 2,
             silence: 0,
             samples: BUFFER_SIZE as u16,

@@ -7,9 +7,9 @@ use crate::timer::gb_timer::GbTimer;
 use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram};
 use super::io_ports::*;
 
-
 pub const IO_PORTS_SIZE:usize = 0x80;
-
+const WAVE_RAM_START_INDEX:u16 = 0x30;
+const WAVE_RAM_END_INDEX:u16 = 0x3F;
 
 pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
     pub ram: Ram,
@@ -35,7 +35,6 @@ io_port_index!(BGP_REGISTER_INDEX, BGP_REGISTER_ADDRESS);
 io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
 io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
 io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
-
 
 impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
     fn read(&self, address:u16)->u8 {
@@ -67,6 +66,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
                 value
             }
             0x27..=0x2F => 0xFF, //Not used
+            WAVE_RAM_START_INDEX..=WAVE_RAM_END_INDEX => get_wave_ram(&self.apu.wave_channel, address),
             //PPU
             STAT_REGISTER_INDEX=> get_stat(&self.ppu),
             LY_REGISTER_INDEX=> get_ly(&self.ppu),
@@ -114,6 +114,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
             NR50_REGISTER_INDEX=> set_nr50(&mut self.apu, value),
             NR51_REGISTER_INDEX=> set_nr51(&mut self.apu, value),
             NR52_REGISTER_INDEX=> set_nr52(&mut self.apu, &mut self.ports,value),
+            WAVE_RAM_START_INDEX..=WAVE_RAM_END_INDEX => set_wave_ram(&mut self.apu.wave_channel, address, value), 
             //PPU
             LCDC_REGISTER_INDEX=> handle_lcdcontrol_register(value, &mut self.ppu),
             STAT_REGISTER_INDEX=> {

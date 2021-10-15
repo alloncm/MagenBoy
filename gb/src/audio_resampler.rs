@@ -1,4 +1,4 @@
-use lib_gb::apu::audio_device::{SAMPLE_CONSTANT_DEFAULT, Sample, StereoSample};
+use lib_gb::apu::audio_device::{DEFAULT_SAPMPLE, Sample, StereoSample};
 
 pub struct AudioResampler{
     to_skip:u32,
@@ -27,8 +27,7 @@ impl AudioResampler{
             self.sampling_counter += 1;
     
             if self.sampling_counter == self.to_skip {
-                let interpolated_stereo_sample = Self::interpolate_sample(&self.sampling_buffer);
-                let interpolated_sample = StereoSample{left_sample: interpolated_stereo_sample.left_sample, right_sample: interpolated_stereo_sample.left_sample};
+                let interpolated_sample = Self::interpolate_sample(&self.sampling_buffer);
                 self.sampling_counter = 0;
                 self.sampling_buffer.clear();
 
@@ -41,9 +40,9 @@ impl AudioResampler{
     
     fn interpolate_sample(samples:&[StereoSample])->StereoSample{
 
-        let interpulated_left_sample = samples.iter().fold(SAMPLE_CONSTANT_DEFAULT, |acc, x| acc + x.left_sample) / samples.len() as Sample;
-        let interpulated_right_sample = samples.iter().fold(SAMPLE_CONSTANT_DEFAULT, |acc, x| acc + x.right_sample) / samples.len() as Sample;
+        let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
+        let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
 
-        return StereoSample{left_sample:interpulated_left_sample, right_sample:interpulated_right_sample};
+        return StereoSample{left_sample: interpulated_left_sample,right_sample: interpulated_right_sample};
     }
 }
