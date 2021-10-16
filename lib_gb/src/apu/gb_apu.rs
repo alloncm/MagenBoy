@@ -36,7 +36,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             wave_channel:Channel::<WaveSampleProducer>::new(WaveSampleProducer::default()),
             tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
             noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
-            audio_buffer:[StereoSample{left_sample:DEFAULT_SAPMPLE, right_sample:DEFAULT_SAPMPLE}; AUDIO_BUFFER_SIZE],
+            audio_buffer:[StereoSample::const_defualt(); AUDIO_BUFFER_SIZE],
             current_t_cycle:0,
             device:device,
             right_terminal: SoundTerminal::default(),
@@ -75,7 +75,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
         else{
             for _ in 0..t_cycles{
-                self.audio_buffer[self.current_t_cycle as usize] = StereoSample{right_sample:DEFAULT_SAPMPLE, left_sample:DEFAULT_SAPMPLE};
+                self.audio_buffer[self.current_t_cycle as usize] = StereoSample::const_defualt();
                 self.current_t_cycle += 1;
 
                 self.push_buffer_if_full();
