@@ -54,10 +54,10 @@ pub fn set_nr50<AD:AudioDevice>(apu:&mut GbApu<AD>, nr50:u8){
 
 pub fn set_nr51<AD:AudioDevice>(apu:&mut GbApu<AD>, nr51:u8){
     for i in 0..NUMBER_OF_CHANNELS{
-        apu.right_terminal.channels[i as usize] = nr51 & (1 << i) != 0;
+        apu.right_terminal.set_channel_state(i, nr51 & (1 << i) != 0);
     }
     for i in 0..NUMBER_OF_CHANNELS{
-        apu.left_terminal.channels[i as usize] = nr51 & (0b1_0000 << i) != 0;
+        apu.left_terminal.set_channel_state(i, nr51 & (0b1_0000 << i) != 0);
     }
 }
 

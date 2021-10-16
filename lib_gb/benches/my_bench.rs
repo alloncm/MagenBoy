@@ -37,12 +37,13 @@ pub fn apu_sweep_tone_channel(c: &mut Criterion){
 
 pub fn apu_sound_terminal(c:&mut Criterion){
     let mut sound_terminal = SoundTerminal::default();
-    sound_terminal.channels = [true;4];
+    for i in 0..4{
+        sound_terminal.set_channel_state(i, true);
+    }
     sound_terminal.volume = 8;
     c.bench_function("Sound terminal", |b| b.iter(||{
-
         let samples:[Sample;4] = [100 as Sample,200 as Sample,5 as Sample,7 as Sample];
-        let _ = sound_terminal.mix_terminal_samples(&samples);
+        let _ = sound_terminal.mix_terminal_samples(black_box(&samples));        
     }));
 }
 
