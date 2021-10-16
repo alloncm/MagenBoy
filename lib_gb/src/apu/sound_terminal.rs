@@ -26,6 +26,8 @@ impl SoundTerminal{
             mixed_sample += samples[i] * self.channels[i] as u8 as Sample;
         }
 
+        mixed_sample >>= 2; // Divide by 4 in order to normal the sample
+
         return mixed_sample * ((self.volume + 1) as Sample);
     }
 }
