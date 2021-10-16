@@ -74,7 +74,9 @@ impl SdlAudioDevie{
         let data_byte_len = (audio.len() * std::mem::size_of::<Sample>()) as u32;
 
         unsafe{
-            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{}
+            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{
+                SDL_Delay(1);
+            }
 
             SDL_ClearError();
             if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{
