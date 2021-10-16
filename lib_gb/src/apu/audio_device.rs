@@ -9,7 +9,7 @@ pub struct StereoSample{
 
 impl StereoSample{
     pub const fn const_defualt()->Self{
-        Self{left_sample:SAMPLE_CONSTANT_DEFAULT, right_sample:SAMPLE_CONSTANT_DEFAULT}
+        Self{left_sample:DEFAULT_SAPMPLE, right_sample:DEFAULT_SAPMPLE}
     }
 }
 
