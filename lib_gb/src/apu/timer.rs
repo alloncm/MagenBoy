@@ -3,11 +3,12 @@ pub struct Timer{
     cycle_counter:u16
 }
 
+// By deviding by 4 (shifting right 2) Im losing precison in favor of performance
 impl Timer{
     pub fn new(cycles_to_tick:u16)->Self{
         Timer{
             cycle_counter:0,
-            cycles_to_tick:cycles_to_tick
+            cycles_to_tick:cycles_to_tick >> 2
         }
     }
 
@@ -26,7 +27,7 @@ impl Timer{
     }
 
     pub fn update_cycles_to_tick(&mut self, cycles_to_tick:u16){
-        self.cycles_to_tick = cycles_to_tick;
+        self.cycles_to_tick = cycles_to_tick >> 2;
         self.cycle_counter = 0;
     }
 }

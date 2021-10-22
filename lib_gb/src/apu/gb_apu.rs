@@ -23,7 +23,7 @@ pub struct GbApu<Device: AudioDevice>{
     pub enabled:bool,
 
     audio_buffer:[StereoSample;AUDIO_BUFFER_SIZE],
-    current_t_cycle:u32,
+    current_m_cycle:u32,
     device:Device,
     last_enabled_state:bool
 }
@@ -37,7 +37,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
             noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
             audio_buffer:[StereoSample::const_defualt(); AUDIO_BUFFER_SIZE],
-            current_t_cycle:0,
+            current_m_cycle:0,
             device:device,
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
@@ -47,11 +47,8 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     pub fn cycle(&mut self, m_cycles_passed:u8){
-        //converting m_cycles to t_cycles
-        let t_cycles = m_cycles_passed * 4;
-
         if self.enabled{
-            for _ in 0..t_cycles{   
+            for _ in 0..m_cycles_passed{   
 
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
@@ -65,35 +62,37 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let left_sample = self.left_terminal.mix_terminal_samples(&samples);
                 let right_sample = self.right_terminal.mix_terminal_samples(&samples);
             
-                self.audio_buffer[self.current_t_cycle as usize].left_sample = left_sample;
-                self.audio_buffer[self.current_t_cycle as usize].right_sample = right_sample;
+                self.audio_buffer[self.current_m_cycle as usize].left_sample = left_sample;
+                self.audio_buffer[self.current_m_cycle as usize].right_sample = right_sample;
                 
-                self.current_t_cycle += 1;
+                self.current_m_cycle += 1;
 
                 self.push_buffer_if_full();
             }
         }
         else{
-            for _ in 0..t_cycles{
-                self.audio_buffer[self.current_t_cycle as usize] = StereoSample::const_defualt();
-                self.current_t_cycle += 1;
+            for _ in 0..m_cycles_passed{
+                self.audio_buffer[self.current_m_cycle as usize] = StereoSample::const_defualt();
+                self.current_m_cycle += 1;
 
                 self.push_buffer_if_full();
             }
-
-            self.tone_channel.reset();
-            self.sweep_tone_channel.reset();
-            self.wave_channel.reset();
-            self.noise_channel.reset();
-            self.frame_sequencer.reset();
         }            
 
         self.last_enabled_state = self.enabled;
     }
 
+    pub fn reset(&mut self){
+        self.tone_channel.reset();
+        self.sweep_tone_channel.reset();
+        self.wave_channel.reset();
+        self.noise_channel.reset();
+        self.frame_sequencer.reset();
+    }
+
     fn push_buffer_if_full(&mut self){
-        if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
-            self.current_t_cycle = 0;
+        if self.current_m_cycle as usize >= AUDIO_BUFFER_SIZE{
+            self.current_m_cycle = 0;
             self.device.push_buffer(&self.audio_buffer);
         }
     }

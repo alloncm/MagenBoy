@@ -8,7 +8,8 @@ pub struct AudioResampler{
 
 impl AudioResampler{
     pub fn new(original_frequency:u32, target_frequency:u32)->Self{
-        let to_skip = original_frequency / target_frequency as u32;
+        // Calling round in order to get the nearest integer and resample as precise as possible
+        let to_skip = (original_frequency as f32 / target_frequency as f32).round() as u32;
         if to_skip == 0{
             std::panic!("target freqency is too high: {}", target_frequency);
         }
@@ -43,6 +44,6 @@ impl AudioResampler{
         let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
         let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
 
-        return StereoSample{left_sample: interpulated_left_sample,right_sample: interpulated_right_sample};
+        return StereoSample{left_sample: interpulated_left_sample, right_sample: interpulated_right_sample};
     }
 }

@@ -62,7 +62,13 @@ pub fn set_nr51<AD:AudioDevice>(apu:&mut GbApu<AD>, nr51:u8){
 }
 
 pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, ports:&mut [u8;IO_PORTS_SIZE], nr52:u8){
+    let prev_apu_state = apu.enabled;
     apu.enabled = nr52 & BIT_7_MASK != 0;
+
+    // Apu turned off
+    if !apu.enabled && prev_apu_state{
+        apu.reset();
+    }
 
     for i in NR10_REGISTER_INDEX..NR52_REGISTER_INDEX{
         ports[i as usize] = 0;
