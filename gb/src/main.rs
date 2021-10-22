@@ -7,7 +7,7 @@ mod multi_device_audio;
 mod sdl_gfx_device;
 
 use crate::{mbc_handler::*, sdl_joypad_provider::*, multi_device_audio::*};
-use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
+use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
 use sdl2::sys::*;
@@ -57,12 +57,14 @@ fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
 }
 
 struct MpmcGfxDevice{
-    sender: crossbeam_channel::Sender<[u32;SCREEN_HEIGHT * SCREEN_WIDTH]>
+    sender: crossbeam_channel::Sender<usize>
 }
 
 impl GfxDevice for MpmcGfxDevice{
     fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        self.sender.send(buffer.clone()).unwrap();
+        if self.sender.send(buffer.as_ptr() as usize).is_err(){
+            log::debug!("The receiver endpoint has been closed");
+        }
     }
 }
 
@@ -78,7 +80,7 @@ fn main() {
 
     let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
     
-    let (s,r) = crossbeam_channel::bounded(1);
+    let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice{sender:s};
 
     let program_name = args[1].clone();
@@ -103,9 +105,10 @@ fn main() {
             }
             
             let buffer = r.recv().unwrap();
-            sdl_gfx_device.swap_buffer(&buffer);
+            sdl_gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
 
+        drop(r);
         std::ptr::write_volatile(&mut running as *mut bool, false);
         emualation_thread.join().unwrap();
 
@@ -152,5 +155,5 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     }
     drop(gameboy);
     release_mbc(&program_name, mbc);
-    log::info!("Release the gameboy succefully");
+    log::info!("released the gameboy succefully");
 }
