@@ -10,10 +10,14 @@ pub struct SdlGfxDevice{
     width:u32,
     height:u32,
     sacle:u8,
+    frame_start_time:u64,
+    frame_time_ms:f64,
+    discard:u8,
+    turbo_mul:u8,
 }
 
 impl SdlGfxDevice{
-    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8)->Self{
+    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8, turbo_mul:u8)->Self{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
@@ -38,7 +42,11 @@ impl SdlGfxDevice{
             texture,
             height:buffer_height,
             width:buffer_width,
-            sacle:screen_scale
+            sacle:screen_scale,
+            frame_start_time: unsafe{SDL_GetPerformanceCounter()},
+            frame_time_ms: (1.0/(60.0 as f64)) * 1_000.0,
+            discard:0,
+            turbo_mul
         }
     }
 
@@ -61,6 +69,13 @@ impl SdlGfxDevice{
 
 impl GfxDevice for SdlGfxDevice{
     fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+        if self.turbo_mul > 1{
+            self.discard = (self.discard + 1) % self.turbo_mul;
+            if self.discard == 0{
+                return;
+            }
+        }
+
         unsafe{
             let extended_buffer = Self::extend_vec(buffer, self.sacle as usize, self.width as usize, self.height as usize);
 
@@ -73,6 +88,14 @@ impl GfxDevice for SdlGfxDevice{
             //There is no need to call SDL_RenderClear since im replacing the whole buffer 
             SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
             SDL_RenderPresent(self.renderer);
+
+            let frame_end_time = SDL_GetPerformanceCounter();
+            let elapsed = ((frame_end_time - self.frame_start_time) as f64 / (SDL_GetPerformanceFrequency() as f64)) * 1_000.0;
+            if elapsed < self.frame_time_ms{
+                SDL_Delay(((self.frame_time_ms - elapsed).floor()) as Uint32);
+            }
+
+            self.frame_start_time = SDL_GetPerformanceCounter();
         }
     }
 }

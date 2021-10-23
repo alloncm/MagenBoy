@@ -13,6 +13,7 @@ use log::info;
 use sdl2::sys::*;
 
 const SCREEN_SCALE:u8 = 4;
+const TURBO_MUL:u8 = 2;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
@@ -78,7 +79,7 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
+    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE, TURBO_MUL);
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice{sender:s};
@@ -118,7 +119,7 @@ fn main() {
 
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
-    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
+    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100, TURBO_MUL);
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
     devices.push(Box::new(audio_device));
     if check_for_terminal_feature_flag(&args, "--file-audio"){

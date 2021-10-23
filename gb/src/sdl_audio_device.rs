@@ -5,7 +5,7 @@ use crate::audio_resampler::AudioResampler;
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BUFFER_SIZE:usize = 1024 * 2;
-const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 8;
+const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 16;
 const VOLUME:Sample = 10 as Sample;
 
 pub struct SdlAudioDevie{
@@ -16,7 +16,7 @@ pub struct SdlAudioDevie{
 }
 
 impl SdlAudioDevie{
-    pub fn new(frequency:i32)->Self{
+    pub fn new(frequency:i32, turbo_mul:u8)->Self{
 
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
@@ -57,7 +57,7 @@ impl SdlAudioDevie{
         return SdlAudioDevie{
             device_id: device_id,
             buffer:Vec::with_capacity(BUFFER_SIZE),
-            resampler: AudioResampler::new(GB_FREQUENCY, frequency as u32)
+            resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32)
         };
     }
 
