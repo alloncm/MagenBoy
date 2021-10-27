@@ -24,7 +24,7 @@ impl AudioResampler{
     pub fn resample(&mut self, buffer:&[StereoSample])->Vec<StereoSample>{
         let mut output = Vec::new();
         for sample in buffer.into_iter(){
-            self.sampling_buffer.push(*sample);
+            self.sampling_buffer.push(sample.clone());
             self.sampling_counter += 1;
     
             if self.sampling_counter == self.to_skip {

@@ -36,7 +36,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             wave_channel:Channel::<WaveSampleProducer>::new(WaveSampleProducer::default()),
             tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
             noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
-            audio_buffer:[StereoSample::const_defualt(); AUDIO_BUFFER_SIZE],
+            audio_buffer:crate::utils::create_array(StereoSample::const_defualt),
             current_m_cycle:0,
             device:device,
             right_terminal: SoundTerminal::default(),
