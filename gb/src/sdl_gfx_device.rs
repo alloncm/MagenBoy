@@ -25,13 +25,13 @@ impl SdlGfxDevice{
             let wind:*mut SDL_Window = SDL_CreateWindow(
                 cs_wnd_name.as_ptr(),
                 SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-                buffer_width as i32 * 4, buffer_height as i32 * 4, 0);
+                buffer_width as i32 * screen_scale as i32, buffer_height as i32 * screen_scale as i32, 0);
             
             let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, 0);
             
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
                 SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
-                    buffer_width as i32 * 4, buffer_height as i32 * 4);
+                    buffer_width as i32 * screen_scale as i32, buffer_height as i32 * screen_scale as i32);
             
             (wind, rend, tex)
         };
@@ -69,11 +69,9 @@ impl SdlGfxDevice{
 
 impl GfxDevice for SdlGfxDevice{
     fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        if self.turbo_mul > 1{
-            self.discard = (self.discard + 1) % self.turbo_mul;
-            if self.discard == 0{
-                return;
-            }
+        self.discard = (self.discard + 1) % self.turbo_mul;
+        if self.discard != 0{
+            return;
         }
 
         unsafe{

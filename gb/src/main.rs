@@ -13,7 +13,7 @@ use log::info;
 use sdl2::sys::*;
 
 const SCREEN_SCALE:u8 = 4;
-const TURBO_MUL:u8 = 2;
+const TURBO_MUL:u8 = 1;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
