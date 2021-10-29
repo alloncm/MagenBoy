@@ -17,3 +17,8 @@ chrono = "0.4"
 sdl2 = {version = "0.34", features = ["bundled","static-link"]}
 wav = "0.6.0"
 crossbeam-channel = "0.5"
+
+[features]
+default = ["sdl-resample"]
+sdl-resample = []
+push-audio = []

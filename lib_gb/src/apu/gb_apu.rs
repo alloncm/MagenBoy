@@ -10,8 +10,6 @@ use super::{
     sound_utils::NUMBER_OF_CHANNELS
 };
 
-pub const AUDIO_BUFFER_SIZE:usize = 0x400;
-
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
     pub sweep_tone_channel:Channel<SquareSampleProducer>,
@@ -22,7 +20,7 @@ pub struct GbApu<Device: AudioDevice>{
     pub left_terminal:SoundTerminal,
     pub enabled:bool,
 
-    audio_buffer:[StereoSample;AUDIO_BUFFER_SIZE],
+    audio_buffer:[StereoSample;BUFFER_SIZE],
     current_m_cycle:u32,
     device:Device,
     last_enabled_state:bool
@@ -91,7 +89,7 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     fn push_buffer_if_full(&mut self){
-        if self.current_m_cycle as usize >= AUDIO_BUFFER_SIZE{
+        if self.current_m_cycle as usize >= BUFFER_SIZE{
             self.current_m_cycle = 0;
             self.device.push_buffer(&self.audio_buffer);
         }

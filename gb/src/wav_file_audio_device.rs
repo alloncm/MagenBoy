@@ -1,6 +1,9 @@
 use lib_gb::apu::audio_device::*;
 
+#[cfg(not(feature = "sdl-resample"))]
 use crate::audio_resampler::AudioResampler;
+#[cfg(feature = "sdl-resample")]
+use crate::sdl_audio_resampler::SdlAudioResampler as AudioResampler;
 
 pub struct WavfileAudioDevice{
     target_frequency:u32,
@@ -21,7 +24,7 @@ impl WavfileAudioDevice{
 }
 
 impl AudioDevice for WavfileAudioDevice{
-    fn push_buffer(&mut self, buffer:&[StereoSample]) {
+    fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
         self.samples_buffer.append(self.resampler.resample(buffer).as_mut());
     }
 }

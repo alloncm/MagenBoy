@@ -1,12 +1,15 @@
 use std::{ffi::{CStr, c_void}, mem::MaybeUninit};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
 use sdl2::{sys::*,libc::c_char};
+
+#[cfg(not(feature = "sdl-resample"))]
 use crate::audio_resampler::AudioResampler;
+#[cfg(feature = "sdl-resample")]
+use crate::sdl_audio_resampler::SdlAudioResampler as AudioResampler;
 
 use crossbeam_channel::{Receiver, Sender, bounded};
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
-const BUFFER_SIZE:usize = 1024 * 2;
 const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 16;
 const VOLUME:Sample = 10 as Sample;
 
@@ -17,6 +20,7 @@ struct Data{
     pub current_buf_index:usize,
 }
 pub struct SdlAudioDevie{
+    // #[cfg(feature = "push_audio")]
     device_id: SDL_AudioDeviceID,
     resampler: AudioResampler,
 
@@ -142,8 +146,9 @@ unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length
 }
 
 impl AudioDevice for SdlAudioDevie{
-    fn push_buffer(&mut self, buffer:&[StereoSample]){
-        for sample in self.resampler.resample(buffer){
+    fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]){
+        let resample = self.resampler.resample(buffer);
+        for sample in resample{
 
             self.buffer[self.buffer_index] = sample.left_sample * VOLUME;
             self.buffer[self.buffer_index + 1] = sample.right_sample * VOLUME;

@@ -1,7 +1,10 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
 mod sdl_audio_device;
+#[cfg(not(feature = "sdl-resample"))]
 mod audio_resampler;
+#[cfg(feature = "sdl-resample")]
+mod sdl_audio_resampler;
 mod wav_file_audio_device;
 mod multi_device_audio;
 mod sdl_gfx_device;
@@ -12,8 +15,8 @@ use std::{fs, env, result::Result, vec::Vec};
 use log::info;
 use sdl2::sys::*;
 
-const SCREEN_SCALE:u8 = 1;
-const TURBO_MUL:u8 = 1;
+const SCREEN_SCALE:u8 = 4;
+const TURBO_MUL:u8 = 2;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};

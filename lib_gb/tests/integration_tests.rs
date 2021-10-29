@@ -1,6 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
+use lib_gb::apu::audio_device::BUFFER_SIZE;
 use lib_gb::ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use lib_gb::{
     apu::audio_device::AudioDevice, keypad::joypad_provider::JoypadProvider,
@@ -29,7 +30,7 @@ impl GfxDevice for CheckHashGfxDevice{
 
 struct StubAudioDevice;
 impl AudioDevice for StubAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[lib_gb::apu::audio_device::StereoSample]) {}
+    fn push_buffer(&mut self, _buffer:&[lib_gb::apu::audio_device::StereoSample; BUFFER_SIZE]) {}
 }
 
 struct StubJoypadProvider;

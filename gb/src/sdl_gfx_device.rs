@@ -90,7 +90,7 @@ impl GfxDevice for SdlGfxDevice{
             let frame_end_time = SDL_GetPerformanceCounter();
             let elapsed = ((frame_end_time - self.frame_start_time) as f64 / (SDL_GetPerformanceFrequency() as f64)) * 1_000.0;
             if elapsed < self.frame_time_ms{
-                SDL_Delay(((self.frame_time_ms - elapsed).floor()) as Uint32);
+                // SDL_Delay(((self.frame_time_ms - elapsed).floor()) as Uint32);
             }
 
             self.frame_start_time = SDL_GetPerformanceCounter();
