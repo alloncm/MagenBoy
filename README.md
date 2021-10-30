@@ -11,6 +11,17 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 
 **More will be added if neccessary (and by neccessary I mean if games I want to play will require them)**
 
+## How to use
+
+```shell
+magenboy [path_to_rom] [other_optional_flags]
+```
+
+### Optional flags
+* `--log` - Print logs in debug mode to a file
+* `--file-audio` - Saves the audio to a file
+* `--no-vsync` - Disable vsync
+
 ## GameBoy
 
 ### Development Status
