@@ -10,14 +10,12 @@ pub struct SdlGfxDevice{
     width:u32,
     height:u32,
     sacle:u8,
-    frame_start_time:u64,
-    frame_time_ms:f64,
     discard:u8,
     turbo_mul:u8,
 }
 
 impl SdlGfxDevice{
-    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8, turbo_mul:u8)->Self{
+    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8, turbo_mul:u8, disable_vsync:bool)->Self{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
@@ -26,8 +24,12 @@ impl SdlGfxDevice{
                 cs_wnd_name.as_ptr(),
                 SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
                 buffer_width as i32 * screen_scale as i32, buffer_height as i32 * screen_scale as i32, 0);
-            
-            let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, 0);
+            let mut flags = SDL_RendererFlags::SDL_RENDERER_ACCELERATED as u32;
+            if !disable_vsync{
+                flags |= SDL_RendererFlags::SDL_RENDERER_PRESENTVSYNC as u32;
+            }
+
+            let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, flags);
             
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
                 SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
@@ -43,8 +45,6 @@ impl SdlGfxDevice{
             height:buffer_height,
             width:buffer_width,
             sacle:screen_scale,
-            frame_start_time: unsafe{SDL_GetPerformanceCounter()},
-            frame_time_ms: (1.0/(60.0 as f64)) * 1_000.0,
             discard:0,
             turbo_mul
         }
@@ -86,14 +86,6 @@ impl GfxDevice for SdlGfxDevice{
             //There is no need to call SDL_RenderClear since im replacing the whole buffer 
             SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
             SDL_RenderPresent(self.renderer);
-
-            let frame_end_time = SDL_GetPerformanceCounter();
-            let elapsed = ((frame_end_time - self.frame_start_time) as f64 / (SDL_GetPerformanceFrequency() as f64)) * 1_000.0;
-            if elapsed < self.frame_time_ms{
-                // SDL_Delay(((self.frame_time_ms - elapsed).floor()) as Uint32);
-            }
-
-            self.frame_start_time = SDL_GetPerformanceCounter();
         }
     }
 }
