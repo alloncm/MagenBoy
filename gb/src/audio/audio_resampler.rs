@@ -1,6 +1,7 @@
 use lib_gb::apu::audio_device::{BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample};
+use super::AudioResampler;
 
-pub struct AudioResampler{
+pub struct MagenAudioResampler{
     to_skip:u32,
     sampling_buffer:Vec<StereoSample>,
     sampling_counter:u32,
@@ -10,8 +11,18 @@ pub struct AudioResampler{
     skip_to_use:u32,
 }
 
-impl AudioResampler{
-    pub fn new(original_frequency:u32, target_frequency:u32)->Self{
+impl MagenAudioResampler{
+    fn interpolate_sample(samples:&[StereoSample])->StereoSample{
+
+        let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
+        let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
+
+        return StereoSample{left_sample: interpulated_left_sample, right_sample: interpulated_right_sample};
+    }
+}
+
+impl AudioResampler for MagenAudioResampler{
+    fn new(original_frequency:u32, target_frequency:u32)->Self{
         // Calling round in order to get the nearest integer and resample as precise as possible
         let div = original_frequency as f32 /  target_frequency as f32;
 
@@ -30,7 +41,7 @@ impl AudioResampler{
             std::panic!("target freqency is too high: {}", target_frequency);
         }
 
-        AudioResampler{
+        MagenAudioResampler{
             to_skip:to_skip,
             sampling_buffer:Vec::with_capacity(upper_to_skip as usize),
             sampling_counter: 0,
@@ -41,7 +52,7 @@ impl AudioResampler{
         }
     }
 
-    pub fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
+    fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
         let mut output = Vec::new();
         for sample in buffer.into_iter(){
             self.sampling_buffer.push(sample.clone());
@@ -66,13 +77,5 @@ impl AudioResampler{
 
         return output;
         
-    }
-    
-    fn interpolate_sample(samples:&[StereoSample])->StereoSample{
-
-        let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
-        let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
-
-        return StereoSample{left_sample: interpulated_left_sample, right_sample: interpulated_right_sample};
     }
 }

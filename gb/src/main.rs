@@ -1,15 +1,9 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
-mod sdl_audio_device;
-#[cfg(not(feature = "sdl-resample"))]
-mod audio_resampler;
-#[cfg(feature = "sdl-resample")]
-mod sdl_audio_resampler;
-mod wav_file_audio_device;
-mod multi_device_audio;
 mod sdl_gfx_device;
+mod audio;
 
-use crate::{mbc_handler::*, sdl_joypad_provider::*, multi_device_audio::*};
+use crate::{audio::{ChosenResampler, multi_device_audio::*}, mbc_handler::*, sdl_joypad_provider::*};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
@@ -125,14 +119,14 @@ fn main() {
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
     
     #[cfg(feature = "push-audio")]
-    let audio_device = sdl_audio_device::SdlPushAudioDevice::new(44100, TURBO_MUL);
+    let audio_device = audio::sdl_push_audio_device::SdlPushAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
     #[cfg(not(feature = "push-audio"))]
-    let audio_device = sdl_audio_device::SdlPullAudioDevice::new(44100, TURBO_MUL);
+    let audio_device = audio::sdl_pull_audio_device::SdlPullAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
     
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
     devices.push(Box::new(audio_device));
     if check_for_terminal_feature_flag(&args, "--file-audio"){
-        let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
+        let wav_ad = audio::wav_file_audio_device::WavfileAudioDevice::<ChosenResampler>::new(44100, GB_FREQUENCY, "output.wav");
         devices.push(Box::new(wav_ad));
         log::info!("Writing audio to file: output.wav");
     }

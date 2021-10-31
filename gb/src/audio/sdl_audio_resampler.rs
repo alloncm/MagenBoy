@@ -1,21 +1,22 @@
 use std::mem::MaybeUninit;
 use lib_gb::apu::audio_device::{BUFFER_SIZE, StereoSample};
 use sdl2::sys::*;
+use super::AudioResampler;
 
 pub struct SdlAudioResampler{
     original_frequency:u32,
     target_frequency:u32,
 }
 
-impl SdlAudioResampler{
-    pub fn new(original_frequency:u32, target_frequency:u32)->Self{
+impl AudioResampler for SdlAudioResampler{
+    fn new(original_frequency:u32, target_frequency:u32)->Self{
         Self{
             original_frequency,
             target_frequency,
         }
     }
-
-    pub fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
+    
+    fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
         unsafe{
             let mut cvt = {
                 let mut cvt:MaybeUninit<SDL_AudioCVT> = MaybeUninit::uninit();
