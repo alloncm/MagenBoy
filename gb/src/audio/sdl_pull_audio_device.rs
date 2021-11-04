@@ -20,8 +20,8 @@ pub struct SdlPullAudioDevice<AR:AudioResampler>{
     buffer_index:usize,
 
     tarnsmiter: Sender<usize>,
-
-    userdata: UserData
+    userdata: UserData,
+    device_id:SDL_AudioDeviceID,
 }
 
 impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
@@ -41,7 +41,8 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             buffer_number_index:0,
             resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
             tarnsmiter:s,
-            userdata:data
+            userdata:data,
+            device_id:0
         };
         
         let desired_audio_spec = SDL_AudioSpec{
@@ -57,7 +58,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
         };
 
         // Ignore device id
-        init_sdl_audio_device(&desired_audio_spec);
+        device.device_id = init_sdl_audio_device(&desired_audio_spec);
 
         return device;
     }
@@ -81,6 +82,14 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
 impl<AR:AudioResampler> AudioDevice for SdlPullAudioDevice<AR>{
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
         ResampledAudioDevice::push_buffer(self, buffer);
+    }
+}
+
+impl<AR:AudioResampler> Drop for SdlPullAudioDevice<AR>{
+    fn drop(&mut self) {
+        unsafe{
+            SDL_CloseAudioDevice(self.device_id);
+        }
     }
 }
 
