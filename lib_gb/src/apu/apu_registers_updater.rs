@@ -44,9 +44,6 @@ pub fn set_nr44(channel:&mut Channel<NoiseSampleProducer>, fs:&FrameSequencer, n
 }
 
 pub fn set_nr50<AD:AudioDevice>(apu:&mut GbApu<AD>, nr50:u8){
-    apu.right_terminal.enabled = nr50 & BIT_3_MASK != 0;
-    apu.left_terminal.enabled = nr50 & BIT_7_MASK != 0;
-    
     apu.right_terminal.volume = nr50 & 0b111;
     apu.left_terminal.volume = (nr50 & 0b111_0000) >> 4;
 }
