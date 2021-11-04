@@ -1,6 +1,6 @@
-use std::{ffi::c_void, mem::MaybeUninit};
+use std::ffi::c_void;
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
-use super::{AudioResampler, ResampledAudioDevice, get_sdl_error_message};
+use super::{AudioResampler, ResampledAudioDevice, init_sdl_audio_device};
 
 use sdl2::sys::*;
 use crossbeam_channel::{Receiver, SendError, Sender, bounded};
@@ -59,27 +59,8 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             userdata: (&mut device.userdata) as *mut UserData as *mut c_void
         };
 
-        
-        let mut uninit_audio_spec:MaybeUninit<SDL_AudioSpec> = MaybeUninit::uninit();
-
-        unsafe{
-            SDL_Init(SDL_INIT_AUDIO);
-            SDL_ClearError();
-            let id = SDL_OpenAudioDevice(std::ptr::null(), 0, &desired_audio_spec, uninit_audio_spec.as_mut_ptr() , 0);
-
-            if id == 0{
-                std::panic!("{}", get_sdl_error_message());
-            }
-
-            let init_audio_spec:SDL_AudioSpec = uninit_audio_spec.assume_init();
-
-            if init_audio_spec.freq != frequency {
-                std::panic!("Error initializing audio could not use the frequency: {}", frequency);
-            }
-
-            //This will start the audio processing
-            SDL_PauseAudioDevice(id, 0);
-        };
+        // Ignore device id
+        init_sdl_audio_device(&desired_audio_spec);
 
         return device;
     }
