@@ -13,7 +13,7 @@ cfg_if::cfg_if!{
     }
 }
 cfg_if::cfg_if!{
-    if #[cfg(feature = "sdl-resampler")]{
+    if #[cfg(feature = "sdl-resample")]{
         pub mod sdl_audio_resampler;
         pub type ChosenResampler = sdl_audio_resampler::SdlAudioResampler;
     }
