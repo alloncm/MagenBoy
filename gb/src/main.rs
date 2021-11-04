@@ -1,9 +1,10 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
 mod sdl_gfx_device;
+mod mpmc_gfx_device;
 mod audio;
 
-use crate::{audio::{ChosenResampler, multi_device_audio::*}, mbc_handler::*, sdl_joypad_provider::*};
+use crate::{audio::{ChosenResampler, multi_device_audio::*, ResampledAudioDevice}, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, sdl_joypad_provider::*};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
@@ -54,18 +55,6 @@ fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
     args.len() >= 3 && args.contains(&String::from(flag))
 }
 
-struct MpmcGfxDevice{
-    sender: crossbeam_channel::Sender<usize>
-}
-
-impl GfxDevice for MpmcGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        if self.sender.send(buffer.as_ptr() as usize).is_err(){
-            log::debug!("The receiver endpoint has been closed");
-        }
-    }
-}
-
 fn main() {
     let args: Vec<String> = env::args().collect();    
 
@@ -80,7 +69,7 @@ fn main() {
          "MagenBoy", SCREEN_SCALE, TURBO_MUL, check_for_terminal_feature_flag(&args, "--no-vsync"));
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
-    let mpmc_device = MpmcGfxDevice{sender:s};
+    let mpmc_device = MpmcGfxDevice::new(s);
 
     let program_name = args[1].clone();
 
@@ -117,11 +106,7 @@ fn main() {
 
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
-    
-    #[cfg(feature = "push-audio")]
-    let audio_device = audio::sdl_push_audio_device::SdlPushAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
-    #[cfg(not(feature = "push-audio"))]
-    let audio_device = audio::sdl_pull_audio_device::SdlPullAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
+    let audio_device = audio::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
     
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
     devices.push(Box::new(audio_device));

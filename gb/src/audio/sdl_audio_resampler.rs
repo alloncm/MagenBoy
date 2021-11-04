@@ -35,8 +35,7 @@ impl AudioResampler for SdlAudioResampler{
             std::ptr::copy_nonoverlapping(buffer.as_ptr(), buf.as_mut_ptr() as *mut StereoSample, BUFFER_SIZE);
         
             cvt.buf = buf.as_mut_ptr();
-            let status_code = SDL_ConvertAudio(&mut cvt);
-            if status_code != 0{
+            if SDL_ConvertAudio(&mut cvt) != 0{
                 std::panic!("error while converting audio, status code: {}", status_code);
             }
         

@@ -39,6 +39,7 @@ impl SoundTerminal{
 
         mixed_sample >>= 2; // Divide by 4 in order to normal the sample
 
+        // Adding +1 cause thats how to GB calculates the sound (0 still has volume)
         return mixed_sample * ((self.volume + 1) as Sample);
     }
 }

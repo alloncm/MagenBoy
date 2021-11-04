@@ -1,9 +1,7 @@
 use std::{ffi::c_void, mem::MaybeUninit, str::FromStr};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::{AudioDevice, BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample}};
 use sdl2::sys::*;
-use super::{SdlAudioDevice, get_sdl_error_message};
-use super::AudioResampler;
-
+use super::{AudioResampler, ResampledAudioDevice, get_sdl_error_message};
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 16;
@@ -17,7 +15,27 @@ pub struct SdlPushAudioDevice<AR:AudioResampler>{
 }
 
 impl<AR:AudioResampler> SdlPushAudioDevice<AR>{
-    pub fn new(frequency:i32, turbo_mul:u8)->Self{
+    fn push_audio_to_device(&self, audio:&[Sample; BUFFER_SIZE])->Result<(),&str>{
+        let audio_ptr: *const c_void = audio.as_ptr() as *const c_void;
+        let data_byte_len = (audio.len() * std::mem::size_of::<Sample>()) as u32;
+
+        unsafe{
+            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{
+                SDL_Delay(1);
+            }
+
+            SDL_ClearError();
+            if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{
+                return Err(get_sdl_error_message());
+            }
+            
+            Ok(())
+        }
+    }
+}
+
+impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPushAudioDevice<AR>{
+    fn new(frequency:i32, turbo_mul:u8)->Self{
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
             format: AUDIO_S16SYS as u16,
@@ -61,26 +79,6 @@ impl<AR:AudioResampler> SdlPushAudioDevice<AR>{
         };
     }
 
-    fn push_audio_to_device(&self, audio:&[Sample; BUFFER_SIZE])->Result<(),&str>{
-        let audio_ptr: *const c_void = audio.as_ptr() as *const c_void;
-        let data_byte_len = (audio.len() * std::mem::size_of::<Sample>()) as u32;
-
-        unsafe{
-            while SDL_GetQueuedAudioSize(self.device_id) > BYTES_TO_WAIT{
-                SDL_Delay(1);
-            }
-
-            SDL_ClearError();
-            if SDL_QueueAudio(self.device_id, audio_ptr, data_byte_len) != 0{
-                return Err(get_sdl_error_message());
-            }
-            
-            Ok(())
-        }
-    }
-}
-
-impl<AR:AudioResampler> SdlAudioDevice<AR> for SdlPushAudioDevice<AR>{
     fn get_audio_buffer(&mut self) ->(&mut [Sample;BUFFER_SIZE], &mut usize) {
         (&mut self.buffer, &mut self.buffer_index)
     }
@@ -96,6 +94,6 @@ impl<AR:AudioResampler> SdlAudioDevice<AR> for SdlPushAudioDevice<AR>{
 
 impl<AR:AudioResampler> AudioDevice for SdlPushAudioDevice<AR>{
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
-        SdlAudioDevice::push_buffer(self, buffer);
+        ResampledAudioDevice::push_buffer(self, buffer);
     }
 }

@@ -1,14 +1,12 @@
 use std::{ffi::c_void, mem::MaybeUninit};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
+use super::{AudioResampler, ResampledAudioDevice, get_sdl_error_message};
+
 use sdl2::sys::*;
-use crate::audio::get_sdl_error_message;
-
-use super::{AudioResampler, SdlAudioDevice};
-
 use crossbeam_channel::{Receiver, SendError, Sender, bounded};
 
 
-struct Data{
+struct UserData{
     rx: Receiver<[Sample;BUFFER_SIZE]>,
     current_buf: Option<[Sample;BUFFER_SIZE]>,
     current_buf_index:usize,
@@ -21,15 +19,21 @@ pub struct SdlPullAudioDevice<AR:AudioResampler>{
 
     tarnsmiter: Sender<[Sample;BUFFER_SIZE]>,
 
-    userdata: Data
+    userdata: UserData
 }
 
 impl<AR:AudioResampler> SdlPullAudioDevice<AR>{
-    pub fn new(frequency:i32, turbo_mul:u8)->Self{
+    fn push_audio_to_device(&self, audio:&[Sample; BUFFER_SIZE])->Result<(), SendError<[Sample; BUFFER_SIZE]>>{
+        self.tarnsmiter.send(audio.clone())
+    }
+}
+
+impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
+    fn new(frequency:i32, turbo_mul:u8)->Self{
 
         // cap of less than 2 hurts the fps
         let(s,r) = bounded(2);
-        let data = Data{
+        let data = UserData{
             current_buf:Option::None,
             current_buf_index:0,
             rx:r
@@ -52,7 +56,7 @@ impl<AR:AudioResampler> SdlPullAudioDevice<AR>{
             padding: 0,
             size: 0,
             callback: Option::Some(audio_callback),
-            userdata: (&mut device.userdata) as *mut Data as *mut c_void
+            userdata: (&mut device.userdata) as *mut UserData as *mut c_void
         };
 
         
@@ -79,13 +83,6 @@ impl<AR:AudioResampler> SdlPullAudioDevice<AR>{
 
         return device;
     }
-
-    fn push_audio_to_device(&self, audio:&[Sample; BUFFER_SIZE])->Result<(), SendError<[Sample; BUFFER_SIZE]>>{
-        self.tarnsmiter.send(audio.clone())
-    }
-}
-
-impl<AR:AudioResampler> SdlAudioDevice<AR> for SdlPullAudioDevice<AR>{
     fn get_audio_buffer(&mut self) ->(&mut [Sample;BUFFER_SIZE], &mut usize) {
         (&mut self.buffer, &mut self.buffer_index)
     }
@@ -99,35 +96,35 @@ impl<AR:AudioResampler> SdlAudioDevice<AR> for SdlPullAudioDevice<AR>{
 
 impl<AR:AudioResampler> AudioDevice for SdlPullAudioDevice<AR>{
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
-        SdlAudioDevice::push_buffer(self, buffer);
+        ResampledAudioDevice::push_buffer(self, buffer);
     }
 }
 
 unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length:i32){
     let length = length as usize;
-    let s = &mut *(userdata as *mut Data);
+    let safe_userdata = &mut *(userdata as *mut UserData);
 
-    if s.current_buf.is_none(){
-        s.current_buf = Some(s.rx.recv().unwrap());
+    if safe_userdata.current_buf.is_none(){
+        safe_userdata.current_buf = Some(safe_userdata.rx.recv().unwrap());
     }
 
-    let samples = s.current_buf.unwrap();
-    let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - s.current_buf_index;
-    let samples_ptr = (samples.as_ptr() as *mut u8).add(s.current_buf_index);
+    let samples = safe_userdata.current_buf.unwrap();
+    let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - safe_userdata.current_buf_index;
+    let samples_ptr = (samples.as_ptr() as *mut u8).add(safe_userdata.current_buf_index);
     std::ptr::copy_nonoverlapping(samples_ptr, buffer, std::cmp::min(length, samples_size));
 
-    if length > samples_size && s.rx.is_empty(){
-        s.current_buf = Option::None;
-        s.current_buf_index = 0;
+    if length > samples_size && safe_userdata.rx.is_empty(){
+        safe_userdata.current_buf = Option::None;
+        safe_userdata.current_buf_index = 0;
         std::ptr::write_bytes(buffer.add(samples.len() as usize), 0, length  - samples_size);
     }
     else if length > samples_size{
-        s.current_buf = Option::None;
-        s.current_buf_index = 0;
+        safe_userdata.current_buf = Option::None;
+        safe_userdata.current_buf_index = 0;
         audio_callback(userdata, buffer.add(samples_size), (length - samples_size) as i32);
     }
     else{
-        s.current_buf_index = length;
+        safe_userdata.current_buf_index = length;
     }
 }
 

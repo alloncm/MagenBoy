@@ -1,24 +1,31 @@
 pub mod multi_device_audio;
 pub mod wav_file_audio_device;
 
-#[cfg(not(feature = "push-audio"))]
-pub mod sdl_pull_audio_device;
-#[cfg(feature = "push-audio")]
-pub mod sdl_push_audio_device;
+
+cfg_if::cfg_if!{
+    if #[cfg(feature = "push-audio")]{
+        pub mod sdl_push_audio_device;
+        pub type ChosenAudioDevice<AR> = sdl_push_audio_device::SdlPushAudioDevice<AR>;
+    }
+    else{
+        pub mod sdl_pull_audio_device;
+        pub type ChosenAudioDevice<AR> = sdl_pull_audio_device::SdlPullAudioDevice<AR>;
+    }
+}
+cfg_if::cfg_if!{
+    if #[cfg(feature = "sdl-resampler")]{
+        pub mod sdl_audio_resampler;
+        pub type ChosenResampler = sdl_audio_resampler::SdlAudioResampler;
+    }
+    else{
+        pub mod magen_audio_resampler;
+        pub type ChosenResampler = magen_audio_resampler::MagenAudioResampler;
+    }
+}
 
 use std::ffi::CStr;
 use lib_gb::apu::audio_device::{AudioDevice, BUFFER_SIZE, Sample, StereoSample};
 use sdl2::{libc::c_char, sys::SDL_GetError};
-
-#[cfg(feature = "sdl-resampler")]
-pub type ChosenResampler = sdl_audio_resampler::SdlAudioResampler;
-#[cfg(feature = "sdl-resampler")]
-pub mod sdl_audio_resampler;
-
-#[cfg(not(feature = "sdl-resampler"))]
-pub mod audio_resampler;
-#[cfg(not(feature = "sdl-resampler"))]
-pub type ChosenResampler = audio_resampler::MagenAudioResampler;
 
 fn get_sdl_error_message()->&'static str{
     unsafe{
@@ -33,7 +40,7 @@ pub trait AudioResampler{
     fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>;
 }
 
-trait SdlAudioDevice<AR:AudioResampler> : AudioDevice{
+pub trait ResampledAudioDevice<AR:AudioResampler> : AudioDevice{
     const VOLUME:Sample = 10 as Sample;
 
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]){
@@ -53,4 +60,5 @@ trait SdlAudioDevice<AR:AudioResampler> : AudioDevice{
     fn get_audio_buffer(&mut self)->(&mut [Sample;BUFFER_SIZE], &mut usize);
     fn get_resampler(&mut self)->&mut AR;
     fn full_buffer_callback(&self)->Result<(), String>;
+    fn new(frequency:i32, turbo_mul:u8)->Self;
 }

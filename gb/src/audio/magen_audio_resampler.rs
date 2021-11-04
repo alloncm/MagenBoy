@@ -13,7 +13,6 @@ pub struct MagenAudioResampler{
 
 impl MagenAudioResampler{
     fn interpolate_sample(samples:&[StereoSample])->StereoSample{
-
         let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
         let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
 
@@ -76,6 +75,5 @@ impl AudioResampler for MagenAudioResampler{
         }
 
         return output;
-        
     }
 }

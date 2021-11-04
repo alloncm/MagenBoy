@@ -416,6 +416,7 @@ dependencies = [
 name = "gb"
 version = "1.0.0"
 dependencies = [
+ "cfg-if 1.0.0",
  "chrono",
  "crossbeam-channel",
  "fern",
@@ -1505,9 +1506,9 @@ checksum = "0237232789cf037d5480773fe568aac745bfe2afbc11a863e97901780a6b47cc"
 
 [[package]]
 name = "wav"
-version = "0.6.0"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "549df97e073e1f901a489f159eb451bbe9c790e2f217394f4ce01acda0380b0c"
+checksum = "a65e199c799848b4f997072aa4d673c034f80f40191f97fe2f0a23f410be1609"
 dependencies = [
  "riff",
 ]
