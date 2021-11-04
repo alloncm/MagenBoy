@@ -3,36 +3,32 @@ use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
 use super::{AudioResampler, ResampledAudioDevice, init_sdl_audio_device};
 
 use sdl2::sys::*;
-use crossbeam_channel::{Receiver, SendError, Sender, bounded};
+use crossbeam_channel::{Receiver, Sender, bounded};
 
+const BUFFERS_NUMBER:usize = 3;
 
 struct UserData{
-    rx: Receiver<[Sample;BUFFER_SIZE]>,
-    current_buf: Option<[Sample;BUFFER_SIZE]>,
+    rx: Receiver<usize>,
+    current_buf: Option<usize>,
     current_buf_index:usize,
 }
 
 pub struct SdlPullAudioDevice<AR:AudioResampler>{
     resampler: AR,
-    buffer: [Sample;BUFFER_SIZE],
+    buffers: [[Sample;BUFFER_SIZE];BUFFERS_NUMBER],
+    buffer_number_index:usize,
     buffer_index:usize,
 
-    tarnsmiter: Sender<[Sample;BUFFER_SIZE]>,
+    tarnsmiter: Sender<usize>,
 
     userdata: UserData
-}
-
-impl<AR:AudioResampler> SdlPullAudioDevice<AR>{
-    fn push_audio_to_device(&self, audio:&[Sample; BUFFER_SIZE])->Result<(), SendError<[Sample; BUFFER_SIZE]>>{
-        self.tarnsmiter.send(audio.clone())
-    }
 }
 
 impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
     fn new(frequency:i32, turbo_mul:u8)->Self{
 
         // cap of less than 2 hurts the fps
-        let(s,r) = bounded(2);
+        let(s,r) = bounded(BUFFERS_NUMBER - 1);
         let data = UserData{
             current_buf:Option::None,
             current_buf_index:0,
@@ -40,8 +36,9 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
         };
 
         let mut device = SdlPullAudioDevice{
-            buffer:[DEFAULT_SAPMPLE;BUFFER_SIZE],
+            buffers:[[DEFAULT_SAPMPLE;BUFFER_SIZE];BUFFERS_NUMBER],
             buffer_index:0,
+            buffer_number_index:0,
             resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
             tarnsmiter:s,
             userdata:data
@@ -64,14 +61,20 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
 
         return device;
     }
-    fn get_audio_buffer(&mut self) ->(&mut [Sample;BUFFER_SIZE], &mut usize) {
-        (&mut self.buffer, &mut self.buffer_index)
+
+    fn full_buffer_callback(&mut self) ->Result<(), String> {
+        let result = self.tarnsmiter.send(self.buffers[self.buffer_number_index].as_ptr() as usize).map_err(|e|e.to_string());
+        self.buffer_number_index = (self.buffer_number_index + 1) % BUFFERS_NUMBER;
+
+        return result;
     }
+
+    fn get_audio_buffer(&mut self) ->(&mut [Sample;BUFFER_SIZE], &mut usize) {
+        (&mut self.buffers[self.buffer_number_index], &mut self.buffer_index)
+    }
+
     fn get_resampler(&mut self) ->&mut AR {
         &mut self.resampler
-    }
-    fn full_buffer_callback(&self) ->Result<(), String> {
-        self.push_audio_to_device(&self.buffer).map_err(|e|e.to_string())
     }
 }
 
@@ -89,7 +92,7 @@ unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length
         safe_userdata.current_buf = Some(safe_userdata.rx.recv().unwrap());
     }
 
-    let samples = safe_userdata.current_buf.unwrap();
+    let samples = &*((safe_userdata.current_buf.unwrap()) as *const [Sample;BUFFER_SIZE]);
     let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - safe_userdata.current_buf_index;
     let samples_ptr = (samples.as_ptr() as *mut u8).add(safe_userdata.current_buf_index);
     std::ptr::copy_nonoverlapping(samples_ptr, buffer, std::cmp::min(length, samples_size));

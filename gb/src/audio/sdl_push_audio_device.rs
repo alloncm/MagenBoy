@@ -67,7 +67,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPushAudioDevice<AR>{
         &mut self.resampler
     }
 
-    fn full_buffer_callback(&self)->Result<(), String> {
+    fn full_buffer_callback(&mut self)->Result<(), String> {
         self.push_audio_to_device(&self.buffer).map_err(|e|String::from_str(e).unwrap())
     }
 }
