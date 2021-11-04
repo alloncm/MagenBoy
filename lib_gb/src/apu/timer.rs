@@ -13,6 +13,7 @@ impl Timer{
     }
 
     // This function is a hot spot for the APU, almost every component uses the timer
+    #[inline]
     pub fn cycle(&mut self)->bool{
         if self.cycles_to_tick != 0{
             // The calculation used to be this:
