@@ -6,7 +6,6 @@ const ENABLE_MASK:ChannelMask = 0xFFFF;
 const DISABLE_MASK:ChannelMask = 0x0;
 
 pub struct SoundTerminal{
-    pub enabled:bool,
     pub volume:u8,
     channel_masks:[ChannelMask;NUMBER_OF_CHANNELS]
 }
@@ -14,7 +13,6 @@ pub struct SoundTerminal{
 impl Default for SoundTerminal{
     fn default() -> Self {
         SoundTerminal{
-            enabled:false,
             channel_masks:[DISABLE_MASK;NUMBER_OF_CHANNELS],
             volume:0
         }
