@@ -1,20 +1,17 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
-mod sdl_audio_device;
-mod audio_resampler;
-mod wav_file_audio_device;
-mod multi_device_audio;
 mod sdl_gfx_device;
+mod mpmc_gfx_device;
+mod audio;
 
-use crate::{mbc_handler::*, sdl_joypad_provider::*, multi_device_audio::*};
-use lib_gb::{keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY, apu::audio_device::*};
+use crate::{audio::{ChosenResampler, multi_device_audio::*, ResampledAudioDevice}, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, sdl_joypad_provider::*};
+use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
 use sdl2::sys::*;
 
-const FPS:f64 = GB_FREQUENCY as f64 / 70224.0;
-const FRAME_TIME_MS:f64 = (1.0 / FPS) * 1000.0;
 const SCREEN_SCALE:u8 = 4;
+const TURBO_MUL:u8 = 1;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
@@ -68,45 +65,24 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let audio_device = sdl_audio_device::SdlAudioDevie::new(44100);
-    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    devices.push(Box::new(audio_device));
-    if check_for_terminal_feature_flag(&args, "--file-audio"){
-        let wav_ad = wav_file_audio_device::WavfileAudioDevice::new(44100, GB_FREQUENCY, "output.wav");
-        devices.push(Box::new(wav_ad));
-    }
+    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32,
+         "MagenBoy", SCREEN_SCALE, TURBO_MUL, check_for_terminal_feature_flag(&args, "--no-vsync"));
     
-    let audio_devices = MultiAudioDevice::new(devices);
+    let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
+    let mpmc_device = MpmcGfxDevice::new(s);
 
-    let sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, "MagenBoy", SCREEN_SCALE);
+    let program_name = args[1].clone();
 
-    let program_name = &args[1];
-    let mut mbc = initialize_mbc(program_name); 
-    let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
-
-    let mut gameboy = match fs::read("Dependencies/Init/dmg_boot.bin"){
-        Result::Ok(file)=>{
-            info!("found bootrom!");
-
-            let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
-            for i in 0..BOOT_ROM_SIZE{
-                bootrom[i] = file[i];
-            }
-            
-            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_devices, sdl_gfx_device, bootrom)
-        }
-        Result::Err(_)=>{
-            info!("could not find bootrom... booting directly to rom");
-
-            GameBoy::new(&mut mbc, joypad_provider, audio_devices, sdl_gfx_device)
-        }
-    };
-
-    info!("initialized gameboy successfully!");
+    let mut running = true;
+    // Casting to ptr cause you cant pass a raw ptr (*const/mut T) to another thread
+    let running_ptr:usize = (&running as *const bool) as usize;
+    
+    let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
+        move || emulation_thread_main(args, program_name, mpmc_device, running_ptr)
+    ).unwrap();
 
     unsafe{
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
-        let mut start:u64 = SDL_GetPerformanceCounter();
         loop{
 
             if SDL_PollEvent(event.as_mut_ptr()) != 0{
@@ -115,20 +91,58 @@ fn main() {
                     break;
                 }
             }
-
-            gameboy.cycle_frame();
-
-            let end = SDL_GetPerformanceCounter();
-            let elapsed_ms:f64 = (end - start) as f64 / SDL_GetPerformanceFrequency() as f64 * 1000.0;
-            if elapsed_ms < FRAME_TIME_MS{
-                SDL_Delay((FRAME_TIME_MS - elapsed_ms).floor() as u32);
-            }
-
-            start = SDL_GetPerformanceCounter();
+            
+            let buffer = r.recv().unwrap();
+            sdl_gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
+
+        drop(r);
+        std::ptr::write_volatile(&mut running as *mut bool, false);
+        emualation_thread.join().unwrap();
 
         SDL_Quit();
     }
+}
+
+// Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
+fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
+    let audio_device = audio::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
+    
+    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+    devices.push(Box::new(audio_device));
+    if check_for_terminal_feature_flag(&args, "--file-audio"){
+        let wav_ad = audio::wav_file_audio_device::WavfileAudioDevice::<ChosenResampler>::new(44100, GB_FREQUENCY, "output.wav");
+        devices.push(Box::new(wav_ad));
+        log::info!("Writing audio to file: output.wav");
+    }
+    let audio_devices = MultiAudioDevice::new(devices);
+    let mut mbc = initialize_mbc(&program_name);
+    let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
+    let mut gameboy = match fs::read("Dependencies/Init/dmg_boot.bin"){
+        Result::Ok(file)=>{
+            info!("found bootrom!");
+    
+            let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
+            for i in 0..BOOT_ROM_SIZE{
+                bootrom[i] = file[i];
+            }
+        
+            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_devices, spsc_gfx_device, bootrom)
+        }
+        Result::Err(_)=>{
+            info!("could not find bootrom... booting directly to rom");
+    
+            GameBoy::new(&mut mbc, joypad_provider, audio_devices, spsc_gfx_device)
+        }
+    };
+    info!("initialized gameboy successfully!");
+
+    unsafe{
+        while std::ptr::read_volatile(running_ptr as *const bool){
+            gameboy.cycle_frame();
+        }
+    }
     drop(gameboy);
-    release_mbc(program_name, mbc);
+    release_mbc(&program_name, mbc);
+    log::info!("released the gameboy succefully");
 }

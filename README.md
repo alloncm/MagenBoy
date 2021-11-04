@@ -11,14 +11,25 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 
 **More will be added if neccessary (and by neccessary I mean if games I want to play will require them)**
 
+## How to use
+
+```shell
+magenboy [path_to_rom] [other_optional_flags]
+```
+
+### Optional flags
+* `--log` - Print logs in debug mode to a file
+* `--file-audio` - Saves the audio to a file
+* `--no-vsync` - Disable vsync
+
 ## GameBoy
 
 ### Development Status
 
 - CPU - Cycle accurate CPU
-- PPU - Scan line accurate PPU
+- PPU - Cycle accurate fifo PPU
 - Timer - Mostly accurate timer
-- APU - Mostly accurate APU
+- APU - Cycle mostly accurate APU
 - Tests
     - [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
     - [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) - :thumbsup:

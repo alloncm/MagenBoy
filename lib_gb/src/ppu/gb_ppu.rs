@@ -10,6 +10,8 @@ use super::fifo::{FIFO_SIZE, sprite_fetcher::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
+pub const BUFFERS_NUMBER:usize = 2;
+
 const OAM_ENTRY_SIZE:u16 = 4;
 const OAM_MEMORY_SIZE:usize = 0xA0;
 
@@ -39,7 +41,8 @@ pub struct GbPpu<GFX: GfxDevice>{
 
     gfx_device: GFX,
     t_cycles_passed:u16,
-    screen_buffer: [u32; SCREEN_HEIGHT * SCREEN_WIDTH],
+    screen_buffers: [[u32; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
+    current_screen_buffer_index:usize,
     push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
@@ -61,7 +64,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             lcd_control: 0,
             bg_pos: Vec2::<u8>{x:0, y:0},
             window_pos: Vec2::<u8>{x:0,y:0},
-            screen_buffer:[0;SCREEN_HEIGHT * SCREEN_WIDTH],
+            screen_buffers:[[0;SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
+            current_screen_buffer_index:0,
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
@@ -85,11 +89,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     pub fn turn_off(&mut self){
-        self.screen_buffer_index = 0;
         self.t_cycles_passed = 0;
         //This is an expensive operation!
-        unsafe{std::ptr::write_bytes(self.screen_buffer.as_mut_ptr(), 0xFF, self.screen_buffer.len())};
-        self.gfx_device.swap_buffer(&self.screen_buffer);
+        unsafe{std::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
+        self.swap_buffer();
         self.state = PpuState::Hblank;
         self.ly_register = 0;
         self.stat_triggered = false;
@@ -114,16 +117,21 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
         self.update_stat_register(if_register);
 
-        for pixel in self.push_lcd_buffer.iter(){
-            self.screen_buffer[self.screen_buffer_index] = u32::from(*pixel);
+        for i in 0..self.push_lcd_buffer.len(){
+            self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = u32::from(self.push_lcd_buffer[i]);
             self.screen_buffer_index += 1;
-            if self.screen_buffer_index == self.screen_buffer.len(){
-                self.gfx_device.swap_buffer(&self.screen_buffer);
-                self.screen_buffer_index = 0;
+            if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
+               self.swap_buffer();
             }
         }
 
         self.push_lcd_buffer.clear();
+    }
+
+    fn swap_buffer(&mut self){
+        self.gfx_device.swap_buffer(&self.screen_buffers[self.current_screen_buffer_index]);
+        self.screen_buffer_index = 0;
+        self.current_screen_buffer_index = (self.current_screen_buffer_index + 1) % BUFFERS_NUMBER;
     }
 
     fn update_stat_register(&mut self, if_register: &mut u8) {

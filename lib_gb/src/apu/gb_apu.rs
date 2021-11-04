@@ -10,8 +10,6 @@ use super::{
     sound_utils::NUMBER_OF_CHANNELS
 };
 
-pub const AUDIO_BUFFER_SIZE:usize = 0x400;
-
 pub struct GbApu<Device: AudioDevice>{
     pub wave_channel:Channel<WaveSampleProducer>,
     pub sweep_tone_channel:Channel<SquareSampleProducer>,
@@ -22,8 +20,8 @@ pub struct GbApu<Device: AudioDevice>{
     pub left_terminal:SoundTerminal,
     pub enabled:bool,
 
-    audio_buffer:[Sample;AUDIO_BUFFER_SIZE],
-    current_t_cycle:u32,
+    audio_buffer:[StereoSample;BUFFER_SIZE],
+    current_m_cycle:u32,
     device:Device,
     last_enabled_state:bool
 }
@@ -36,8 +34,8 @@ impl<Device: AudioDevice> GbApu<Device>{
             wave_channel:Channel::<WaveSampleProducer>::new(WaveSampleProducer::default()),
             tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
             noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
-            audio_buffer:[Sample{left_sample:0.0, right_sample:0.0}; AUDIO_BUFFER_SIZE],
-            current_t_cycle:0,
+            audio_buffer:crate::utils::create_array(StereoSample::const_defualt),
+            current_m_cycle:0,
             device:device,
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
@@ -47,16 +45,13 @@ impl<Device: AudioDevice> GbApu<Device>{
     }
 
     pub fn cycle(&mut self, m_cycles_passed:u8){
-        //converting m_cycles to t_cycles
-        let t_cycles = m_cycles_passed * 4;
-
         if self.enabled{
-            for _ in 0..t_cycles{   
+            for _ in 0..m_cycles_passed{   
 
                 let tick = self.frame_sequencer.cycle();
                 self.update_channels_for_frame_squencer(tick);
             
-                let mut samples:[f32;NUMBER_OF_CHANNELS] = [0.0;NUMBER_OF_CHANNELS];
+                let mut samples:[Sample;NUMBER_OF_CHANNELS] = [DEFAULT_SAPMPLE ; NUMBER_OF_CHANNELS];
                 samples[0] = self.sweep_tone_channel.get_audio_sample();
                 samples[1] = self.tone_channel.get_audio_sample();
                 samples[2] = self.wave_channel.get_audio_sample();
@@ -65,35 +60,37 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let left_sample = self.left_terminal.mix_terminal_samples(&samples);
                 let right_sample = self.right_terminal.mix_terminal_samples(&samples);
             
-                self.audio_buffer[self.current_t_cycle as usize].left_sample = left_sample;
-                self.audio_buffer[self.current_t_cycle as usize].right_sample = right_sample;
+                self.audio_buffer[self.current_m_cycle as usize].left_sample = left_sample;
+                self.audio_buffer[self.current_m_cycle as usize].right_sample = right_sample;
                 
-                self.current_t_cycle += 1;
+                self.current_m_cycle += 1;
 
                 self.push_buffer_if_full();
             }
         }
         else{
-            for _ in 0..t_cycles{
-                self.audio_buffer[self.current_t_cycle as usize] = Sample{right_sample:0.0, left_sample:0.0};
-                self.current_t_cycle += 1;
+            for _ in 0..m_cycles_passed{
+                self.audio_buffer[self.current_m_cycle as usize] = StereoSample::const_defualt();
+                self.current_m_cycle += 1;
 
                 self.push_buffer_if_full();
             }
-
-            self.tone_channel.reset();
-            self.sweep_tone_channel.reset();
-            self.wave_channel.reset();
-            self.noise_channel.reset();
-            self.frame_sequencer.reset();
         }            
 
         self.last_enabled_state = self.enabled;
     }
 
+    pub fn reset(&mut self){
+        self.tone_channel.reset();
+        self.sweep_tone_channel.reset();
+        self.wave_channel.reset();
+        self.noise_channel.reset();
+        self.frame_sequencer.reset();
+    }
+
     fn push_buffer_if_full(&mut self){
-        if self.current_t_cycle as usize >= AUDIO_BUFFER_SIZE{
-            self.current_t_cycle = 0;
+        if self.current_m_cycle as usize >= BUFFER_SIZE{
+            self.current_m_cycle = 0;
             self.device.push_buffer(&self.audio_buffer);
         }
     }
