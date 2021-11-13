@@ -70,7 +70,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             ly_register:0,
-            state: PpuState::OamSearch,
+            state: PpuState::Hblank,
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
