@@ -18,9 +18,11 @@ magenboy [path_to_rom] [other_optional_flags]
 ```
 
 ### Optional flags
+
 * `--log` - Print logs in debug mode to a file
 * `--file-audio` - Saves the audio to a file
 * `--no-vsync` - Disable vsync
+* `--bootrom [path to bootrom file]` - Specify the path for a bootrom
 
 ## GameBoy
 

@@ -118,7 +118,15 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     let audio_devices = MultiAudioDevice::new(devices);
     let mut mbc = initialize_mbc(&program_name);
     let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
-    let mut gameboy = match fs::read("Dependencies/Init/dmg_boot.bin"){
+    let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
+        let index = args.iter().position(|v| *v == String::from("--bootrom")).expect("Error! you must specify a value for the --bootrom parameter");
+        args[index + 1].clone()
+    }else{
+        String::from("Dependencies/Init/dmg_boot.bin")
+    };
+
+    println!("{}", bootrom_path);
+    let mut gameboy = match fs::read(bootrom_path){
         Result::Ok(file)=>{
             info!("found bootrom!");
     
