@@ -7,33 +7,44 @@ pub struct SdlGfxDevice{
     _window_name: CString,
     renderer: *mut SDL_Renderer,
     texture: *mut SDL_Texture,
-    width:u32,
-    height:u32,
-    sacle:u8,
     discard:u8,
     turbo_mul:u8,
 }
 
 impl SdlGfxDevice{
-    pub fn new(buffer_width:u32, buffer_height:u32, window_name:&str, screen_scale: u8, turbo_mul:u8, disable_vsync:bool)->Self{
+    pub fn new(window_name:&str, screen_scale: u8, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
             SDL_Init(SDL_INIT_VIDEO);
+
+            let window_flags = if full_screen{
+                SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
+            }
+            else{
+                0
+            };
+
             let wind:*mut SDL_Window = SDL_CreateWindow(
                 cs_wnd_name.as_ptr(),
                 SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-                buffer_width as i32 * screen_scale as i32, buffer_height as i32 * screen_scale as i32, 0);
-            let mut flags = SDL_RendererFlags::SDL_RENDERER_ACCELERATED as u32;
+                SCREEN_WIDTH as i32 * screen_scale as i32, SCREEN_HEIGHT as i32 * screen_scale as i32,
+                 window_flags);
+
+            let mut render_flags = SDL_RendererFlags::SDL_RENDERER_ACCELERATED as u32;
             if !disable_vsync{
-                flags |= SDL_RendererFlags::SDL_RENDERER_PRESENTVSYNC as u32;
+                render_flags |= SDL_RendererFlags::SDL_RENDERER_PRESENTVSYNC as u32;
             }
 
-            let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, flags);
+            let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, render_flags);
             
+            if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
+                std::panic!("Error while setting logical rendering");
+            }
+
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
                 SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
-                    buffer_width as i32 * screen_scale as i32, buffer_height as i32 * screen_scale as i32);
+                    SCREEN_WIDTH as i32 , SCREEN_HEIGHT as i32 );
             
             (wind, rend, tex)
         };
@@ -42,28 +53,9 @@ impl SdlGfxDevice{
             _window_name: cs_wnd_name,
             renderer,
             texture,
-            height:buffer_height,
-            width:buffer_width,
-            sacle:screen_scale,
             discard:0,
             turbo_mul
         }
-    }
-
-    fn extend_vec(vec:&[u32], scale:usize, w:usize, h:usize)->Vec<u32>{
-        let mut new_vec = vec![0;vec.len()*scale*scale];
-        for y in 0..h{
-            let sy = y*scale;
-            for x in 0..w{
-                let sx = x*scale;
-                for i in 0..scale{
-                    for j in 0..scale{
-                        new_vec[(sy+i)*(w*scale)+sx+j] = vec[y*w+x];
-                    }
-                }
-            } 
-        }
-        return new_vec;
     }
 }
 
@@ -75,12 +67,10 @@ impl GfxDevice for SdlGfxDevice{
         }
 
         unsafe{
-            let extended_buffer = Self::extend_vec(buffer, self.sacle as usize, self.width as usize, self.height as usize);
-
             let mut pixels: *mut c_void = std::ptr::null_mut();
             let mut length: std::os::raw::c_int = 0;
             SDL_LockTexture(self.texture, std::ptr::null(), &mut pixels, &mut length);
-            std::ptr::copy_nonoverlapping(extended_buffer.as_ptr(),pixels as *mut u32,  extended_buffer.len());
+            std::ptr::copy_nonoverlapping(buffer.as_ptr(),pixels as *mut u32,  buffer.len());
             SDL_UnlockTexture(self.texture);
             
             //There is no need to call SDL_RenderClear since im replacing the whole buffer 

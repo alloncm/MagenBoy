@@ -20,6 +20,7 @@ magenboy [path_to_rom] [other_optional_flags]
 ### Optional flags
 * `--log` - Print logs in debug mode to a file
 * `--file-audio` - Saves the audio to a file
+* `--full-screen` - Display the screen all over the screen
 * `--no-vsync` - Disable vsync
 
 ## GameBoy

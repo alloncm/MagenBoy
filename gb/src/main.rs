@@ -65,8 +65,8 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new(SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32,
-         "MagenBoy", SCREEN_SCALE, TURBO_MUL, check_for_terminal_feature_flag(&args, "--no-vsync"));
+    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+     check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
