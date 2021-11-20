@@ -122,7 +122,7 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         let index = args.iter().position(|v| *v == String::from("--bootrom")).unwrap();
         args.get(index + 1).expect("Error! you must specify a value for the --bootrom parameter").clone()
     }else{
-        String::from("Dependencies/Init/dmg_boot.bin")
+        String::from("dmg_boot.bin")
     };
 
     let mut gameboy = match fs::read(bootrom_path){

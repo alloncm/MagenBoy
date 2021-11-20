@@ -22,7 +22,7 @@ magenboy [path_to_rom] [other_optional_flags]
 * `--log` - Print logs in debug mode to a file
 * `--file-audio` - Saves the audio to a file
 * `--no-vsync` - Disable vsync
-* `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look at `Dependencies/Init/dmg_boot.bin`)
+* `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 
 ## GameBoy
 
