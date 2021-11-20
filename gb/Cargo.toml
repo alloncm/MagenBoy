@@ -14,7 +14,7 @@ lib_gb = {path = "../lib_gb/"}
 log = "0.4"
 fern = "0.6.0"
 chrono = "0.4"
-sdl2 = {package = "sdl2", version = "0.34"}
+sdl2 = "0.34"
 wav = "1.0"
 crossbeam-channel = "0.5"
 cfg-if = "1.0"
