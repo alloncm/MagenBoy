@@ -48,8 +48,8 @@ impl SdlGfxDevice{
 
             cfg_if::cfg_if!{
                 if #[cfg(feature = "static-scale")]{
-                    texture_height = SCREEN_HEIGHT as i32* screen_scale as i32;
-                    texture_width = SCREEN_WIDTH as i32* screen_scale as i32;
+                    texture_height = SCREEN_HEIGHT as i32 * screen_scale as i32;
+                    texture_width = SCREEN_WIDTH as i32 * screen_scale as i32;
                 }
                 else{
                     if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
