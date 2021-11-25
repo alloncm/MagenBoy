@@ -1,3 +1,4 @@
+use super::audio_device::{DEFAULT_SAPMPLE, Sample};
 use super::sample_producer::SampleProducer;
 use super::timer::Timer;
 
@@ -9,7 +10,7 @@ pub struct Channel<Procuder: SampleProducer>{
     pub sample_producer:Procuder,
     pub timer:Timer,
 
-    last_sample:u8,
+    last_sample:Sample,
 }
 
 impl<Procuder: SampleProducer> Channel<Procuder>{
@@ -21,7 +22,7 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
             length_enable:false,
             timer: Timer::new(sample_producer.get_updated_frequency_ticks(0)),
             sample_producer,
-            last_sample: 0
+            last_sample: DEFAULT_SAPMPLE
         }   
     }
 
@@ -44,15 +45,15 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
         self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
         self.sample_producer.reset();
 
-        self.last_sample = 0;
+        self.last_sample = DEFAULT_SAPMPLE;
     }
 
-    pub fn get_audio_sample(&mut self)->f32{
+    pub fn get_audio_sample(&mut self)->Sample{
         if self.enabled{
 
             let sample = if self.timer.cycle(){
                 self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
-                self.sample_producer.produce()
+                self.sample_producer.produce() as Sample
             }
             else{
                 self.last_sample
@@ -60,13 +61,9 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
             self.last_sample = sample;
     
-            return self.convert_digtial_to_analog(self.last_sample);
+            return self.last_sample;
         }
         
-        return 0.0;
-    }
-
-    fn convert_digtial_to_analog(&self, sample:u8)->f32{
-        (sample as f32 / 7.5 ) - 1.0
+        return DEFAULT_SAPMPLE;
     }
 }

@@ -1,8 +1,11 @@
-use crate::{cpu::gb_cpu::GbCpu, ppu::gb_ppu::GbPpu, utils::memory_registers::IE_REGISTER_ADDRESS};
-use crate::utils::{
+use crate::{cpu::gb_cpu::GbCpu, utils::{
     bit_masks::*,
-    memory_registers::IF_REGISTER_ADDRESS
-};
+    memory_registers::{
+        IE_REGISTER_ADDRESS,
+        IF_REGISTER_ADDRESS,
+        STAT_REGISTER_ADDRESS
+    }
+}};
 use crate::cpu::opcodes::opcodes_utils::push;
 use crate::mmu::memory::Memory;
 
@@ -26,18 +29,19 @@ impl Default for InterruptsHandler{
 
 impl InterruptsHandler{
 
-    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu,ppu:&mut GbPpu, memory:&mut impl Memory)->u8{
+    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
         //this is delayed by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
         
         let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
         let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
+        let stat_register = memory.read(STAT_REGISTER_ADDRESS);
 
         if cpu.mie && self.ei_triggered{
             if interupt_flag & BIT_0_MASK != 0 && interupt_enable & BIT_0_MASK != 0{
                 return Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
             }
-            if interupt_flag & BIT_1_MASK != 0 && interupt_enable & BIT_1_MASK != 0 && 
-            (ppu.v_blank_interrupt_request || ppu.oam_search_interrupt_request || ppu.h_blank_interrupt_request || ppu.coincidence_interrupt_request){
+            // Checking those STAT register bits for the STAT interrupts requests
+            if interupt_flag & BIT_1_MASK != 0 && interupt_enable & BIT_1_MASK != 0 && (stat_register & 0b111_1000) != 0{
                 return Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
             }
             if interupt_flag & BIT_2_MASK != 0 && interupt_enable & BIT_2_MASK != 0{

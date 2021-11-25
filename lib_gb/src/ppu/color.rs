@@ -33,3 +33,9 @@ impl PartialEq for Color{
         self.r == color.r
     }
 }
+
+impl From<Color> for u32{
+    fn from(color: Color) -> Self {
+        ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
+    }
+}
