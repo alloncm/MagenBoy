@@ -9,7 +9,7 @@ pub struct SdlGfxDevice{
     texture: *mut SDL_Texture,
     discard:u8,
     turbo_mul:u8,
-    #[cfg(feature = "static_scale")]
+    #[cfg(feature = "static-scale")]
     screen_scale:usize,
 }
 
@@ -21,6 +21,9 @@ impl SdlGfxDevice{
             SDL_Init(SDL_INIT_VIDEO);
 
             let window_flags = if full_screen{
+                #[cfg(feature = "static-scale")]
+                log::warn!("Please notice that this binary have been compiled with the static-scale feature and you are running with the full screen option.\nThe rendering window might be in wrong scale.");
+                
                 SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
             }
             else{
@@ -44,7 +47,7 @@ impl SdlGfxDevice{
             let texture_height:i32;
 
             cfg_if::cfg_if!{
-                if #[cfg(feature = "static_scale")]{
+                if #[cfg(feature = "static-scale")]{
                     texture_height = SCREEN_HEIGHT as i32* screen_scale as i32;
                     texture_width = SCREEN_WIDTH as i32* screen_scale as i32;
                 }
@@ -70,12 +73,12 @@ impl SdlGfxDevice{
             texture,
             discard:0,
             turbo_mul, 
-            #[cfg(feature = "static_scale")]
+            #[cfg(feature = "static-scale")]
             screen_scale
         }
     }
 
-    #[cfg(feature = "static_scale")]
+    #[cfg(feature = "static-scale")]
     fn extend_vec(vec:&[u32], scale:usize, w:usize, h:usize)->Vec<u32>{
         let mut new_vec = vec![0;vec.len()*scale*scale];
         for y in 0..h{
@@ -100,7 +103,7 @@ impl GfxDevice for SdlGfxDevice{
             return;
         }
 
-        #[cfg(feature = "static_scale")]
+        #[cfg(feature = "static-scale")]
         let buffer = Self::extend_vec(buffer, self.screen_scale, SCREEN_WIDTH, SCREEN_HEIGHT);
 
         unsafe{
