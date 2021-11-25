@@ -10,7 +10,7 @@ use std::{fs, env, result::Result, vec::Vec};
 use log::info;
 use sdl2::sys::*;
 
-const SCREEN_SCALE:u8 = 4;
+const SCREEN_SCALE:usize = 4;
 const TURBO_MUL:u8 = 1;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{

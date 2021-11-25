@@ -9,10 +9,12 @@ pub struct SdlGfxDevice{
     texture: *mut SDL_Texture,
     discard:u8,
     turbo_mul:u8,
+    #[cfg(feature = "static_scale")]
+    screen_scale:usize,
 }
 
 impl SdlGfxDevice{
-    pub fn new(window_name:&str, screen_scale: u8, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
+    pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
@@ -38,13 +40,26 @@ impl SdlGfxDevice{
 
             let rend: *mut SDL_Renderer = SDL_CreateRenderer(wind, -1, render_flags);
             
-            if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
-                std::panic!("Error while setting logical rendering");
-            }
+            let texture_width:i32;
+            let texture_height:i32;
 
+            cfg_if::cfg_if!{
+                if #[cfg(feature = "static_scale")]{
+                    texture_height = SCREEN_HEIGHT as i32* screen_scale as i32;
+                    texture_width = SCREEN_WIDTH as i32* screen_scale as i32;
+                }
+                else{
+                    if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
+                        std::panic!("Error while setting logical rendering");
+                    }
+                    texture_height = SCREEN_HEIGHT as i32;
+                    texture_width = SCREEN_WIDTH as i32;
+                }
+            }
+            
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
                 SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
-                    SCREEN_WIDTH as i32 , SCREEN_HEIGHT as i32 );
+                    texture_width, texture_height);
             
             (wind, rend, tex)
         };
@@ -54,8 +69,27 @@ impl SdlGfxDevice{
             renderer,
             texture,
             discard:0,
-            turbo_mul
+            turbo_mul, 
+            #[cfg(feature = "static_scale")]
+            screen_scale
         }
+    }
+
+    #[cfg(feature = "static_scale")]
+    fn extend_vec(vec:&[u32], scale:usize, w:usize, h:usize)->Vec<u32>{
+        let mut new_vec = vec![0;vec.len()*scale*scale];
+        for y in 0..h{
+            let sy = y*scale;
+            for x in 0..w{
+                let sx = x*scale;
+                for i in 0..scale{
+                    for j in 0..scale{
+                        new_vec[(sy+i)*(w*scale)+sx+j] = vec[y*w+x];
+                    }
+                }
+            } 
+        }
+        return new_vec;
     }
 }
 
@@ -65,6 +99,9 @@ impl GfxDevice for SdlGfxDevice{
         if self.discard != 0{
             return;
         }
+
+        #[cfg(feature = "static_scale")]
+        let buffer = Self::extend_vec(buffer, self.screen_scale, SCREEN_WIDTH, SCREEN_HEIGHT);
 
         unsafe{
             let mut pixels: *mut c_void = std::ptr::null_mut();
