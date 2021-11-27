@@ -24,7 +24,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice>{
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
-    fn read(&self, address:u16)->u8{
+    fn read(&mut self, address:u16)->u8{
         if let Some (bus) = &self.io_components.dma.enable{
             return match address{
                 0xFF00..=0xFF7F => self.io_components.read(address - 0xFF00),

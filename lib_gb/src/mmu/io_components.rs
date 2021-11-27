@@ -4,7 +4,7 @@ use crate::{apu::{*,audio_device::AudioDevice, gb_apu::GbApu},
     utils::memory_registers::*
 };
 use crate::timer::gb_timer::GbTimer;
-use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram};
+use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram, scheduler::ScheduledEvent};
 use super::io_ports::*;
 
 pub const IO_PORTS_SIZE:usize = 0x80;
@@ -16,9 +16,16 @@ pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
     pub ppu:GbPpu<GFX>,
-    ports:[u8;IO_PORTS_SIZE],
     pub dma:OamDmaTransfer,
     pub finished_boot:bool,
+
+    ports:[u8;IO_PORTS_SIZE],
+    apu_cycles:u32,
+    ppu_cycles:u32,
+    timer_cycles:u32,
+
+    timer_event:Option<ScheduledEvent>,
+    ppu_event:Option<ScheduledEvent>,
 }
 
 io_port_index!(LCDC_REGISTER_INDEX, LCDC_REGISTER_ADDRESS);
@@ -37,7 +44,15 @@ io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
 io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
 
 impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
-    fn read(&self, address:u16)->u8 {
+    fn read(&mut self, address:u16)->u8 {
+
+        match address{
+            TAC_REGISTER_INDEX | DIV_REGISTER_INDEX | TIMA_REGISTER_INDEX=> self.cycle_timer(),
+            NR10_REGISTER_INDEX..=WAVE_RAM_END_INDEX => self.cycle_apu(),
+            LCDC_REGISTER_INDEX..=WX_REGISTER_INDEX => self.cycle_ppu(),
+            _=>{}
+        }
+
         let mut value = self.ports[address as usize];
         return match address {
             //Timer
@@ -80,6 +95,12 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
     }
 
     fn write(&mut self, address:u16, mut value:u8) {
+        match address{
+            DIV_REGISTER_INDEX | TIMA_REGISTER_INDEX | TMA_REGISTER_INDEX | TAC_REGISTER_INDEX => self.cycle_timer(),
+            NR10_REGISTER_INDEX..=WAVE_RAM_END_INDEX => self.cycle_ppu(),
+            LCDC_REGISTER_INDEX..=WX_REGISTER_INDEX => self.cycle_ppu(),
+            _=>{}
+        }
         match address{
             //timer
             DIV_REGISTER_INDEX=> {
@@ -163,14 +184,52 @@ impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoComponents<AD, GFX>{
 
 impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
     pub fn new(apu:GbApu<AD>, gfx_device:GFX)->Self{
-        Self{apu, ports:[0;IO_PORTS_SIZE], timer:GbTimer::default(), ppu:GbPpu::new(gfx_device), dma:OamDmaTransfer::default(),finished_boot:false, ram:Ram::default()}
+        Self{apu,
+            ports:[0;IO_PORTS_SIZE],
+            timer:GbTimer::default(),
+            ppu:GbPpu::new(gfx_device), 
+            dma:OamDmaTransfer::default(),
+            finished_boot:false, 
+            ram:Ram::default(),
+            apu_cycles:0,
+            ppu_cycles:0,
+            timer_cycles:0,
+            ppu_event:None,
+            timer_event: None,
+        }
     }
 
     pub fn cycle(&mut self, cycles:u32){
+        self.apu_cycles += cycles;
+        self.ppu_cycles += cycles;
+        self.timer_cycles += cycles;
+
+        if let Some(event) = &self.ppu_event{
+            if event.cycles >= self.ppu_cycles{
+                self.cycle_ppu();
+            }
+        }
+        if let Some(event) = &self.timer_event{
+            if event.cycles >= self.timer_cycles{
+                self.cycle_timer();
+            }
+        }
+    }
+
+    fn cycle_ppu(&mut self){
         let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
-        self.timer.cycle(&mut if_register, cycles as u8);
-        self.apu.cycle(cycles as u8);
-        self.ppu.cycle( cycles, &mut if_register);
+        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut if_register);
         self.ports[IF_REGISTER_INDEX as usize] = if_register;
+        self.ppu_cycles = 0;
+    }
+    fn cycle_apu(&mut self){
+        self.apu.cycle(self.apu_cycles);
+        self.apu_cycles = 0;
+    }
+    fn cycle_timer(&mut self){
+        let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
+        self.timer_event = self.timer.cycle(self.timer_cycles, &mut if_register);
+        self.ports[IF_REGISTER_INDEX as usize] = if_register;
+        self.timer_cycles = 0;
     }
 }

@@ -44,7 +44,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    pub fn cycle(&mut self, m_cycles_passed:u8){
+    pub fn cycle(&mut self, m_cycles_passed:u32){
         if self.enabled{
             for _ in 0..m_cycles_passed{   
 

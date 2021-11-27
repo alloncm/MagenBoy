@@ -1,4 +1,4 @@
-use crate::utils::bit_masks::*;
+use crate::{mmu::scheduler::ScheduledEvent, utils::bit_masks::*};
 
 pub struct GbTimer{
     pub system_counter:u16,
@@ -27,7 +27,7 @@ impl Default for GbTimer{
 }
 
 impl GbTimer{
-    pub fn cycle(&mut self, if_register:&mut u8, m_cycles:u8){
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<crate::mmu::scheduler::ScheduledEvent>{
         let (timer_interval, timer_enable) = self.get_timer_controller_data();
 
         for _ in 0..m_cycles * 4{
@@ -61,6 +61,16 @@ impl GbTimer{
             }
             self.last_and_result = current_and_result;
         }
+
+        let v = match timer_interval{
+            0b00=>0x100 - self.system_counter & 0xFF,
+            0b01=>0b1000 - self.system_counter & 0b111,
+            0b10=>0b10_0000 - self.system_counter & 0b1_1111,
+            0b11=>0b1000_0000 - self.system_counter & 0b111_1111,
+            _=>std::panic!("error ")
+        };
+
+        Some(ScheduledEvent{cycles:(v>>2) as u32 + 1, event_type:crate::mmu::scheduler::ScheduledEventType::Timer})
     }
 
     fn get_timer_controller_data(&self)->(u8, bool){

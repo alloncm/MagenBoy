@@ -1,3 +1,4 @@
+use crate::mmu::scheduler::ScheduledEvent;
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
 use crate::ppu::color::*;
@@ -108,14 +109,16 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8){
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<ScheduledEvent>{
         if self.lcd_control & BIT_7_MASK == 0{
-            return;
+            return None;
         }
 
-        self.cycle_fetcher(m_cycles, if_register);
+        let fethcer_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register);
 
-        self.update_stat_register(if_register);
+        let stat_cycles_to_next_event = self.update_stat_register(if_register);
+
+        let cycles = std::cmp::min(fethcer_cycles_to_next_event, stat_cycles_to_next_event);
 
         for i in 0..self.push_lcd_buffer.len(){
             self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = u32::from(self.push_lcd_buffer[i]);
@@ -126,6 +129,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
 
         self.push_lcd_buffer.clear();
+
+        return Some(ScheduledEvent{cycles, event_type:crate::mmu::scheduler::ScheduledEventType::Ppu});
     }
 
     fn swap_buffer(&mut self){
@@ -134,7 +139,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.current_screen_buffer_index = (self.current_screen_buffer_index + 1) % BUFFERS_NUMBER;
     }
 
-    fn update_stat_register(&mut self, if_register: &mut u8) {
+    fn update_stat_register(&mut self, if_register: &mut u8) -> u32{
         self.stat_register &= 0b1111_1100;
         self.stat_register |= self.state as u8;
         if self.ly_register == self.lyc_register{
@@ -156,9 +161,19 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             self.stat_triggered = false;
         }
         self.trigger_stat_interrupt = false;
+
+        return if self.lyc_register < self.ly_register{
+            (((self.ly_register - self.lyc_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32) >> 2
+        }
+        else if self.lyc_register == self.ly_register{
+            (HBLANK_T_CYCLES_LENGTH as u32 * 154 ) - self.t_cycles_passed as u32
+        }
+        else{
+            (((self.lyc_register - self.ly_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32) >> 2
+        };
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8){
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u32{
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
 
         for _ in 0..m_cycles * 2{
@@ -261,6 +276,13 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             }
             
         }
+
+        let t_cycles = match self.state{
+            PpuState::Vblank => (SCREEN_HEIGHT - (self.ly_register as usize - SCREEN_HEIGHT)) as u32 * HBLANK_T_CYCLES_LENGTH as u32,
+            _ => ((SCREEN_HEIGHT - self.ly_register as usize) * HBLANK_T_CYCLES_LENGTH as usize) as u32
+        };
+
+        return (t_cycles - self.t_cycles_passed as u32) >> 2;
     }
 
     fn try_push_to_lcd(&mut self){
