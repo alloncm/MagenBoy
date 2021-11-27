@@ -205,12 +205,12 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
         self.timer_cycles += cycles;
 
         if let Some(event) = &self.ppu_event{
-            if event.cycles >= self.ppu_cycles{
+            if event.cycles <= self.ppu_cycles{
                 self.cycle_ppu();
             }
         }
         if let Some(event) = &self.timer_event{
-            if event.cycles >= self.timer_cycles{
+            if event.cycles <= self.timer_cycles{
                 self.cycle_timer();
             }
         }
@@ -223,7 +223,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
         self.ppu_cycles = 0;
     }
     fn cycle_apu(&mut self){
-        self.apu.cycle(self.apu_cycles);
+        // self.apu.cycle(self.apu_cycles);
         self.apu_cycles = 0;
     }
     fn cycle_timer(&mut self){

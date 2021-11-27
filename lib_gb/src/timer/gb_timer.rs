@@ -63,10 +63,10 @@ impl GbTimer{
         }
 
         let v = match timer_interval{
-            0b00=>0x100 - self.system_counter & 0xFF,
-            0b01=>0b1000 - self.system_counter & 0b111,
-            0b10=>0b10_0000 - self.system_counter & 0b1_1111,
-            0b11=>0b1000_0000 - self.system_counter & 0b111_1111,
+            0b00=>0x100 - (self.system_counter & 0xFF),
+            0b01=>0b1000 - (self.system_counter & 0b111),
+            0b10=>0b10_0000 - (self.system_counter & 0b1_1111),
+            0b11=>0b1000_0000 - (self.system_counter & 0b111_1111),
             _=>std::panic!("error ")
         };
 

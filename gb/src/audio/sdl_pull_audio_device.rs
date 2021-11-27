@@ -58,7 +58,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
         };
 
         // Ignore device id
-        device.device_id = init_sdl_audio_device(&desired_audio_spec);
+        // device.device_id = init_sdl_audio_device(&desired_audio_spec);
 
         return device;
     }
