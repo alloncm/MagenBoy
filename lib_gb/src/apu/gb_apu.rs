@@ -23,7 +23,6 @@ pub struct GbApu<Device: AudioDevice>{
     audio_buffer:[StereoSample;BUFFER_SIZE],
     current_m_cycle:u32,
     device:Device,
-    last_enabled_state:bool
 }
 
 impl<Device: AudioDevice> GbApu<Device>{
@@ -39,12 +38,11 @@ impl<Device: AudioDevice> GbApu<Device>{
             device:device,
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
-            enabled:false, 
-            last_enabled_state: false
+            enabled:false,
         }
     }
 
-    pub fn cycle(&mut self, m_cycles_passed:u32){
+    pub fn cycle(&mut self, m_cycles_passed:u32)->Option<crate::mmu::scheduler::ScheduledEvent>{
         if self.enabled{
             for _ in 0..m_cycles_passed{   
 
@@ -75,9 +73,9 @@ impl<Device: AudioDevice> GbApu<Device>{
 
                 self.push_buffer_if_full();
             }
-        }            
+        }
 
-        self.last_enabled_state = self.enabled;
+        return Some(crate::mmu::scheduler::ScheduledEvent{ event_type: crate::mmu::scheduler::ScheduledEventType::Ppu, cycles: BUFFER_SIZE as u32 - self.current_m_cycle});
     }
 
     pub fn reset(&mut self){

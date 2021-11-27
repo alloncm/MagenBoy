@@ -26,6 +26,7 @@ pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
 
     timer_event:Option<ScheduledEvent>,
     ppu_event:Option<ScheduledEvent>,
+    apu_event:Option<ScheduledEvent>,
 }
 
 io_port_index!(LCDC_REGISTER_INDEX, LCDC_REGISTER_ADDRESS);
@@ -196,6 +197,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
             timer_cycles:0,
             ppu_event:None,
             timer_event: None,
+            apu_event:Some(ScheduledEvent{cycles:1, event_type:super::scheduler::ScheduledEventType::Ppu}),
         }
     }
 
@@ -214,6 +216,11 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
                 self.cycle_timer();
             }
         }
+        if let Some(event) = &self.apu_event{
+            if event.cycles <= self.apu_cycles{
+                self.cycle_apu();
+            }
+        }
     }
 
     fn cycle_ppu(&mut self){
@@ -223,7 +230,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
         self.ppu_cycles = 0;
     }
     fn cycle_apu(&mut self){
-        // self.apu.cycle(self.apu_cycles);
+        self.apu_event = self.apu.cycle(self.apu_cycles);
         self.apu_cycles = 0;
     }
     fn cycle_timer(&mut self){

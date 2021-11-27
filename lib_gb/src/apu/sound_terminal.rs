@@ -28,12 +28,14 @@ impl SoundTerminal{
     #[inline]
     pub fn mix_terminal_samples(&self, samples:&[Sample;NUMBER_OF_CHANNELS])->Sample{
         let mut mixed_sample:Sample = DEFAULT_SAPMPLE;
-        for i in 0..NUMBER_OF_CHANNELS{
-            // This code should add the samples[i] only if channels[i] it true.
-            // After profiling this code is faster than if and since this is a hot spot in the code
-            // Im writing it like this.
-            mixed_sample += samples[i] & self.channel_masks[i] as Sample;
-        }
+
+        // This code should add the samples[i] only if channels[i] it true.
+        // After profiling this code is faster than if and since this is a hot spot in the code
+        // Im writing it like this.
+        mixed_sample += samples[0] & self.channel_masks[0] as Sample;
+        mixed_sample += samples[1] & self.channel_masks[1] as Sample;
+        mixed_sample += samples[2] & self.channel_masks[2] as Sample;
+        mixed_sample += samples[3] & self.channel_masks[3] as Sample;
 
         mixed_sample >>= 2; // Divide by 4 in order to normal the sample
 
