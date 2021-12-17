@@ -18,6 +18,7 @@ sdl2 = "0.34"
 wav = "1.0"
 crossbeam-channel = "0.5"
 cfg-if = "1.0"
+rppal = "0.13"
 
 [features]
 default = ["static-sdl"]

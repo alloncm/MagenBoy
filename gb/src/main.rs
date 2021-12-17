@@ -1,5 +1,6 @@
 mod mbc_handler;
 mod sdl_joypad_provider;
+mod gpio_joypad_provider;
 mod sdl_gfx_device;
 mod mpmc_gfx_device;
 mod audio;
@@ -117,7 +118,8 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     }
     let audio_devices = MultiAudioDevice::new(devices);
     let mut mbc = initialize_mbc(&program_name);
-    let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
+    // let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
+    let joypad_provider = gpio_joypad_provider::GpioJoypadProvider::new();
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         let index = args.iter().position(|v| *v == String::from("--bootrom")).unwrap();
         args.get(index + 1).expect("Error! you must specify a value for the --bootrom parameter").clone()
