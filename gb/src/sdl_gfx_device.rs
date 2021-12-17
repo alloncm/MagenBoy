@@ -24,6 +24,8 @@ impl SdlGfxDevice{
                 #[cfg(feature = "static-scale")]
                 log::warn!("Please notice that this binary have been compiled with the static-scale feature and you are running with the full screen option.\nThe rendering window might be in wrong scale.");
                 
+                // Hide cursor
+                SDL_ShowCursor(0);
                 SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
             }
             else{
