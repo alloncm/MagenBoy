@@ -1,4 +1,7 @@
 use std::ffi::{CString, c_void};
+use std::{ffi::CStr, mem::MaybeUninit};
+use lib_gb::apu::audio_device::{AudioDevice, BUFFER_SIZE, Sample, StereoSample};
+use sdl2::{libc::c_char, sys::*};
 
 use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice};
 use sdl2::sys::*;
@@ -18,7 +21,7 @@ impl SdlGfxDevice{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
-            if SDL_Init(SDL_INIT_VIDEO){
+            if SDL_Init(SDL_INIT_VIDEO) != 0{
                 std::panic!("Init error: {}", Self::get_sdl_error_message());
             }
 
