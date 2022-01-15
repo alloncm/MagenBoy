@@ -1,5 +1,6 @@
 use lib_gb::apu::audio_device::{BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample};
-use super::AudioResampler;
+use super::audio_resampler::AudioResampler;
+
 
 pub struct MagenAudioResampler{
     to_skip:u32,

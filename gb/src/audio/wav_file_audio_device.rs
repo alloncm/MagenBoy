@@ -1,5 +1,6 @@
 use lib_gb::apu::audio_device::*;
-use super::AudioResampler;
+
+use super::audio_resampler::AudioResampler;
 
 pub struct WavfileAudioDevice<AR:AudioResampler>{
     target_frequency:u32,

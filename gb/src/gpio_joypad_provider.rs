@@ -4,25 +4,24 @@ use lib_gb::keypad::{
     button::Button
 };
 use lib_gb::utils::create_default_array;
-use rppal::gpio::{
-    Gpio,
-    InputPin
-};
+use rppal::gpio::{Gpio, InputPin};
+
+pub type GpioPin = u8;
 
 pub struct GpioJoypadProvider{
     input_pins:[Option<InputPin>;NUM_OF_KEYS]
 }
 
 impl GpioJoypadProvider{
-    pub fn new()->Self{
+    pub fn new<F:Fn(Button)->GpioPin>(mapper:F)->Self{
         
         let gpio = Gpio::new().unwrap();
-        let a_pin = gpio.get(18).unwrap().into_input();
-        let b_pin = gpio.get(17).unwrap().into_input();
-        let up_pin = gpio.get(16).unwrap().into_input();
-        let down_pin = gpio.get(20).unwrap().into_input();
-        let right_pin = gpio.get(21).unwrap().into_input();
-        let left_pin = gpio.get(19).unwrap().into_input();
+        let a_pin = gpio.get(mapper(Button::A)).unwrap().into_input();
+        let b_pin = gpio.get(mapper(Button::B)).unwrap().into_input();
+        let up_pin = gpio.get(mapper(Button::Up)).unwrap().into_input();
+        let down_pin = gpio.get(mapper(Button::Down)).unwrap().into_input();
+        let right_pin = gpio.get(mapper(Button::Right)).unwrap().into_input();
+        let left_pin = gpio.get(mapper(Button::Left)).unwrap().into_input();
         
         let mut pins:[Option<InputPin>;NUM_OF_KEYS] = create_default_array();
         pins[Button::A as usize] = Some(a_pin);

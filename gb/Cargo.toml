@@ -18,7 +18,8 @@ sdl2 = "0.34"
 wav = "1.0"
 crossbeam-channel = "0.5"
 cfg-if = "1.0"
-rppal = "0.13"
+rppal = {version = "0.13", optional = true}
+framebuffer = "0.3"
 
 [features]
 default = ["static-sdl"]
@@ -26,3 +27,4 @@ sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
 static-scale = []
+gpio = ["rppal"]
