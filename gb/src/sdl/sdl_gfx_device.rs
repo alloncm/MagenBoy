@@ -1,8 +1,6 @@
 use std::ffi::{CString, c_void};
 use sdl2::sys::*;
-
 use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice};
-
 use crate::sdl::utils::get_sdl_error_message;
 
 pub struct SdlGfxDevice{

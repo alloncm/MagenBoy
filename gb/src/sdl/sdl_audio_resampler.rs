@@ -1,7 +1,6 @@
 use std::mem::MaybeUninit;
 use lib_gb::apu::audio_device::{BUFFER_SIZE, StereoSample};
 use sdl2::sys::*;
-
 use crate::audio::audio_resampler::AudioResampler;
 
 pub struct SdlAudioResampler{
