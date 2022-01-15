@@ -18,7 +18,9 @@ impl SdlGfxDevice{
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
-            SDL_Init(SDL_INIT_VIDEO);
+            if SDL_Init(SDL_INIT_VIDEO){
+                std::panic!("Init error: {}", Self::get_sdl_error_message());
+            }
 
             let window_flags = if full_screen{
                 #[cfg(feature = "static-scale")]
@@ -55,7 +57,7 @@ impl SdlGfxDevice{
                 }
                 else{
                     if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
-                        std::panic!("Error while setting logical rendering");
+                        std::panic!("Error while setting logical rendering\nError:{}", Self::get_sdl_error_message());
                     }
                     texture_height = SCREEN_HEIGHT as i32;
                     texture_width = SCREEN_WIDTH as i32;
@@ -77,6 +79,14 @@ impl SdlGfxDevice{
             turbo_mul, 
             #[cfg(feature = "static-scale")]
             screen_scale
+        }
+    }
+
+    fn get_sdl_error_message()->&'static str{
+        unsafe{
+            let error_message:*const c_char = SDL_GetError();
+            
+            return CStr::from_ptr(error_message).to_str().unwrap();
         }
     }
 
