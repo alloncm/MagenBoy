@@ -11,7 +11,7 @@ pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
 const WAVE_RAM_END_INDEX:u16 = 0x3F;
 
-pub struct IoComponents<AD:AudioDevice, GFX:GfxDevice>{
+pub struct IoBus<AD:AudioDevice, GFX:GfxDevice>{
     pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
@@ -44,7 +44,7 @@ io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
 io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
 io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
 
-impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
+impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoBus<AD, GFX>{
     fn read(&mut self, address:u16)->u8 {
 
         match address{
@@ -173,7 +173,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoComponents<AD, GFX>{
     }
 }
 
-impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoComponents<AD, GFX>{
+impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoBus<AD, GFX>{
     fn read_unprotected(&self, address:u16)->u8 {
         self.ports[address as usize]
     }
@@ -183,7 +183,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoComponents<AD, GFX>{
     }
 }
 
-impl<AD:AudioDevice, GFX:GfxDevice> IoComponents<AD, GFX>{
+impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
     pub fn new(apu:GbApu<AD>, gfx_device:GFX)->Self{
         Self{apu,
             ports:[0;IO_PORTS_SIZE],

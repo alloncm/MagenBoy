@@ -79,7 +79,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
         let pc = self.cpu.program_counter;
 
         //debug
-        if self.mmu.io_components.finished_boot{
+        if self.mmu.io_bus.finished_boot{
             let a = *self.cpu.af.high();
             let b = *self.cpu.bc.high(); 
             let c = *self.cpu.bc.low();

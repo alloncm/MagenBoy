@@ -6,7 +6,6 @@ use crate::{cpu::gb_cpu::GbCpu, utils::{
         STAT_REGISTER_ADDRESS
     }
 }};
-use crate::cpu::opcodes::opcodes_utils::push;
 use crate::mmu::memory::Memory;
 
 const V_BLANK_INTERRUPT_ADDERESS:u16    = 0x40;
@@ -74,16 +73,7 @@ impl InterruptsHandler{
         //reseting the interupt bit
         *interupt_flag &= !interupt_bit;
         memory.write(IF_REGISTER_ADDRESS, *interupt_flag);
-        //reseting MIE register
-        cpu.mie = false;
-        //pushing PC
-        push(cpu, memory, cpu.program_counter);
-        //jumping to the interupt address
-        cpu.program_counter = address;
-        //unhalting the CPU
-        cpu.halt = false;
-
-        //cycles passed
-        return 5;
+        
+        return cpu.prepare_for_interrupt(memory, address);
     }
 }
