@@ -1,6 +1,5 @@
 mod mbc_handler;
 mod mpmc_gfx_device;
-// mod linuxfb_gfx_device;
 
 mod audio{
     pub mod audio_resampler;
@@ -128,7 +127,6 @@ fn main() {
 
     let mut sdl_gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
      check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
-    // let mut sdl_gfx_device = linuxfb_gfx_device::LinuxFbGfxDevice::new("/dev/fb0");
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
