@@ -65,7 +65,7 @@ impl SdlGfxDevice{
             }
             
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
-                SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
+                SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGB888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
                     texture_width, texture_height);
             
             (wind, rend, tex)
