@@ -1,12 +1,14 @@
 mod mbc_handler;
 mod mpmc_gfx_device;
+#[cfg(feature = "gpio")]
+mod gpio_joypad_provider;
 
 mod audio{
     pub mod audio_resampler;
     pub mod multi_device_audio;
     pub mod wav_file_audio_device;
     #[cfg(not(feature = "sdl-resample"))]
-    pub mod magen_audio_resampler;
+    pub mod manual_audio_resampler;
 }
 
 mod sdl{
@@ -38,13 +40,21 @@ cfg_if::cfg_if!{
         pub type ChosenResampler  = sdl::sdl_audio_resampler::SdlAudioResampler;
     }
     else{
-        pub type ChosenResampler  = audio::magen_audio_resampler::MagenAudioResampler;
+        pub type ChosenResampler  = audio::manual_audio_resampler::ManualAudioResampler;
     }
 }
 
+use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
+use lib_gb::{GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
+use sdl2::sys::*;
+use std::{fs, env, result::Result, vec::Vec};
+use log::info;
+
+const SCREEN_SCALE:usize = 4;
+const TURBO_MUL:u8 = 1;
+
 cfg_if::cfg_if!{
     if #[cfg(feature = "gpio")]{
-        mod gpio_joypad_provider;
         use crate::gpio_joypad_provider::*;
         fn buttons_mapper(button:Button)->GpioPin{
             match button{
@@ -76,15 +86,6 @@ cfg_if::cfg_if!{
         }
     }
 }
-
-use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
-use lib_gb::{GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
-use sdl2::sys::*;
-use std::{fs, env, result::Result, vec::Vec};
-use log::info;
-
-const SCREEN_SCALE:usize = 4;
-const TURBO_MUL:u8 = 1;
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
