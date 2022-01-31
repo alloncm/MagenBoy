@@ -12,14 +12,13 @@ path = "src/main.rs"
 [dependencies]
 lib_gb = {path = "../lib_gb/"}
 log = "0.4"
-fern = "0.6.0"
+fern = "0.6"
 chrono = "0.4"
-sdl2 = "0.34"
+sdl2 = "0.35"
 wav = "1.0"
 crossbeam-channel = "0.5"
 cfg-if = "1.0"
 rppal = {version = "0.13", optional = true}
-# framebuffer = "0.3"
 
 [features]
 default = ["static-sdl"]
