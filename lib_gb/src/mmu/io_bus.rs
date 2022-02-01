@@ -210,9 +210,25 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
     }
 
     pub fn cycle(&mut self, cycles:u32){
-        self.apu_cycles += cycles;
-        self.ppu_cycles += cycles;
-        self.timer_cycles += cycles;
+        if !self.apu_event.is_none(){
+            self.apu_cycles += cycles;
+        }
+        else{
+            self.apu_cycles = 0;
+        }
+        if !self.ppu_event.is_none(){
+            self.ppu_cycles += cycles;
+        }
+        else{
+            self.ppu_cycles = 0;
+            self.cycle_ppu();
+        }
+        if !self.timer_event.is_none(){
+            self.timer_cycles += cycles;
+        }
+        else{
+            self.timer_cycles = 0;
+        }
 
         if let Some(event) = &self.ppu_event{
             if event.cycles <= self.ppu_cycles{
