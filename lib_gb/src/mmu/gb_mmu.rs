@@ -54,6 +54,7 @@ impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
                 }
             },
             0xFF00..=0xFF7F => self.io_bus.read(address - 0xFF00),
+            0xFFFF => self.io_bus.interrupt_handler.interrupt_enable_flag,
             _=>self.read_unprotected(address)
         };
     }
@@ -87,6 +88,7 @@ impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
                     }
                 },
                 0xFF00..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
+                0xFFFF => self.io_bus.interrupt_handler.interrupt_enable_flag = value,
                 _=>self.write_unprotected(address, value)
             }
         }

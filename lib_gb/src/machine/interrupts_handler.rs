@@ -1,12 +1,4 @@
-use crate::{cpu::gb_cpu::GbCpu, utils::{
-    bit_masks::*,
-    memory_registers::{
-        IE_REGISTER_ADDRESS,
-        IF_REGISTER_ADDRESS,
-        STAT_REGISTER_ADDRESS
-    }
-}};
-use crate::mmu::memory::Memory;
+use crate::utils::bit_masks::*;
 
 const V_BLANK_INTERRUPT_ADDERESS:u16    = 0x40;
 const LCD_STAT_INTERRUPT_ADDERESS:u16   = 0x48;
@@ -14,66 +6,70 @@ const TIMER_INTERRUPT_ADDERESS:u16      = 0x50;
 const SRIAL_INTERRUPT_ADDERESS:u16      = 0x58;
 const JOYPAD_INTERRUPT_ADDERESS:u16     = 0x60;
 
+pub enum InterruptRequest{
+    Interrupt(u16),
+    Unhalt,
+    None
+}
+
 pub struct InterruptsHandler{
-    ei_triggered:bool
+    pub interrupt_flag:u8,
+    pub interrupt_enable_flag:u8,
+    ei_triggered:bool // use to delay the interrupt execution by one instruction in a special case
 }
 
 impl Default for InterruptsHandler{
     fn default()->Self{
         InterruptsHandler{
+            interrupt_flag:0,
+            interrupt_enable_flag:0,
             ei_triggered:false
         }
     }
 }
 
 impl InterruptsHandler{
+    pub fn handle_interrupts(&mut self, master_interrupt_enable:bool, stat_register:u8)->InterruptRequest{
+        //there is a delay of one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
 
-    pub fn handle_interrupts(&mut self, cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-        //this is delayed by one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
-        
-        let mut interupt_flag = memory.read(IF_REGISTER_ADDRESS);
-        let interupt_enable = memory.read(IE_REGISTER_ADDRESS);
-        let stat_register = memory.read(STAT_REGISTER_ADDRESS);
+        let mut interrupt_request = InterruptRequest::None;
 
-        if cpu.mie && self.ei_triggered{
-            if interupt_flag & BIT_0_MASK != 0 && interupt_enable & BIT_0_MASK != 0{
-                return Self::prepare_for_interut(cpu, BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
+        if master_interrupt_enable && self.ei_triggered{
+            if self.interrupt_flag & BIT_0_MASK != 0 && self.interrupt_enable_flag & BIT_0_MASK != 0{
+                interrupt_request = self.prepare_for_interrupt( BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS);
             }
             // Checking those STAT register bits for the STAT interrupts requests
-            if interupt_flag & BIT_1_MASK != 0 && interupt_enable & BIT_1_MASK != 0 && (stat_register & 0b111_1000) != 0{
-                return Self::prepare_for_interut(cpu, BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
+            if self.interrupt_flag & BIT_1_MASK != 0 && self.interrupt_enable_flag & BIT_1_MASK != 0 && (stat_register & 0b111_1000) != 0{
+                interrupt_request = self.prepare_for_interrupt(BIT_1_MASK, LCD_STAT_INTERRUPT_ADDERESS);
             }
-            if interupt_flag & BIT_2_MASK != 0 && interupt_enable & BIT_2_MASK != 0{
-                return Self::prepare_for_interut(cpu, BIT_2_MASK, TIMER_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
+            if self.interrupt_flag & BIT_2_MASK != 0 && self.interrupt_enable_flag & BIT_2_MASK != 0{
+                interrupt_request = self.prepare_for_interrupt(BIT_2_MASK, TIMER_INTERRUPT_ADDERESS);
             }
-            if interupt_flag & BIT_3_MASK != 0 && interupt_enable & BIT_3_MASK != 0{
-                return Self::prepare_for_interut(cpu, BIT_3_MASK, SRIAL_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
+            if self.interrupt_flag & BIT_3_MASK != 0 && self.interrupt_enable_flag & BIT_3_MASK != 0{
+                interrupt_request = self.prepare_for_interrupt(BIT_3_MASK, SRIAL_INTERRUPT_ADDERESS);
             }
-            if interupt_flag & BIT_4_MASK != 0 && interupt_enable & BIT_4_MASK != 0{
-                return Self::prepare_for_interut(cpu, BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS, memory, &mut interupt_flag);
+            if self.interrupt_flag & BIT_4_MASK != 0 && self.interrupt_enable_flag & BIT_4_MASK != 0{
+                interrupt_request = self.prepare_for_interrupt(BIT_4_MASK, JOYPAD_INTERRUPT_ADDERESS);
             }
         }
-        else if cpu.halt{
+        else {
             for i in 0..5{
                 let mask = 1 << i;
-                if interupt_flag & mask != 0 && interupt_enable & mask != 0{
-                    cpu.halt = false;
+                if self.interrupt_flag & mask != 0 && self.interrupt_enable_flag & mask != 0{
+                    interrupt_request = InterruptRequest::Unhalt;
                 }
             }
         }
 
+        self.ei_triggered = master_interrupt_enable;
 
-        self.ei_triggered = cpu.mie;
-
-        //no cycles passed
-        return 0;
+        return interrupt_request;
     }
 
-    fn prepare_for_interut(cpu:&mut GbCpu, interupt_bit:u8, address:u16, memory:&mut impl Memory, interupt_flag:&mut u8)->u8{
+    fn prepare_for_interrupt(&mut self, interupt_bit:u8, address:u16)->InterruptRequest{
         //reseting the interupt bit
-        *interupt_flag &= !interupt_bit;
-        memory.write(IF_REGISTER_ADDRESS, *interupt_flag);
+        self.interrupt_flag &= !interupt_bit;
         
-        return cpu.prepare_for_interrupt(memory, address);
+        return InterruptRequest::Interrupt(address);
     }
 }

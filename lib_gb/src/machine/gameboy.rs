@@ -5,7 +5,6 @@ use crate::{
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
     ppu::gfx_device::GfxDevice
 };
-use super::interrupts_handler::InterruptsHandler;
 use std::boxed::Box;
 use log::debug;
 
@@ -15,7 +14,6 @@ pub const CYCLES_PER_FRAME:u32 = 17556;
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
     cpu: GbCpu,
     mmu: GbMmu::<'a, AD, GFX>,
-    interrupts_handler:InterruptsHandler,
     joypad_provider: JP
 }
 
@@ -25,7 +23,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
         GameBoy{
             cpu:GbCpu::default(),
             mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device), gfx_device),
-            interrupts_handler: InterruptsHandler::default(),
             joypad_provider: joypad_provider
         }
     }
@@ -43,7 +40,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
         GameBoy{
             cpu:cpu,
             mmu:GbMmu::new(mbc, GbApu::new(audio_device), gfx_device),
-            interrupts_handler: InterruptsHandler::default(),
             joypad_provider: joypad_provider,
         }
     }
@@ -66,7 +62,8 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             self.mmu.cycle(cpu_cycles_passed);
             
             //interrupts
-            let interrupt_cycles = self.interrupts_handler.handle_interrupts(&mut self.cpu, &mut self.mmu);
+            let interrupt_request = self.mmu.io_bus.interrupt_handler.handle_interrupts(self.cpu.mie, self.mmu.io_bus.ppu.stat_register);
+            let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
             if interrupt_cycles != 0{                
                 self.mmu.cycle(interrupt_cycles);
             }

@@ -114,7 +114,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             return None;
         }
 
-        let fethcer_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register);
+        let fethcer_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
 
         let stat_cycles_to_next_event = self.update_stat_register(if_register);
 
@@ -130,7 +130,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
         self.push_lcd_buffer.clear();
 
-        return Some(ScheduledEvent{cycles, event_type:crate::mmu::scheduler::ScheduledEventType::Ppu});
+        return Some(ScheduledEvent{cycles, event_type: crate::mmu::scheduler::ScheduledEventType::Ppu});
     }
 
     fn swap_buffer(&mut self){
@@ -173,7 +173,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         };
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u32{
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
 
         for _ in 0..m_cycles * 2{
@@ -274,15 +274,16 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.t_cycles_passed += 2;
                 }
             }
-            
         }
 
         let t_cycles = match self.state{
-            PpuState::Vblank => (SCREEN_HEIGHT - (self.ly_register as usize - SCREEN_HEIGHT)) as u32 * HBLANK_T_CYCLES_LENGTH as u32,
-            _ => ((SCREEN_HEIGHT - self.ly_register as usize) * HBLANK_T_CYCLES_LENGTH as usize) as u32
+            PpuState::Vblank => ((self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH)+1) * HBLANK_T_CYCLES_LENGTH,
+            PpuState::Hblank => HBLANK_T_CYCLES_LENGTH,
+            PpuState::OamSearch => OAM_SEARCH_T_CYCLES_LENGTH,
+            PpuState::PixelTransfer => self.t_cycles_passed
         };
 
-        return (t_cycles - self.t_cycles_passed as u32) >> 2;
+        return (t_cycles - self.t_cycles_passed) >> 2;
     }
 
     fn try_push_to_lcd(&mut self){

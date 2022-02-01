@@ -1,9 +1,10 @@
-use crate::{apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
+use crate::{
+    apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
     ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
-    timer::timer_register_updater::*, 
-    utils::memory_registers::*
+    timer::{timer_register_updater::*, gb_timer::GbTimer}, 
+    utils::memory_registers::*,
+    machine::interrupts_handler::InterruptsHandler
 };
-use crate::timer::gb_timer::GbTimer;
 use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram, scheduler::ScheduledEvent};
 use super::io_ports::*;
 
@@ -17,6 +18,7 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice>{
     pub timer: GbTimer,
     pub ppu:GbPpu<GFX>,
     pub dma:OamDmaTransfer,
+    pub interrupt_handler:InterruptsHandler,
     pub finished_boot:bool,
 
     ports:[u8;IO_PORTS_SIZE],
@@ -60,6 +62,8 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoBus<AD, GFX>{
             TAC_REGISTER_INDEX=> value & 0b111,
             DIV_REGISTER_INDEX=> get_div(&self.timer),
             TIMA_REGISTER_INDEX=> self.timer.tima_register,
+            //Interrupts handler
+            IF_REGISTER_INDEX => self.interrupt_handler.interrupt_flag,
             //APU
             NR10_REGISTER_INDEX=>value | 0b1000_0000,
             NR11_REGISTER_INDEX=> value | 0b0011_1111,
@@ -114,6 +118,8 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoBus<AD, GFX>{
                 set_tac(&mut self.timer, value);
                 value &= 0b111;
             }
+            //Interrut handler
+            IF_REGISTER_INDEX => self.interrupt_handler.interrupt_flag = value,
             //APU
             NR10_REGISTER_INDEX=> set_nr10(&mut self.apu.sweep_tone_channel, value),
             NR11_REGISTER_INDEX=> set_nr11(&mut self.apu.sweep_tone_channel, value),
@@ -185,12 +191,14 @@ impl<AD:AudioDevice, GFX:GfxDevice> UnprotectedMemory for IoBus<AD, GFX>{
 
 impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
     pub fn new(apu:GbApu<AD>, gfx_device:GFX)->Self{
-        Self{apu,
+        Self{
+            apu,
             ports:[0;IO_PORTS_SIZE],
             timer:GbTimer::default(),
-            ppu:GbPpu::new(gfx_device), 
+            ppu:GbPpu::new(gfx_device),
             dma:OamDmaTransfer::default(),
-            finished_boot:false, 
+            interrupt_handler: InterruptsHandler::default(),
+            finished_boot:false,
             ram:Ram::default(),
             apu_cycles:0,
             ppu_cycles:0,
@@ -224,9 +232,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
     }
 
     fn cycle_ppu(&mut self){
-        let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
-        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut if_register);
-        self.ports[IF_REGISTER_INDEX as usize] = if_register;
+        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.ppu_cycles = 0;
     }
     fn cycle_apu(&mut self){
@@ -234,9 +240,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
         self.apu_cycles = 0;
     }
     fn cycle_timer(&mut self){
-        let mut if_register = self.ports[IF_REGISTER_INDEX as usize];
-        self.timer_event = self.timer.cycle(self.timer_cycles, &mut if_register);
-        self.ports[IF_REGISTER_INDEX as usize] = if_register;
+        self.timer_event = self.timer.cycle(self.timer_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.timer_cycles = 0;
     }
 }

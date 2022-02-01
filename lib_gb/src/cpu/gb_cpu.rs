@@ -1,3 +1,6 @@
+use crate::machine::interrupts_handler::InterruptRequest;
+use crate::mmu::memory::Memory;
+
 use super::register::Reg;
 use super::flag::Flag;
 
@@ -34,6 +37,30 @@ impl Default for GbCpu {
 }
 
 impl GbCpu {
+    pub fn execute_interrupt_request(&mut self, memory:&mut impl Memory, ir: InterruptRequest)->u8{
+        match ir{
+            InterruptRequest::Unhalt=>self.halt = false,
+            InterruptRequest::Interrupt(address)=>return self.prepare_for_interrupt(memory, address),
+            InterruptRequest::None=>{}
+        }
+
+        return 0;
+    }
+
+    fn prepare_for_interrupt(&mut self, memory: &mut impl Memory, address: u16)->u8{
+        //reseting MIE register
+        self.mie = false;
+        //pushing PC
+        super::opcodes::opcodes_utils::push(self, memory, self.program_counter);
+        //jumping to the interupt address
+        self.program_counter = address;
+        //unhalting the CPU
+        self.halt = false;
+
+        //cycles passed
+        return 5;
+    }
+
     pub fn set_flag(&mut self, flag:Flag){
         *self.af.low() |= flag as u8;
     }
