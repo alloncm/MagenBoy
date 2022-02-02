@@ -103,7 +103,7 @@ impl<AD:AudioDevice, GFX:GfxDevice> Memory for IoBus<AD, GFX>{
     fn write(&mut self, address:u16, mut value:u8) {
         match address{
             DIV_REGISTER_INDEX | TIMA_REGISTER_INDEX | TMA_REGISTER_INDEX | TAC_REGISTER_INDEX => self.cycle_timer(),
-            NR10_REGISTER_INDEX..=WAVE_RAM_END_INDEX => self.cycle_ppu(),
+            NR10_REGISTER_INDEX..=WAVE_RAM_END_INDEX => self.cycle_apu(),
             LCDC_REGISTER_INDEX..=WX_REGISTER_INDEX => self.cycle_ppu(),
             _=>{}
         }
