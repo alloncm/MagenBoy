@@ -2,11 +2,12 @@ use crate::{
     apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
     ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
     timer::{timer_register_updater::*, gb_timer::GbTimer}, 
-    utils::memory_registers::*,
-    machine::interrupts_handler::InterruptsHandler
+    utils::memory_registers::*
 };
-use super::{access_bus::AccessBus, memory::*, oam_dma_transfer::OamDmaTransfer, ram::Ram, scheduler::ScheduledEvent};
-use super::io_ports::*;
+use super::{
+    interrupts_handler::*, access_bus::AccessBus, memory::*, 
+    oam_dma_transfer::OamDmaTransfer, ram::Ram, scheduler::ScheduledEvent, io_ports::*
+};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;

@@ -9,3 +9,4 @@ pub mod access_bus;
 pub mod oam_dma_transfer;
 pub mod io_bus;
 pub mod scheduler;
+pub mod interrupts_handler;

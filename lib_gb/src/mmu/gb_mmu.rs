@@ -1,3 +1,4 @@
+use super::interrupts_handler::InterruptRequest;
 use super::{io_bus::IoBus, memory::*};
 use super::access_bus::AccessBus;
 use crate::ppu::gfx_device::GfxDevice;
@@ -166,6 +167,10 @@ impl<'a, D:AudioDevice, G:GfxDevice> GbMmu<'a, D, G>{
     pub fn cycle(&mut self, cycles:u8){
         self.handle_dma_trasnfer(cycles);
         self.io_bus.cycle(cycles as u32);
+    }
+
+    pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
+        return self.io_bus.interrupt_handler.handle_interrupts(master_interrupt_enable, self.io_bus.ppu.stat_register);
     }
 
     fn handle_dma_trasnfer(&mut self, cycles: u8) {

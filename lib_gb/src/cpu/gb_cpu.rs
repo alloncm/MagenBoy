@@ -1,4 +1,4 @@
-use crate::machine::interrupts_handler::InterruptRequest;
+use crate::mmu::interrupts_handler::InterruptRequest;
 use crate::mmu::memory::Memory;
 
 use super::register::Reg;

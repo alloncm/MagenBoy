@@ -62,7 +62,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             self.mmu.cycle(cpu_cycles_passed);
             
             //interrupts
-            let interrupt_request = self.mmu.io_bus.interrupt_handler.handle_interrupts(self.cpu.mie, self.mmu.io_bus.ppu.stat_register);
+            let interrupt_request = self.mmu.handle_interrupts(self.cpu.mie);
             let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
             if interrupt_cycles != 0{                
                 self.mmu.cycle(interrupt_cycles);
