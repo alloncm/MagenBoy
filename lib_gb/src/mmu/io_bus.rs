@@ -6,7 +6,7 @@ use crate::{
 };
 use super::{
     interrupts_handler::*, access_bus::AccessBus, memory::*, 
-    oam_dma_transfer::OamDmaTransfer, ram::Ram, scheduler::ScheduledEvent, io_ports::*
+    oam_dma_transfer::OamDmaTransfer, ram::Ram, io_ports::*
 };
 
 pub const IO_PORTS_SIZE:usize = 0x80;
@@ -23,13 +23,13 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice>{
     pub finished_boot:bool,
 
     ports:[u8;IO_PORTS_SIZE],
-    apu_cycles:u32,
+    apu_cycles_counter:u32,
     ppu_cycles:u32,
     timer_cycles:u32,
 
-    timer_event:Option<ScheduledEvent>,
-    ppu_event:Option<ScheduledEvent>,
-    apu_event:Option<ScheduledEvent>,
+    timer_event_cycles:u32,
+    apu_event_cycles:u32,
+    ppu_event:Option<u32>,
 }
 
 io_port_index!(LCDC_REGISTER_INDEX, LCDC_REGISTER_ADDRESS);
@@ -201,50 +201,38 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
             interrupt_handler: InterruptsHandler::default(),
             finished_boot:false,
             ram:Ram::default(),
-            apu_cycles:0,
+            apu_cycles_counter:0,
             ppu_cycles:0,
             timer_cycles:0,
             ppu_event:None,
-            timer_event: None,
-            apu_event:Some(ScheduledEvent{cycles:1, event_type:super::scheduler::ScheduledEventType::Ppu}),
+            timer_event_cycles: 0,
+            apu_event_cycles: 0,
         }
     }
 
     pub fn cycle(&mut self, cycles:u32){
-        if !self.apu_event.is_none(){
-            self.apu_cycles += cycles;
-        }
-        else{
-            self.apu_cycles = 0;
-        }
+        self.apu_cycles_counter += cycles;
+        self.timer_cycles += cycles;
+        
         if !self.ppu_event.is_none(){
             self.ppu_cycles += cycles;
         }
         else{
             self.ppu_cycles = 0;
+            // When screen is off constantly try and check for activation by cycling with 0 
             self.cycle_ppu();
         }
-        if !self.timer_event.is_none(){
-            self.timer_cycles += cycles;
-        }
-        else{
-            self.timer_cycles = 0;
-        }
 
-        if let Some(event) = &self.ppu_event{
-            if event.cycles <= self.ppu_cycles{
+        if let Some(cycles) = self.ppu_event{
+            if cycles <= self.ppu_cycles{
                 self.cycle_ppu();
             }
         }
-        if let Some(event) = &self.timer_event{
-            if event.cycles <= self.timer_cycles{
-                self.cycle_timer();
-            }
+        if self.timer_event_cycles <= self.timer_cycles{
+            self.cycle_timer();
         }
-        if let Some(event) = &self.apu_event{
-            if event.cycles <= self.apu_cycles{
-                self.cycle_apu();
-            }
+        if self.apu_event_cycles <= self.apu_cycles_counter{
+            self.cycle_apu();
         }
     }
 
@@ -253,11 +241,11 @@ impl<AD:AudioDevice, GFX:GfxDevice> IoBus<AD, GFX>{
         self.ppu_cycles = 0;
     }
     fn cycle_apu(&mut self){
-        self.apu_event = self.apu.cycle(self.apu_cycles);
-        self.apu_cycles = 0;
+        self.apu_event_cycles = self.apu.cycle(self.apu_cycles_counter);
+        self.apu_cycles_counter = 0;
     }
     fn cycle_timer(&mut self){
-        self.timer_event = self.timer.cycle(self.timer_cycles, &mut self.interrupt_handler.interrupt_flag);
+        self.timer_event_cycles = self.timer.cycle(self.timer_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.timer_cycles = 0;
     }
 }

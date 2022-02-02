@@ -1,4 +1,4 @@
-use crate::mmu::{scheduler::ScheduledEvent, vram::VRam};
+use crate::mmu::vram::VRam;
 use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::ppu::{gfx_device::GfxDevice, ppu_state::PpuState, sprite_attribute::SpriteAttribute, colors::*, color::*};
 
@@ -104,7 +104,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<ScheduledEvent>{
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
         if self.lcd_control & BIT_7_MASK == 0{
             return None;
         }
@@ -125,7 +125,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
         self.push_lcd_buffer.clear();
 
-        return Some(ScheduledEvent{cycles, event_type: crate::mmu::scheduler::ScheduledEventType::Ppu});
+        return Some(cycles);
     }
 
     fn swap_buffer(&mut self){

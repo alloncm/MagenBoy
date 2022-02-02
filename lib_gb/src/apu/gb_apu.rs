@@ -42,7 +42,7 @@ impl<Device: AudioDevice> GbApu<Device>{
         }
     }
 
-    pub fn cycle(&mut self, m_cycles_passed:u32)->Option<crate::mmu::scheduler::ScheduledEvent>{
+    pub fn cycle(&mut self, m_cycles_passed:u32)->u32{
         if self.enabled{
             for _ in 0..m_cycles_passed{   
 
@@ -75,7 +75,7 @@ impl<Device: AudioDevice> GbApu<Device>{
             }
         }
 
-        return Some(crate::mmu::scheduler::ScheduledEvent{ event_type: crate::mmu::scheduler::ScheduledEventType::Ppu, cycles: BUFFER_SIZE as u32 - self.current_m_cycle});
+        return BUFFER_SIZE as u32 - self.current_m_cycle;
     }
 
     pub fn reset(&mut self){
