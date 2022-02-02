@@ -32,6 +32,9 @@ impl SoundTerminal{
         // This code should add the samples[i] only if channels[i] it true.
         // After profiling this code is faster than if and since this is a hot spot in the code
         // Im writing it like this.
+        // Also unrolling the for loop. 
+        // for some reason this increase performance drastically.
+
         mixed_sample += samples[0] & self.channel_masks[0] as Sample;
         mixed_sample += samples[1] & self.channel_masks[1] as Sample;
         mixed_sample += samples[2] & self.channel_masks[2] as Sample;
