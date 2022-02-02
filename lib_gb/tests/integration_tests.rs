@@ -51,6 +51,12 @@ fn test_cpu_instrs_timing(){
 }
 
 #[test]
+fn test_dmg_acid(){
+    let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
+    run_integration_test_from_url(file_url, 60, 1690571533691915665);
+}
+
+#[test]
 fn test_turtle_window_y_trigger(){
     run_turtle_integration_test("window_y_trigger.gb", 15511617103807079362);
 }
@@ -115,7 +121,14 @@ fn run_integration_test(program:Vec<u8>, frames_to_execute:u32, expected_hash:u6
 ///    calc_hash("path_to_rom");
 ///}
 ///```
-#[allow(dead_code)]
+
+#[test]
+#[ignore]
+fn generate_hash(){
+    let path = "path to rom";
+    calc_hash(path);
+}
+
 fn calc_hash(rom_path:&str){
     static mut FRAMES_COUNTER:u32 = 0;
     static mut LAST_HASH:u64 = 0;
