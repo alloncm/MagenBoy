@@ -1,6 +1,7 @@
 use super::interrupts_handler::InterruptRequest;
 use super::{io_bus::IoBus, memory::*};
 use super::access_bus::AccessBus;
+use crate::keypad::joypad_provider::JoypadProvider;
 use crate::ppu::gfx_device::GfxDevice;
 use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, utils::memory_registers::BOOT_REGISTER_ADDRESS};
 use super::carts::mbc::Mbc;
@@ -14,8 +15,8 @@ const DMA_DEST:u16 = 0xFE00;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice>{
-    pub io_bus: IoBus<D, G>,
+pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
+    pub io_bus: IoBus<D, G, J>,
     boot_rom:[u8;BOOT_ROM_SIZE],
     mbc: &'a mut Box<dyn Mbc>,
     hram: [u8;HRAM_SIZE],
@@ -24,7 +25,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice>{
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
-impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
+impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16)->u8{
         if let Some (bus) = &self.io_bus.dma.enable{
             return match address{
@@ -96,8 +97,8 @@ impl<'a, D:AudioDevice, G:GfxDevice> Memory for GbMmu<'a, D, G>{
     }
 }
 
-impl<'a, D:AudioDevice, G:GfxDevice> UnprotectedMemory for GbMmu<'a, D, G>{
-    fn read_unprotected(&self, address:u16) ->u8 {
+impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
+    fn read_unprotected(&mut self, address:u16) ->u8 {
         return match address{
             0x0..=0xFF=>{
                 if self.io_bus.finished_boot{
@@ -115,7 +116,7 @@ impl<'a, D:AudioDevice, G:GfxDevice> UnprotectedMemory for GbMmu<'a, D, G>{
             0xE000..=0xFDFF=>self.io_bus.ram.read_bank0(address - 0xE000),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF7F=>self.io_bus.read_unprotected(address - 0xFF00),
+            0xFF00..=0xFF7F=>self.io_bus.read(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.interupt_enable_register
         };
@@ -131,17 +132,17 @@ impl<'a, D:AudioDevice, G:GfxDevice> UnprotectedMemory for GbMmu<'a, D, G>{
             0xD000..=0xDFFF=>self.io_bus.ram.write_current_bank(address-0xD000,value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF7F=>self.io_bus.write_unprotected(address - 0xFF00, value),
+            0xFF00..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.interupt_enable_register = value
         }
     }
 }
 
-impl<'a, D:AudioDevice, G:GfxDevice> GbMmu<'a, D, G>{
-    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>, gfx_device:G)->Self{
+impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
+    pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>, gfx_device:G, joypad_proider:J)->Self{
         GbMmu{
-            io_bus:IoBus::new(apu, gfx_device),
+            io_bus:IoBus::new(apu, gfx_device, joypad_proider),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
@@ -149,9 +150,9 @@ impl<'a, D:AudioDevice, G:GfxDevice> GbMmu<'a, D, G>{
         }
     }
 
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>, gfx_device: G)->Self{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>, gfx_device: G, joypad_proider:J)->Self{
         let mut mmu = GbMmu{
-            io_bus:IoBus::new(apu, gfx_device),
+            io_bus:IoBus::new(apu, gfx_device, joypad_proider),
             mbc:mbc,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
@@ -173,11 +174,16 @@ impl<'a, D:AudioDevice, G:GfxDevice> GbMmu<'a, D, G>{
         return self.io_bus.interrupt_handler.handle_interrupts(master_interrupt_enable, self.io_bus.ppu.stat_register);
     }
 
+    pub fn poll_joypad_state(&mut self){
+        self.io_bus.joypad_handler.poll_joypad_state();
+    }
+
     fn handle_dma_trasnfer(&mut self, cycles: u8) {
         if self.io_bus.dma.enable.is_some(){
             let cycles_to_run = std::cmp::min(self.io_bus.dma.dma_cycle_counter + cycles as u16, DMA_SIZE);
             for i in self.io_bus.dma.dma_cycle_counter..cycles_to_run as u16{
-                self.write_unprotected(DMA_DEST + i, self.read_unprotected(self.io_bus.dma.soure_address + i));
+                let source_value = self.read_unprotected(self.io_bus.dma.soure_address + i);
+                self.write_unprotected(DMA_DEST + i, source_value);
             }
 
             self.io_bus.dma.dma_cycle_counter += cycles as u16;

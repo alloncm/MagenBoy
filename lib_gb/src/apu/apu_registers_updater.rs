@@ -1,4 +1,4 @@
-use crate::{mmu::io_ports::*, utils::bit_masks::*};
+use crate::utils::bit_masks::*;
 use super::{
     audio_device::AudioDevice, 
     channel::Channel, 
@@ -30,6 +30,7 @@ pub fn set_nr43(channel:&mut Channel<NoiseSampleProducer>, nr43:u8){
     channel.sample_producer.bits_to_shift_divisor = (nr43 & 0b1111_0000) >> 4;
     channel.sample_producer.width_mode = (nr43 & BIT_3_MASK) != 0;
     channel.sample_producer.divisor_code = nr43 & 0b111;
+    channel.sample_producer.nr43_register = nr43;
 }
 
 pub fn set_nr44(channel:&mut Channel<NoiseSampleProducer>, fs:&FrameSequencer, nr44:u8){
@@ -46,6 +47,7 @@ pub fn set_nr44(channel:&mut Channel<NoiseSampleProducer>, fs:&FrameSequencer, n
 pub fn set_nr50<AD:AudioDevice>(apu:&mut GbApu<AD>, nr50:u8){
     apu.right_terminal.volume = nr50 & 0b111;
     apu.left_terminal.volume = (nr50 & 0b111_0000) >> 4;
+    apu.nr50_register = nr50;
 }
 
 
@@ -56,9 +58,10 @@ pub fn set_nr51<AD:AudioDevice>(apu:&mut GbApu<AD>, nr51:u8){
     for i in 0..NUMBER_OF_CHANNELS{
         apu.left_terminal.set_channel_state(i, nr51 & (0b1_0000 << i) != 0);
     }
+    apu.nr51_register = nr51;
 }
 
-pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, ports:&mut [u8;IO_PORTS_SIZE], nr52:u8){
+pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, nr52:u8){
     let prev_apu_state = apu.enabled;
     apu.enabled = nr52 & BIT_7_MASK != 0;
 
@@ -66,21 +69,23 @@ pub fn set_nr52<AD:AudioDevice>(apu:&mut GbApu<AD>, ports:&mut [u8;IO_PORTS_SIZE
     if !apu.enabled && prev_apu_state{
         apu.reset();
     }
-
-    for i in NR10_REGISTER_INDEX..NR52_REGISTER_INDEX{
-        ports[i as usize] = 0;
-    }
 }
 
-pub fn get_nr52<AD:AudioDevice>(apu:&GbApu<AD>, nr52:&mut u8){
-    set_bit_u8(nr52, 3, apu.noise_channel.enabled && apu.noise_channel.length_enable && apu.noise_channel.sound_length != 0);
-    set_bit_u8(nr52, 2, apu.wave_channel.enabled && apu.wave_channel.length_enable && apu.wave_channel.sound_length != 0);
-    set_bit_u8(nr52, 1, apu.tone_channel.enabled && apu.tone_channel.length_enable && apu.tone_channel.sound_length != 0);
-    set_bit_u8(nr52, 0, apu.sweep_tone_channel.enabled && apu.sweep_tone_channel.length_enable && apu.sweep_tone_channel.sound_length != 0);
+pub fn get_nr52<AD:AudioDevice>(apu:&GbApu<AD>)->u8{
+    let mut nr52:u8 = 0;
+    flip_bit_u8(&mut nr52, 3, apu.noise_channel.enabled && apu.noise_channel.length_enable && apu.noise_channel.sound_length != 0);
+    flip_bit_u8(&mut nr52, 2, apu.wave_channel.enabled && apu.wave_channel.length_enable && apu.wave_channel.sound_length != 0);
+    flip_bit_u8(&mut nr52, 1, apu.tone_channel.enabled && apu.tone_channel.length_enable && apu.tone_channel.sound_length != 0);
+    flip_bit_u8(&mut nr52, 0, apu.sweep_tone_channel.enabled && apu.sweep_tone_channel.length_enable && apu.sweep_tone_channel.sound_length != 0);
+    flip_bit_u8(&mut nr52, 7, apu.enabled);
+    return nr52;
 }
 
 pub fn set_nr30(channel:&mut Channel<WaveSampleProducer>, value:u8){
-    if (value & BIT_7_MASK) == 0{
+    // Turning this bit on does not directly enable the channel its only enable dac
+    // but if the dac is off the channel is disabled
+    channel.sample_producer.nr30_dac_state = (value & BIT_7_MASK) == 0;
+    if channel.sample_producer.nr30_dac_state {
         channel.enabled = false;
     }
 }
@@ -100,13 +105,12 @@ pub fn set_nr33(channel:&mut Channel<WaveSampleProducer>, nr33:u8){
     channel.frequency |= nr33 as u16;
 }
 
-pub fn set_nr34(channel:&mut Channel<WaveSampleProducer>, fs:&FrameSequencer, nr30:u8, nr34:u8){
+pub fn set_nr34(channel:&mut Channel<WaveSampleProducer>, fs:&FrameSequencer, nr34:u8){
     //clear the upper 8 bits
     channel.frequency &= 0xFF;
     channel.frequency |= ((nr34 & 0b111) as u16) << 8;
 
-    let dac_enabled = (nr30 & BIT_7_MASK) != 0;
-    update_channel_conrol_register(channel, dac_enabled, nr34, 256, fs);
+    update_channel_conrol_register(channel, channel.sample_producer.nr30_dac_state, nr34, 256, fs);
 
     if nr34 & BIT_7_MASK != 0{
         channel.sample_producer.reset_counter();
@@ -118,13 +122,14 @@ pub fn set_nr10(channel:&mut Channel<SquareSampleProducer>, value:u8){
     sweep.sweep_decrease = (value & 0b1000) != 0;
     sweep.sweep_shift = value & 0b111;
     sweep.sweep_period = (value & 0b111_0000) >> 4;
+    sweep.register = value | 0b1000_0000;
 }
 
-pub fn set_nr11(channel:&mut Channel<SquareSampleProducer>, value:u8){    
+pub fn set_nrx1(channel:&mut Channel<SquareSampleProducer>, value:u8){    
     channel.sample_producer.wave_duty = (value & 0b1100_0000) >> 6;
     channel.sound_length = 64 - (value & 0b11_1111) as u16
 }
- pub fn set_nr12(channel:&mut Channel<SquareSampleProducer>, value:u8){
+ pub fn set_nrx2(channel:&mut Channel<SquareSampleProducer>, value:u8){
     update_volume_envelope(value, &mut channel.sample_producer.envelop);
         
     if !is_dac_enabled(channel.sample_producer.envelop.volume, channel.sample_producer.envelop.increase_envelope){
@@ -132,7 +137,7 @@ pub fn set_nr11(channel:&mut Channel<SquareSampleProducer>, value:u8){
     }
 }
 
- pub fn set_nr13(channel:&mut Channel<SquareSampleProducer>, value:u8){
+ pub fn set_nrx3(channel:&mut Channel<SquareSampleProducer>, value:u8){
     //discard lower bits
     channel.frequency &= 0xFF00;
     channel.frequency |= value as u16;
@@ -243,6 +248,7 @@ fn update_volume_envelope(register:u8, envelop:&mut VolumeEnvlope){
     envelop.volume = (register & 0b1111_0000) >> 4;
     envelop.number_of_envelope_sweep = register & 0b111;
     envelop.increase_envelope = (register & BIT_3_MASK) != 0;
+    envelop.register = register;
 }
 
 fn is_dac_enabled(volume:u8, envelop_increase:bool)->bool{

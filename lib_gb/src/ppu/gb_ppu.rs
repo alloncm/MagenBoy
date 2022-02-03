@@ -25,8 +25,11 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub ly_register:u8,
     pub window_pos:Vec2<u8>,
     pub bg_pos:Vec2<u8>,
+    pub bg_palette_register:u8,
     pub bg_color_mapping: [Color; 4],
+    pub obj_pallete_0_register:u8,
     pub obj_color_mapping0: [Option<Color>;4],
+    pub obj_pallete_1_register:u8,
     pub obj_color_mapping1: [Option<Color>;4],
 
     //interrupts
@@ -62,8 +65,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             window_pos: Vec2::<u8>{x:0,y:0},
             screen_buffers:[[0;SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
             current_screen_buffer_index:0,
+            bg_palette_register:0,
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            obj_pallete_0_register:0,
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
+            obj_pallete_1_register:0,
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             ly_register:0,
             state: PpuState::Hblank,

@@ -1,9 +1,8 @@
 use crate::{
     apu::{audio_device::AudioDevice, gb_apu::GbApu},
-    cpu::gb_cpu::GbCpu, 
-    keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_register_updater}, 
+    cpu::gb_cpu::GbCpu,
     mmu::{carts::mbc::Mbc, gb_mmu::{GbMmu, BOOT_ROM_SIZE}, memory::Memory}, 
-    ppu::gfx_device::GfxDevice
+    ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
 };
 use std::boxed::Box;
 use log::debug;
@@ -13,8 +12,7 @@ pub const CYCLES_PER_FRAME:u32 = 17556;
 
 pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
     cpu: GbCpu,
-    mmu: GbMmu::<'a, AD, GFX>,
-    joypad_provider: JP
+    mmu: GbMmu::<'a, AD, GFX, JP>
 }
 
 impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX>{
@@ -22,8 +20,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, boot_rom:[u8;BOOT_ROM_SIZE])->GameBoy<JP, AD, GFX>{
         GameBoy{
             cpu:GbCpu::default(),
-            mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device), gfx_device),
-            joypad_provider: joypad_provider
+            mmu:GbMmu::new_with_bootrom(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider),
         }
     }
 
@@ -39,19 +36,15 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
 
         GameBoy{
             cpu:cpu,
-            mmu:GbMmu::new(mbc, GbApu::new(audio_device), gfx_device),
-            joypad_provider: joypad_provider,
+            mmu:GbMmu::new(mbc, GbApu::new(audio_device), gfx_device, joypad_provider)
         }
     }
 
     pub fn cycle_frame(&mut self){
-        let mut joypad = Joypad::default();
-
         let mut cycles_counter = 0;
 
         while cycles_counter < CYCLES_PER_FRAME{
-            self.joypad_provider.provide(&mut joypad);
-            joypad_register_updater::update_joypad_registers(&joypad, &mut self.mmu);
+            self.mmu.poll_joypad_state();
 
             //CPU
             let mut cpu_cycles_passed = 1;

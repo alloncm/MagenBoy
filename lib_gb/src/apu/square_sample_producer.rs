@@ -20,7 +20,8 @@ impl SquareSampleProducer{
                 sweep_decrease:false,
                 sweep_counter:0,
                 shadow_frequency:0,
-                sweep_period:0
+                sweep_period:0,
+                register: 0,
             }),
             envelop:VolumeEnvlope::default(),
             duty_sample_pointer:0
