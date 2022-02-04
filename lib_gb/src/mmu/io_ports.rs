@@ -4,11 +4,6 @@ pub const IO_PORTS_SIZE:usize = 0x80;
 
 pub const IO_PORTS_MEMORY_OFFSET:u16 = 0xFF00;
 
-macro_rules! io_port_index{
-    ($name:ident, $reg_address:expr) => {
-        const $name:u16 = $reg_address - IO_PORTS_MEMORY_OFFSET;
-    };
-}
 macro_rules! pub_io_port_index{
     ($name:ident, $reg_address:expr) => {
         pub const $name:u16 = $reg_address - IO_PORTS_MEMORY_OFFSET;
@@ -19,6 +14,21 @@ pub_io_port_index!(DIV_REGISTER_INDEX, DIV_REGISTER_ADDRESS);
 pub_io_port_index!(TAC_REGISTER_INDEX, TAC_REGISTER_ADDRESS);
 pub_io_port_index!(TIMA_REGISTER_INDEX, TIMA_REGISTER_ADDRESS);
 pub_io_port_index!(TMA_REGISTER_INDEX, TMA_REGISTER_ADDRESS);
+
+pub_io_port_index!(LCDC_REGISTER_INDEX, LCDC_REGISTER_ADDRESS);
+pub_io_port_index!(STAT_REGISTER_INDEX, STAT_REGISTER_ADDRESS);
+pub_io_port_index!(SCY_REGISTER_INDEX, SCY_REGISTER_ADDRESS);
+pub_io_port_index!(SCX_REGISTER_INDEX, SCX_REGISTER_ADDRESS);
+pub_io_port_index!(LY_REGISTER_INDEX, LY_REGISTER_ADDRESS);
+pub_io_port_index!(LYC_REGISTER_INDEX, LYC_REGISTER_ADDRESS);
+pub_io_port_index!(DMA_REGISTER_INDEX, DMA_REGISTER_ADDRESS);
+pub_io_port_index!(WY_REGISTER_INDEX, WY_REGISTER_ADDRESS);
+pub_io_port_index!(WX_REGISTER_INDEX, WX_REGISTER_ADDRESS);
+pub_io_port_index!(BOOT_REGISTER_INDEX, BOOT_REGISTER_ADDRESS);
+pub_io_port_index!(BGP_REGISTER_INDEX, BGP_REGISTER_ADDRESS);
+pub_io_port_index!(OBP0_REGISTER_INDEX, OBP0_REGISTER_ADDRESS);
+pub_io_port_index!(OBP1_REGISTER_INDEX, OBP1_REGISTER_ADDRESS);
+pub_io_port_index!(IF_REGISTER_INDEX, IF_REGISTER_ADDRESS);
 
 pub_io_port_index!(JOYP_REGISTER_INDEX, JOYP_REGISTER_ADDRESS);
 pub_io_port_index!(NR10_REGISTER_INDEX, NR10_REGISTER_ADDRESS);

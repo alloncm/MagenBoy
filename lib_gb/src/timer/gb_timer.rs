@@ -27,7 +27,7 @@ impl Default for GbTimer{
 }
 
 impl GbTimer{
-    pub fn cycle(&mut self, if_register:&mut u8, m_cycles:u8){
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->u32{
         let (timer_interval, timer_enable) = self.get_timer_controller_data();
 
         for _ in 0..m_cycles * 4{
@@ -61,6 +61,18 @@ impl GbTimer{
             }
             self.last_and_result = current_and_result;
         }
+
+        let t_cycles_to_next_timer_event = match timer_interval{
+            0b00=>0x100 - (self.system_counter & 0xFF),
+            0b01=>0b1000 - (self.system_counter & 0b111),
+            0b10=>0b10_0000 - (self.system_counter & 0b1_1111),
+            0b11=>0b1000_0000 - (self.system_counter & 0b111_1111),
+            _=>std::panic!("error ")
+        };
+
+        // Divide by 4 to cast m_cycles to t_cycles
+        // Adding +1 in order be in the next event and not cycle before 
+        return (t_cycles_to_next_timer_event >> 2) as u32 + 1;
     }
 
     fn get_timer_controller_data(&self)->(u8, bool){

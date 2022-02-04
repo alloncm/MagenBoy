@@ -20,10 +20,12 @@ pub struct GbApu<Device: AudioDevice>{
     pub left_terminal:SoundTerminal,
     pub enabled:bool,
 
+    pub nr50_register:u8, // The register orignal raw value
+    pub nr51_register:u8, // The register orignal raw value
+
     audio_buffer:[StereoSample;BUFFER_SIZE],
     current_m_cycle:u32,
     device:Device,
-    last_enabled_state:bool
 }
 
 impl<Device: AudioDevice> GbApu<Device>{
@@ -39,12 +41,13 @@ impl<Device: AudioDevice> GbApu<Device>{
             device:device,
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
-            enabled:false, 
-            last_enabled_state: false
+            enabled:false,
+            nr50_register:0,
+            nr51_register:0,
         }
     }
 
-    pub fn cycle(&mut self, m_cycles_passed:u8){
+    pub fn cycle(&mut self, m_cycles_passed:u32)->u32{
         if self.enabled{
             for _ in 0..m_cycles_passed{   
 
@@ -75,9 +78,9 @@ impl<Device: AudioDevice> GbApu<Device>{
 
                 self.push_buffer_if_full();
             }
-        }            
+        }
 
-        self.last_enabled_state = self.enabled;
+        return BUFFER_SIZE as u32 - self.current_m_cycle;
     }
 
     pub fn reset(&mut self){
@@ -86,6 +89,8 @@ impl<Device: AudioDevice> GbApu<Device>{
         self.wave_channel.reset();
         self.noise_channel.reset();
         self.frame_sequencer.reset();
+        self.nr50_register = 0;
+        self.nr51_register = 0;
     }
 
     fn push_buffer_if_full(&mut self){

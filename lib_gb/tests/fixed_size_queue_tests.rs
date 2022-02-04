@@ -19,6 +19,40 @@ fn test_fifo(){
 }
 
 #[test]
+fn test_fifo_wrapping_around(){
+    let mut fifo = FixedSizeQueue::<u8, 3>::new();
+
+    check_push_and_remove(&mut fifo);
+    check_push_and_remove(&mut fifo);
+    check_push_and_remove(&mut fifo);
+
+    fifo.push(10);
+    fifo.push(22);
+    fifo.remove();
+    assert_eq!(fifo.len(), 1);
+    assert_eq!(fifo[0], 22);
+
+    fifo[0] = 21;
+    assert_eq!(fifo[0], 21);
+}
+
+fn check_push_and_remove(fifo: &mut FixedSizeQueue<u8, 3>) {
+    fifo.push(10);
+    fifo.push(22);
+    fifo.push(33);
+
+    assert_eq!(fifo.len(), 3);
+    assert_eq!(fifo[0], 10);
+    assert_eq!(fifo[1], 22);
+    assert_eq!(fifo[2], 33);
+
+    assert_eq!(fifo.remove(), 10);
+    assert_eq!(fifo.remove(), 22);
+    assert_eq!(fifo.remove(), 33);
+    assert_eq!(fifo.len(), 0);
+}
+
+#[test]
 #[should_panic]
 fn panic_on_fifo_full(){
     let mut fifo = FixedSizeQueue::<u8, 3>::new();

@@ -4,6 +4,10 @@ pub struct WaveSampleProducer{
     pub wave_samples:[u8;16],
     pub volume:u8,
 
+    pub nr30_dac_state:bool, // The raw value of the register,
+    // saving it casue the in the wave channel the on/off bit controls the dac and not the channel itself, 
+    // and in order to turn on the channel we need to make sure that the dac is on
+
     sample_counter:u8
 }
 
@@ -12,7 +16,8 @@ impl Default for WaveSampleProducer{
         WaveSampleProducer{
             wave_samples:[0;16],
             volume:0,
-            sample_counter:0
+            sample_counter:0,
+            nr30_dac_state:false,
         }
     }
 }
@@ -36,6 +41,7 @@ impl SampleProducer for WaveSampleProducer{
     fn reset(&mut self) {
         self.volume = 0;
         self.sample_counter = 0;
+        self.nr30_dac_state = false;
     }
 
     fn get_updated_frequency_ticks(&self, freq:u16)->u16 {
