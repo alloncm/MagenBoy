@@ -4,21 +4,17 @@ use crate::{
     timer::{timer_register_updater::*, gb_timer::GbTimer}, 
     keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}
 };
-use super::{
-    interrupts_handler::*, access_bus::AccessBus, memory::*, 
-    oam_dma_transfer::OamDmaTransfer, ram::Ram, io_ports::*
-};
+use super::{interrupts_handler::*, memory::*,io_ports::*, oam_dma_controller::OamDmaController};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
 const WAVE_RAM_END_INDEX:u16 = 0x3F;
 
 pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
-    pub ram: Ram,
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
     pub ppu:GbPpu<GFX>,
-    pub dma:OamDmaTransfer,
+    pub dma_controller:OamDmaController,
     pub interrupt_handler:InterruptsHandler,
     pub joypad_handler: JoypadHandler<JP>,
     pub finished_boot:bool,
@@ -85,7 +81,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX,
             SCX_REGISTER_INDEX=> self.ppu.bg_pos.x,
             LY_REGISTER_INDEX=> self.ppu.ly_register,
             LYC_REGISTER_INDEX=> self.ppu.lyc_register,
-            DMA_REGISTER_INDEX=> (self.dma.soure_address >> 8) as u8,
+            DMA_REGISTER_INDEX=> self.dma_controller.get_dma_register(),
             BGP_REGISTER_INDEX=> self.ppu.bg_palette_register,
             OBP0_REGISTER_INDEX=> self.ppu.obj_pallete_0_register,
             OBP1_REGISTER_INDEX=> self.ppu.obj_pallete_1_register,
@@ -144,15 +140,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX,
             SCX_REGISTER_INDEX=> set_scx(&mut self.ppu, value),
             // LY is readonly
             LYC_REGISTER_INDEX=> set_lyc(&mut self.ppu, value),
-            DMA_REGISTER_INDEX=>{
-                let address = (value as u16) << 8;
-                self.dma.soure_address = address;
-                self.dma.enable = match value{
-                    0..=0x7F=>Some(AccessBus::External),
-                    0x80..=0x9F=>Some(AccessBus::Video),
-                    0xA0..=0xFF=>Some(AccessBus::External)
-                }
-            }
+            DMA_REGISTER_INDEX=>self.dma_controller.set_dma_register(value),
             BGP_REGISTER_INDEX=> handle_bg_pallet_register(value,&mut self.ppu.bg_color_mapping, &mut self.ppu.bg_palette_register),
             OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0, &mut self.ppu.obj_pallete_0_register),
             OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1, &mut self.ppu.obj_pallete_1_register),
@@ -172,11 +160,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             apu,
             timer:GbTimer::default(),
             ppu:GbPpu::new(gfx_device),
-            dma:OamDmaTransfer::default(),
+            dma_controller: OamDmaController::new(),
             interrupt_handler: InterruptsHandler::default(),
             joypad_handler: JoypadHandler::new(joypad_provider),
             finished_boot:false,
-            ram:Ram::default(),
             apu_cycles_counter:0,
             ppu_cycles:0,
             timer_cycles:0,

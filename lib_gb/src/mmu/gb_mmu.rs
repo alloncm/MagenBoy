@@ -1,3 +1,4 @@
+use super::external_memory_bus::ExternalMemoryBus;
 use super::interrupts_handler::InterruptRequest;
 use super::{io_bus::IoBus, memory::*};
 use super::access_bus::AccessBus;
@@ -10,15 +11,14 @@ use std::boxed::Box;
 
 pub const BOOT_ROM_SIZE:usize = 0x100;
 const HRAM_SIZE:usize = 0x7F;
-const DMA_SIZE:u16 = 0xA0;
-const DMA_DEST:u16 = 0xFE00;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     pub io_bus: IoBus<D, G, J>,
     boot_rom:[u8;BOOT_ROM_SIZE],
-    mbc: &'a mut Box<dyn Mbc>,
+    external_memory_bus:ExternalMemoryBus<'a>,
+    oucupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     interupt_enable_register:u8
 }
@@ -27,7 +27,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16)->u8{
-        if let Some (bus) = &self.io_bus.dma.enable{
+        if let Some (bus) = &self.oucupied_access_bus{
             return match address{
                 0xFF00..=0xFF7F => self.io_bus.read(address - 0xFF00),
                 0xFEA0..=0xFEFF | 0xFF80..=0xFFFE | 0xFFFF=>self.read_unprotected(address),
@@ -62,7 +62,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 
     fn write(&mut self, address:u16, value:u8){
-        if let Some(bus) = &self.io_bus.dma.enable{
+        if let Some(bus) = &self.oucupied_access_bus{
             match address{
                 0xFF00..=0xFF7F => self.io_bus.write(address- 0xFF00, value),
                 0xFF80..=0xFFFE | 0xFFFF=>self.write_unprotected(address, value),
@@ -102,18 +102,14 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         return match address{
             0x0..=0xFF=>{
                 if self.io_bus.finished_boot{
-                    return self.mbc.read_bank0(address);
+                    return self.external_memory_bus.read(address);
                 }
                 
                 return self.boot_rom[address as usize];
             },
-            0x100..=0x3FFF=>self.mbc.read_bank0(address),
-            0x4000..=0x7FFF=>self.mbc.read_current_bank(address-0x4000),
+            0x100..=0x7FFF=>self.external_memory_bus.read(address),
             0x8000..=0x9FFF=>self.io_bus.ppu.vram.read_current_bank(address-0x8000),
-            0xA000..=0xBFFF=>self.mbc.read_external_ram(address-0xA000),
-            0xC000..=0xCFFF =>self.io_bus.ram.read_bank0(address - 0xC000), 
-            0xD000..=0xDFFF=>self.io_bus.ram.read_current_bank(address-0xD000),
-            0xE000..=0xFDFF=>self.io_bus.ram.read_bank0(address - 0xE000),
+            0xA000..=0xFDFF=>self.external_memory_bus.read(address),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
             0xFF00..=0xFF7F=>self.io_bus.read(address - 0xFF00),
@@ -124,12 +120,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     fn write_unprotected(&mut self, address:u16, value:u8) {
         match address{
-            0x0..=0x7FFF=>self.mbc.write_rom(address, value),
+            0x0..=0x7FFF=>self.external_memory_bus.write(address, value),
             0x8000..=0x9FFF=>self.io_bus.ppu.vram.write_current_bank(address-0x8000, value),
-            0xA000..=0xBFFF=>self.mbc.write_external_ram(address-0xA000,value),
-            0xC000..=0xCFFF =>self.io_bus.ram.write_bank0(address - 0xC000,value), 
-            0xE000..=0xFDFF=>self.io_bus.ram.write_bank0(address - 0xE000,value),
-            0xD000..=0xDFFF=>self.io_bus.ram.write_current_bank(address-0xD000,value),
+            0xA000..=0xFDFF=>self.external_memory_bus.write(address, value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
@@ -143,7 +136,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>, gfx_device:G, joypad_proider:J)->Self{
         GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider),
-            mbc:mbc,
+            external_memory_bus: ExternalMemoryBus::new(mbc),
+            oucupied_access_bus:None,
             hram:[0;HRAM_SIZE],
             interupt_enable_register:0,
             boot_rom:boot_rom,
@@ -151,23 +145,17 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn new(mbc:&'a mut Box<dyn Mbc>, apu:GbApu<D>, gfx_device: G, joypad_proider:J)->Self{
-        let mut mmu = GbMmu{
-            io_bus:IoBus::new(apu, gfx_device, joypad_proider),
-            mbc:mbc,
-            hram:[0;HRAM_SIZE],
-            interupt_enable_register:0,
-            boot_rom:[0;BOOT_ROM_SIZE],
-        };
+        let mut mmu = GbMmu::new_with_bootrom(mbc, [0;BOOT_ROM_SIZE], apu, gfx_device, joypad_proider);
 
         //Setting the bootrom register to be set (the boot sequence has over)
         mmu.write(BOOT_REGISTER_ADDRESS, 1);
         
-        mmu
+        return mmu;
     }
 
-    pub fn cycle(&mut self, cycles:u8){
-        self.handle_dma_trasnfer(cycles);
-        self.io_bus.cycle(cycles as u32);
+    pub fn cycle(&mut self, m_cycles:u8){
+        self.oucupied_access_bus = self.io_bus.dma_controller.cycle(m_cycles as u32, &mut self.external_memory_bus, &mut self.io_bus.ppu);
+        self.io_bus.cycle(m_cycles as u32);
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -176,22 +164,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     pub fn poll_joypad_state(&mut self){
         self.io_bus.joypad_handler.poll_joypad_state();
-    }
-
-    fn handle_dma_trasnfer(&mut self, cycles: u8) {
-        if self.io_bus.dma.enable.is_some(){
-            let cycles_to_run = std::cmp::min(self.io_bus.dma.dma_cycle_counter + cycles as u16, DMA_SIZE);
-            for i in self.io_bus.dma.dma_cycle_counter..cycles_to_run as u16{
-                let source_value = self.read_unprotected(self.io_bus.dma.soure_address + i);
-                self.write_unprotected(DMA_DEST + i, source_value);
-            }
-
-            self.io_bus.dma.dma_cycle_counter += cycles as u16;
-            if self.io_bus.dma.dma_cycle_counter >= DMA_SIZE{
-                self.io_bus.dma.dma_cycle_counter = 0;
-                self.io_bus.dma.enable = Option::None;
-            }
-        }
     }
 
     fn is_oam_ready_for_io(&self)->bool{
