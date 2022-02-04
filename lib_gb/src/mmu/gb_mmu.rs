@@ -154,7 +154,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn cycle(&mut self, m_cycles:u8){
-        self.io_bus.dma_controller.cycle(m_cycles as u32, &mut self.external_memory_bus, &mut self.io_bus.ppu);
+        self.oucupied_access_bus = self.io_bus.dma_controller.cycle(m_cycles as u32, &mut self.external_memory_bus, &mut self.io_bus.ppu);
         self.io_bus.cycle(m_cycles as u32);
     }
 
