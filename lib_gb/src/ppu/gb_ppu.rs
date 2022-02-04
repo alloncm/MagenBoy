@@ -115,11 +115,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             return None;
         }
 
-        let fethcer_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
+        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
 
-        let stat_cycles_to_next_event = self.update_stat_register(if_register);
+        let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
-        let cycles = std::cmp::min(fethcer_cycles_to_next_event, stat_cycles_to_next_event);
+        let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
 
         for i in 0..self.push_lcd_buffer.len(){
             self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = u32::from(self.push_lcd_buffer[i]);
@@ -163,15 +163,18 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
         self.trigger_stat_interrupt = false;
 
-        return if self.lyc_register < self.ly_register{
-            (((self.ly_register - self.lyc_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32) >> 2
+        let t_cycles_to_next_stat_change = if self.lyc_register < self.ly_register{
+            ((self.ly_register - self.lyc_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
         }
         else if self.lyc_register == self.ly_register{
             (HBLANK_T_CYCLES_LENGTH as u32 * 154 ) - self.t_cycles_passed as u32
         }
         else{
-            (((self.lyc_register - self.ly_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32) >> 2
+            ((self.lyc_register - self.ly_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
         };
+
+        // Divide by 4 to transform the t_cycles to m_cycles
+        return t_cycles_to_next_stat_change >> 2;
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
@@ -294,6 +297,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             PpuState::PixelTransfer => self.t_cycles_passed
         };
 
+        // Subtract by 4 in order to cast the t_cycles to m_cycles
         return (t_cycles - self.t_cycles_passed) >> 2;
     }
 

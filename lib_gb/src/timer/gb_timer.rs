@@ -70,6 +70,8 @@ impl GbTimer{
             _=>std::panic!("error ")
         };
 
+        // Divide by 4 to cast m_cycles to t_cycles
+        // Adding +1 in order be in the next event and not cycle before 
         return (t_cycles_to_next_timer_event >> 2) as u32 + 1;
     }
 
