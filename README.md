@@ -25,6 +25,18 @@ magenboy [path_to_rom] [other_optional_flags]
 * `--no-vsync` - Disable vsync
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 
+### Building
+
+```shell
+cargo build --release --features [optional_features]
+```
+#### Optional features:
+* static-sdl - will link statically to sdl2.
+On by default (to turn off pass `--no-default-features`)
+* sdl-resample - Use the audio resampler from sdl2 library and a manual one I wrote
+* push-audio - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
+* static-scale - Will use a fixed scale values for the renderer instead of addapting to the screen size
+
 ## GameBoy
 
 ### Development Status
