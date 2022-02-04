@@ -8,7 +8,7 @@ impl Default for Joypad{
     fn default()->Self{
         // Since the button pressed state is 0 initializing to unpressed state (1 == true)
         Joypad{
-            buttons:[true;NUM_OF_KEYS],
+            buttons:[false;NUM_OF_KEYS],
         }
     }
 }

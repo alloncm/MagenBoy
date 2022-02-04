@@ -29,6 +29,9 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
 
     timer_event_cycles:u32,
     apu_event_cycles:u32,
+
+    // Since the PPU is the only that can be completely off and not operate at all Im using an option
+    // where None indicates the PPU is off
     ppu_event:Option<u32>,
 }
 
@@ -50,14 +53,14 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX,
             //Interrupts handler
             IF_REGISTER_INDEX => self.interrupt_handler.interrupt_flag,
             //APU
-            NR10_REGISTER_INDEX=> self.apu.sweep_tone_channel.sample_producer.sweep.as_mut().unwrap().register,
+            NR10_REGISTER_INDEX=> self.apu.sweep_tone_channel.sample_producer.sweep.as_mut().unwrap().nr10_register,
             NR11_REGISTER_INDEX=> (self.apu.sweep_tone_channel.sample_producer.wave_duty << 6) | 0b0011_1111,
-            NR12_REGISTER_INDEX => self.apu.sweep_tone_channel.sample_producer.envelop.register,
+            NR12_REGISTER_INDEX => self.apu.sweep_tone_channel.sample_producer.envelop.nrx2_register,
             NR13_REGISTER_INDEX=> 0xFF,
             NR14_REGISTER_INDEX=> ((self.apu.sweep_tone_channel.length_enable as u8) << 6 ) | 0b1011_1111,
             0x15 => 0xFF, //Not used
             NR21_REGISTER_INDEX=> (self.apu.tone_channel.sample_producer.wave_duty << 6) | 0b0011_1111,
-            NR22_REGISTER_INDEX=> self.apu.tone_channel.sample_producer.envelop.register,
+            NR22_REGISTER_INDEX=> self.apu.tone_channel.sample_producer.envelop.nrx2_register,
             NR23_REGISTER_INDEX=> 0xFF,
             NR24_REGISTER_INDEX=> ((self.apu.tone_channel.length_enable as u8) << 6 ) | 0b1011_1111,
             NR30_REGISTER_INDEX=> ((self.apu.wave_channel.enabled as u8) << 7) | 0b0111_1111,
@@ -67,7 +70,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX,
             NR34_REGISTER_INDEX=> ((self.apu.wave_channel.length_enable as u8) << 6 ) | 0b1011_1111,
             0x1F => 0xFF, //Not used
             NR41_REGISTER_INDEX=> 0xFF,
-            NR42_REGISTER_INDEX=> self.apu.noise_channel.sample_producer.envelop.register,
+            NR42_REGISTER_INDEX=> self.apu.noise_channel.sample_producer.envelop.nrx2_register,
             NR43_REGISTER_INDEX=> self.apu.noise_channel.sample_producer.nr43_register,
             NR44_REGISTER_INDEX=> ((self.apu.wave_channel.length_enable as u8) << 6 ) | 0b1011_1111,
             NR50_REGISTER_INDEX=> self.apu.nr50_register,

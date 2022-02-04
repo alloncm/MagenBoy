@@ -122,7 +122,7 @@ pub fn set_nr10(channel:&mut Channel<SquareSampleProducer>, value:u8){
     sweep.sweep_decrease = (value & 0b1000) != 0;
     sweep.sweep_shift = value & 0b111;
     sweep.sweep_period = (value & 0b111_0000) >> 4;
-    sweep.register = value | 0b1000_0000;
+    sweep.nr10_register = value | 0b1000_0000;
 }
 
 pub fn set_nrx1(channel:&mut Channel<SquareSampleProducer>, value:u8){    
@@ -248,7 +248,7 @@ fn update_volume_envelope(register:u8, envelop:&mut VolumeEnvlope){
     envelop.volume = (register & 0b1111_0000) >> 4;
     envelop.number_of_envelope_sweep = register & 0b111;
     envelop.increase_envelope = (register & BIT_3_MASK) != 0;
-    envelop.register = register;
+    envelop.nrx2_register = register;
 }
 
 fn is_dac_enabled(volume:u8, envelop_increase:bool)->bool{

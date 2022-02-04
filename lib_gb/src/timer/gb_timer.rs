@@ -62,7 +62,7 @@ impl GbTimer{
             self.last_and_result = current_and_result;
         }
 
-        let v = match timer_interval{
+        let t_cycles_to_next_timer_event = match timer_interval{
             0b00=>0x100 - (self.system_counter & 0xFF),
             0b01=>0b1000 - (self.system_counter & 0b111),
             0b10=>0b10_0000 - (self.system_counter & 0b1_1111),
@@ -70,7 +70,7 @@ impl GbTimer{
             _=>std::panic!("error ")
         };
 
-        return (v>>2) as u32 + 1;
+        return (t_cycles_to_next_timer_event >> 2) as u32 + 1;
     }
 
     fn get_timer_controller_data(&self)->(u8, bool){

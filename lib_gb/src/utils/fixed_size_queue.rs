@@ -2,9 +2,9 @@ pub struct FixedSizeQueue<T:Copy, const SIZE:usize>{
     // According to the docs Vec should not be moved in memory if it not modified
     // Im modifing it but not increasing its allocated size once its allocated so I hope this will work for me
     // and I wont get weird memory issues
-    _data: Vec<T>,
-    end_data_pointer: *mut T,
-    start_data_pointer: *mut T,
+    _data: Vec<T>,   // This field is not use directly only through pointers aquired in the new() function
+    end_data_pointer: *const T,
+    start_data_pointer: *const T,
     data_pointer: *mut T,
     base_data_pointer: *mut T,
     length: usize,
@@ -14,7 +14,7 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn new()->Self{
         let data = Vec::with_capacity(SIZE);
         let mut s = Self{
-            _data:data,
+            _data: data,
             length:0,
             base_data_pointer: std::ptr::null_mut(),
             data_pointer: std::ptr::null_mut(),
@@ -24,8 +24,8 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
 
         s.base_data_pointer = s._data.as_mut_ptr();
         s.data_pointer = s._data.as_mut_ptr();
-        s.start_data_pointer = s._data.as_mut_ptr();
-        unsafe{s.end_data_pointer = s._data.as_mut_ptr().add(SIZE)};
+        s.start_data_pointer = s._data.as_ptr();
+        unsafe{s.end_data_pointer = s._data.as_ptr().add(SIZE)};
 
         return s;
     }
@@ -33,8 +33,8 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn push(&mut self, t:T){
         if self.length < SIZE{
             unsafe{
-                if self.data_pointer == self.end_data_pointer{
-                    self.data_pointer = self.start_data_pointer;
+                if self.data_pointer == self.end_data_pointer as *mut T{
+                    self.data_pointer = self.start_data_pointer as *mut T;
                 }
                 *self.data_pointer = t;
                 self.data_pointer = self.data_pointer.add(1);
@@ -51,8 +51,8 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
             unsafe{
                 let t = *self.base_data_pointer;
                 self.base_data_pointer = self.base_data_pointer.add(1);
-                if self.base_data_pointer == self.end_data_pointer{
-                    self.base_data_pointer = self.start_data_pointer;
+                if self.base_data_pointer == self.end_data_pointer as *mut T{
+                    self.base_data_pointer = self.start_data_pointer as *mut T;
                 }
 
                 self.length -= 1;
@@ -65,8 +65,8 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
 
     pub fn clear(&mut self){
         self.length = 0;
-        self.data_pointer = self.start_data_pointer;
-        self.base_data_pointer = self.start_data_pointer;
+        self.data_pointer = self.start_data_pointer as *mut T;
+        self.base_data_pointer = self.start_data_pointer as *mut T;
     }
 
     pub fn len(&self)->usize{
@@ -80,7 +80,7 @@ impl<T:Copy, const SIZE:usize> std::ops::Index<usize> for FixedSizeQueue<T, SIZE
     fn index(&self, mut index: usize) -> &Self::Output {
         if index < self.length{
             unsafe{
-                if self.base_data_pointer.add(index) >= self.end_data_pointer{
+                if self.base_data_pointer.add(index) >= self.end_data_pointer as *mut T{
                     index -= self.end_data_pointer.offset_from(self.base_data_pointer) as usize;
                 }
                 // casting a *mut T to a &T
@@ -96,7 +96,7 @@ impl<T:Copy, const SIZE:usize> std::ops::IndexMut<usize> for FixedSizeQueue<T, S
     fn index_mut(&mut self, mut index: usize) -> &mut Self::Output {
         if index < self.length{
             unsafe{
-                if self.base_data_pointer.add(index) >= self.end_data_pointer{
+                if self.base_data_pointer.add(index) >= self.end_data_pointer as *mut T{
                     index -= self.end_data_pointer.offset_from(self.base_data_pointer) as usize;
                 }
                 // casting a *mut T to a &mut T

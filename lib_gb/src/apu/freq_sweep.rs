@@ -6,7 +6,7 @@ pub struct FreqSweep{
     pub sweep_shift:u8,
     pub shadow_frequency:u16,
 
-    pub register:u8, // The raw value of the NR10 register
+    pub nr10_register:u8, // The raw value of the NR10 register
 }
 
 impl FreqSweep{
@@ -18,7 +18,7 @@ impl FreqSweep{
         self.enabled = false;
         self.sweep_period = 0;
 
-        self.register = 0;
+        self.nr10_register = 0;
     }
 
     pub fn reload_sweep_time(&mut self){

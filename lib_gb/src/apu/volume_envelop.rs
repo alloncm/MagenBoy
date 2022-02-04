@@ -6,7 +6,7 @@ pub struct VolumeEnvlope{
     pub number_of_envelope_sweep:u8,
     pub envelop_duration_counter:u8,
 
-    pub register:u8, // The original register raw value
+    pub nrx2_register:u8, // The original register raw value
 }
 
 impl VolumeEnvlope{
@@ -14,7 +14,7 @@ impl VolumeEnvlope{
         self.increase_envelope = false;
         self.number_of_envelope_sweep = 0;
         self.envelop_duration_counter = 0;
-        self.register = 0;
+        self.nrx2_register = 0;
     }
 
     pub fn tick(&mut self){
@@ -46,7 +46,7 @@ impl Default for VolumeEnvlope{
             increase_envelope:false,
             number_of_envelope_sweep:0,
             envelop_duration_counter:0,
-            register:0
+            nrx2_register:0
         }
     }
 }
