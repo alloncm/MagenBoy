@@ -4,7 +4,7 @@ use crate::{
     timer::{timer_register_updater::*, gb_timer::GbTimer}, 
     keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}
 };
-use super::{interrupts_handler::*, memory::*,io_ports::*, dma_controller::OamDmaController};
+use super::{interrupts_handler::*, memory::*,io_ports::*, oam_dma_controller::OamDmaController};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
