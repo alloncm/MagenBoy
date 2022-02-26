@@ -45,7 +45,7 @@ cfg_if::cfg_if!{
 }
 
 use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
-use lib_gb::{GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
+use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
 use sdl2::sys::*;
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
@@ -70,7 +70,6 @@ cfg_if::cfg_if!{
         }
     }
     else{
-        use lib_gb::keypad::button::Button;
         use sdl2::sys::SDL_Scancode;
         fn buttons_mapper(button:Button)->SDL_Scancode{
             match button{
