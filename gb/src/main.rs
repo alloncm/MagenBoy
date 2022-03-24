@@ -60,8 +60,8 @@ cfg_if::cfg_if!{
             match button{
                 Button::A       => 18,
                 Button::B       => 17,
-                Button::Start   => 0,
-                Button::Select  => 0,
+                Button::Start   => 22,
+                Button::Select  => 23,
                 Button::Up      => 16,
                 Button::Down    => 20,
                 Button::Right   => 21,

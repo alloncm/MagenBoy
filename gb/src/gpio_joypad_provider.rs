@@ -16,20 +16,16 @@ impl GpioJoypadProvider{
     pub fn new<F:Fn(Button)->GpioPin>(mapper:F)->Self{
         
         let gpio = Gpio::new().unwrap();
-        let a_pin = gpio.get(mapper(Button::A)).unwrap().into_input();
-        let b_pin = gpio.get(mapper(Button::B)).unwrap().into_input();
-        let up_pin = gpio.get(mapper(Button::Up)).unwrap().into_input();
-        let down_pin = gpio.get(mapper(Button::Down)).unwrap().into_input();
-        let right_pin = gpio.get(mapper(Button::Right)).unwrap().into_input();
-        let left_pin = gpio.get(mapper(Button::Left)).unwrap().into_input();
         
         let mut pins:[Option<InputPin>;NUM_OF_KEYS] = create_default_array();
-        pins[Button::A as usize] = Some(a_pin);
-        pins[Button::B as usize] = Some(b_pin);
-        pins[Button::Up as usize] = Some(up_pin);
-        pins[Button::Down as usize] = Some(down_pin);
-        pins[Button::Right as usize] = Some(right_pin);
-        pins[Button::Left as usize] = Some(left_pin);
+        pins[Button::A as usize]        = Some(gpio.get(mapper(Button::A)).unwrap().into_input());
+        pins[Button::B as usize]        = Some(gpio.get(mapper(Button::B)).unwrap().into_input());
+        pins[Button::Start as usize]    = Some(gpio.get(mapper(Button::Start)).unwrap().into_input());
+        pins[Button::Select as usize]   = Some(gpio.get(mapper(Button::Select)).unwrap().into_input());
+        pins[Button::Up as usize]       = Some(gpio.get(mapper(Button::Up)).unwrap().into_input());
+        pins[Button::Down as usize]     = Some(gpio.get(mapper(Button::Down)).unwrap().into_input());
+        pins[Button::Right as usize]    = Some(gpio.get(mapper(Button::Right)).unwrap().into_input());
+        pins[Button::Left as usize]     = Some(gpio.get(mapper(Button::Left)).unwrap().into_input());
 
         Self{
             input_pins:pins
