@@ -77,11 +77,12 @@ fn get_game_selection(roms_path:&str)->String{
     for entry in dir_entries{
         let entry = entry.unwrap();
         let path = entry.path();
-        let extension = path.as_path().extension().unwrap();
-        if extension == "gb"{
-            let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
-            let option = MenuOption{value: path, prompt: filename};
-            menu_options.push(option);
+        if let Some(extension) = path.as_path().extension(){
+            if extension == "gb"{
+                let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
+                let option = MenuOption{value: path, prompt: filename};
+                menu_options.push(option);
+            }
         }
     }
 
