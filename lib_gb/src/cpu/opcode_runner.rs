@@ -171,7 +171,7 @@ impl GbCpu{
     }
 
     
-    fn fetch_next_byte(&mut self, memory: &impl Memory)->u8{
+    fn fetch_next_byte(&mut self, memory: &mut impl Memory)->u8{
         let byte:u8 = memory.read(self.program_counter);
         self.program_counter+=1;
         return byte;
@@ -180,7 +180,7 @@ impl GbCpu{
 
 
 
-fn run_u16_opcode(cpu: &mut GbCpu, memory: &impl Memory, opcode:u8, opcode_func:fn(&mut GbCpu, u16)->u8)->u8{
+fn run_u16_opcode(cpu: &mut GbCpu, memory: &mut impl Memory, opcode:u8, opcode_func:fn(&mut GbCpu, u16)->u8)->u8{
     let u16_opcode = get_u16_opcode(cpu, memory, opcode);
     opcode_func(cpu, u16_opcode)
 }
@@ -190,7 +190,7 @@ fn run_u16_memory_opcode<T:Memory>(cpu: &mut GbCpu, memory: &mut T, opcode:u8, o
     opcode_func(cpu, memory, u16_opcode)
 }
 
-fn run_u32_opcode(cpu: &mut GbCpu, memory: &impl Memory, opcode:u8, opcode_func:fn(&mut GbCpu, u32)->u8)->u8{
+fn run_u32_opcode(cpu: &mut GbCpu, memory: &mut impl Memory, opcode:u8, opcode_func:fn(&mut GbCpu, u32)->u8)->u8{
     let mut u32_opcode:u32 = ((opcode as u32)<<8) | (cpu.fetch_next_byte(memory) as u32);
     u32_opcode <<= 8;
     u32_opcode |= cpu.fetch_next_byte(memory) as u32;
@@ -206,6 +206,6 @@ fn run_u32_memory_opcode<T:Memory>(cpu: &mut GbCpu, memory: &mut T, opcode:u8, o
     opcode_func(cpu, memory, u32_opcode)
 }
 
-fn get_u16_opcode(cpu:&mut GbCpu, memory:&impl Memory, opcode:u8)->u16{
+fn get_u16_opcode(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u16{
     (opcode as u16) << 8 | cpu.fetch_next_byte(memory) as u16
 }
