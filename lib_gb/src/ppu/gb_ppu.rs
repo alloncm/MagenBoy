@@ -1,12 +1,8 @@
-use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::mmu::vram::VRam;
-use crate::ppu::color::*;
-use crate::ppu::colors::*;
-use crate::ppu::gfx_device::GfxDevice;
-use crate::ppu::{ppu_state::PpuState, sprite_attribute::SpriteAttribute};
+use crate::utils::{vec2::Vec2, bit_masks::*};
+use crate::ppu::{gfx_device::GfxDevice, ppu_state::PpuState, sprite_attribute::SpriteAttribute, colors::*, color::*};
 
-use super::fifo::background_fetcher::BackgroundFetcher;
-use super::fifo::{FIFO_SIZE, sprite_fetcher::*};
+use super::fifo::{FIFO_SIZE, sprite_fetcher::*, background_fetcher::BackgroundFetcher};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -29,8 +25,11 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub ly_register:u8,
     pub window_pos:Vec2<u8>,
     pub bg_pos:Vec2<u8>,
+    pub bg_palette_register:u8,
     pub bg_color_mapping: [Color; 4],
+    pub obj_pallete_0_register:u8,
     pub obj_color_mapping0: [Option<Color>;4],
+    pub obj_pallete_1_register:u8,
     pub obj_color_mapping1: [Option<Color>;4],
 
     //interrupts
@@ -66,8 +65,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             window_pos: Vec2::<u8>{x:0,y:0},
             screen_buffers:[[0;SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
             current_screen_buffer_index:0,
+            bg_palette_register:0,
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
+            obj_pallete_0_register:0,
             obj_color_mapping0: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
+            obj_pallete_1_register:0,
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             ly_register:0,
             state: PpuState::Hblank,
@@ -108,14 +110,16 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8){
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
         if self.lcd_control & BIT_7_MASK == 0{
-            return;
+            return None;
         }
 
-        self.cycle_fetcher(m_cycles, if_register);
+        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
 
-        self.update_stat_register(if_register);
+        let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
+
+        let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
 
         for i in 0..self.push_lcd_buffer.len(){
             self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = u32::from(self.push_lcd_buffer[i]);
@@ -126,6 +130,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
 
         self.push_lcd_buffer.clear();
+
+        return Some(cycles);
     }
 
     fn swap_buffer(&mut self){
@@ -134,7 +140,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.current_screen_buffer_index = (self.current_screen_buffer_index + 1) % BUFFERS_NUMBER;
     }
 
-    fn update_stat_register(&mut self, if_register: &mut u8) {
+    fn update_stat_register(&mut self, if_register: &mut u8) -> u32{
         self.stat_register &= 0b1111_1100;
         self.stat_register |= self.state as u8;
         if self.ly_register == self.lyc_register{
@@ -156,12 +162,27 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             self.stat_triggered = false;
         }
         self.trigger_stat_interrupt = false;
+
+        let t_cycles_to_next_stat_change = if self.lyc_register < self.ly_register{
+            ((self.ly_register - self.lyc_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
+        }
+        else if self.lyc_register == self.ly_register{
+            (HBLANK_T_CYCLES_LENGTH as u32 * 154 ) - self.t_cycles_passed as u32
+        }
+        else{
+            ((self.lyc_register - self.ly_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
+        };
+
+        // Divide by 4 to transform the t_cycles to m_cycles
+        return t_cycles_to_next_stat_change >> 2;
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8){
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
+        let t_cycles = m_cycles * 4;
+        let mut t_cycles_counter = 0;
 
-        for _ in 0..m_cycles * 2{
+        while t_cycles_counter < t_cycles{
             match self.state{
                 PpuState::OamSearch=>{
                     let oam_index = self.t_cycles_passed / 2;
@@ -184,9 +205,13 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         self.state = PpuState::PixelTransfer;
                         self.scanline_started = false;
                     }
+
+                    t_cycles_counter += 2;
                 }
                 PpuState::Hblank=>{
-                    self.t_cycles_passed += 2;
+                    let t_cycles_to_add = std::cmp::min((t_cycles - t_cycles_counter) as u16, HBLANK_T_CYCLES_LENGTH - self.t_cycles_passed);
+                    self.t_cycles_passed += t_cycles_to_add;
+                    t_cycles_counter += t_cycles_to_add as u32;
                     
                     if self.t_cycles_passed == HBLANK_T_CYCLES_LENGTH{
                         self.pixel_x_pos = 0;
@@ -211,6 +236,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     }
                 }
                 PpuState::Vblank=>{
+                    let t_cycles_to_add = std::cmp::min((t_cycles - t_cycles_counter) as u16, VBLANK_T_CYCLES_LENGTH - self.t_cycles_passed);
+                    self.t_cycles_passed += t_cycles_to_add;
+                    t_cycles_counter += t_cycles_to_add as u32;
+                    
                     if self.t_cycles_passed == VBLANK_T_CYCLES_LENGTH{
                         self.state = PpuState::OamSearch;
                         if self.oam_search_interrupt_request{
@@ -225,7 +254,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         self.ly_register = SCREEN_HEIGHT as u8 + (self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH) as u8;
                     }
                     
-                    self.t_cycles_passed += 2;
                 }
                 PpuState::PixelTransfer=>{
                     for _ in 0..2{
@@ -257,10 +285,20 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         }
                     }
                     self.t_cycles_passed += 2;
+                    t_cycles_counter += 2;
                 }
             }
-            
         }
+
+        let t_cycles = match self.state{
+            PpuState::Vblank => ((self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH)+1) * HBLANK_T_CYCLES_LENGTH,
+            PpuState::Hblank => HBLANK_T_CYCLES_LENGTH,
+            PpuState::OamSearch => OAM_SEARCH_T_CYCLES_LENGTH,
+            PpuState::PixelTransfer => self.t_cycles_passed
+        };
+
+        // Subtract by 4 in order to cast the t_cycles to m_cycles
+        return (t_cycles - self.t_cycles_passed) >> 2;
     }
 
     fn try_push_to_lcd(&mut self){

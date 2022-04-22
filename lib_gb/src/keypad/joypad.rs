@@ -1,4 +1,3 @@
-
 pub const NUM_OF_KEYS: usize = 8;
 
 pub struct Joypad{

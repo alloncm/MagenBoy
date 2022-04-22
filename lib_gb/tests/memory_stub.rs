@@ -5,7 +5,7 @@ pub struct MemoryStub{
 }
 
 impl Memory for MemoryStub{
-    fn read(&self, address:u16)->u8{
+    fn read(&mut self, address:u16)->u8{
         self.data[address as usize]
     }
 
