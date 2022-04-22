@@ -24,6 +24,7 @@ magenboy [path_to_rom] [other_optional_flags]
 * `--full-screen` - Full screen mode
 * `--no-vsync` - Disable vsync
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
+* `--rom_menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 
 ### Building
 
