@@ -1,7 +1,16 @@
 use std::{io::Write, time::Duration};
+use lib_gb::keypad::{joypad_provider::JoypadProvider, joypad::Joypad, self, button::Button};
 
 use crossterm::{QueueableCommand, style::{self, Stylize}, cursor, terminal::{self, ClearType}, event::{self, KeyCode}};
-use lib_gb::keypad::{joypad_provider::JoypadProvider, joypad::Joypad, self, button::Button};
+
+cfg_if::cfg_if!{
+    if #[cfg(windows)]{
+        const LINE_ENDING:&'static str = "\r\n";
+    }
+    else{
+        const LINE_ENDING:&'static str = "\n";
+    }
+}
 
 pub struct TerminalRawModeJoypadProvider<F:Fn(KeyCode)->Option<Button>>{
     mapper:F
@@ -66,13 +75,13 @@ impl<T> JoypadTerminalMenu<T>{
             }
             let prev_joypad = Joypad{buttons:joypad.buttons.clone()};
             provider.provide(&mut joypad);
-            if joypad.buttons[keypad::button::Button::Up as usize] && !prev_joypad.buttons[keypad::button::Button::Up as usize]{
+            if chekc_button_down_event(&joypad, &prev_joypad, keypad::button::Button::Up){
                 if self.selection > 0{
                     self.selection -= 1;
                     redraw = true;
                 }
             }
-            else if joypad.buttons[keypad::button::Button::Down as usize] && !prev_joypad.buttons[keypad::button::Button::Down as usize]{
+            else if chekc_button_down_event(&joypad, &prev_joypad, keypad::button::Button::Down){
                 if self.selection < self.options.len() - 1{
                     self.selection += 1;
                     redraw = true;
@@ -96,7 +105,7 @@ impl<T> JoypadTerminalMenu<T>{
             else{
                 stdout.queue(style::Print(option.prompt.as_str())).unwrap();
             }
-            stdout.queue(style::Print("\n")).unwrap();
+            stdout.queue(style::Print(LINE_ENDING)).unwrap();
         }
 
         stdout.flush().unwrap();
@@ -108,4 +117,10 @@ impl<T> JoypadTerminalMenu<T>{
         stdout.queue(terminal::Clear(ClearType::FromCursorDown)).unwrap();
         stdout.flush().unwrap();
     }
+}
+
+// checking the previous state in order to recognize the inital key down event and not the whole time the button is pressed
+fn chekc_button_down_event(joypad: &Joypad, prev_joypad: &Joypad, button:Button) -> bool {
+    let button_index = button as usize;
+    return joypad.buttons[button_index] && !prev_joypad.buttons[button_index];
 }

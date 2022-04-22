@@ -71,7 +71,7 @@ fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_message:&
     return args.get(index + 1).expect(error_message).clone();
 }
 
-fn get_game_selection(roms_path:&str)->String{
+fn get_rom_selection(roms_path:&str)->String{
     let mut menu_options = Vec::new();
     let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
     for entry in dir_entries{
@@ -99,8 +99,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();  
 
     let program_name = if check_for_terminal_feature_flag(&args, "--rom_menu"){
-        let roms_path = get_terminal_feature_flag_value(&args, "--rom_menu", "Error couldnt find the roms folder specified");
-        get_game_selection(roms_path.as_str())
+        let roms_path = get_terminal_feature_flag_value(&args, "--rom_menu", "Error! no roms folder specified");
+        get_rom_selection(roms_path.as_str())
     }
     else{
         args[1].clone()
