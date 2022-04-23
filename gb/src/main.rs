@@ -64,10 +64,10 @@ cfg_if::cfg_if!{
                 Button::B       => 17,
                 Button::Start   => 22,
                 Button::Select  => 23,
-                Button::Up      => 16,
-                Button::Down    => 20,
-                Button::Right   => 21,
-                Button::Left    => 19
+                Button::Up      => 19,
+                Button::Down    => 16,
+                Button::Right   => 20,
+                Button::Left    => 21
             }
         }
     }
