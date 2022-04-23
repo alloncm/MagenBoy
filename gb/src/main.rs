@@ -58,7 +58,7 @@ const TURBO_MUL:u8 = 1;
 cfg_if::cfg_if!{
     if #[cfg(feature = "gpio")]{
         use crate::gpio_joypad_provider::*;
-        fn buttons_mapper(button:Button)->GpioPin{
+        fn buttons_mapper(button:&Button)->GpioPin{
             match button{
                 Button::A       => 18,
                 Button::B       => 17,

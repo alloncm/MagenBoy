@@ -1,5 +1,5 @@
 use lib_gb::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::JoypadProvider,button::Button};
-use lib_gb::utils::create_default_array;
+use lib_gb::utils::create_array;
 use rppal::gpio::{Gpio, InputPin};
 
 pub type GpioPin = u8;
@@ -9,30 +9,26 @@ pub struct GpioJoypadProvider{
 }
 
 impl GpioJoypadProvider{
-    pub fn new<F:Fn(Button)->GpioPin>(mapper:F)->Self{
-        
+    pub fn new<F:Fn(&Button)->GpioPin>(mapper:F)->Self{   
         let gpio = Gpio::new().unwrap();
-        
-        let mut pins:[InputPin;NUM_OF_KEYS] = create_default_array();
-        pins[Button::A as usize]        = gpio.get(mapper(Button::A)).unwrap().into_input();
-        pins[Button::B as usize]        = gpio.get(mapper(Button::B)).unwrap().into_input();
-        pins[Button::Start as usize]    = gpio.get(mapper(Button::Start)).unwrap().into_input();
-        pins[Button::Select as usize]   = gpio.get(mapper(Button::Select)).unwrap().into_input();
-        pins[Button::Up as usize]       = gpio.get(mapper(Button::Up)).unwrap().into_input();
-        pins[Button::Down as usize]     = gpio.get(mapper(Button::Down)).unwrap().into_input();
-        pins[Button::Right as usize]    = gpio.get(mapper(Button::Right)).unwrap().into_input();
-        pins[Button::Left as usize]     = gpio.get(mapper(Button::Left)).unwrap().into_input();
+        let buttons = [Button::A,Button::B,Button::Start,Button::Select,Button::Up,Button::Down,Button::Right,Button::Left];
+        let mut counter = 0;
+        let generator_lambda = ||{
+            let button = &buttons[counter];
+            let result = gpio.get(mapper(button)).unwrap().into_input();
+            counter += 1;
+            return result;
+        };
+        let pins:[InputPin;NUM_OF_KEYS] = create_array(generator_lambda);
 
-        Self{
-            input_pins:pins
-        }
+        return Self{input_pins:pins};
     }
 }
 
 impl JoypadProvider for GpioJoypadProvider{
     fn provide(&mut self, joypad:&mut Joypad){
         for i in 0..NUM_OF_KEYS{
-            joypad.buttons[i] = pin.is_high();
+            joypad.buttons[i] = self.input_pins[i].is_high();
         }
     }
 }
