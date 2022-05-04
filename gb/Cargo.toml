@@ -22,7 +22,7 @@ crossterm = "0.23"
 rppal = {version = "0.13", optional = true}
 
 [features]
-default = ["static-sdl"]
+default = ["static-sdl", "gpio"]
 sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]

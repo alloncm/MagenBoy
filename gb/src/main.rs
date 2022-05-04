@@ -1,3 +1,4 @@
+mod spi;
 mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_terminal_menu;
@@ -173,7 +174,10 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let mut sdl_gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+    #[cfg(feature = "gpio")]
+    let mut gfx_device = spi::Ili9341GfxDevice::new();
+    #[cfg(not(feature = "gpio"))]
+    let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
      check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
@@ -205,7 +209,7 @@ fn main() {
             }
             
             let buffer = r.recv().unwrap();
-            sdl_gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
+            gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
 
         drop(r);
