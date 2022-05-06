@@ -1,6 +1,13 @@
 use lib_gb::ppu::{gfx_device::GfxDevice, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
 use rppal::gpio::OutputPin;
 
+fn create_rgb565_pixel(r:u32, g: u32, b:u32)->u16{
+    let mut u16_pixel = b as u16 >> 3;
+    u16_pixel |= ((g >> 2) << 5) as u16;
+    u16_pixel |= ((r >> 3) << 11) as u16;
+    return u16_pixel;
+}
+
 pub struct Ili9341GfxDevice{
     ili9341_controller:Ili9341Contoller
 }
@@ -18,10 +25,8 @@ impl GfxDevice for Ili9341GfxDevice{
             let r = pixel & 0xFF;
             let g = (pixel & 0xFF00)>>8;
             let b = (pixel & 0xFF0000)>>16;
-            let mut u16_pixel = r as u16 >> 3;
-            u16_pixel |= ((g >> 2) << 5) as u16;
-            u16_pixel |= ((b >> 3) << 11) as u16;
-            return u16_pixel;
+            let mut u16_pixel = b as u16 >> 3;
+            return create_rgb565_pixel(r, g, b);
         });
         self.ili9341_controller.write_frame_buffer(&u16_buffer);
     }
@@ -44,7 +49,7 @@ impl RppalSpi{
         return RppalSpi { spi_device, dc_pin };
     }
     
-    fn write<const SIZE:usize>(&mut self, command: Ili9341Commands, data:[u8; SIZE]) {
+    fn write<const SIZE:usize>(&mut self, command: Ili9341Commands, data:&[u8; SIZE]) {
         let error = "Error while writing to the spi device";
         let command = command as u8;
         self.dc_pin.set_low();
@@ -118,61 +123,104 @@ impl Ili9341Contoller{
         // minimal config based on rust ili9341 lib (https://github.com/yuri91/ili9341-rs)
 
         // fbcp-ili9341 inspired implementation:
-        /*--------------------------------------------------------------------------- */
+        /*---------------------------------------------------------------------------------------------------------------------- */
         // Reset the screen
-        spi.write(Ili9341Commands::SoftwareReset,[]);
+        spi.write(Ili9341Commands::SoftwareReset,&[]);
         Self::sleep_ms(5);
-        spi.write(Ili9341Commands::DisplayOff,[]);
+        spi.write(Ili9341Commands::DisplayOff,&[]);
 
         // Some power stuff, probably uneccessary but just for sure
-        spi.write(Ili9341Commands::PowerControlA, [0x39, 0x2C, 0x0, 0x34, 0x2]);
-        spi.write(Ili9341Commands::PowerControlB, [0x0, 0xC1, 0x30]);
-        spi.write(Ili9341Commands::DriverTimingControlA, [0x85, 0x0, 0x78]);
-        spi.write(Ili9341Commands::DriverTimingControlB, [0x0, 0x0]);
-        spi.write(Ili9341Commands::PowerOnSequenceControl, [0x64, 0x3, 0x12, 0x81]);
-        spi.write(Ili9341Commands::PowerControl1, [0x23]);
-        spi.write(Ili9341Commands::PowerControl2,[0x10]);
-        spi.write(Ili9341Commands::VcomControl1, [0xE3, 0x28]);
-        spi.write(Ili9341Commands::VcomControl2, [0x86]);
+        spi.write(Ili9341Commands::PowerControlA, &[0x39, 0x2C, 0x0, 0x34, 0x2]);
+        spi.write(Ili9341Commands::PowerControlB, &[0x0, 0xC1, 0x30]);
+        spi.write(Ili9341Commands::DriverTimingControlA, &[0x85, 0x0, 0x78]);
+        spi.write(Ili9341Commands::DriverTimingControlB, &[0x0, 0x0]);
+        spi.write(Ili9341Commands::PowerOnSequenceControl, &[0x64, 0x3, 0x12, 0x81]);
+        spi.write(Ili9341Commands::PowerControl1, &[0x23]);
+        spi.write(Ili9341Commands::PowerControl2,&[0x10]);
+        spi.write(Ili9341Commands::VcomControl1, &[0xE3, 0x28]);
+        spi.write(Ili9341Commands::VcomControl2, &[0x86]);
 
         // Configuring the screen
-        spi.write(Ili9341Commands::MemoryAccessControl, [0x20]); // this command can affect various graphics options like RGB format and screen fip
-        spi.write(Ili9341Commands::PixelFormatSet, [0x55]);     // set pixel format to 16 bit per pixel;
-        spi.write(Ili9341Commands::FrameRateControl, [0x0, 0x1F /*According to the docs this is 61 hrz */]);
-        spi.write(Ili9341Commands::DisplayFunctionControl, [0x8, 0x82, 0x27]);
+        spi.write(Ili9341Commands::MemoryAccessControl, &[0x20]); // This command tlit the screen 90 degree
+        spi.write(Ili9341Commands::PixelFormatSet, &[0x55]);     // set pixel format to 16 bit per pixel;
+        spi.write(Ili9341Commands::FrameRateControl, &[0x0, 0x1F /*According to the docs this is 61 hrz */]);
+        spi.write(Ili9341Commands::DisplayFunctionControl, &[0x8, 0x82, 0x27]);
         
         // Gamma values - pretty sure its redundant
-        spi.write(Ili9341Commands::Enable3G, [0x2]);
-        spi.write(Ili9341Commands::GammaSet, [0x1]);
-        spi.write(Ili9341Commands::PossitiveGammaCorrection,[0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00]);     
-        spi.write(Ili9341Commands::NegativeGammaCorrection, [0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F]);
+        spi.write(Ili9341Commands::Enable3G, &[0x2]);
+        spi.write(Ili9341Commands::GammaSet, &[0x1]);
+        spi.write(Ili9341Commands::PossitiveGammaCorrection,&[0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00]);     
+        spi.write(Ili9341Commands::NegativeGammaCorrection, &[0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F]);
 
         // Turn screen on
-        spi.write(Ili9341Commands::SleepOut,[]);
+        spi.write(Ili9341Commands::SleepOut,&[]);
         Self::sleep_ms(120);
-        spi.write(Ili9341Commands::DisplayOn,[]);
-        /*------------------------------------------------------------------------------- */
+        spi.write(Ili9341Commands::DisplayOn,&[]);
+        /*---------------------------------------------------------------------------------------------------------------------- */
         //End of fbcp-ili9341 inpired implementation
 
         // turn backlight on
         led_pin.set_high();
 
+        log::info!("Initalizing with screen size width: {}, hight: {}", Self::TARGET_SCREEN_WIDTH, Self::TARGET_SCREEN_HEIGHT);
+
         return Ili9341Contoller { spi, led_pin, reset_pin};
     }
 
     pub fn write_frame_buffer(&mut self, buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH]){
-        self.spi.write(Ili9341Commands::ColumnAddressSet, [0x0,0x0, ((SCREEN_WIDTH - 1) >> 8) as u8, ((SCREEN_WIDTH - 1) & 0xFF) as u8 ]);
-        self.spi.write(Ili9341Commands::PageAddressSet, [0x0,0x0, ((SCREEN_HEIGHT - 1) >> 8) as u8, ((SCREEN_HEIGHT - 1) & 0xFF) as u8 ]);
-        // let u8_buffer:&[u8; SCREEN_HEIGHT*SCREEN_WIDTH*2] = unsafe{
-        //     let ptr = (buffer as *const u16) as *const u8;
-        //     &*(ptr as *const [u8; SCREEN_HEIGHT*SCREEN_WIDTH*2])
-        // };
-        let mut u8_buffer:[u8;SCREEN_HEIGHT*SCREEN_WIDTH*2] = [0;SCREEN_HEIGHT*SCREEN_WIDTH*2];
-        for i in 0..buffer.len(){
-            u8_buffer[i*2] = (buffer[i] >> 8) as u8;
-            u8_buffer[(i*2)+1] = (buffer[i] & 0xFF) as u8;
-        }
+        self.spi.write(Ili9341Commands::ColumnAddressSet, &[0x0,0x0, ((Self::TARGET_SCREEN_WIDTH - 1) >> 8) as u8, ((Self::TARGET_SCREEN_WIDTH - 1) & 0xFF) as u8 ]);
+        self.spi.write(Ili9341Commands::PageAddressSet, &[0x0,0x0, ((Self::TARGET_SCREEN_HEIGHT - 1) >> 8) as u8, ((Self::TARGET_SCREEN_HEIGHT - 1) & 0xFF) as u8 ]);
+        
+        let mut scaled_buffer: [u16;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH];
+        Self::scale_to_screen(buffer, &mut scaled_buffer);
+
+        let u8_buffer = unsafe{std::mem::transmute::<&[u16;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH], &[u8;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2]>(&scaled_buffer)};
+
         self.spi.write(Ili9341Commands::MemoryWrite, u8_buffer);
+    }
+
+    const SCALE:f32 = 5.0 / 3.0;
+    const TARGET_SCREEN_WIDTH:usize = (SCREEN_WIDTH as f32 * Self::SCALE) as usize;
+    const TARGET_SCREEN_HEIGHT:usize = (SCREEN_HEIGHT as f32 * Self::SCALE) as usize;
+
+    // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
+    fn scale_to_screen(input_buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH], output_buffer:&mut [u16;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH]){
+        // not sure why the -1.0
+        let x_ratio = (SCREEN_WIDTH as f32 - 1.0) / Self::TARGET_SCREEN_WIDTH as f32;
+        let y_ratio = (SCREEN_HEIGHT as f32 - 1.0) / Self::TARGET_SCREEN_HEIGHT as f32;
+
+        let mut offset_counter = 0;
+        for y in 0..Self::TARGET_SCREEN_HEIGHT{
+            for x in 0..Self::TARGET_SCREEN_WIDTH{
+                let x_val = (x_ratio * x as f32) as u32;            // x value of a point in this ratio between 0 and x
+                let y_val = (y_ratio * y as f32) as u32;            // y value of a point in this ratio between o and y
+                let x_diff = (x_ratio * x as f32) - x_val as f32;   
+                let y_diff = (y_ratio * y as f32) - y_val as f32;
+                let original_pixel_index = (y_val as usize * SCREEN_WIDTH) + x_val as usize;
+
+                // Get the pixel and 3 surounding pixels
+                let pixel_a = input_buffer[original_pixel_index];
+                let pixel_b = input_buffer[original_pixel_index + 1];
+                let pixel_c = input_buffer[original_pixel_index + SCREEN_WIDTH];
+                let pixel_d = input_buffer[original_pixel_index + SCREEN_WIDTH + 1];
+
+                let blue:f32 = ((pixel_a & 0x1F) as f32 * (1.0-x_diff) * (1.0-y_diff)) + 
+                               ((pixel_b & 0x1F) as f32 * (x_diff)*(1.0-y_diff)) + 
+                               ((pixel_c & 0x1F) as f32 * y_diff * (1.0-x_diff)) + 
+                               ((pixel_d & 0x1F) as f32 * x_diff * y_diff);
+                let green:f32 = (((pixel_a >> 5) & 0x3F) as f32 * (1.0-x_diff) * (1.0-y_diff)) + 
+                                (((pixel_b >> 5) & 0x3F) as f32 * (x_diff)*(1.0-y_diff)) + 
+                                (((pixel_c >> 5) & 0x3F) as f32 * y_diff * (1.0-x_diff)) + 
+                                (((pixel_d >> 5) & 0x3F) as f32 * x_diff * y_diff);
+                let red:f32 = (((pixel_a >> 11) & 0x1F) as f32 * (1.0-x_diff) * (1.0-y_diff)) + 
+                              (((pixel_b >> 11) & 0x1F) as f32 * (x_diff)*(1.0-y_diff)) + 
+                              (((pixel_c >> 11) & 0x1F) as f32 * y_diff * (1.0-x_diff)) + 
+                              (((pixel_d >> 11) & 0x1F) as f32 * x_diff * y_diff);
+
+                output_buffer[offset_counter] = create_rgb565_pixel(red as u32, green as u32, blue as u32);
+                offset_counter += 1;
+            }
+        }
     }
 
     fn sleep_ms(milliseconds_to_sleep:u64){
