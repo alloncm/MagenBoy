@@ -1,12 +1,6 @@
 use lib_gb::ppu::{gfx_device::GfxDevice, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
 use rppal::gpio::OutputPin;
 
-fn create_rgb565_pixel(r:u32, g: u32, b:u32)->u16{
-    let mut u16_pixel = b as u16 >> 3;
-    u16_pixel |= ((g >> 2) << 5) as u16;
-    u16_pixel |= ((r >> 3) << 11) as u16;
-    return u16_pixel;
-}
 
 pub struct Ili9341GfxDevice{
     ili9341_controller:Ili9341Contoller
@@ -22,11 +16,13 @@ impl Ili9341GfxDevice{
 impl GfxDevice for Ili9341GfxDevice{
     fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         let u16_buffer:[u16;SCREEN_HEIGHT*SCREEN_WIDTH] = buffer.map(|pixel| {
-            let r = pixel & 0xFF;
+            let b = pixel & 0xFF;
             let g = (pixel & 0xFF00)>>8;
-            let b = (pixel & 0xFF0000)>>16;
+            let r = (pixel & 0xFF0000)>>16; 
             let mut u16_pixel = b as u16 >> 3;
-            return create_rgb565_pixel(r, g, b);
+            u16_pixel |= ((g >> 2) << 5) as u16;
+            u16_pixel |= ((r >> 3) << 11) as u16;
+            return u16_pixel;
         });
         self.ili9341_controller.write_frame_buffer(&u16_buffer);
     }
@@ -96,6 +92,16 @@ struct Ili9341Contoller{
 }
 
 impl Ili9341Contoller{
+
+    const ILI9341_SCREEN_WIDTH:usize = 320;
+    const ILI9341_SCREEN_HEIGHT:usize = 240;
+    const SCALE:f32 = 5.0 / 3.0;    // maximum scale to fit the ili9341 screen
+    const TARGET_SCREEN_WIDTH:usize = (SCREEN_WIDTH as f32 * Self::SCALE) as usize;
+    const TARGET_SCREEN_HEIGHT:usize = (SCREEN_HEIGHT as f32 * Self::SCALE) as usize;
+    const FRAME_BUFFER_X_OFFSET:usize = (Self::ILI9341_SCREEN_WIDTH - Self::TARGET_SCREEN_WIDTH) / 2;
+
+    const CLEAN_BUFFER:[u8;Self::ILI9341_SCREEN_HEIGHT * Self::ILI9341_SCREEN_WIDTH * 2] = [0; Self::ILI9341_SCREEN_HEIGHT * Self::ILI9341_SCREEN_WIDTH * 2];
+
     pub fn new()->Self{
         let gpio = rppal::gpio::Gpio::new().unwrap();
         let mut dc_pin = gpio.get(15).unwrap().into_output();
@@ -159,6 +165,11 @@ impl Ili9341Contoller{
         /*---------------------------------------------------------------------------------------------------------------------- */
         //End of fbcp-ili9341 inpired implementation
 
+        // Clear screen
+        spi.write(Ili9341Commands::ColumnAddressSet, &[0,0,((Self::ILI9341_SCREEN_WIDTH -1) >> 8) as u8, ((Self::ILI9341_SCREEN_WIDTH -1) & 0xFF) as u8]);
+        spi.write(Ili9341Commands::PageAddressSet, &[0,0,((Self::ILI9341_SCREEN_HEIGHT -1) >> 8) as u8, ((Self::ILI9341_SCREEN_HEIGHT -1) & 0xFF) as u8]);
+        spi.write(Ili9341Commands::MemoryWrite, &Self::CLEAN_BUFFER);
+
         // turn backlight on
         led_pin.set_high();
 
@@ -167,21 +178,32 @@ impl Ili9341Contoller{
         return Ili9341Contoller { spi, led_pin, reset_pin};
     }
 
+
     pub fn write_frame_buffer(&mut self, buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH]){
-        self.spi.write(Ili9341Commands::ColumnAddressSet, &[0x0,0x0, ((Self::TARGET_SCREEN_WIDTH - 1) >> 8) as u8, ((Self::TARGET_SCREEN_WIDTH - 1) & 0xFF) as u8 ]);
-        self.spi.write(Ili9341Commands::PageAddressSet, &[0x0,0x0, ((Self::TARGET_SCREEN_HEIGHT - 1) >> 8) as u8, ((Self::TARGET_SCREEN_HEIGHT - 1) & 0xFF) as u8 ]);
+        let end_x_index = Self::TARGET_SCREEN_WIDTH + Self::FRAME_BUFFER_X_OFFSET - 1;
+        self.spi.write(Ili9341Commands::ColumnAddressSet, &[
+            (Self::FRAME_BUFFER_X_OFFSET >> 8) as u8,
+            (Self::FRAME_BUFFER_X_OFFSET & 0xFF) as u8, 
+            (end_x_index >> 8) as u8, 
+            (end_x_index & 0xFF) as u8 
+        ]);
+        self.spi.write(Ili9341Commands::PageAddressSet, &[
+            0x0, 0x0,
+            ((Self::TARGET_SCREEN_HEIGHT - 1) >> 8) as u8, 
+            ((Self::TARGET_SCREEN_HEIGHT - 1) & 0xFF) as u8 
+        ]);
         
         let mut scaled_buffer: [u16;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH];
         Self::scale_to_screen(buffer, &mut scaled_buffer);
+        let mut u8_buffer:[u8;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH*2] = [0;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH*2];
+        for i in 0..scaled_buffer.len(){
+            u8_buffer[i*2] = (scaled_buffer[i] >> 8) as u8;
+            u8_buffer[(i*2)+1] = (scaled_buffer[i] & 0xFF) as u8;
+        }
 
-        let u8_buffer = unsafe{std::mem::transmute::<&[u16;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH], &[u8;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2]>(&scaled_buffer)};
-
-        self.spi.write(Ili9341Commands::MemoryWrite, u8_buffer);
+        self.spi.write(Ili9341Commands::MemoryWrite, &u8_buffer);
     }
 
-    const SCALE:f32 = 5.0 / 3.0;
-    const TARGET_SCREEN_WIDTH:usize = (SCREEN_WIDTH as f32 * Self::SCALE) as usize;
-    const TARGET_SCREEN_HEIGHT:usize = (SCREEN_HEIGHT as f32 * Self::SCALE) as usize;
 
     // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
     fn scale_to_screen(input_buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH], output_buffer:&mut [u16;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH]){
@@ -217,7 +239,7 @@ impl Ili9341Contoller{
                               (((pixel_c >> 11) & 0x1F) as f32 * y_diff * (1.0-x_diff)) + 
                               (((pixel_d >> 11) & 0x1F) as f32 * x_diff * y_diff);
 
-                output_buffer[offset_counter] = create_rgb565_pixel(red as u32, green as u32, blue as u32);
+                output_buffer[offset_counter] = blue as u16 | ((green as u16) << 5) | ((red as u16) << 11);
                 offset_counter += 1;
             }
         }
