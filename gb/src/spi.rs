@@ -1,15 +1,20 @@
+use std::ops::Add;
+
 use lib_gb::ppu::{gfx_device::GfxDevice, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
 use rppal::gpio::OutputPin;
 
 
 pub struct Ili9341GfxDevice{
-    ili9341_controller:Ili9341Contoller
+    ili9341_controller:Ili9341Contoller,
+    frames_counter: u32,
+    time_counter:std::time::Duration,
+    last_time: std::time::Instant,
 }
 
 impl Ili9341GfxDevice{
     pub fn new()->Self{
         let ili9341_controller = Ili9341Contoller::new();
-        Ili9341GfxDevice {ili9341_controller}
+        Ili9341GfxDevice {ili9341_controller,frames_counter:0, time_counter: std::time::Duration::ZERO, last_time:std::time::Instant::now()}
     }
 }
 
@@ -25,6 +30,17 @@ impl GfxDevice for Ili9341GfxDevice{
             return u16_pixel;
         });
         self.ili9341_controller.write_frame_buffer(&u16_buffer);
+
+        // measure fps
+        self.frames_counter += 1;
+        let time = std::time::Instant::now();
+        self.time_counter = self.time_counter.add(time.duration_since(self.last_time));
+        self.last_time = time;
+        if self.time_counter.as_millis() > 1000{
+            log::info!("FPS: {}", self.frames_counter);
+            self.frames_counter = 0;
+            self.time_counter = std::time::Duration::ZERO;
+        }
     }
 }
 
