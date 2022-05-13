@@ -1,7 +1,173 @@
-use std::ops::Add;
+use std::{ops::Add, os::unix::fs::OpenOptionsExt, os::unix::io::AsRawFd};
 
 use lib_gb::ppu::{gfx_device::GfxDevice, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
-use rppal::gpio::OutputPin;
+use rppal::gpio::{OutputPin, IoPin};
+
+struct GpioRegistersAccess{
+    ptr:*mut u32
+}
+enum GpioRegister{
+    Gpfsel0 = 0,
+    Gpfsel1 = 1,
+    Gpset0 = 6,
+    Gpset1 = 7,
+    Gpclr0 = 8,
+    Gpclr1 = 9
+}
+impl GpioRegistersAccess{
+    unsafe fn read_register(&self, register:GpioRegister)->u32{
+        std::ptr::read_volatile(self.ptr.add(register as usize))
+    }
+    unsafe fn write_register(&self, register:GpioRegister, value:u32){
+        std::ptr::write_volatile(self.ptr.add(register as usize), value);
+    }
+    unsafe fn set_gpio_mode(&self, pin:u8, mode:u8){
+        // there are less than 100 pins so I assume the largest one is less than 100
+        let gpfsel_register = pin / 10;
+        let gpfsel_register_index = pin % 10;
+        let register_ptr = self.ptr.add(gpfsel_register as usize);
+        let mut register_value = std::ptr::read_volatile(register_ptr);
+        let mask = !(0b111 << (gpfsel_register_index * 3));
+        register_value &= mask;
+        register_value |= (mode as u32) << (gpfsel_register_index *3);
+        std::ptr::write_volatile(register_ptr, register_value);
+    }
+    unsafe fn set_gpio_high(&self, pin:u8){
+        if pin < 32{
+            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpset0 as usize), 1 << pin);
+        }
+        else{
+            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpset1 as usize), 1 << (pin - 32));
+        }
+    }
+    unsafe fn set_gpio_low(&self, pin:u8){
+        if pin < 32{
+            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpclr0 as usize), 1 << pin);
+        }
+        else{
+            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpclr1 as usize), 1 << (pin - 32));
+        }
+    }
+}
+
+struct SpiRegistersAccess{
+    ptr:*mut u32
+}
+enum SpiRegister{
+    Cs = 0,
+    Fifo = 1, 
+    Clk = 2,
+    Dlen = 3
+}
+impl SpiRegistersAccess{
+    #[inline]
+    unsafe fn read_register(&self, register:SpiRegister)->u32{
+        std::ptr::read_volatile(self.ptr.add(register as usize))
+    }
+    #[inline]
+    unsafe fn write_register(&self, register:SpiRegister, value:u32){
+        std::ptr::write_volatile(self.ptr.add(register as usize), value);
+    }
+}
+
+struct RawSpi{
+    spi_registers: SpiRegistersAccess,
+    // gpio_registers: GpioRegistersAccess,
+    spi_pins:[IoPin;2],
+    spi_cs0:OutputPin,
+
+    dc_pin:OutputPin
+}
+
+fn libc_abort_if_err(message:&str){
+    std::io::Result::<&str>::Err(std::io::Error::last_os_error()).expect(message);
+}
+
+impl RawSpi{
+    const BCM2835_GPIO_BASE_ADDRESS:usize = 0x20_0000;
+    const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
+    const BCM2835_RPI4_BASE_ADDRESS:usize = 0xFE00_0000;
+    const BCM_RPI4_SIZE:usize = 0x180_0000;
+
+    const SPI_CS_RXF:u32 = 1 << 20;
+    const SPI_CS_RXR:u32 = 1 << 19;
+    const SPI_CS_TXD:u32 = 1 << 18;
+    const SPI_CS_RXD:u32 = 1 << 17;
+    const SPI_CS_DONE:u32 = 1 << 16;
+    const SPI_CS_TA:u32 = 1 << 7;
+
+    fn new (dc_pin:OutputPin, spi_pins:[IoPin;2], mut spi_cs0: OutputPin)->Self{
+        // let mem_fd = std::fs::OpenOptions::new()
+        //     .read(true).write(true)
+        //     .custom_flags(libc::O_SYNC)
+        //     .open("/dev/mem")
+        //     .expect("Error, cant open /dev/mem make sure user has root access")
+        //     .as_raw_fd();
+
+        let mem_fd = unsafe{libc::open(std::ffi::CStr::from_bytes_with_nul(b"/dev/mem\0").unwrap().as_ptr(), libc::O_RDWR | libc::O_SYNC)};
+        
+        if mem_fd < 0{
+            libc_abort_if_err("bad file descriptor");
+        }
+        
+        let bcm2835 = unsafe{libc::mmap(
+            std::ptr::null_mut(), 
+            Self::BCM_RPI4_SIZE,
+            libc::PROT_READ | libc::PROT_WRITE, 
+            libc::MAP_SHARED, 
+            mem_fd,
+            Self::BCM2835_RPI4_BASE_ADDRESS as libc::off_t
+        )};
+
+        if bcm2835 == libc::MAP_FAILED{
+            libc_abort_if_err("FATAL: mapping /dev/mem failed!");
+        }
+
+        // let gpio_registers = unsafe{GpioRegistersAccess{ptr:bcm2835.add(Self::BCM2835_GPIO_BASE_ADDRESS) as *mut u32}};
+        let spi_registers = unsafe{SpiRegistersAccess{ptr:bcm2835.add(Self::BCM2835_SPI0_BASE_ADDRESS) as *mut u32}};
+
+        unsafe{
+            // ChipSelect = 0, ClockPhase = 0, ClockPolarity = 0
+            spi_cs0.set_low();
+            spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA);
+            spi_registers.write_register(SpiRegister::Clk, 34);
+        }
+
+        log::info!("finish ili9341 device init");
+
+        RawSpi { spi_registers, dc_pin, spi_pins, spi_cs0 }
+    }
+
+    fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
+        self.dc_pin.set_low();
+        self.write_raw(&[command as u8]);
+        self.dc_pin.set_high();
+        self.write_raw(data);
+    }
+
+    fn write_raw<const SIZE:usize>(&mut self, data:&[u8;SIZE]){
+        unsafe{
+            let mut current_index = 0;
+            while current_index < SIZE {
+                let cs:u32 = self.spi_registers.read_register(SpiRegister::Cs);
+                if cs & Self::SPI_CS_TXD != 0{
+                    self.spi_registers.write_register(SpiRegister::Fifo, data[current_index] as u32);
+                    current_index += 1;
+                }
+                if (cs & (Self::SPI_CS_RXR | Self::SPI_CS_RXF)) != 0 {
+                    self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | 0b10_0000)
+                }
+            }
+
+            // wait for the last trasfer to finish
+            while (self.spi_registers.read_register(SpiRegister::Cs) & Self::SPI_CS_DONE) == 0 {
+                if (self.spi_registers.read_register(SpiRegister::Cs) & (Self::SPI_CS_RXR | Self::SPI_CS_RXF)) != 0{
+                    self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | 0b10_0000)
+                }
+            }
+        }
+    }
+}
 
 
 pub struct Ili9341GfxDevice{
@@ -29,7 +195,10 @@ impl GfxDevice for Ili9341GfxDevice{
             u16_pixel |= ((r >> 3) << 11) as u16;
             return u16_pixel;
         });
-        self.ili9341_controller.write_frame_buffer(&u16_buffer);
+
+        if self.frames_counter & 1 == 0{
+            self.ili9341_controller.write_frame_buffer(&u16_buffer);
+        }
 
         // measure fps
         self.frames_counter += 1;
@@ -102,7 +271,7 @@ enum Ili9341Commands{
 }
 
 struct Ili9341Contoller{
-    spi:RppalSpi,
+    spi:RawSpi,
     led_pin: OutputPin,
     reset_pin: OutputPin
 }
@@ -134,7 +303,13 @@ impl Ili9341Contoller{
         reset_pin.set_high();
         std::thread::sleep(wait_duration);
 
-        let mut spi: RppalSpi = RppalSpi::new(dc_pin);
+        let spi0_ceo_n = gpio.get(8).unwrap().into_output();
+        let spi0_mosi = gpio.get(10).unwrap().into_io(rppal::gpio::Mode::Alt0);
+        let spi0_sclk = gpio.get(11).unwrap().into_io(rppal::gpio::Mode::Alt0);
+
+        let mut spi = RawSpi::new(dc_pin, [spi0_mosi, spi0_sclk], spi0_ceo_n);
+
+        unsafe{spi.spi_registers.write_register(SpiRegister::Dlen, 2)};
 
         // This code snippets is ofcourse wrriten by me but took heavy insperation from fbcp-ili9341 (https://github.com/juj/fbcp-ili9341)
         // I used the ili9341 application notes and the fbcp-ili9341 implementation in order to write it all down
@@ -188,6 +363,8 @@ impl Ili9341Contoller{
 
         // turn backlight on
         led_pin.set_high();
+
+        unsafe{spi.spi_registers.write_register(SpiRegister::Clk, 4)};
 
         log::info!("Initalizing with screen size width: {}, hight: {}", Self::TARGET_SCREEN_WIDTH, Self::TARGET_SCREEN_HEIGHT);
 

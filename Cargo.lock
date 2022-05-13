@@ -420,6 +420,7 @@ dependencies = [
  "crossterm",
  "fern",
  "lib_gb",
+ "libc",
  "log",
  "rppal",
  "sdl2",
