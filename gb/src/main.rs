@@ -1,4 +1,5 @@
 mod spi;
+mod dma;
 mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_terminal_menu;

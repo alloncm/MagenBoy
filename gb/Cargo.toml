@@ -21,6 +21,7 @@ cfg-if = "1.0"
 crossterm = "0.23"
 rppal = {version = "0.13", optional = true}
 libc = "0.2"
+nix = {version = "0.24", features = ["ioctl"]}
 
 [features]
 default = ["static-sdl", "gpio"]

@@ -1,7 +1,9 @@
-use std::{ops::Add, os::unix::fs::OpenOptionsExt, os::unix::io::AsRawFd};
+use std::ops::Add;
 
 use lib_gb::ppu::{gfx_device::GfxDevice, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}};
 use rppal::gpio::{OutputPin, IoPin};
+
+use crate::dma::DmaTransferer;
 
 struct GpioRegistersAccess{
     ptr:*mut u32
@@ -72,11 +74,13 @@ impl SpiRegistersAccess{
 
 struct RawSpi{
     spi_registers: SpiRegistersAccess,
+    mem_fd:libc::c_int,
     // gpio_registers: GpioRegistersAccess,
     spi_pins:[IoPin;2],
     spi_cs0:OutputPin,
+    dc_pin:OutputPin,
 
-    dc_pin:OutputPin
+    dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>
 }
 
 fn libc_abort_if_err(message:&str){
@@ -86,7 +90,7 @@ fn libc_abort_if_err(message:&str){
 impl RawSpi{
     const BCM2835_GPIO_BASE_ADDRESS:usize = 0x20_0000;
     const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
-    const BCM2835_RPI4_BASE_ADDRESS:usize = 0xFE00_0000;
+    const BCM2835_RPI4_BUS_ADDRESS:usize = 0xFE00_0000;
     const BCM_RPI4_SIZE:usize = 0x180_0000;
 
     const SPI_CS_RXF:u32 = 1 << 20;
@@ -94,16 +98,12 @@ impl RawSpi{
     const SPI_CS_TXD:u32 = 1 << 18;
     const SPI_CS_RXD:u32 = 1 << 17;
     const SPI_CS_DONE:u32 = 1 << 16;
+    const SPI_CS_DMAEN:u32 = 1 << 8;
     const SPI_CS_TA:u32 = 1 << 7;
+    const SPI_CS_CLEAR:u32 = 3<<4;
+    const SPI_CS_CLEAR_RX:u32 = 1 << 5;
 
     fn new (dc_pin:OutputPin, spi_pins:[IoPin;2], mut spi_cs0: OutputPin)->Self{
-        // let mem_fd = std::fs::OpenOptions::new()
-        //     .read(true).write(true)
-        //     .custom_flags(libc::O_SYNC)
-        //     .open("/dev/mem")
-        //     .expect("Error, cant open /dev/mem make sure user has root access")
-        //     .as_raw_fd();
-
         let mem_fd = unsafe{libc::open(std::ffi::CStr::from_bytes_with_nul(b"/dev/mem\0").unwrap().as_ptr(), libc::O_RDWR | libc::O_SYNC)};
         
         if mem_fd < 0{
@@ -116,7 +116,7 @@ impl RawSpi{
             libc::PROT_READ | libc::PROT_WRITE, 
             libc::MAP_SHARED, 
             mem_fd,
-            Self::BCM2835_RPI4_BASE_ADDRESS as libc::off_t
+            Self::BCM2835_RPI4_BUS_ADDRESS as libc::off_t
         )};
 
         if bcm2835 == libc::MAP_FAILED{
@@ -131,11 +131,15 @@ impl RawSpi{
             spi_cs0.set_low();
             spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA);
             spi_registers.write_register(SpiRegister::Clk, 34);
+            spi_registers.write_register(SpiRegister::Dlen, 2);
         }
 
         log::info!("finish ili9341 device init");
 
-        RawSpi { spi_registers, dc_pin, spi_pins, spi_cs0 }
+        RawSpi { 
+            spi_registers, dc_pin, spi_pins, spi_cs0, mem_fd, 
+            dma_transferer:DmaTransferer::new(bcm2835, 7, 1, mem_fd, ) 
+        }
     }
 
     fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
@@ -167,6 +171,61 @@ impl RawSpi{
             }
         }
     }
+
+    const MAX_DMA_SPI_TRANSFER:usize = 0xFFE0;  // must be smaller than max u16 and better be alligned for 32 bytes
+    const DMA_SPI_TRANSFER_SIZE:usize = Ili9341Contoller::TARGET_SCREEN_HEIGHT * Ili9341Contoller::TARGET_SCREEN_WIDTH * std::mem::size_of::<u16>();
+    const DMA_SPI_NUM_CHUNKS:usize = (Self::DMA_SPI_TRANSFER_SIZE / Self::MAX_DMA_SPI_TRANSFER) + ((Self::DMA_SPI_TRANSFER_SIZE % Self::MAX_DMA_SPI_TRANSFER) != 0) as usize;
+    const DMA_SPI_CHUNK_SIZE:usize = (Self::DMA_SPI_TRANSFER_SIZE / Self::DMA_SPI_NUM_CHUNKS) + 4;
+    const DMA_TI_PERMAP_SPI_TX:u8 = 6;
+    const DMA_TI_PERMAP_SPI_RX:u8 = 7;
+    const DMA_SPI_FIFO_PHYS_ADDRESS:u32 = 0x7E20_4004;
+
+    fn write_dma<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
+        // log::info!("actual_size: {}, size: {}, num: {}", SIZE, Self::DMA_SPI_CHUNK_SIZE, Self::DMA_SPI_NUM_CHUNKS);
+        self.dc_pin.set_low();
+        self.write_raw(&[command as u8]);
+        self.dc_pin.set_high();
+        self.write_dma_raw(&data);
+    }
+
+
+    // Since generic_const_exprs is not stable yet Im reserving the first 4 bytes of the data variable for internal use
+    fn write_dma_raw<const SIZE:usize>(&mut self, data:&[u8;SIZE]){
+        unsafe{
+            self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR);
+            let data_len = Self::DMA_SPI_CHUNK_SIZE - 4;  // Removing the first 4 bytes from this length param
+            let header = [Self::SPI_CS_TA as u8, 0, (data_len & 0xFF) as u8,  /*making sure this is little endian order*/ (data_len >> 8) as u8];
+
+            let chunks = data.chunks_exact(Self::DMA_SPI_CHUNK_SIZE - 4);
+            let mut array:[u8;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS] = [0;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS];
+            let mut i = 0;
+            for chunk in chunks{
+                unsafe{
+                    std::ptr::copy_nonoverlapping(header.as_ptr(), array.as_mut_ptr().add(i * Self::DMA_SPI_CHUNK_SIZE), 4);
+                    std::ptr::copy_nonoverlapping(chunk.as_ptr(), array.as_mut_ptr().add(4 + (i * Self::DMA_SPI_CHUNK_SIZE)), Self::DMA_SPI_CHUNK_SIZE - 4);
+                }
+                i += 1;
+            }
+
+            self.dma_transferer.dma_transfer(&array, 
+                Self::DMA_TI_PERMAP_SPI_TX,
+                Self::DMA_SPI_FIFO_PHYS_ADDRESS, 
+                Self::DMA_TI_PERMAP_SPI_RX, 
+                Self::DMA_SPI_FIFO_PHYS_ADDRESS
+            );
+
+            Self::sync_syncronize();
+            self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
+            self.spi_registers.write_register(SpiRegister::Dlen, 2);        // poll mode speed up
+            Self::sync_syncronize();
+        }
+    }
+
+    // trying to create a __sync_syncronize() impl
+    #[inline]
+    fn sync_syncronize(){
+        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 
@@ -196,9 +255,9 @@ impl GfxDevice for Ili9341GfxDevice{
             return u16_pixel;
         });
 
-        if self.frames_counter & 1 == 0{
+        // if self.frames_counter & 1 == 0{
             self.ili9341_controller.write_frame_buffer(&u16_buffer);
-        }
+        // }
 
         // measure fps
         self.frames_counter += 1;
@@ -309,8 +368,6 @@ impl Ili9341Contoller{
 
         let mut spi = RawSpi::new(dc_pin, [spi0_mosi, spi0_sclk], spi0_ceo_n);
 
-        unsafe{spi.spi_registers.write_register(SpiRegister::Dlen, 2)};
-
         // This code snippets is ofcourse wrriten by me but took heavy insperation from fbcp-ili9341 (https://github.com/juj/fbcp-ili9341)
         // I used the ili9341 application notes and the fbcp-ili9341 implementation in order to write it all down
         // And later I twicked some params specific to my display (http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218)
@@ -394,7 +451,7 @@ impl Ili9341Contoller{
             u8_buffer[(i*2)+1] = (scaled_buffer[i] & 0xFF) as u8;
         }
 
-        self.spi.write(Ili9341Commands::MemoryWrite, &u8_buffer);
+        self.spi.write_dma(Ili9341Commands::MemoryWrite, &u8_buffer);
     }
 
 
