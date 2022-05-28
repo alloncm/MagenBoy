@@ -1,9 +1,25 @@
-use std::ptr::{write_volatile, read_volatile};
+use std::ptr::write_volatile;
 
 use libc::{c_void, c_int};
 
 fn libc_abort(message:&str){
     std::io::Result::<&str>::Err(std::io::Error::last_os_error()).expect(message);
+}
+
+macro_rules! decl_write_volatile_field{
+    ($function_name:ident, $field_name:ident) =>{
+        #[inline] unsafe fn $function_name(&mut self,value:u32){
+            std::ptr::write_volatile(&mut self.$field_name , value);
+        }
+    }
+}
+
+macro_rules! decl_read_volatile_field{
+    ($function_name:ident, $field_name:ident) =>{
+        #[inline] unsafe fn $function_name(&mut self)->u32{
+            std::ptr::read_volatile(&self.$field_name)
+        }
+    }
 }
 
 #[repr(C, align(16))]
@@ -77,19 +93,17 @@ struct DmaControlBlock{
     source_address:u32,
     destination_address:u32,
     trasnfer_length:u32,
-    stride:u32,                 // Not avalibale on the lite channels
+    _stride:u32,                 // Not avalibale on the lite channels
     next_control_block_address:u32,
-    reserved:[u32;2]
+    _reserved:[u32;2]
 }
-macro_rules! write_volatile_member{
-    ($name:ident, $member:ident) =>{
-        fn $name(&mut self,value:u32){
-            unsafe{std::ptr::write_volatile(&mut self.$member , value)};
-        }
-    }
-}
+
 impl DmaControlBlock{
-    write_volatile_member!(WriteTi, transfer_information);
+    decl_write_volatile_field!(write_ti, transfer_information);
+    decl_write_volatile_field!(write_source_ad, source_address);
+    decl_write_volatile_field!(write_dest_ad, destination_address);
+    decl_write_volatile_field!(write_txfr_len, trasnfer_length);
+    decl_write_volatile_field!(write_nextconbk, next_control_block_address);
 }
 
 
@@ -102,16 +116,10 @@ struct DmaRegistersAccess{
     debug:u32
 }
 
-enum DmaRegisters{
-    Cs = 0,
-    ConblkAd = 1,
-    Ti = 2,
-    SourceAd = 3,
-    DestAd = 4,
-    TxfrLen = 5,
-    Stride = 6,
-    Nextconbk = 7,
-    Debug = 8
+impl DmaRegistersAccess{
+    decl_write_volatile_field!(write_cs, control_status);
+    decl_read_volatile_field!(read_cs, control_status);
+    decl_write_volatile_field!(write_conblk_ad, control_block_address);
 }
 
 pub struct DmaTransferer<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize>{
@@ -130,6 +138,7 @@ pub struct DmaTransferer<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize>{
 impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, NUM_CHUNKS>{
     const BCM2835_DMA0_BASE:usize = 0x7_000;
 
+    const DMA_CS_RESET:u32 = 1 << 31;
     const DMA_CS_END:u32 = 1 << 1;
     const DMA_CS_ACTIVE:u32 = 1;
 
@@ -153,12 +162,20 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
         let dma_data_memory = Self::allocate_dma_memory(&mbox, (std::mem::size_of::<u32>() * NUM_CHUNKS) as u32, mem_fd);
         let dma_const_data_memory = Self::allocate_dma_memory(&mbox, (std::mem::size_of::<u32>() * 2) as u32, mem_fd);
 
+        let dma_enable_register = unsafe{bcm2835.add(Self::BCM2835_DMA0_BASE + 0xFF0) as *mut u32};
 
         unsafe{
             // setup constant data
             let ptr = dma_const_data_memory.virtual_address_ptr as *mut u32;
             write_volatile(ptr, 0x100); // spi_dma enable
             write_volatile(ptr.add(1), Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
+
+            // enable the rx & tx dma channels
+            write_volatile(dma_enable_register, *dma_enable_register | 1 << tx_channel_number | 1<< rx_channel_number);
+
+            //reset the dma channels
+            (*tx_registers).write_cs(Self::DMA_CS_RESET);
+            (*rx_registers).write_cs(Self::DMA_CS_RESET);
 
             // memset the memory
             std::ptr::write_bytes(dma_rx_control_block_memory.virtual_address_ptr as *mut u8, 0, dma_rx_control_block_memory.size as usize);
@@ -193,81 +210,85 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
             std::ptr::copy_nonoverlapping(data.as_ptr(), self.source_buffer_memory.virtual_address_ptr as *mut u8, SIZE);
 
             let mut rx_control_block = &mut *(self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
-            write_volatile(&mut rx_control_block.transfer_information, Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
-            write_volatile(&mut rx_control_block.source_address, rx_physical_destination_address);
-            write_volatile(&mut rx_control_block.destination_address, 0);
-            write_volatile(&mut rx_control_block.trasnfer_length, CHUNK_SIZE as u32 - 4);       // without the 4 byte header
-            write_volatile(&mut rx_control_block.next_control_block_address, 0);
+            rx_control_block.write_ti(Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
+            rx_control_block.write_source_ad(rx_physical_destination_address);
+            rx_control_block.write_dest_ad(0);
+            rx_control_block.write_txfr_len(CHUNK_SIZE as u32 - 4);       // without the 4 byte header
+            rx_control_block.write_nextconbk(0);
 
             let tx_control_block = &mut *(self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
-            write_volatile(&mut tx_control_block.transfer_information, Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
-            write_volatile(&mut tx_control_block.source_address, self.source_buffer_memory.bus_address);
-            write_volatile(&mut tx_control_block.destination_address, tx_physical_destination_address);
-            write_volatile(&mut tx_control_block.trasnfer_length, CHUNK_SIZE as u32);
-            write_volatile(&mut tx_control_block.next_control_block_address, 0);
+            tx_control_block.write_ti(Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
+            tx_control_block.write_source_ad(self.source_buffer_memory.bus_address);
+            tx_control_block.write_dest_ad(tx_physical_destination_address);
+            tx_control_block.write_txfr_len(CHUNK_SIZE as u32);
+            tx_control_block.write_nextconbk(0);
 
             for i in 1..NUM_CHUNKS{
                 let tx_cb_index = i * 4;
                 let tx_control_block = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index));
-                write_volatile(&mut tx_control_block.transfer_information, Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
-                write_volatile(&mut tx_control_block.source_address, self.source_buffer_memory.bus_address + (i * CHUNK_SIZE) as u32);
-                write_volatile(&mut tx_control_block.destination_address, tx_physical_destination_address);
-                write_volatile(&mut tx_control_block.trasnfer_length, CHUNK_SIZE as u32);
-                write_volatile(&mut tx_control_block.next_control_block_address, 0);
+                tx_control_block.write_ti(Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
+                tx_control_block.write_source_ad(self.source_buffer_memory.bus_address + (i * CHUNK_SIZE) as u32);
+                tx_control_block.write_dest_ad(tx_physical_destination_address);
+                tx_control_block.write_txfr_len(CHUNK_SIZE as u32);
+                tx_control_block.write_nextconbk(0);
 
                 let set_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 1));
                 let disable_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 2));
                 let start_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 3));
 
-                write_volatile(&mut rx_control_block.next_control_block_address, self.tx_control_block_memory.bus_address + ((tx_cb_index + 1) * std::mem::size_of::<DmaControlBlock>()) as u32);
+                rx_control_block.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 1) * std::mem::size_of::<DmaControlBlock>()) as u32);
 
                 write_volatile((self.dma_data_memory.virtual_address_ptr as *mut u32).add(i), self.tx_control_block_memory.bus_address + (tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
 
-                write_volatile(&mut set_dma_tx_address.transfer_information, Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                write_volatile(&mut set_dma_tx_address.source_address, self.dma_data_memory.bus_address + (i as u32 * 4));
-                write_volatile(&mut set_dma_tx_address.destination_address, Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) + 4);  // channel control block address register
-                write_volatile(&mut set_dma_tx_address.trasnfer_length, 4);
-                write_volatile(&mut set_dma_tx_address.next_control_block_address, self.tx_control_block_memory.bus_address + ((tx_cb_index + 2) * std::mem::size_of::<DmaControlBlock>()) as u32);
+                set_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+                set_dma_tx_address.write_source_ad(self.dma_data_memory.bus_address + (i as u32 * 4));
+                set_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) + 4);  // channel control block address register
+                set_dma_tx_address.write_txfr_len(4);
+                set_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 2) * std::mem::size_of::<DmaControlBlock>()) as u32);
 
 
-                write_volatile(&mut disable_dma_tx_address.transfer_information, Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                write_volatile(&mut disable_dma_tx_address.source_address, self.dma_const_data_memory.bus_address);
-                write_volatile(&mut disable_dma_tx_address.destination_address, Self::DMA_SPI_CS_PHYS_ADDRESS);
-                write_volatile(&mut disable_dma_tx_address.trasnfer_length, 4);
-                write_volatile(&mut disable_dma_tx_address.next_control_block_address, self.tx_control_block_memory.bus_address + ((tx_cb_index + 3) * std::mem::size_of::<DmaControlBlock>()) as u32);
+                disable_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+                disable_dma_tx_address.write_source_ad(self.dma_const_data_memory.bus_address);
+                disable_dma_tx_address.write_dest_ad(Self::DMA_SPI_CS_PHYS_ADDRESS);
+                disable_dma_tx_address.write_txfr_len(4);
+                disable_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 3) * std::mem::size_of::<DmaControlBlock>()) as u32);
 
                 
-                write_volatile(&mut start_dma_tx_address.transfer_information, Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                write_volatile(&mut start_dma_tx_address.source_address, self.dma_const_data_memory.bus_address + 4);
-                write_volatile(&mut start_dma_tx_address.destination_address, Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) as u32);
-                write_volatile(&mut start_dma_tx_address.trasnfer_length, 4);
-                write_volatile(&mut start_dma_tx_address.next_control_block_address, self.rx_control_block_memory.bus_address + (i * std::mem::size_of::<DmaControlBlock>()) as u32);
+                start_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+                start_dma_tx_address.write_source_ad(self.dma_const_data_memory.bus_address + 4);
+                start_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) as u32);
+                start_dma_tx_address.write_txfr_len(4);
+                start_dma_tx_address.write_nextconbk(self.rx_control_block_memory.bus_address + (i * std::mem::size_of::<DmaControlBlock>()) as u32);
 
 
                 rx_control_block = &mut *((self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(i));
-                write_volatile(&mut rx_control_block.transfer_information, Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
-                write_volatile(&mut rx_control_block.source_address, rx_physical_destination_address);
-                write_volatile(&mut rx_control_block.destination_address, 0);
-                write_volatile(&mut rx_control_block.trasnfer_length, CHUNK_SIZE as u32 - 4);       // without the 4 byte header
-                write_volatile(&mut rx_control_block.next_control_block_address, 0);
+                rx_control_block.write_ti(Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
+                rx_control_block.write_source_ad(rx_physical_destination_address);
+                rx_control_block.write_dest_ad(0);
+                rx_control_block.write_txfr_len(CHUNK_SIZE as u32 - 4);       // without the 4 byte header
+                rx_control_block.write_nextconbk(0);
             }
 
             
-            write_volatile(&mut (*self.tx_dma).control_block_address, self.tx_control_block_memory.bus_address);
-            write_volatile(&mut (*self.rx_dma).control_block_address, self.rx_control_block_memory.bus_address);
+            (*self.tx_dma).write_conblk_ad(self.tx_control_block_memory.bus_address);
+            (*self.rx_dma).write_conblk_ad(self.rx_control_block_memory.bus_address);
 
             // Starting the dma transfer
-            Self::sync_syncronize();
-            write_volatile(&mut (*self.tx_dma).control_status, Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
-            write_volatile(&mut (*self.rx_dma).control_status, Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
-            Self::sync_syncronize();
+            (*self.tx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
+            (*self.rx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
 
+            
+        }
+    }
+
+    pub fn wait_for_dma_transfer(&self){
+        unsafe{
             // Wait for the last trasfer to end
-            while read_volatile(&mut (*self.tx_dma).control_status) & Self::DMA_CS_ACTIVE != 0 {
+            while (*self.tx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
                 // Self::sleep_ms(250);
                 // log::info!("Waiting for the tx channel");
             }
-            while read_volatile(&mut (*self.rx_dma).control_status) & Self::DMA_CS_ACTIVE != 0 {
+            while (*self.rx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
                 // Self::sleep_ms(250);
                 // log::info!("Waiting for the rx channel");
             }
@@ -276,12 +297,6 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
 
     fn sleep_ms(milliseconds_to_sleep:u64){
         std::thread::sleep(std::time::Duration::from_millis(milliseconds_to_sleep));
-    }
-
-    // trying to create a __sync_syncronize() impl
-    #[inline]
-    fn sync_syncronize(){
-        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
     }
 
     const MEM_ALLOC_FLAG_DIRECT:usize = 1 << 2;

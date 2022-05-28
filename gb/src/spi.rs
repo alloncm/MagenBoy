@@ -5,6 +5,22 @@ use rppal::gpio::{OutputPin, IoPin};
 
 use crate::dma::DmaTransferer;
 
+macro_rules! decl_write_volatile_field{
+    ($function_name:ident, $field_name:ident) =>{
+        #[inline] unsafe fn $function_name(&mut self,value:u32){
+            std::ptr::write_volatile(&mut self.$field_name , value);
+        }
+    }
+}
+
+macro_rules! decl_read_volatile_field{
+    ($function_name:ident, $field_name:ident) =>{
+        #[inline] unsafe fn $function_name(&mut self)->u32{
+            std::ptr::read_volatile(&self.$field_name)
+        }
+    }
+}
+
 struct GpioRegistersAccess{
     ptr:*mut u32
 }
@@ -53,34 +69,29 @@ impl GpioRegistersAccess{
 }
 
 struct SpiRegistersAccess{
-    ptr:*mut u32
+    control_status:u32,
+    fifo:u32,
+    clock:u32,
+    data_length:u32
 }
-enum SpiRegister{
-    Cs = 0,
-    Fifo = 1, 
-    Clk = 2,
-    Dlen = 3
-}
+
 impl SpiRegistersAccess{
-    #[inline]
-    unsafe fn read_register(&self, register:SpiRegister)->u32{
-        std::ptr::read_volatile(self.ptr.add(register as usize))
-    }
-    #[inline]
-    unsafe fn write_register(&self, register:SpiRegister, value:u32){
-        std::ptr::write_volatile(self.ptr.add(register as usize), value);
-    }
+    decl_write_volatile_field!(write_cs, control_status);
+    decl_read_volatile_field!(read_cs, control_status);
+    decl_write_volatile_field!(write_fifo, fifo);
+    decl_write_volatile_field!(write_clk, clock);
+    decl_write_volatile_field!(write_dlen, data_length);
 }
 
 struct RawSpi{
-    spi_registers: SpiRegistersAccess,
+    spi_registers: *mut SpiRegistersAccess,
     mem_fd:libc::c_int,
-    // gpio_registers: GpioRegistersAccess,
     spi_pins:[IoPin;2],
     spi_cs0:OutputPin,
     dc_pin:OutputPin,
 
-    dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>
+    dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>,
+    last_transfer_was_dma:bool
 }
 
 fn libc_abort_if_err(message:&str){
@@ -124,49 +135,61 @@ impl RawSpi{
         }
 
         // let gpio_registers = unsafe{GpioRegistersAccess{ptr:bcm2835.add(Self::BCM2835_GPIO_BASE_ADDRESS) as *mut u32}};
-        let spi_registers = unsafe{SpiRegistersAccess{ptr:bcm2835.add(Self::BCM2835_SPI0_BASE_ADDRESS) as *mut u32}};
+        let spi_registers = unsafe{bcm2835.add(Self::BCM2835_SPI0_BASE_ADDRESS) as *mut SpiRegistersAccess};
 
         unsafe{
             // ChipSelect = 0, ClockPhase = 0, ClockPolarity = 0
             spi_cs0.set_low();
-            spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA);
-            spi_registers.write_register(SpiRegister::Clk, 34);
-            spi_registers.write_register(SpiRegister::Dlen, 2);
+            (*spi_registers).write_cs(Self::SPI_CS_TA);
+            (*spi_registers).write_clk(34);
+            (*spi_registers).write_dlen(2);
         }
 
         log::info!("finish ili9341 device init");
 
         RawSpi { 
-            spi_registers, dc_pin, spi_pins, spi_cs0, mem_fd, 
-            dma_transferer:DmaTransferer::new(bcm2835, 7, 1, mem_fd, ) 
+            spi_registers, dc_pin, spi_pins, spi_cs0, mem_fd, last_transfer_was_dma: false,
+            dma_transferer:DmaTransferer::new(bcm2835, 7, 1, mem_fd )
         }
     }
 
     fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
+        self.prepare_for_transfer();
         self.dc_pin.set_low();
         self.write_raw(&[command as u8]);
         self.dc_pin.set_high();
         self.write_raw(data);
+        self.last_transfer_was_dma = false;
+    }
+
+    fn prepare_for_transfer(&mut self) {
+        if self.last_transfer_was_dma{
+            self.dma_transferer.wait_for_dma_transfer();
+            unsafe{
+                (*self.spi_registers).write_cs(Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
+                (*self.spi_registers).write_dlen(2);        // poll mode speed up
+            }
+        }
     }
 
     fn write_raw<const SIZE:usize>(&mut self, data:&[u8;SIZE]){
         unsafe{
             let mut current_index = 0;
             while current_index < SIZE {
-                let cs:u32 = self.spi_registers.read_register(SpiRegister::Cs);
+                let cs:u32 = (*self.spi_registers).read_cs();
                 if cs & Self::SPI_CS_TXD != 0{
-                    self.spi_registers.write_register(SpiRegister::Fifo, data[current_index] as u32);
+                    (*self.spi_registers).write_fifo(data[current_index] as u32);
                     current_index += 1;
                 }
                 if (cs & (Self::SPI_CS_RXR | Self::SPI_CS_RXF)) != 0 {
-                    self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | 0b10_0000)
+                    (*self.spi_registers).write_cs(Self::SPI_CS_TA | 0b10_0000);
                 }
             }
 
             // wait for the last trasfer to finish
-            while (self.spi_registers.read_register(SpiRegister::Cs) & Self::SPI_CS_DONE) == 0 {
-                if (self.spi_registers.read_register(SpiRegister::Cs) & (Self::SPI_CS_RXR | Self::SPI_CS_RXF)) != 0{
-                    self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | 0b10_0000)
+            while ((*self.spi_registers).read_cs() & Self::SPI_CS_DONE) == 0 {
+                if ((*self.spi_registers).read_cs() & (Self::SPI_CS_RXR | Self::SPI_CS_RXF)) != 0{
+                    (*self.spi_registers).write_cs(Self::SPI_CS_TA | 0b10_0000);
                 }
             }
         }
@@ -181,18 +204,19 @@ impl RawSpi{
     const DMA_SPI_FIFO_PHYS_ADDRESS:u32 = 0x7E20_4004;
 
     fn write_dma<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
-        // log::info!("actual_size: {}, size: {}, num: {}", SIZE, Self::DMA_SPI_CHUNK_SIZE, Self::DMA_SPI_NUM_CHUNKS);
+        self.prepare_for_transfer();
         self.dc_pin.set_low();
         self.write_raw(&[command as u8]);
         self.dc_pin.set_high();
         self.write_dma_raw(&data);
+        self.last_transfer_was_dma = true;
     }
 
 
     // Since generic_const_exprs is not stable yet Im reserving the first 4 bytes of the data variable for internal use
     fn write_dma_raw<const SIZE:usize>(&mut self, data:&[u8;SIZE]){
         unsafe{
-            self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR);
+            (*self.spi_registers).write_cs(Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR);
             let data_len = Self::DMA_SPI_CHUNK_SIZE - 4;  // Removing the first 4 bytes from this length param
             let header = [Self::SPI_CS_TA as u8, 0, (data_len & 0xFF) as u8,  /*making sure this is little endian order*/ (data_len >> 8) as u8];
 
@@ -213,18 +237,7 @@ impl RawSpi{
                 Self::DMA_TI_PERMAP_SPI_RX, 
                 Self::DMA_SPI_FIFO_PHYS_ADDRESS
             );
-
-            Self::sync_syncronize();
-            self.spi_registers.write_register(SpiRegister::Cs, Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
-            self.spi_registers.write_register(SpiRegister::Dlen, 2);        // poll mode speed up
-            Self::sync_syncronize();
         }
-    }
-
-    // trying to create a __sync_syncronize() impl
-    #[inline]
-    fn sync_syncronize(){
-        std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -421,7 +434,7 @@ impl Ili9341Contoller{
         // turn backlight on
         led_pin.set_high();
 
-        unsafe{spi.spi_registers.write_register(SpiRegister::Clk, 4)};
+        unsafe{(*spi.spi_registers).write_clk(4)};
 
         log::info!("Initalizing with screen size width: {}, hight: {}", Self::TARGET_SCREEN_WIDTH, Self::TARGET_SCREEN_HEIGHT);
 
