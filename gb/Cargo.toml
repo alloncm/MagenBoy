@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 lib_gb = {path = "../lib_gb/"}
+image_inter = {path = "../image_inter"}
 log = "0.4"
 fern = "0.6"
 chrono = "0.4"
@@ -22,6 +23,7 @@ crossterm = "0.23"
 rppal = {version = "0.13", optional = true}
 libc = "0.2"
 nix = {version = "0.24", features = ["ioctl"]}
+fast_image_resize = "0.9.3"
 
 [features]
 default = ["static-sdl", "gpio"]

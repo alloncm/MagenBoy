@@ -456,33 +456,35 @@ impl Ili9341Contoller{
             ((Self::TARGET_SCREEN_HEIGHT - 1) & 0xFF) as u8 
         ]);
         
-        let mut scaled_buffer: [u16;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH];
-        Self::scale_to_screen(buffer, &mut scaled_buffer);
-        let mut u8_buffer:[u8;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH*2] = [0;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH*2];
-        for i in 0..scaled_buffer.len(){
-            u8_buffer[i*2] = (scaled_buffer[i] >> 8) as u8;
-            u8_buffer[(i*2)+1] = (scaled_buffer[i] & 0xFF) as u8;
-        }
+        let mut scaled_buffer: [u8;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2];
+        // unsafe{
+        //     Self::scale_to_screen_fr(&*(buffer as *const [u16; SCREEN_HEIGHT * SCREEN_WIDTH] as *const [u8; SCREEN_HEIGHT * SCREEN_WIDTH * 2]), 
+        //     &mut scaled_buffer);
+        // }
 
-        self.spi.write_dma(Ili9341Commands::MemoryWrite, &u8_buffer);
+        // Self::scale_to_screen_nearest(buffer, &mut scaled_buffer);
+        unsafe{image_inter::scale_to_screen_c::<SCREEN_WIDTH, SCREEN_HEIGHT, {Self::TARGET_SCREEN_WIDTH}, {Self::TARGET_SCREEN_HEIGHT}>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
+
+        self.spi.write_dma(Ili9341Commands::MemoryWrite, &scaled_buffer);
     }
 
 
     // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
-    fn scale_to_screen(input_buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH], output_buffer:&mut [u16;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH]){
+    fn scale_to_screen(input_buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH], output_buffer:&mut [u8;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH * 2]){
         // not sure why the -1.0
         let x_ratio = (SCREEN_WIDTH as f32 - 1.0) / Self::TARGET_SCREEN_WIDTH as f32;
         let y_ratio = (SCREEN_HEIGHT as f32 - 1.0) / Self::TARGET_SCREEN_HEIGHT as f32;
 
         let mut offset_counter = 0;
         for y in 0..Self::TARGET_SCREEN_HEIGHT{
+            let y_val = (y_ratio * y as f32) as u32;            // y value of a point in this ratio between o and y
+            let y_diff = (y_ratio * y as f32) - y_val as f32;
+
             for x in 0..Self::TARGET_SCREEN_WIDTH{
                 let x_val = (x_ratio * x as f32) as u32;            // x value of a point in this ratio between 0 and x
-                let y_val = (y_ratio * y as f32) as u32;            // y value of a point in this ratio between o and y
                 let x_diff = (x_ratio * x as f32) - x_val as f32;   
-                let y_diff = (y_ratio * y as f32) - y_val as f32;
-                let original_pixel_index = (y_val as usize * SCREEN_WIDTH) + x_val as usize;
 
+                let original_pixel_index = (y_val as usize * SCREEN_WIDTH) + x_val as usize;
                 // Get the pixel and 3 surounding pixels
                 let pixel_a = input_buffer[original_pixel_index];
                 let pixel_b = input_buffer[original_pixel_index + 1];
@@ -502,8 +504,46 @@ impl Ili9341Contoller{
                               (((pixel_c >> 11) & 0x1F) as f32 * y_diff * (1.0-x_diff)) + 
                               (((pixel_d >> 11) & 0x1F) as f32 * x_diff * y_diff);
 
-                output_buffer[offset_counter] = blue as u16 | ((green as u16) << 5) | ((red as u16) << 11);
+                let pixel = blue as u16 | ((green as u16) << 5) | ((red as u16) << 11);
+                output_buffer[offset_counter * 2] = (pixel >> 8) as u8;
+                output_buffer[(offset_counter * 2) + 1] = (pixel & 0xFF) as u8;
                 offset_counter += 1;
+            }
+        }
+    }
+
+    fn scale_to_screen_fr(input_buffer:&[u8;SCREEN_HEIGHT*SCREEN_WIDTH * 2], output_buffer:&mut [u8;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH * 2]){
+        let mut buffer = input_buffer.clone();
+        let mut src_buffer = fast_image_resize::Image::from_slice_u8(
+            std::num::NonZeroU32::new(SCREEN_WIDTH as u32).unwrap(),
+            std::num::NonZeroU32::new(SCREEN_HEIGHT as u32).unwrap(),
+            &mut buffer,
+            fast_image_resize::PixelType::U16
+        ).unwrap();
+
+        let mut dst_buffer = fast_image_resize::Image::from_slice_u8(
+            std::num::NonZeroU32::new(Self::TARGET_SCREEN_WIDTH as u32).unwrap(), 
+            std::num::NonZeroU32::new(Self::TARGET_SCREEN_HEIGHT as u32).unwrap(), 
+            output_buffer, 
+            fast_image_resize::PixelType::U16
+        ).unwrap();
+
+        let mut resizer = fast_image_resize::Resizer::new(fast_image_resize::ResizeAlg::Convolution(fast_image_resize::FilterType::Bilinear));
+        resizer.resize(&src_buffer.view(), &mut dst_buffer.view_mut()).unwrap();
+    }
+
+    // implemented based on this article - https://kwojcicki.github.io/blog/NEAREST-NEIGHBOUR
+    fn scale_to_screen_nearest(input_buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH], output_buffer:&mut [u8;Self::TARGET_SCREEN_HEIGHT*Self::TARGET_SCREEN_WIDTH * 2]){
+        for y in 0..Self::TARGET_SCREEN_HEIGHT{
+            for x in 0..Self::TARGET_SCREEN_WIDTH{
+                let proj_x = ((1.0 / Self::SCALE) * x as f32) as usize;
+                let proj_y = ((1.0 / Self::SCALE) * y as f32) as usize;
+                unsafe{
+                    let pixel = input_buffer.get_unchecked((proj_y * SCREEN_WIDTH) + proj_x);
+                    let output_index = (y * Self::TARGET_SCREEN_WIDTH) + x;
+                    *output_buffer.get_unchecked_mut(output_index * 2) = (pixel >> 8) as u8;
+                    *output_buffer.get_unchecked_mut((output_index * 2) + 1) = (pixel & 0xFF) as u8;
+                }
             }
         }
     }
