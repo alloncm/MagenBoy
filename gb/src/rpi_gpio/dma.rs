@@ -2,26 +2,9 @@ use std::ptr::write_volatile;
 
 use libc::{c_void, c_int};
 
-fn libc_abort(message:&str){
-    std::io::Result::<&str>::Err(std::io::Error::last_os_error()).expect(message);
-}
+use super::*;
 
-macro_rules! decl_write_volatile_field{
-    ($function_name:ident, $field_name:ident) =>{
-        #[inline] unsafe fn $function_name(&mut self,value:u32){
-            std::ptr::write_volatile(&mut self.$field_name , value);
-        }
-    }
-}
-
-macro_rules! decl_read_volatile_field{
-    ($function_name:ident, $field_name:ident) =>{
-        #[inline] unsafe fn $function_name(&mut self)->u32{
-            std::ptr::read_volatile(&self.$field_name)
-        }
-    }
-}
-
+// Mailbox messages need to be 16 byte alligned
 #[repr(C, align(16))]
 struct MailboxMessage<const PAYLOAD_SIZE:usize>{
     length:u32,
@@ -47,6 +30,7 @@ impl<const PAYLOAD_SIZE:usize> MailboxMessage<PAYLOAD_SIZE>{
     }
 }
 
+// Docs - https://github.com/raspberrypi/firmware/wiki/Mailbox-property-interface
 struct Mailbox{
     mbox_fd: c_int,
 }
@@ -70,7 +54,12 @@ impl Mailbox{
 
     fn send_message<const SIZE:usize>(&self, message:&mut MailboxMessage<SIZE>)->u32{
         let raw_message = message as *mut MailboxMessage<SIZE> as *mut c_void;
-        let ret = unsafe{libc::ioctl(self.mbox_fd, Self::MAILBOX_IOCTL_PROPERTY, raw_message)};
+        let ret = unsafe{
+            // Using libc::ioctl and not nix high level abstraction over it cause Im sending a *void and not more 
+            // concrete type and the nix macro will mess the types for us. I belive it could work with nix after some modification 
+            // of the way Im handling this but Im leaving this as it for now. sorry!
+            libc::ioctl(self.mbox_fd, Self::MAILBOX_IOCTL_PROPERTY, raw_message)
+        };
         if ret < 0{
             libc_abort("Error in ioctl call");
         }
@@ -86,6 +75,8 @@ struct DmaMemory{
     size:u32
 }
 
+// The DMA control block registers are in a 32 byte alligned addresses so the stracture mapping them needs to be as well
+// in order for me to cast some bytes to this stuct (at least I think so)
 // Not valid for DMA4 channels
 #[repr(C, align(32))]
 struct DmaControlBlock{
@@ -107,7 +98,7 @@ impl DmaControlBlock{
 }
 
 
-
+// Since Im casting an arbitary pointer to this struct it must be alligned by 4 bytes (with no gaps as well)
 #[repr(C, align(4))]
 struct DmaRegistersAccess{
     control_status:u32,
@@ -201,7 +192,7 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
 
     const DMA_SPI_CS_PHYS_ADDRESS:u32 = 0x7E20_4000;
 
-    pub fn dma_transfer<const SIZE:usize>(&mut self, data:&[u8; SIZE], tx_peripherial_mapping:u8, tx_physical_destination_address:u32, rx_peripherial_mapping:u8, rx_physical_destination_address:u32){
+    pub fn start_dma_transfer<const SIZE:usize>(&mut self, data:&[u8; SIZE], tx_peripherial_mapping:u8, tx_physical_destination_address:u32, rx_peripherial_mapping:u8, rx_physical_destination_address:u32){
         if SIZE != NUM_CHUNKS * CHUNK_SIZE{
             std::panic!("bad SIZE param");
         }
@@ -281,7 +272,7 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
         }
     }
 
-    pub fn wait_for_dma_transfer(&self){
+    pub fn end_dma_transfer(&self){
         unsafe{
             // Wait for the last trasfer to end
             while (*self.tx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {

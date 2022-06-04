@@ -23,12 +23,12 @@ crossterm = "0.23"
 rppal = {version = "0.13", optional = true}
 libc = "0.2"
 nix = {version = "0.24", features = ["ioctl"]}
-fast_image_resize = "0.9.3"
 
 [features]
-default = ["static-sdl", "gpio"]
+default = ["static-sdl", "raw-spi"]
 sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
 static-scale = []
 gpio = ["rppal"]
+raw-spi = ["gpio"] # requires sudo

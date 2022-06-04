@@ -428,7 +428,6 @@ dependencies = [
  "chrono",
  "crossbeam-channel",
  "crossterm",
- "fast_image_resize",
  "fern",
  "image_inter",
  "lib_gb",
@@ -575,7 +574,7 @@ dependencies = [
 
 [[package]]
 name = "image_inter"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "cc",
  "criterion",

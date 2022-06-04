@@ -1,11 +1,8 @@
-mod spi;
-mod dma;
 mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_terminal_menu;
 #[cfg(feature = "gpio")]
-mod gpio_joypad_provider;
-
+mod rpi_gpio;
 mod audio{
     pub mod audio_resampler;
     pub mod multi_device_audio;
@@ -13,7 +10,6 @@ mod audio{
     #[cfg(not(feature = "sdl-resample"))]
     pub mod manual_audio_resampler;
 }
-
 mod sdl{
     pub mod utils;
     pub mod sdl_gfx_device;
@@ -30,12 +26,8 @@ mod sdl{
             pub type ChosenAudioDevice<AR> = sdl_pull_audio_device::SdlPullAudioDevice<AR>;
         }
     }
-
-    cfg_if::cfg_if!{
-        if #[cfg(not(feature = "gpio"))]{
-            pub mod sdl_joypad_provider;
-        }       
-    }
+    #[cfg(not(feature = "gpio"))]
+    pub mod sdl_joypad_provider;
 }
 
 cfg_if::cfg_if!{
@@ -59,7 +51,7 @@ const TURBO_MUL:u8 = 1;
 
 cfg_if::cfg_if!{
     if #[cfg(feature = "gpio")]{
-        use crate::gpio_joypad_provider::*;
+        use crate::rpi_gpio::gpio_joypad_provider::*;
         fn buttons_mapper(button:&Button)->GpioPin{
             match button{
                 Button::A       => 18,
@@ -176,7 +168,8 @@ fn main() {
     }
 
     #[cfg(feature = "gpio")]
-    let mut gfx_device = spi::Ili9341GfxDevice::new();
+    let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new();
+
     #[cfg(not(feature = "gpio"))]
     let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
      check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));

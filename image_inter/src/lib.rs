@@ -13,7 +13,7 @@ extern "C" {
 }
 
 // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
-pub unsafe fn scale_to_screen<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
+pub unsafe fn scale_bilinear<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
     // not sure why the -1.0
     let x_ratio = (INPUT_WIDTH as f32 - 1.0) / OUTPUT_WIDTH as f32;
     let y_ratio = (INPUT_HEIGHT as f32 - 1.0) / OUTPUT_HEIGHT as f32;
@@ -57,7 +57,21 @@ pub unsafe fn scale_to_screen<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, 
     }
 }
 
-pub unsafe fn scale_to_screen_c<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
+// implemented based on this article - https://kwojcicki.github.io/blog/NEAREST-NEIGHBOUR
+pub unsafe fn scale_nearest<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8, scale:f32){
+    for y in 0..OUTPUT_HEIGHT{
+        for x in 0..OUTPUT_WIDTH{
+            let proj_x = ((1.0 / scale) * x as f32) as usize;
+            let proj_y = ((1.0 / scale) * y as f32) as usize;
+            let pixel = *input_buffer.add((proj_y * INPUT_WIDTH) + proj_x);
+            let output_index = (y * OUTPUT_WIDTH) + x;
+            *output_buffer.add(output_index * 2) = (pixel >> 8) as u8;
+            *output_buffer.add((output_index * 2) + 1) = (pixel & 0xFF) as u8;
+        }
+    }
+}
+
+pub unsafe fn scale_biliniear_c<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
     scale_buffer(
         input_buffer, 
         INPUT_WIDTH as c_int, 
