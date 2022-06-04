@@ -11,6 +11,8 @@ const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
 const BCM2835_RPI4_BUS_ADDRESS:usize = 0xFE00_0000;
 const BCM_RPI4_MMIO_PERIPHERALS_SIZE:usize = 0x180_0000;
 
+
+// This struct is here to managed the lifetime of the bcm2835 ptr and the memory fd
 pub struct Bcm2835{
     ptr:*mut c_void,
     mem_fd: libc::c_int

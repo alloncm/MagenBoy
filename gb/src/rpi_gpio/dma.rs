@@ -338,19 +338,26 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
     pub fn end_dma_transfer(&self){
         unsafe{
             // Wait for the last trasfer to end
+            let mut counter = 0;
             while (*self.tx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
-                // Self::sleep_ms(250);
-                // log::info!("Waiting for the tx channel");
+                Self::sleep_us(1);
+                counter += 1;
+                if counter > 1000000{
+                    std::panic!("ERROR! tx dma channel is not responding, a reboot is suggested");
+                }
             }
             while (*self.rx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
-                // Self::sleep_ms(250);
-                // log::info!("Waiting for the rx channel");
+                Self::sleep_us(1);
+                counter += 1;
+                if counter > 1000000{
+                    std::panic!("ERROR! rx dma channel is not responding, a reboot is suggested");
+                }
             }
         }
     }
 
-    fn sleep_ms(milliseconds_to_sleep:u64){
-        std::thread::sleep(std::time::Duration::from_millis(milliseconds_to_sleep));
+    fn sleep_us(milliseconds_to_sleep:u64){
+        std::thread::sleep(std::time::Duration::from_micros(milliseconds_to_sleep));
     }
 }
 
