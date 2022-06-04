@@ -1,8 +1,69 @@
+use libc::c_void;
 use rppal::gpio::{OutputPin, IoPin};
 
 use crate::rpi_gpio::{dma::DmaTransferer, libc_abort};
 
 use super::{ili9341_controller::{Ili9341Commands, SpiController, TARGET_SCREEN_HEIGHT, TARGET_SCREEN_WIDTH}, decl_write_volatile_field, decl_read_volatile_field};
+
+
+const BCM2835_GPIO_BASE_ADDRESS:usize = 0x20_0000;
+const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
+const BCM2835_RPI4_BUS_ADDRESS:usize = 0xFE00_0000;
+const BCM_RPI4_MMIO_PERIPHERALS_SIZE:usize = 0x180_0000;
+
+pub struct Bcm2835{
+    ptr:*mut c_void,
+    mem_fd: libc::c_int
+}
+
+impl Bcm2835 {
+    fn new()->Self{
+        let mem_fd = unsafe{libc::open(std::ffi::CStr::from_bytes_with_nul(b"/dev/mem\0").unwrap().as_ptr(), libc::O_RDWR | libc::O_SYNC)};
+        
+        if mem_fd < 0{
+            libc_abort("bad file descriptor");
+        }
+        
+        let bcm2835 = unsafe{libc::mmap(
+            std::ptr::null_mut(), 
+            BCM_RPI4_MMIO_PERIPHERALS_SIZE,
+            libc::PROT_READ | libc::PROT_WRITE, 
+            libc::MAP_SHARED, 
+            mem_fd,
+            BCM2835_RPI4_BUS_ADDRESS as libc::off_t
+        )};
+
+        if bcm2835 == libc::MAP_FAILED{
+            libc_abort("FATAL: mapping /dev/mem failed!");
+        }
+
+        Bcm2835 { ptr: bcm2835, mem_fd }
+    }
+
+    pub fn get_ptr(&self, offset:usize)->*mut c_void{
+        unsafe{self.ptr.add(offset)}
+    }
+
+    pub fn get_fd(&self)->libc::c_int{
+        self.mem_fd
+    }
+}
+
+impl Drop for Bcm2835{
+    fn drop(&mut self) {
+        unsafe{
+            let result = libc::munmap(self.ptr, BCM_RPI4_MMIO_PERIPHERALS_SIZE);
+            if result != 0{
+                libc_abort("Error while unmapping the mmio memory");
+            }
+
+            let result = libc::close(self.mem_fd);
+            if result != 0{
+                libc_abort("Error while closing the mem_fd");
+            }
+        }
+    }
+}
 
 struct GpioRegistersAccess{
     ptr:*mut u32
@@ -70,21 +131,20 @@ impl SpiRegistersAccess{
 
 pub struct RawSpi{
     spi_registers: *mut SpiRegistersAccess,
-    mem_fd:libc::c_int,
     spi_pins:[IoPin;2],
     spi_cs0:OutputPin,
     dc_pin:OutputPin,
 
     dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>,
-    last_transfer_was_dma:bool
+    last_transfer_was_dma:bool,
+
+    // declared last in order for it to be freed last 
+    // rust gurantee that the order of the droped values is the order of declaration
+    // keeping it last so it will be freed correctly
+    _bcm2835:Bcm2835,
 }
 
 impl RawSpi{
-    const BCM2835_GPIO_BASE_ADDRESS:usize = 0x20_0000;
-    const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
-    const BCM2835_RPI4_BUS_ADDRESS:usize = 0xFE00_0000;
-    const BCM_RPI4_SIZE:usize = 0x180_0000;
-
     const SPI_CS_RXF:u32 = 1 << 20;
     const SPI_CS_RXR:u32 = 1 << 19;
     const SPI_CS_TXD:u32 = 1 << 18;
@@ -95,27 +155,10 @@ impl RawSpi{
     const SPI_CS_CLEAR_RX:u32 = 1 << 5;
 
     fn new (dc_pin:OutputPin, spi_pins:[IoPin;2], mut spi_cs0: OutputPin)->Self{
-        let mem_fd = unsafe{libc::open(std::ffi::CStr::from_bytes_with_nul(b"/dev/mem\0").unwrap().as_ptr(), libc::O_RDWR | libc::O_SYNC)};
-        
-        if mem_fd < 0{
-            libc_abort("bad file descriptor");
-        }
-        
-        let bcm2835 = unsafe{libc::mmap(
-            std::ptr::null_mut(), 
-            Self::BCM_RPI4_SIZE,
-            libc::PROT_READ | libc::PROT_WRITE, 
-            libc::MAP_SHARED, 
-            mem_fd,
-            Self::BCM2835_RPI4_BUS_ADDRESS as libc::off_t
-        )};
-
-        if bcm2835 == libc::MAP_FAILED{
-            libc_abort("FATAL: mapping /dev/mem failed!");
-        }
+        let bcm2835 = Bcm2835::new();
 
         // let gpio_registers = unsafe{GpioRegistersAccess{ptr:bcm2835.add(Self::BCM2835_GPIO_BASE_ADDRESS) as *mut u32}};
-        let spi_registers = unsafe{bcm2835.add(Self::BCM2835_SPI0_BASE_ADDRESS) as *mut SpiRegistersAccess};
+        let spi_registers = bcm2835.get_ptr(BCM2835_SPI0_BASE_ADDRESS) as *mut SpiRegistersAccess;
 
         unsafe{
             // ChipSelect = 0, ClockPhase = 0, ClockPolarity = 0
@@ -127,9 +170,10 @@ impl RawSpi{
 
         log::info!("finish ili9341 device init");
 
+        let dma_transferer = DmaTransferer::new(&bcm2835, 7, 1 );
         RawSpi { 
-            spi_registers, dc_pin, spi_pins, spi_cs0, mem_fd, last_transfer_was_dma: false,
-            dma_transferer:DmaTransferer::new(bcm2835, 7, 1, mem_fd )
+            _bcm2835:bcm2835, spi_registers, dc_pin, spi_pins, spi_cs0, last_transfer_was_dma: false,
+            dma_transferer
         }
     }
 

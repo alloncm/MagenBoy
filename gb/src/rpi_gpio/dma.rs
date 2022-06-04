@@ -2,7 +2,7 @@ use std::ptr::write_volatile;
 
 use libc::{c_void, c_int};
 
-use super::*;
+use super::{*, raw_spi::Bcm2835};
 
 // Mailbox messages need to be 16 byte alligned
 #[repr(C, align(16))]
@@ -68,11 +68,73 @@ impl Mailbox{
     }
 }
 
-struct DmaMemory{
+impl Drop for Mailbox{
+    fn drop(&mut self) {
+        unsafe{
+            let result = libc::close(self.mbox_fd);
+            if result != 0{
+                libc_abort("Error while closing the mbox fd");
+            }
+        }
+    }
+}
+
+
+// using GpuMemory cause I need a memory that is not cached by the cpu caches (L1, L2)
+struct GpuMemory{
     virtual_address_ptr:usize,
     bus_address:u32,
     mailbox_memory_handle:u32,
     size:u32
+}
+
+impl GpuMemory{
+    const MEM_ALLOC_FLAG_DIRECT:usize = 1 << 2;
+    const MEM_ALLOC_FLAG_COHERENT:usize = 1 << 3;
+    const ALLOCATE_MEMORY_TAG:u32 = 0x3000C;
+    const LOCK_MEMORY_TAG:u32 = 0x3000D;
+    const UNLOCK_MEMORY_TAG:u32 = 0x3000E;
+    const RELEASE_MEMORY_TAG:u32 = 0x3000E;
+    const PAGE_SIZE:u32 = 4096;
+
+    // This function converts the from the bus address of the SDRAM uncached memory to the arm physical address
+    // Notice that supposed to work only for this type of memory
+    const fn bus_to_phys(bus_address:u32)->u32{bus_address & !0xC000_0000}
+
+    // Using the Mailbox interface to allocate memory on the gpu
+    fn allocate(mbox:&Mailbox, size:u32, mem_fd:c_int)->GpuMemory{
+        let flags = (Self::MEM_ALLOC_FLAG_COHERENT | Self::MEM_ALLOC_FLAG_DIRECT) as u32;
+        let handle = mbox.send_command(Self::ALLOCATE_MEMORY_TAG, [size, Self::PAGE_SIZE, flags]);
+
+        let bus_address = mbox.send_command(Self::LOCK_MEMORY_TAG, [handle]);
+        let virtual_address = unsafe{libc::mmap(
+            std::ptr::null_mut(),
+            size as libc::size_t,
+            libc::PROT_READ | libc::PROT_WRITE,
+            libc::MAP_SHARED,
+            mem_fd,
+            Self::bus_to_phys(bus_address) as libc::off_t
+        )};
+
+        return GpuMemory { virtual_address_ptr: virtual_address as usize, bus_address, mailbox_memory_handle:handle, size }
+    }
+
+    fn release(&self, mbox:&Mailbox){
+        unsafe{
+            let result = libc::munmap(self.virtual_address_ptr as *mut c_void, self.size as libc::size_t);
+            if result != 0 {
+                libc_abort("Error while trying to un map gpu memory");
+            }
+        }
+        let status = mbox.send_command(Self::UNLOCK_MEMORY_TAG, [self.mailbox_memory_handle]);
+        if status != 0{
+            std::panic!("Error while trying to unlock gpu memory using mailbox");
+        }
+        let status = mbox.send_command(Self::RELEASE_MEMORY_TAG, [self.mailbox_memory_handle]);
+        if status != 0{
+            std::panic!("Error while to release gpu memory using mailbox");
+        }
+    }
 }
 
 // The DMA control block registers are in a 32 byte alligned addresses so the stracture mapping them needs to be as well
@@ -117,17 +179,19 @@ pub struct DmaTransferer<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize>{
     tx_dma:*mut DmaRegistersAccess,
     rx_dma:*mut DmaRegistersAccess,
     mbox:Mailbox,
-    tx_control_block_memory:DmaMemory,
-    rx_control_block_memory:DmaMemory,
-    source_buffer_memory:DmaMemory,
-    dma_data_memory:DmaMemory,
-    dma_const_data_memory:DmaMemory,
+    tx_control_block_memory:GpuMemory,
+    rx_control_block_memory:GpuMemory,
+    source_buffer_memory:GpuMemory,
+    dma_data_memory:GpuMemory,
+    dma_const_data_memory:GpuMemory,
     tx_channel_number:u8,
-    rx_channel_number:u8
+    rx_channel_number:u8,
+    dma_enable_register_ptr:*mut u32,
 }
 
 impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, NUM_CHUNKS>{
-    const BCM2835_DMA0_BASE:usize = 0x7_000;
+    const BCM2835_DMA0_OFFSET:usize = 0x7_000;
+    const BCM2835_DMA_ENABLE_REGISTER_OFFSET:usize = Self::BCM2835_DMA0_OFFSET + 0xFF;
 
     const DMA_CS_RESET:u32 = 1 << 31;
     const DMA_CS_END:u32 = 1 << 1;
@@ -143,17 +207,17 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
     const DMA_DMA0_CB_PHYS_ADDRESS:u32 = 0x7E00_7000;
     const fn dma_ti_permap(peripherial_mapping:u8)->u32{(peripherial_mapping as u32) << 16}
 
-    pub fn new(bcm2835:*mut c_void, tx_channel_number:u8, rx_channel_number:u8, mem_fd:c_int)->Self{
+    pub fn new(bcm2835:&Bcm2835, tx_channel_number:u8, rx_channel_number:u8)->Self{
         let mbox = Mailbox::new();
-        let tx_registers = unsafe{bcm2835.add(Self::BCM2835_DMA0_BASE + (tx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess };
-        let rx_registers = unsafe{bcm2835.add(Self::BCM2835_DMA0_BASE + (rx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess };
-        let dma_tx_control_block_memory = Self::allocate_dma_memory(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * 4 * NUM_CHUNKS as u32, mem_fd);
-        let dma_rx_control_block_memory = Self::allocate_dma_memory(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * NUM_CHUNKS as u32, mem_fd);
-        let dma_source_buffer_memory = Self::allocate_dma_memory(&mbox, (NUM_CHUNKS * CHUNK_SIZE) as u32, mem_fd);
-        let dma_data_memory = Self::allocate_dma_memory(&mbox, (std::mem::size_of::<u32>() * NUM_CHUNKS) as u32, mem_fd);
-        let dma_const_data_memory = Self::allocate_dma_memory(&mbox, (std::mem::size_of::<u32>() * 2) as u32, mem_fd);
+        let tx_registers = bcm2835.get_ptr(Self::BCM2835_DMA0_OFFSET + (tx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess;
+        let rx_registers = bcm2835.get_ptr(Self::BCM2835_DMA0_OFFSET + (rx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess;
+        let dma_tx_control_block_memory = GpuMemory::allocate(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * 4 * NUM_CHUNKS as u32, bcm2835.get_fd());
+        let dma_rx_control_block_memory = GpuMemory::allocate(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * NUM_CHUNKS as u32, bcm2835.get_fd());
+        let dma_source_buffer_memory = GpuMemory::allocate(&mbox, (NUM_CHUNKS * CHUNK_SIZE) as u32, bcm2835.get_fd());
+        let dma_data_memory = GpuMemory::allocate(&mbox, (std::mem::size_of::<u32>() * NUM_CHUNKS) as u32, bcm2835.get_fd());
+        let dma_const_data_memory = GpuMemory::allocate(&mbox, (std::mem::size_of::<u32>() * 2) as u32, bcm2835.get_fd());
 
-        let dma_enable_register = unsafe{bcm2835.add(Self::BCM2835_DMA0_BASE + 0xFF0) as *mut u32};
+        let dma_enable_register = bcm2835.get_ptr(Self::BCM2835_DMA_ENABLE_REGISTER_OFFSET) as *mut u32;
 
         unsafe{
             // setup constant data
@@ -185,7 +249,8 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
             dma_data_memory,
             rx_channel_number,
             tx_channel_number,
-            dma_const_data_memory
+            dma_const_data_memory,
+            dma_enable_register_ptr:dma_enable_register
         }
     }
 
@@ -267,8 +332,6 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
             // Starting the dma transfer
             (*self.tx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
             (*self.rx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
-
-            
         }
     }
 
@@ -289,29 +352,24 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
     fn sleep_ms(milliseconds_to_sleep:u64){
         std::thread::sleep(std::time::Duration::from_millis(milliseconds_to_sleep));
     }
-
-    const MEM_ALLOC_FLAG_DIRECT:usize = 1 << 2;
-    const MEM_ALLOC_FLAG_COHERENT:usize = 1 << 3;
-    // This function converts the from the bus address of the SDRAM uncached memory to the arm physical address
-    // Notice that supposed to work only for this type of memory
-    const fn bus_to_phys(bus_address:u32)->u32{bus_address & !0xC000_0000}
-
-    fn allocate_dma_memory(mbox:&Mailbox, size:u32, mem_fd:c_int)->DmaMemory{
-        let flags = (Self::MEM_ALLOC_FLAG_COHERENT | Self::MEM_ALLOC_FLAG_DIRECT) as u32;
-        let handle = mbox.send_command(0x3000C, [size, 4096, flags]);
-
-        let bus_address = mbox.send_command(0x3000D, [handle]);
-        let virtual_address = unsafe{libc::mmap(
-            std::ptr::null_mut(),
-            size as libc::size_t,
-            libc::PROT_READ | libc::PROT_WRITE,
-            libc::MAP_SHARED,
-            mem_fd,
-            Self::bus_to_phys(bus_address) as libc::off_t
-        )};
-
-        return DmaMemory { virtual_address_ptr: virtual_address as usize, bus_address, mailbox_memory_handle:handle, size }
-    }
 }
 
+impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> Drop for DmaTransferer<CHUNK_SIZE, NUM_CHUNKS>{
+    fn drop(&mut self) {
+        // reset the program before releasing the memory
+        unsafe{
+            // reset the dma channels
+            (*self.tx_dma).write_cs(Self::DMA_CS_RESET);
+            (*self.rx_dma).write_cs(Self::DMA_CS_RESET);
+            // disable the channels I used
+            let mask = !((1 << self.tx_channel_number) | (1 << self.rx_channel_number));
+            *self.dma_enable_register_ptr &= mask;
+        }
 
+        self.dma_const_data_memory.release(&self.mbox);
+        self.dma_data_memory.release(&self.mbox);
+        self.rx_control_block_memory.release(&self.mbox);
+        self.source_buffer_memory.release(&self.mbox);
+        self.tx_control_block_memory.release(&self.mbox);
+    }
+}
