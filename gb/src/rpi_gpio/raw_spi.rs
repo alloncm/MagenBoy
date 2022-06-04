@@ -1,118 +1,12 @@
-use libc::c_void;
+use bcm_host::BcmHost;
 use rppal::gpio::{OutputPin, IoPin};
 
-use crate::rpi_gpio::{dma::DmaTransferer, libc_abort};
+use crate::rpi_gpio::{dma::DmaTransferer};
 
 use super::{ili9341_controller::{Ili9341Commands, SpiController, TARGET_SCREEN_HEIGHT, TARGET_SCREEN_WIDTH}, decl_write_volatile_field, decl_read_volatile_field};
 
-
-const BCM2835_GPIO_BASE_ADDRESS:usize = 0x20_0000;
-const BCM2835_SPI0_BASE_ADDRESS:usize = 0x20_4000;
-const BCM2835_RPI4_BUS_ADDRESS:usize = 0xFE00_0000;
-const BCM_RPI4_MMIO_PERIPHERALS_SIZE:usize = 0x180_0000;
-
-
-// This struct is here to managed the lifetime of the bcm2835 ptr and the memory fd
-pub struct Bcm2835{
-    ptr:*mut c_void,
-    mem_fd: libc::c_int
-}
-
-impl Bcm2835 {
-    fn new()->Self{
-        let mem_fd = unsafe{libc::open(std::ffi::CStr::from_bytes_with_nul(b"/dev/mem\0").unwrap().as_ptr(), libc::O_RDWR | libc::O_SYNC)};
-        
-        if mem_fd < 0{
-            libc_abort("bad file descriptor");
-        }
-        
-        let bcm2835 = unsafe{libc::mmap(
-            std::ptr::null_mut(), 
-            BCM_RPI4_MMIO_PERIPHERALS_SIZE,
-            libc::PROT_READ | libc::PROT_WRITE, 
-            libc::MAP_SHARED, 
-            mem_fd,
-            BCM2835_RPI4_BUS_ADDRESS as libc::off_t
-        )};
-
-        if bcm2835 == libc::MAP_FAILED{
-            libc_abort("FATAL: mapping /dev/mem failed!");
-        }
-
-        Bcm2835 { ptr: bcm2835, mem_fd }
-    }
-
-    pub fn get_ptr(&self, offset:usize)->*mut c_void{
-        unsafe{self.ptr.add(offset)}
-    }
-
-    pub fn get_fd(&self)->libc::c_int{
-        self.mem_fd
-    }
-}
-
-impl Drop for Bcm2835{
-    fn drop(&mut self) {
-        unsafe{
-            let result = libc::munmap(self.ptr, BCM_RPI4_MMIO_PERIPHERALS_SIZE);
-            if result != 0{
-                libc_abort("Error while unmapping the mmio memory");
-            }
-
-            let result = libc::close(self.mem_fd);
-            if result != 0{
-                libc_abort("Error while closing the mem_fd");
-            }
-        }
-    }
-}
-
-struct GpioRegistersAccess{
-    ptr:*mut u32
-}
-enum GpioRegister{
-    Gpfsel0 = 0,
-    Gpfsel1 = 1,
-    Gpset0 = 6,
-    Gpset1 = 7,
-    Gpclr0 = 8,
-    Gpclr1 = 9
-}
-impl GpioRegistersAccess{
-    unsafe fn read_register(&self, register:GpioRegister)->u32{
-        std::ptr::read_volatile(self.ptr.add(register as usize))
-    }
-    unsafe fn write_register(&self, register:GpioRegister, value:u32){
-        std::ptr::write_volatile(self.ptr.add(register as usize), value);
-    }
-    unsafe fn set_gpio_mode(&self, pin:u8, mode:u8){
-        // there are less than 100 pins so I assume the largest one is less than 100
-        let gpfsel_register = pin / 10;
-        let gpfsel_register_index = pin % 10;
-        let register_ptr = self.ptr.add(gpfsel_register as usize);
-        let mut register_value = std::ptr::read_volatile(register_ptr);
-        let mask = !(0b111 << (gpfsel_register_index * 3));
-        register_value &= mask;
-        register_value |= (mode as u32) << (gpfsel_register_index *3);
-        std::ptr::write_volatile(register_ptr, register_value);
-    }
-    unsafe fn set_gpio_high(&self, pin:u8){
-        if pin < 32{
-            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpset0 as usize), 1 << pin);
-        }
-        else{
-            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpset1 as usize), 1 << (pin - 32));
-        }
-    }
-    unsafe fn set_gpio_low(&self, pin:u8){
-        if pin < 32{
-            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpclr0 as usize), 1 << pin);
-        }
-        else{
-            std::ptr::write_volatile(self.ptr.add(GpioRegister::Gpclr1 as usize), 1 << (pin - 32));
-        }
-    }
-}
+const BCM_SPI0_BASE_ADDRESS:usize = 0x20_4000;
+const SPI_CLOCK_DIVISOR:u32 = 4;    // the smaller the faster (on my system below 4 there are currptions)
 
 // The register are 4 bytes each so making sure the allignment and padding are correct
 #[repr(C, align(4))]
@@ -133,17 +27,19 @@ impl SpiRegistersAccess{
 
 pub struct RawSpi{
     spi_registers: *mut SpiRegistersAccess,
-    spi_pins:[IoPin;2],
-    spi_cs0:OutputPin,
     dc_pin:OutputPin,
-
     dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>,
     last_transfer_was_dma:bool,
+    
+    // holding those pins in order to make sure they are configured correctly
+    // the state resets upon drop
+    _spi_pins:[IoPin;2], 
+    _spi_cs0:OutputPin,
 
     // declared last in order for it to be freed last 
     // rust gurantee that the order of the droped values is the order of declaration
     // keeping it last so it will be freed correctly
-    _bcm2835:Bcm2835,
+    _bcm:BcmHost,
 }
 
 impl RawSpi{
@@ -157,24 +53,22 @@ impl RawSpi{
     const SPI_CS_CLEAR_RX:u32 = 1 << 5;
 
     fn new (dc_pin:OutputPin, spi_pins:[IoPin;2], mut spi_cs0: OutputPin)->Self{
-        let bcm2835 = Bcm2835::new();
+        let bcm_host = BcmHost::new();
 
-        // let gpio_registers = unsafe{GpioRegistersAccess{ptr:bcm2835.add(Self::BCM2835_GPIO_BASE_ADDRESS) as *mut u32}};
-        let spi_registers = bcm2835.get_ptr(BCM2835_SPI0_BASE_ADDRESS) as *mut SpiRegistersAccess;
+        let spi_registers = bcm_host.get_ptr(BCM_SPI0_BASE_ADDRESS) as *mut SpiRegistersAccess;
 
         unsafe{
             // ChipSelect = 0, ClockPhase = 0, ClockPolarity = 0
             spi_cs0.set_low();
-            (*spi_registers).write_cs(Self::SPI_CS_TA);
-            (*spi_registers).write_clk(4);
-            (*spi_registers).write_dlen(2);
+            Self::setup_poll_fast_transfer(&mut *spi_registers);
+            (*spi_registers).write_clk(SPI_CLOCK_DIVISOR);
         }
 
         log::info!("finish ili9341 device init");
 
-        let dma_transferer = DmaTransferer::new(&bcm2835, 7, 1 );
+        let dma_transferer = DmaTransferer::new(&bcm_host, 7, 1 );
         RawSpi { 
-            _bcm2835:bcm2835, spi_registers, dc_pin, spi_pins, spi_cs0, last_transfer_was_dma: false,
+            _bcm:bcm_host, spi_registers, dc_pin, _spi_pins: spi_pins, _spi_cs0: spi_cs0, last_transfer_was_dma: false,
             dma_transferer
         }
     }
@@ -191,10 +85,15 @@ impl RawSpi{
     fn prepare_for_transfer(&mut self) {
         if self.last_transfer_was_dma{
             self.dma_transferer.end_dma_transfer();
-            unsafe{
-                (*self.spi_registers).write_cs(Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
-                (*self.spi_registers).write_dlen(2);        // poll mode speed up
-            }
+            unsafe{Self::setup_poll_fast_transfer(&mut *self.spi_registers)};
+        }
+    }
+
+    fn setup_poll_fast_transfer(spi_registers:&mut SpiRegistersAccess){
+        unsafe{
+            spi_registers.write_cs(Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
+            // poll mode speed up according to this forum post - https://forums.raspberrypi.com/viewtopic.php?f=44&t=181154
+            spi_registers.write_dlen(2);        
         }
     }
 

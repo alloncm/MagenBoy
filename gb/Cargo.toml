@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 lib_gb = {path = "../lib_gb/"}
 image_inter = {path = "../image_inter"}
+bcm_host = {path = "../bcm_host"}
 log = "0.4"
 fern = "0.6"
 chrono = "0.4"

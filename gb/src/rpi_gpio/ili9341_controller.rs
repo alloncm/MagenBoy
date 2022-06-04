@@ -54,10 +54,8 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
 
     pub fn new()->Self{
         let gpio = rppal::gpio::Gpio::new().unwrap();
-        // let mut dc_pin = gpio.get(15).unwrap().into_output();
         let mut reset_pin = gpio.get(14).unwrap().into_output();
         let mut led_pin = gpio.get(25).unwrap().into_output();
-        drop(gpio);
 
         // toggling the reset pin to initalize the lcd
         let wait_duration = std::time::Duration::from_millis(120);
@@ -68,12 +66,8 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
         reset_pin.set_high();
         std::thread::sleep(wait_duration);
 
-        // let spi0_ceo_n = gpio.get(8).unwrap().into_output();
-        // let spi0_mosi = gpio.get(10).unwrap().into_io(rppal::gpio::Mode::Alt0);
-        // let spi0_sclk = gpio.get(11).unwrap().into_io(rppal::gpio::Mode::Alt0);
-
-        // let mut spi = RawSpi::new(dc_pin, [spi0_mosi, spi0_sclk], spi0_ceo_n);
         let mut spi:SC = SpiController::new(15);
+
         // This code snippets is ofcourse wrriten by me but took heavy insperation from fbcp-ili9341 (https://github.com/juj/fbcp-ili9341)
         // I used the ili9341 application notes and the fbcp-ili9341 implementation in order to write it all down
         // And later I twicked some params specific to my display (http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218)
@@ -127,8 +121,6 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
 
         // turn backlight on
         led_pin.set_high();
-
-        // unsafe{(*spi.spi_registers).write_clk(4)};
 
         log::info!("Initalizing with screen size width: {}, hight: {}", TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT);
 
