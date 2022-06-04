@@ -12,21 +12,6 @@ extern "C" {
     );
 }
 
-pub unsafe fn scale_to_screen_asm<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
-    let x_ratio = (INPUT_WIDTH as f32 - 1.0) / OUTPUT_WIDTH as f32;
-    let y_ratio = (INPUT_HEIGHT as f32 - 1.0) / OUTPUT_HEIGHT as f32;
-
-    std::arch::asm!(
-        "push {{r0, r1, r2, r3}}",
-        ".height_loop",
-        "ldr r0, {OUTPUT_HEIGHT}",
-        "subs r0, r0, 1",
-        // "b nz "
-        "pop {{r0, r1, r2, r3}}",
-        OUTPUT_HEIGHT = in(reg) OUTPUT_HEIGHT
-    );
-}
-
 // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
 pub unsafe fn scale_to_screen<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
     // not sure why the -1.0

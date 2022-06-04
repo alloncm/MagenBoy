@@ -443,6 +443,9 @@ impl Ili9341Contoller{
 
 
     pub fn write_frame_buffer(&mut self, buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH]){
+        let mut scaled_buffer: [u8;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2];
+        unsafe{image_inter::scale_to_screen_c::<SCREEN_WIDTH, SCREEN_HEIGHT, {Self::TARGET_SCREEN_WIDTH}, {Self::TARGET_SCREEN_HEIGHT}>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
+
         let end_x_index = Self::TARGET_SCREEN_WIDTH + Self::FRAME_BUFFER_X_OFFSET - 1;
         self.spi.write(Ili9341Commands::ColumnAddressSet, &[
             (Self::FRAME_BUFFER_X_OFFSET >> 8) as u8,
@@ -455,15 +458,6 @@ impl Ili9341Contoller{
             ((Self::TARGET_SCREEN_HEIGHT - 1) >> 8) as u8, 
             ((Self::TARGET_SCREEN_HEIGHT - 1) & 0xFF) as u8 
         ]);
-        
-        let mut scaled_buffer: [u8;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2] = [0;Self::TARGET_SCREEN_HEIGHT * Self::TARGET_SCREEN_WIDTH * 2];
-        // unsafe{
-        //     Self::scale_to_screen_fr(&*(buffer as *const [u16; SCREEN_HEIGHT * SCREEN_WIDTH] as *const [u8; SCREEN_HEIGHT * SCREEN_WIDTH * 2]), 
-        //     &mut scaled_buffer);
-        // }
-
-        // Self::scale_to_screen_nearest(buffer, &mut scaled_buffer);
-        unsafe{image_inter::scale_to_screen_c::<SCREEN_WIDTH, SCREEN_HEIGHT, {Self::TARGET_SCREEN_WIDTH}, {Self::TARGET_SCREEN_HEIGHT}>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
 
         self.spi.write_dma(Ili9341Commands::MemoryWrite, &scaled_buffer);
     }
