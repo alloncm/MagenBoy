@@ -23,6 +23,8 @@ impl BcmHost {
 
         let bus_peripherals_address = unsafe{bcm_host_get_peripheral_address()};
         let bus_peripherals_size = unsafe{bcm_host_get_peripheral_size()};
+
+        log::info!("BCM host peripherals address: {:#X}, size: {:#X}", bus_peripherals_address, bus_peripherals_size);
         
         let bcm2835 = unsafe{libc::mmap(
             std::ptr::null_mut(), 

@@ -1,14 +1,13 @@
 pub mod ili9341_controller;
 pub mod gpio_joypad_provider;
 
-cfg_if::cfg_if!{if #[cfg(feature = "raw-spi")]{
+cfg_if::cfg_if!{if #[cfg(feature = "mmio")]{
     mod dma;
-    mod raw_spi;
-    pub type SpiType = raw_spi::RawSpi;
+    mod mmio_spi;
+    pub type SpiType = mmio_spi::MmioSpi;
 }else{
-#[cfg(not(feature = "raw-spi"))]
-    mod spi;
-    pub type SpiType = spi::RppalSpi;
+    mod rppal_spi;
+    pub type SpiType = rppal_spi::RppalSpi;
 }}
 
 

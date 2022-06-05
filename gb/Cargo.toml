@@ -11,8 +11,8 @@ path = "src/main.rs"
 
 [dependencies]
 lib_gb = {path = "../lib_gb/"}
-image_inter = {path = "../image_inter"}
-bcm_host = {path = "../bcm_host"}
+image_inter = {path = "../image_inter", optional = true}
+bcm_host = {path = "../bcm_host", optional = true}
 log = "0.4"
 fern = "0.6"
 chrono = "0.4"
@@ -22,15 +22,15 @@ crossbeam-channel = "0.5"
 cfg-if = "1.0"
 crossterm = "0.23"
 rppal = {version = "0.13", optional = true}
-libc = "0.2"
-nix = {version = "0.24", features = ["ioctl"]}
+libc = {version = "0.2", optional = true}
+nix = {version = "0.24", features = ["ioctl"], optional = true}
 
 [features]
-default = ["static-sdl", "raw-spi"]
+default = ["static-sdl"]
 sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
 static-scale = []
-gpio = ["rppal", "compact-pixel"]
-raw-spi = ["gpio"] # requires sudo
-compact-pixel = ["lib_gb/compact-pixel"]
+u16pixel = ["lib_gb/u16pixel"]
+rpi = ["rppal", "u16pixel", "image_inter"]
+mmio = ["rpi", "nix", "libc", "bcm_host"] # requires sudo

@@ -37,10 +37,12 @@ pub (super) const TARGET_SCREEN_WIDTH:usize = (SCREEN_WIDTH as f32 * SCALE) as u
 pub (super) const TARGET_SCREEN_HEIGHT:usize = (SCREEN_HEIGHT as f32 * SCALE) as usize;
 const FRAME_BUFFER_X_OFFSET:usize = (ILI9341_SCREEN_WIDTH - TARGET_SCREEN_WIDTH) / 2;
 
+pub const SPI_BUFFER_SIZE:usize = TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * std::mem::size_of::<u16>();
+
 pub trait SpiController {
     fn new(dc_pin_number:u8)->Self;
     fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]);
-    fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2]);
+    fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]);
 }
 
 struct Ili9341Contoller<SC:SpiController>{
@@ -50,23 +52,25 @@ struct Ili9341Contoller<SC:SpiController>{
 }
 
 impl<SC:SpiController> Ili9341Contoller<SC>{
-    const CLEAN_BUFFER:[u8;ILI9341_SCREEN_HEIGHT * ILI9341_SCREEN_WIDTH * 2] = [0; ILI9341_SCREEN_HEIGHT * ILI9341_SCREEN_WIDTH * 2];
+    const CLEAN_BUFFER:[u8;ILI9341_SCREEN_HEIGHT * ILI9341_SCREEN_WIDTH * std::mem::size_of::<u16>()] = [0; ILI9341_SCREEN_HEIGHT * ILI9341_SCREEN_WIDTH * std::mem::size_of::<u16>()];
 
-    pub fn new()->Self{
+    pub fn new(reset_pin_bcm:u8, dc_pin_bcm:u8, led_pin_bcm:u8)->Self{
+
+        log::info!("Initalizing with screen size width: {}, hight: {}", TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT);
+
         let gpio = rppal::gpio::Gpio::new().unwrap();
-        let mut reset_pin = gpio.get(14).unwrap().into_output();
-        let mut led_pin = gpio.get(25).unwrap().into_output();
+        let mut reset_pin = gpio.get(reset_pin_bcm).unwrap().into_output();
+        let mut led_pin = gpio.get(led_pin_bcm).unwrap().into_output();
 
         // toggling the reset pin to initalize the lcd
-        let wait_duration = std::time::Duration::from_millis(120);
         reset_pin.set_high();
-        std::thread::sleep(wait_duration);
+        Self::sleep_ms(120);
         reset_pin.set_low();
-        std::thread::sleep(wait_duration);
+        Self::sleep_ms(120);
         reset_pin.set_high();
-        std::thread::sleep(wait_duration);
+        Self::sleep_ms(120);
 
-        let mut spi:SC = SpiController::new(15);
+        let mut spi:SC = SpiController::new(dc_pin_bcm);
 
         // This code snippets is ofcourse wrriten by me but took heavy insperation from fbcp-ili9341 (https://github.com/juj/fbcp-ili9341)
         // I used the ili9341 application notes and the fbcp-ili9341 implementation in order to write it all down
@@ -122,7 +126,7 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
         // turn backlight on
         led_pin.set_high();
 
-        log::info!("Initalizing with screen size width: {}, hight: {}", TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT);
+        log::info!("finish ili9341 device init");
 
         return Ili9341Contoller { spi, led_pin, reset_pin};
     }
@@ -170,11 +174,11 @@ pub struct Ili9341GfxDevice<SC:SpiController>{
 }
 
 impl<SC:SpiController> Ili9341GfxDevice<SC>{
-    pub fn new()->Self{
-        #[cfg(not(feature = "compact-pixel"))]
+    pub fn new(reset_pin_bcm:u8, dc_pin_bcm:u8, led_pin_bcm:u8)->Self{
+        #[cfg(not(feature = "u16pixel"))]
         std::compile_error("ili9341 gfx device must have Pixel type = u16");
 
-        let ili9341_controller = Ili9341Contoller::new();
+        let ili9341_controller = Ili9341Contoller::new(reset_pin_bcm, dc_pin_bcm, led_pin_bcm);
         Ili9341GfxDevice {ili9341_controller,frames_counter:0, time_counter: std::time::Duration::ZERO, last_time:std::time::Instant::now()}
     }
 }

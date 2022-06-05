@@ -1,9 +1,9 @@
 use bcm_host::BcmHost;
 use rppal::gpio::{OutputPin, IoPin};
 
-use crate::rpi_gpio::{dma::DmaTransferer};
+use crate::rpi_gpio::dma::DmaSpiTransferer;
 
-use super::{ili9341_controller::{Ili9341Commands, SpiController, TARGET_SCREEN_HEIGHT, TARGET_SCREEN_WIDTH}, decl_write_volatile_field, decl_read_volatile_field};
+use super::{ili9341_controller::{Ili9341Commands, SpiController, SPI_BUFFER_SIZE}, decl_write_volatile_field, decl_read_volatile_field};
 
 const BCM_SPI0_BASE_ADDRESS:usize = 0x20_4000;
 const SPI_CLOCK_DIVISOR:u32 = 4;    // the smaller the faster (on my system below 4 there are currptions)
@@ -25,10 +25,10 @@ impl SpiRegistersAccess{
     decl_write_volatile_field!(write_dlen, data_length);
 }
 
-pub struct RawSpi{
+pub struct MmioSpi{
     spi_registers: *mut SpiRegistersAccess,
     dc_pin:OutputPin,
-    dma_transferer:DmaTransferer<{Self::DMA_SPI_CHUNK_SIZE}, {Self::DMA_SPI_NUM_CHUNKS}>,
+    dma_transferer:DmaSpiTransferer,
     last_transfer_was_dma:bool,
     
     // holding those pins in order to make sure they are configured correctly
@@ -42,7 +42,11 @@ pub struct RawSpi{
     _bcm:BcmHost,
 }
 
-impl RawSpi{
+impl MmioSpi{
+    const SPI0_CE0_N_BCM_PIN:u8 = 8;
+    const SPI0_MOSI_BCM_PIN:u8 = 10;
+    const SPI0_SCLK_BCM_PIN:u8 = 11;
+
     const SPI_CS_RXF:u32 = 1 << 20;
     const SPI_CS_RXR:u32 = 1 << 19;
     const SPI_CS_TXD:u32 = 1 << 18;
@@ -64,10 +68,10 @@ impl RawSpi{
             (*spi_registers).write_clk(SPI_CLOCK_DIVISOR);
         }
 
-        log::info!("finish ili9341 device init");
 
-        let dma_transferer = DmaTransferer::new(&bcm_host, 7, 1 );
-        RawSpi { 
+        let dma_transferer = DmaSpiTransferer::new(&bcm_host, Self::SPI_CS_DMAEN);
+
+        MmioSpi { 
             _bcm:bcm_host, spi_registers, dc_pin, _spi_pins: spi_pins, _spi_cs0: spi_cs0, last_transfer_was_dma: false,
             dma_transferer
         }
@@ -85,15 +89,16 @@ impl RawSpi{
     fn prepare_for_transfer(&mut self) {
         if self.last_transfer_was_dma{
             self.dma_transferer.end_dma_transfer();
-            unsafe{Self::setup_poll_fast_transfer(&mut *self.spi_registers)};
+            Self::setup_poll_fast_transfer(self.spi_registers);
         }
     }
 
-    fn setup_poll_fast_transfer(spi_registers:&mut SpiRegistersAccess){
+    fn setup_poll_fast_transfer(spi_registers:*mut SpiRegistersAccess){
         unsafe{
-            spi_registers.write_cs(Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
+            (*spi_registers).write_cs(Self::SPI_CS_TA | Self::SPI_CS_CLEAR);
+
             // poll mode speed up according to this forum post - https://forums.raspberrypi.com/viewtopic.php?f=44&t=181154
-            spi_registers.write_dlen(2);        
+            (*spi_registers).write_dlen(2);
         }
     }
 
@@ -120,15 +125,7 @@ impl RawSpi{
         }
     }
 
-    const MAX_DMA_SPI_TRANSFER:usize = 0xFFE0;  // must be smaller than max u16 and better be alligned for 32 bytes
-    const DMA_SPI_TRANSFER_SIZE:usize = TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * std::mem::size_of::<u16>();
-    const DMA_SPI_NUM_CHUNKS:usize = (Self::DMA_SPI_TRANSFER_SIZE / Self::MAX_DMA_SPI_TRANSFER) + ((Self::DMA_SPI_TRANSFER_SIZE % Self::MAX_DMA_SPI_TRANSFER) != 0) as usize;
-    const DMA_SPI_CHUNK_SIZE:usize = (Self::DMA_SPI_TRANSFER_SIZE / Self::DMA_SPI_NUM_CHUNKS) + 4;
-    const DMA_TI_PERMAP_SPI_TX:u8 = 6;
-    const DMA_TI_PERMAP_SPI_RX:u8 = 7;
-    const DMA_SPI_FIFO_PHYS_ADDRESS:u32 = 0x7E20_4004;
-
-    fn write_dma<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]){
+    fn write_dma(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]){
         self.prepare_for_transfer();
         
         self.dc_pin.set_low();
@@ -140,47 +137,28 @@ impl RawSpi{
 
 
     // Since generic_const_exprs is not stable yet Im reserving the first 4 bytes of the data variable for internal use
-    fn write_dma_raw<const SIZE:usize>(&mut self, data:&[u8;SIZE]){
-        unsafe{
-            (*self.spi_registers).write_cs(Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR);
-            let data_len = Self::DMA_SPI_CHUNK_SIZE - 4;  // Removing the first 4 bytes from this length param
-            let header = [Self::SPI_CS_TA as u8, 0, (data_len & 0xFF) as u8,  /*making sure this is little endian order*/ (data_len >> 8) as u8];
-
-            let chunks = data.chunks_exact(Self::DMA_SPI_CHUNK_SIZE - 4);
-            let mut array:[u8;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS] = [0;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS];
-            let mut i = 0;
-            for chunk in chunks{
-                std::ptr::copy_nonoverlapping(header.as_ptr(), array.as_mut_ptr().add(i * Self::DMA_SPI_CHUNK_SIZE), 4);
-                std::ptr::copy_nonoverlapping(chunk.as_ptr(), array.as_mut_ptr().add(4 + (i * Self::DMA_SPI_CHUNK_SIZE)), Self::DMA_SPI_CHUNK_SIZE - 4);
-                i += 1;
-            }
-
-            self.dma_transferer.start_dma_transfer(&array, 
-                Self::DMA_TI_PERMAP_SPI_TX,
-                Self::DMA_SPI_FIFO_PHYS_ADDRESS, 
-                Self::DMA_TI_PERMAP_SPI_RX, 
-                Self::DMA_SPI_FIFO_PHYS_ADDRESS
-            );
-        }
+    fn write_dma_raw(&mut self, data:&[u8;SPI_BUFFER_SIZE]){
+        unsafe{(*self.spi_registers).write_cs(Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR)};
+        self.dma_transferer.start_dma_transfer(data, Self::SPI_CS_TA as u8);
     }
 }
 
-impl SpiController for RawSpi{
+impl SpiController for MmioSpi{
     fn new(dc_pin_number:u8)->Self {
         let gpio = rppal::gpio::Gpio::new().unwrap();
-        let spi0_ceo_n = gpio.get(8).unwrap().into_output();
-        let spi0_mosi = gpio.get(10).unwrap().into_io(rppal::gpio::Mode::Alt0);
-        let spi0_sclk = gpio.get(11).unwrap().into_io(rppal::gpio::Mode::Alt0);
+        let spi0_ceo_n = gpio.get(Self::SPI0_CE0_N_BCM_PIN).unwrap().into_output();
+        let spi0_mosi = gpio.get(Self::SPI0_MOSI_BCM_PIN).unwrap().into_io(rppal::gpio::Mode::Alt0);
+        let spi0_sclk = gpio.get(Self::SPI0_SCLK_BCM_PIN).unwrap().into_io(rppal::gpio::Mode::Alt0);
         let dc_pin = gpio.get(dc_pin_number).unwrap().into_output();
 
-        RawSpi::new(dc_pin, [spi0_mosi, spi0_sclk], spi0_ceo_n)
+        MmioSpi::new(dc_pin, [spi0_mosi, spi0_sclk], spi0_ceo_n)
     }
 
     fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]) {
         self.write(command, data);
     }
 
-    fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2]) {
+    fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]) {
         self.write_dma(command, data);
     }
 }

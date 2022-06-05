@@ -1,8 +1,8 @@
 use super::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-#[cfg(not(feature = "compact-pixel"))]
+#[cfg(not(feature = "u16pixel"))]
 pub type Pixel = u32;
-#[cfg(feature = "compact-pixel")]
+#[cfg(feature = "u16pixel")]
 pub type Pixel = u16;
 
 

@@ -1,9 +1,9 @@
-use std::ptr::write_volatile;
+use std::ptr::{write_volatile, read_volatile};
 
 use bcm_host::BcmHost;
 use libc::{c_void, c_int};
 
-use super::*;
+use super::{*, ili9341_controller::SPI_BUFFER_SIZE};
 
 // Mailbox messages need to be 16 byte alligned
 #[repr(C, align(16))]
@@ -65,6 +65,7 @@ impl Mailbox{
             libc_abort("Error in ioctl call");
         }
 
+        // The return value of the command is located at the first int in the data section (for more info see the Mailbox docs)
         return message.data[0];
     }
 }
@@ -176,23 +177,22 @@ impl DmaRegistersAccess{
     decl_write_volatile_field!(write_conblk_ad, control_block_address);
 }
 
-pub struct DmaTransferer<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize>{
+pub struct DmaSpiTransferer{
     tx_dma:*mut DmaRegistersAccess,
     rx_dma:*mut DmaRegistersAccess,
     mbox:Mailbox,
     tx_control_block_memory:GpuMemory,
     rx_control_block_memory:GpuMemory,
     source_buffer_memory:GpuMemory,
-    dma_data_memory:GpuMemory,
-    dma_const_data_memory:GpuMemory,
-    tx_channel_number:u8,
-    rx_channel_number:u8,
+    dma_dynamic_memory:GpuMemory,
+    dma_constant_memory:GpuMemory,
     dma_enable_register_ptr:*mut u32,
 }
 
-impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, NUM_CHUNKS>{
+impl DmaSpiTransferer{
     const BCM_DMA0_OFFSET:usize = 0x7_000;
     const BCM_DMA_ENABLE_REGISTER_OFFSET:usize = Self::BCM_DMA0_OFFSET + 0xFF;
+    const DMA_CHANNEL_REGISTERS_SIZE:usize = 0x100;
 
     const DMA_CS_RESET:u32 = 1 << 31;
     const DMA_CS_END:u32 = 1 << 1;
@@ -205,29 +205,53 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
     const DMA_TI_DEST_INC:u32 = 1 << 4;
     const DMA_TI_WAIT_RESP:u32 = 1 << 3;
 
-    const DMA_DMA0_CB_PHYS_ADDRESS:u32 = 0x7E00_7000;
+    const DMA_DMA0_CS_PHYS_ADDRESS:u32 = 0x7E00_7000;
+    const DMA_DMA0_CONBLK_AD_PHYS_ADDRESS:u32 = 0x7E00_7004;
     const fn dma_ti_permap(peripherial_mapping:u8)->u32{(peripherial_mapping as u32) << 16}
 
-    pub fn new(bcm_host:&BcmHost, tx_channel_number:u8, rx_channel_number:u8)->Self{
+    const DMA_CONTROL_BLOCKS_PER_TRANSFER:u32 = 4;
+    const DMA_CONSTANT_MEMORY_SIZE:u32 = (std::mem::size_of::<u32>() * 2) as u32;
+    const DMA_SPI_HEADER_SIZE:u32 = std::mem::size_of::<u32>() as u32;
+    const RX_CHANNEL_NUMBER:u8 = 7;
+    const TX_CHANNEL_NUMBER:u8 = 1;
+
+    const MAX_DMA_SPI_TRANSFER:usize = 0xFFE0;  // must be smaller than max u16 and better be alligned for 32 bytes
+    const DMA_SPI_NUM_CHUNKS:usize = (SPI_BUFFER_SIZE / Self::MAX_DMA_SPI_TRANSFER) + ((SPI_BUFFER_SIZE % Self::MAX_DMA_SPI_TRANSFER) != 0) as usize;
+    const DMA_SPI_CHUNK_SIZE:usize = (SPI_BUFFER_SIZE / Self::DMA_SPI_NUM_CHUNKS) + 4;
+    const DMA_SPI_TRANSFER_SIZE:usize = Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS;
+    const DMA_TI_PERMAP_SPI_TX:u8 = 6;
+    const DMA_TI_PERMAP_SPI_RX:u8 = 7;
+
+    const DMA_SPI_CS_PHYS_ADDRESS:u32 = 0x7E20_4000;
+    const DMA_SPI_FIFO_PHYS_ADDRESS:u32 = 0x7E20_4004;
+
+    pub fn new(bcm_host:&BcmHost, spi_enable_dma_flag:u32)->Self{
         let mbox = Mailbox::new();
-        let tx_registers = bcm_host.get_ptr(Self::BCM_DMA0_OFFSET + (tx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess;
-        let rx_registers = bcm_host.get_ptr(Self::BCM_DMA0_OFFSET + (rx_channel_number as usize * 0x100)) as *mut DmaRegistersAccess;
-        let dma_tx_control_block_memory = GpuMemory::allocate(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * 4 * NUM_CHUNKS as u32, bcm_host.get_fd());
-        let dma_rx_control_block_memory = GpuMemory::allocate(&mbox, std::mem::size_of::<DmaControlBlock>() as u32 * NUM_CHUNKS as u32, bcm_host.get_fd());
-        let dma_source_buffer_memory = GpuMemory::allocate(&mbox, (NUM_CHUNKS * CHUNK_SIZE) as u32, bcm_host.get_fd());
-        let dma_data_memory = GpuMemory::allocate(&mbox, (std::mem::size_of::<u32>() * NUM_CHUNKS) as u32, bcm_host.get_fd());
-        let dma_const_data_memory = GpuMemory::allocate(&mbox, (std::mem::size_of::<u32>() * 2) as u32, bcm_host.get_fd());
+        let tx_registers = bcm_host.get_ptr(Self::BCM_DMA0_OFFSET + (Self::TX_CHANNEL_NUMBER as usize * Self::DMA_CHANNEL_REGISTERS_SIZE)) as *mut DmaRegistersAccess;
+        let rx_registers = bcm_host.get_ptr(Self::BCM_DMA0_OFFSET + (Self::RX_CHANNEL_NUMBER as usize * Self::DMA_CHANNEL_REGISTERS_SIZE)) as *mut DmaRegistersAccess;
+        
+        let dma_tx_control_block_memory = GpuMemory::allocate(&mbox, 
+            std::mem::size_of::<DmaControlBlock>() as u32 * Self::DMA_CONTROL_BLOCKS_PER_TRANSFER * Self::DMA_SPI_CHUNK_SIZE as u32, 
+            bcm_host.get_fd()
+        );
+        let dma_rx_control_block_memory = GpuMemory::allocate(&mbox, 
+            std::mem::size_of::<DmaControlBlock>() as u32 * Self::DMA_SPI_NUM_CHUNKS as u32, 
+            bcm_host.get_fd()
+        );
+        let dma_source_buffer_memory = GpuMemory::allocate(&mbox, (Self::DMA_SPI_TRANSFER_SIZE) as u32, bcm_host.get_fd());
+        let dma_dynamic_memory = GpuMemory::allocate(&mbox, (std::mem::size_of::<u32>() * Self::DMA_SPI_NUM_CHUNKS) as u32, bcm_host.get_fd());
+        let dma_constant_memory = GpuMemory::allocate(&mbox, Self::DMA_CONSTANT_MEMORY_SIZE, bcm_host.get_fd());
 
         let dma_enable_register = bcm_host.get_ptr(Self::BCM_DMA_ENABLE_REGISTER_OFFSET) as *mut u32;
 
         unsafe{
             // setup constant data
-            let ptr = dma_const_data_memory.virtual_address_ptr as *mut u32;
-            write_volatile(ptr, 0x100); // spi_dma enable
-            write_volatile(ptr.add(1), Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
+            let ptr = dma_constant_memory.virtual_address_ptr as *mut u32;
+            write_volatile(ptr, spi_enable_dma_flag);                                       // this int enable spi with dma
+            write_volatile(ptr.add(1), Self::DMA_CS_ACTIVE | Self::DMA_CS_END);      // this int starts the dma (set active and wrtie to end to reset it)
 
             // enable the rx & tx dma channels
-            write_volatile(dma_enable_register, *dma_enable_register | 1 << tx_channel_number | 1<< rx_channel_number);
+            write_volatile(dma_enable_register, *dma_enable_register | 1 << Self::TX_CHANNEL_NUMBER | 1<< Self::RX_CHANNEL_NUMBER);
 
             //reset the dma channels
             (*tx_registers).write_cs(Self::DMA_CS_RESET);
@@ -237,91 +261,106 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
             std::ptr::write_bytes(dma_rx_control_block_memory.virtual_address_ptr as *mut u8, 0, dma_rx_control_block_memory.size as usize);
             std::ptr::write_bytes(dma_tx_control_block_memory.virtual_address_ptr as *mut u8, 0, dma_tx_control_block_memory.size as usize);
             std::ptr::write_bytes(dma_source_buffer_memory.virtual_address_ptr as *mut u8, 0, dma_source_buffer_memory.size as usize);
-            std::ptr::write_bytes(dma_data_memory.virtual_address_ptr as *mut u8, 0, dma_data_memory.size as usize);
+            std::ptr::write_bytes(dma_dynamic_memory.virtual_address_ptr as *mut u8, 0, dma_dynamic_memory.size as usize);
         }
 
-        Self { 
+        let mut dma_controller = Self { 
             tx_dma: tx_registers,
             rx_dma: rx_registers,
             mbox,
             rx_control_block_memory:dma_rx_control_block_memory,
             tx_control_block_memory:dma_tx_control_block_memory,
             source_buffer_memory:dma_source_buffer_memory,
-            dma_data_memory,
-            rx_channel_number,
-            tx_channel_number,
-            dma_const_data_memory,
+            dma_dynamic_memory,
+            dma_constant_memory,
             dma_enable_register_ptr:dma_enable_register
+        };
+
+        unsafe{dma_controller.init_dma_control_blocks()};
+
+        return dma_controller;
+    }
+
+    unsafe fn init_dma_control_blocks(&mut self) {
+        let mut rx_control_block = &mut *(self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
+        rx_control_block.write_ti(Self::dma_ti_permap(Self::DMA_TI_PERMAP_SPI_RX) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
+        rx_control_block.write_source_ad(Self::DMA_SPI_FIFO_PHYS_ADDRESS);
+        rx_control_block.write_dest_ad(0);
+        rx_control_block.write_txfr_len(Self::DMA_SPI_CHUNK_SIZE as u32 - Self::DMA_SPI_HEADER_SIZE); // without the 4 byte header
+        rx_control_block.write_nextconbk(0);
+
+        let tx_control_block = &mut *(self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
+        tx_control_block.write_ti(Self::dma_ti_permap(Self::DMA_TI_PERMAP_SPI_TX) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
+        tx_control_block.write_source_ad(self.source_buffer_memory.bus_address);
+        tx_control_block.write_dest_ad(Self::DMA_SPI_FIFO_PHYS_ADDRESS);
+        tx_control_block.write_txfr_len(Self::DMA_SPI_CHUNK_SIZE as u32);
+        tx_control_block.write_nextconbk(0);
+        for i in 1..Self::DMA_SPI_NUM_CHUNKS{
+            let tx_cb_index = i * Self::DMA_CONTROL_BLOCKS_PER_TRANSFER as usize;
+            let set_tx_cb_index = tx_cb_index + 1;
+            let disable_tx_cb_index = set_tx_cb_index + 1;
+            let start_tx_cb_index = disable_tx_cb_index + 1;
+            
+            let tx_control_block = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index));
+            tx_control_block.write_ti(Self::dma_ti_permap(Self::DMA_TI_PERMAP_SPI_TX) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
+            tx_control_block.write_source_ad(self.source_buffer_memory.bus_address + (i * Self::DMA_SPI_CHUNK_SIZE) as u32);
+            tx_control_block.write_dest_ad(Self::DMA_SPI_FIFO_PHYS_ADDRESS);
+            tx_control_block.write_txfr_len(Self::DMA_SPI_CHUNK_SIZE as u32);
+            tx_control_block.write_nextconbk(0);
+
+            let set_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(set_tx_cb_index));
+            let disable_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(disable_tx_cb_index));
+            let start_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(start_tx_cb_index));
+
+            rx_control_block.write_nextconbk(self.tx_control_block_memory.bus_address + (set_tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
+
+            write_volatile((self.dma_dynamic_memory.virtual_address_ptr as *mut u32).add(i), self.tx_control_block_memory.bus_address + (tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
+
+            set_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+            set_dma_tx_address.write_source_ad(self.dma_dynamic_memory.bus_address + (i as u32 * Self::DMA_CONTROL_BLOCKS_PER_TRANSFER));
+            set_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CONBLK_AD_PHYS_ADDRESS + (Self::TX_CHANNEL_NUMBER as u32 * Self::DMA_CHANNEL_REGISTERS_SIZE as u32));  // channel control block address register
+            set_dma_tx_address.write_txfr_len(std::mem::size_of::<u32>() as u32);
+            set_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + (disable_tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
+
+
+            disable_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+            disable_dma_tx_address.write_source_ad(self.dma_constant_memory.bus_address);
+            disable_dma_tx_address.write_dest_ad(Self::DMA_SPI_CS_PHYS_ADDRESS);
+            disable_dma_tx_address.write_txfr_len(std::mem::size_of::<u32>() as u32);
+            disable_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + (start_tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
+
+    
+            start_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
+            start_dma_tx_address.write_source_ad(self.dma_constant_memory.bus_address + (i * std::mem::size_of::<u32>()) as u32);
+            start_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CS_PHYS_ADDRESS + (Self::TX_CHANNEL_NUMBER as u32 * Self::DMA_CHANNEL_REGISTERS_SIZE as u32));
+            start_dma_tx_address.write_txfr_len(std::mem::size_of::<u32>() as u32);
+            start_dma_tx_address.write_nextconbk(self.rx_control_block_memory.bus_address + (i * std::mem::size_of::<DmaControlBlock>()) as u32);
+
+
+            rx_control_block = &mut *((self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(i));
+            rx_control_block.write_ti(Self::dma_ti_permap(Self::DMA_TI_PERMAP_SPI_RX) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
+            rx_control_block.write_source_ad(Self::DMA_SPI_FIFO_PHYS_ADDRESS);
+            rx_control_block.write_dest_ad(0);
+            rx_control_block.write_txfr_len(Self::DMA_SPI_CHUNK_SIZE as u32 - Self::DMA_SPI_HEADER_SIZE);       // without the 4 byte header
+            rx_control_block.write_nextconbk(0);
         }
     }
 
-
-    const DMA_SPI_CS_PHYS_ADDRESS:u32 = 0x7E20_4000;
-
-    pub fn start_dma_transfer<const SIZE:usize>(&mut self, data:&[u8; SIZE], tx_peripherial_mapping:u8, tx_physical_destination_address:u32, rx_peripherial_mapping:u8, rx_physical_destination_address:u32){
+    pub fn start_dma_transfer(&mut self, data:&[u8; SPI_BUFFER_SIZE], transfer_active_flag:u8){        
         unsafe{
-            std::ptr::copy_nonoverlapping(data.as_ptr(), self.source_buffer_memory.virtual_address_ptr as *mut u8, SIZE);
+            let data_len = Self::DMA_SPI_CHUNK_SIZE - Self::DMA_SPI_HEADER_SIZE as usize;  // Removing the first 4 bytes from this length param
+            let header = [transfer_active_flag, 0, (data_len & 0xFF) as u8,  /*making sure this is little endian order*/ (data_len >> 8) as u8];
 
-            let mut rx_control_block = &mut *(self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
-            rx_control_block.write_ti(Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
-            rx_control_block.write_source_ad(rx_physical_destination_address);
-            rx_control_block.write_dest_ad(0);
-            rx_control_block.write_txfr_len(CHUNK_SIZE as u32 - 4);       // without the 4 byte header
-            rx_control_block.write_nextconbk(0);
-
-            let tx_control_block = &mut *(self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock);
-            tx_control_block.write_ti(Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
-            tx_control_block.write_source_ad(self.source_buffer_memory.bus_address);
-            tx_control_block.write_dest_ad(tx_physical_destination_address);
-            tx_control_block.write_txfr_len(CHUNK_SIZE as u32);
-            tx_control_block.write_nextconbk(0);
-
-            for i in 1..NUM_CHUNKS{
-                let tx_cb_index = i * 4;
-                let tx_control_block = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index));
-                tx_control_block.write_ti(Self::dma_ti_permap(tx_peripherial_mapping) | Self::DMA_TI_DEST_DREQ | Self::DMA_TI_SRC_INC | Self::DMA_TI_WAIT_RESP);
-                tx_control_block.write_source_ad(self.source_buffer_memory.bus_address + (i * CHUNK_SIZE) as u32);
-                tx_control_block.write_dest_ad(tx_physical_destination_address);
-                tx_control_block.write_txfr_len(CHUNK_SIZE as u32);
-                tx_control_block.write_nextconbk(0);
-
-                let set_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 1));
-                let disable_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 2));
-                let start_dma_tx_address = &mut *((self.tx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(tx_cb_index + 3));
-
-                rx_control_block.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 1) * std::mem::size_of::<DmaControlBlock>()) as u32);
-
-                write_volatile((self.dma_data_memory.virtual_address_ptr as *mut u32).add(i), self.tx_control_block_memory.bus_address + (tx_cb_index * std::mem::size_of::<DmaControlBlock>()) as u32);
-
-                set_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                set_dma_tx_address.write_source_ad(self.dma_data_memory.bus_address + (i as u32 * 4));
-                set_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) + 4);  // channel control block address register
-                set_dma_tx_address.write_txfr_len(4);
-                set_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 2) * std::mem::size_of::<DmaControlBlock>()) as u32);
-
-
-                disable_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                disable_dma_tx_address.write_source_ad(self.dma_const_data_memory.bus_address);
-                disable_dma_tx_address.write_dest_ad(Self::DMA_SPI_CS_PHYS_ADDRESS);
-                disable_dma_tx_address.write_txfr_len(4);
-                disable_dma_tx_address.write_nextconbk(self.tx_control_block_memory.bus_address + ((tx_cb_index + 3) * std::mem::size_of::<DmaControlBlock>()) as u32);
-
-                
-                start_dma_tx_address.write_ti(Self::DMA_TI_SRC_INC | Self::DMA_TI_DEST_INC | Self::DMA_TI_WAIT_RESP);
-                start_dma_tx_address.write_source_ad(self.dma_const_data_memory.bus_address + 4);
-                start_dma_tx_address.write_dest_ad(Self::DMA_DMA0_CB_PHYS_ADDRESS + (self.tx_channel_number as u32 * 0x100) as u32);
-                start_dma_tx_address.write_txfr_len(4);
-                start_dma_tx_address.write_nextconbk(self.rx_control_block_memory.bus_address + (i * std::mem::size_of::<DmaControlBlock>()) as u32);
-
-
-                rx_control_block = &mut *((self.rx_control_block_memory.virtual_address_ptr as *mut DmaControlBlock).add(i));
-                rx_control_block.write_ti(Self::dma_ti_permap(rx_peripherial_mapping) | Self::DMA_TI_SRC_DREQ | Self::DMA_TI_DEST_IGNORE);
-                rx_control_block.write_source_ad(rx_physical_destination_address);
-                rx_control_block.write_dest_ad(0);
-                rx_control_block.write_txfr_len(CHUNK_SIZE as u32 - 4);       // without the 4 byte header
-                rx_control_block.write_nextconbk(0);
+            let chunks = data.chunks_exact(Self::DMA_SPI_CHUNK_SIZE - Self::DMA_SPI_HEADER_SIZE as usize);
+            let mut array:[u8;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS] = [0;Self::DMA_SPI_CHUNK_SIZE * Self::DMA_SPI_NUM_CHUNKS];
+            let mut i = 0;
+            for chunk in chunks{
+                std::ptr::copy_nonoverlapping(header.as_ptr(), array.as_mut_ptr().add(i * Self::DMA_SPI_CHUNK_SIZE), 4);
+                std::ptr::copy_nonoverlapping(chunk.as_ptr(), array.as_mut_ptr().add(4 + (i * Self::DMA_SPI_CHUNK_SIZE)), Self::DMA_SPI_CHUNK_SIZE - 4);
+                i += 1;
             }
 
+            std::ptr::copy_nonoverlapping(array.as_ptr(), self.source_buffer_memory.virtual_address_ptr as *mut u8, array.len());
             
             (*self.tx_dma).write_conblk_ad(self.tx_control_block_memory.bus_address);
             (*self.rx_dma).write_conblk_ad(self.rx_control_block_memory.bus_address);
@@ -333,45 +372,46 @@ impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> DmaTransferer<CHUNK_SIZE, N
     }
 
     pub fn end_dma_transfer(&self){
+        const TIME_TO_ABORT_AS_MICRO:i32 = 1_000_000;
         unsafe{
             // Wait for the last trasfer to end
             let mut counter = 0;
             while (*self.tx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
                 Self::sleep_us(1);
                 counter += 1;
-                if counter > 1000000{
+                if counter > TIME_TO_ABORT_AS_MICRO{
                     std::panic!("ERROR! tx dma channel is not responding, a reboot is suggested");
                 }
             }
             while (*self.rx_dma).read_cs() & Self::DMA_CS_ACTIVE != 0 {
                 Self::sleep_us(1);
                 counter += 1;
-                if counter > 1000000{
+                if counter > TIME_TO_ABORT_AS_MICRO{
                     std::panic!("ERROR! rx dma channel is not responding, a reboot is suggested");
                 }
             }
         }
     }
 
-    fn sleep_us(milliseconds_to_sleep:u64){
-        std::thread::sleep(std::time::Duration::from_micros(milliseconds_to_sleep));
+    fn sleep_us(microseconds_to_sleep:u64){
+        std::thread::sleep(std::time::Duration::from_micros(microseconds_to_sleep));
     }
 }
 
-impl<const CHUNK_SIZE:usize, const NUM_CHUNKS:usize> Drop for DmaTransferer<CHUNK_SIZE, NUM_CHUNKS>{
+impl Drop for DmaSpiTransferer{
     fn drop(&mut self) {
-        // reset the program before releasing the memory
+        // reset the dma channels before releasing the memory
         unsafe{
             // reset the dma channels
             (*self.tx_dma).write_cs(Self::DMA_CS_RESET);
             (*self.rx_dma).write_cs(Self::DMA_CS_RESET);
             // disable the channels I used
-            let mask = !((1 << self.tx_channel_number) | (1 << self.rx_channel_number));
-            *self.dma_enable_register_ptr &= mask;
+            let mask = !((1 << Self::TX_CHANNEL_NUMBER) | (1 << Self::RX_CHANNEL_NUMBER));
+            write_volatile(self.dma_enable_register_ptr, read_volatile(self.dma_enable_register_ptr) & mask);
         }
 
-        self.dma_const_data_memory.release(&self.mbox);
-        self.dma_data_memory.release(&self.mbox);
+        self.dma_constant_memory.release(&self.mbox);
+        self.dma_dynamic_memory.release(&self.mbox);
         self.rx_control_block_memory.release(&self.mbox);
         self.source_buffer_memory.release(&self.mbox);
         self.tx_control_block_memory.release(&self.mbox);

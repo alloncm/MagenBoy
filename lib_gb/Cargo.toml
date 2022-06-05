@@ -8,7 +8,7 @@ edition = "2018"
 log = "0.4"
 
 [features]
-compact-pixel = []
+u16pixel = []
 
 [dev-dependencies]
 criterion = "0.3"

@@ -15,7 +15,7 @@ pub struct SdlGfxDevice{
 
 impl SdlGfxDevice{
     pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
-        #[cfg(feature = "compact-pixel")]
+        #[cfg(feature = "u16pixel")]
         std::compile_error("Sdl gfx device must have Pixel type = u32");
 
         let cs_wnd_name = CString::new(window_name).unwrap();
