@@ -3,6 +3,7 @@ use crate::utils::{vec2::Vec2, bit_masks::*};
 use crate::ppu::{gfx_device::GfxDevice, ppu_state::PpuState, sprite_attribute::SpriteAttribute, colors::*, color::*};
 
 use super::fifo::{FIFO_SIZE, sprite_fetcher::*, background_fetcher::BackgroundFetcher};
+use super::gfx_device::Pixel;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -40,7 +41,7 @@ pub struct GbPpu<GFX: GfxDevice>{
 
     gfx_device: GFX,
     t_cycles_passed:u16,
-    screen_buffers: [[u32; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
+    screen_buffers: [[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
     current_screen_buffer_index:usize,
     push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
@@ -122,7 +123,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
 
         for i in 0..self.push_lcd_buffer.len(){
-            self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = u32::from(self.push_lcd_buffer[i]);
+            self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = Color::into(self.push_lcd_buffer[i]);
             self.screen_buffer_index += 1;
             if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
                self.swap_buffer();

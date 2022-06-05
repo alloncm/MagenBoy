@@ -31,5 +31,6 @@ sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
 static-scale = []
-gpio = ["rppal"]
+gpio = ["rppal", "compact-pixel"]
 raw-spi = ["gpio"] # requires sudo
+compact-pixel = ["lib_gb/compact-pixel"]

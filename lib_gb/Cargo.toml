@@ -7,6 +7,9 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 
+[features]
+compact-pixel = []
+
 [dev-dependencies]
 criterion = "0.3"
 reqwest = { version = "0.11", features = ["blocking"] }

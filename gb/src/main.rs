@@ -12,6 +12,7 @@ mod audio{
 }
 mod sdl{
     pub mod utils;
+    #[cfg(not(feature = "compact-pixel"))]
     pub mod sdl_gfx_device;
     #[cfg(feature = "sdl-resample")]
     pub mod sdl_audio_resampler;
@@ -41,7 +42,7 @@ cfg_if::cfg_if!{
 
 use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
 use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu, TerminalRawModeJoypadProvider};
-use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
+use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 use sdl2::sys::*;
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
@@ -203,7 +204,7 @@ fn main() {
             }
             
             let buffer = r.recv().unwrap();
-            gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
+            gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
 
         drop(r);

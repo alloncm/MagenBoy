@@ -1,6 +1,6 @@
 use std::ffi::{CString, c_void};
 use sdl2::sys::*;
-use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice};
+use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}};
 use crate::sdl::utils::get_sdl_error_message;
 
 pub struct SdlGfxDevice{
@@ -15,6 +15,9 @@ pub struct SdlGfxDevice{
 
 impl SdlGfxDevice{
     pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
+        #[cfg(feature = "compact-pixel")]
+        std::compile_error("Sdl gfx device must have Pixel type = u32");
+
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
@@ -101,7 +104,7 @@ impl SdlGfxDevice{
 }
 
 impl GfxDevice for SdlGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.discard = (self.discard + 1) % self.turbo_mul;
         if self.discard != 0{
             return;

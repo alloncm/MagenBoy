@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use lib_gb::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::GfxDevice};
+use lib_gb::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}};
 use rppal::gpio::OutputPin;
 
 pub enum Ili9341Commands{
@@ -171,25 +171,18 @@ pub struct Ili9341GfxDevice<SC:SpiController>{
 
 impl<SC:SpiController> Ili9341GfxDevice<SC>{
     pub fn new()->Self{
+        #[cfg(not(feature = "compact-pixel"))]
+        std::compile_error("ili9341 gfx device must have Pixel type = u16");
+
         let ili9341_controller = Ili9341Contoller::new();
         Ili9341GfxDevice {ili9341_controller,frames_counter:0, time_counter: std::time::Duration::ZERO, last_time:std::time::Instant::now()}
     }
 }
 
 impl<SC:SpiController> GfxDevice for Ili9341GfxDevice<SC>{
-    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        let u16_buffer:[u16;SCREEN_HEIGHT*SCREEN_WIDTH] = buffer.map(|pixel| {
-            let b = pixel & 0xFF;
-            let g = (pixel & 0xFF00)>>8;
-            let r = (pixel & 0xFF0000)>>16; 
-            let mut u16_pixel = b as u16 >> 3;
-            u16_pixel |= ((g >> 2) << 5) as u16;
-            u16_pixel |= ((r >> 3) << 11) as u16;
-            return u16_pixel;
-        });
-
+    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         // if self.frames_counter & 1 == 0{
-            self.ili9341_controller.write_frame_buffer(&u16_buffer);
+            self.ili9341_controller.write_frame_buffer(&buffer);
         // }
 
         // measure fps
