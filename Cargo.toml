@@ -1,5 +1,7 @@
 [workspace]
 members = [
     "gb",
-    "lib_gb"
+    "lib_gb",
+    "image_inter",
+    "bcm_host"
 ]

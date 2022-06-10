@@ -1,9 +1,8 @@
 mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_terminal_menu;
-#[cfg(feature = "gpio")]
-mod gpio_joypad_provider;
-
+#[cfg(feature = "rpi")]
+mod rpi_gpio;
 mod audio{
     pub mod audio_resampler;
     pub mod multi_device_audio;
@@ -11,9 +10,9 @@ mod audio{
     #[cfg(not(feature = "sdl-resample"))]
     pub mod manual_audio_resampler;
 }
-
 mod sdl{
     pub mod utils;
+    #[cfg(not(feature = "u16pixel"))]
     pub mod sdl_gfx_device;
     #[cfg(feature = "sdl-resample")]
     pub mod sdl_audio_resampler;
@@ -28,12 +27,8 @@ mod sdl{
             pub type ChosenAudioDevice<AR> = sdl_pull_audio_device::SdlPullAudioDevice<AR>;
         }
     }
-
-    cfg_if::cfg_if!{
-        if #[cfg(not(feature = "gpio"))]{
-            pub mod sdl_joypad_provider;
-        }       
-    }
+    #[cfg(not(feature = "rpi"))]
+    pub mod sdl_joypad_provider;
 }
 
 cfg_if::cfg_if!{
@@ -47,7 +42,7 @@ cfg_if::cfg_if!{
 
 use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
 use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu, TerminalRawModeJoypadProvider};
-use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
+use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 use sdl2::sys::*;
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
@@ -56,8 +51,8 @@ const SCREEN_SCALE:usize = 4;
 const TURBO_MUL:u8 = 1;
 
 cfg_if::cfg_if!{
-    if #[cfg(feature = "gpio")]{
-        use crate::gpio_joypad_provider::*;
+    if #[cfg(feature = "rpi")]{
+        use crate::rpi_gpio::gpio_joypad_provider::*;
         fn buttons_mapper(button:&Button)->GpioPin{
             match button{
                 Button::A       => 18,
@@ -173,7 +168,11 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let mut sdl_gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+    #[cfg(feature = "rpi")]
+    let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(14, 15, 25);
+
+    #[cfg(not(feature = "rpi"))]
+    let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
      check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
@@ -205,7 +204,7 @@ fn main() {
             }
             
             let buffer = r.recv().unwrap();
-            sdl_gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
+            gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
 
         drop(r);
@@ -230,7 +229,7 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     let audio_devices = MultiAudioDevice::new(devices);
     let mut mbc = initialize_mbc(&program_name);
     cfg_if::cfg_if!{
-        if #[cfg(feature = "gpio")]{
+        if #[cfg(feature = "rpi")]{
             let joypad_provider = GpioJoypadProvider::new(buttons_mapper);
         }
         else{
