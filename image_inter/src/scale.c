@@ -1,8 +1,8 @@
 #include<stdint.h>
 
 extern void scale_buffer(const uint16_t* input_buffer, int input_buffer_width, int input_buffer_height, uint8_t* output_buffer, int output_buffer_width, int output_buffer_height){
-    const float x_ratio = ((float)input_buffer_width - 1.0) / (float)output_buffer_width;
-    const float y_ratio = ((float)input_buffer_height - 1.0) / (float)output_buffer_height;
+    const float x_ratio = ((float)input_buffer_width - 1.0f) / (float)output_buffer_width;
+    const float y_ratio = ((float)input_buffer_height - 1.0f) / (float)output_buffer_height;
 
     int output_offset_counter = 0;
     for (int y = 0; y < output_buffer_height; y++){
@@ -20,7 +20,7 @@ extern void scale_buffer(const uint16_t* input_buffer, int input_buffer_width, i
             const uint16_t pixel_c = input_buffer[original_pixel_index + input_buffer_width];
             const uint16_t pixel_d = input_buffer[original_pixel_index + input_buffer_width + 1];
 
-            const float weights[4] = {(1.0-x_diff) * (1.0-y_diff), (x_diff)*(1.0-y_diff), y_diff * (1.0-x_diff), x_diff * y_diff};
+            const float weights[4] = {(1.0f-x_diff) * (1.0f-y_diff), (x_diff)*(1.0f-y_diff), y_diff * (1.0f-x_diff), x_diff * y_diff};
 
             const float blue = ((float)(pixel_a & 0x1F) * weights[0]) + 
                                ((float)(pixel_b & 0x1F) * weights[1]) + 
