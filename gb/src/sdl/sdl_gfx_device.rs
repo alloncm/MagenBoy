@@ -1,7 +1,7 @@
 use std::ffi::{CString, c_void};
-
-use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice};
 use sdl2::sys::*;
+use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}};
+use crate::sdl::utils::get_sdl_error_message;
 
 pub struct SdlGfxDevice{
     _window_name: CString,
@@ -15,15 +15,22 @@ pub struct SdlGfxDevice{
 
 impl SdlGfxDevice{
     pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
+        #[cfg(feature = "u16pixel")]
+        std::compile_error("Sdl gfx device must have Pixel type = u32");
+
         let cs_wnd_name = CString::new(window_name).unwrap();
 
         let (_window, renderer, texture): (*mut SDL_Window, *mut SDL_Renderer, *mut SDL_Texture) = unsafe{
-            SDL_Init(SDL_INIT_VIDEO);
+            if SDL_Init(SDL_INIT_VIDEO) != 0{
+                std::panic!("Init error: {}", get_sdl_error_message());
+            }
 
             let window_flags = if full_screen{
                 #[cfg(feature = "static-scale")]
                 log::warn!("Please notice that this binary have been compiled with the static-scale feature and you are running with the full screen option.\nThe rendering window might be in wrong scale.");
                 
+                // Hide cursor
+                SDL_ShowCursor(0);
                 SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
             }
             else{
@@ -53,7 +60,7 @@ impl SdlGfxDevice{
                 }
                 else{
                     if SDL_RenderSetLogicalSize(rend, (SCREEN_WIDTH as u32) as i32, (SCREEN_HEIGHT as u32) as i32) != 0{
-                        std::panic!("Error while setting logical rendering");
+                        std::panic!("Error while setting logical rendering\nError:{}", get_sdl_error_message());
                     }
                     texture_height = SCREEN_HEIGHT as i32;
                     texture_width = SCREEN_WIDTH as i32;
@@ -61,7 +68,7 @@ impl SdlGfxDevice{
             }
             
             let tex: *mut SDL_Texture = SDL_CreateTexture(rend,
-                SDL_PixelFormatEnum::SDL_PIXELFORMAT_ARGB8888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
+                SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGB888 as u32, SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32,
                     texture_width, texture_height);
             
             (wind, rend, tex)
@@ -97,7 +104,7 @@ impl SdlGfxDevice{
 }
 
 impl GfxDevice for SdlGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[u32; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.discard = (self.discard + 1) % self.turbo_mul;
         if self.discard != 0{
             return;

@@ -1,0 +1,21 @@
+[package]
+name = "image_inter"
+version = "1.0.0"
+edition = "2021"
+description = "A small crate for the image interpolation, I sperated it cause I wanted to benchmark in properly"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+cc = "1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+fast_image_resize = "0.9.3"     # to benchmark my results
+
+[[bench]]
+name = "inter_bench"
+harness = false

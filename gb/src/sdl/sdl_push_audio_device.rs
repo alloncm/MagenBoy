@@ -1,7 +1,8 @@
 use std::{ffi::c_void, str::FromStr};
 use lib_gb::{GB_FREQUENCY, apu::audio_device::{AudioDevice, BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample}};
 use sdl2::sys::*;
-use super::{AudioResampler, ResampledAudioDevice, get_sdl_error_message, init_sdl_audio_device};
+use crate::audio::audio_resampler::{AudioResampler, ResampledAudioDevice};
+use super::utils::{init_sdl_audio_device, get_sdl_error_message};
 
 //After twicking those numbers Iv reached this, this will affect fps which will affect sound tearing
 const BYTES_TO_WAIT:u32 = BUFFER_SIZE as u32 * 16;

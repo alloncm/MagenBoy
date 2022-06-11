@@ -1,19 +1,87 @@
 mod mbc_handler;
-mod sdl_joypad_provider;
-mod sdl_gfx_device;
 mod mpmc_gfx_device;
-mod audio;
 mod joypad_terminal_menu;
+#[cfg(feature = "rpi")]
+mod rpi_gpio;
+mod audio{
+    pub mod audio_resampler;
+    pub mod multi_device_audio;
+    pub mod wav_file_audio_device;
+    #[cfg(not(feature = "sdl-resample"))]
+    pub mod manual_audio_resampler;
+}
+mod sdl{
+    pub mod utils;
+    #[cfg(not(feature = "u16pixel"))]
+    pub mod sdl_gfx_device;
+    #[cfg(feature = "sdl-resample")]
+    pub mod sdl_audio_resampler;
 
-use crate::{audio::{ChosenResampler, multi_device_audio::*, ResampledAudioDevice}, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, sdl_joypad_provider::*, joypad_terminal_menu::TerminalRawModeJoypadProvider};
-use lib_gb::{GB_FREQUENCY, apu::audio_device::*, keypad::button::Button, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::GfxDevice}};
-use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu};
+    cfg_if::cfg_if!{
+        if #[cfg(feature = "push-audio")]{
+            pub mod sdl_push_audio_device;
+            pub type ChosenAudioDevice<AR> = sdl_push_audio_device::SdlPushAudioDevice<AR>;
+        }
+        else{
+            pub mod sdl_pull_audio_device;
+            pub type ChosenAudioDevice<AR> = sdl_pull_audio_device::SdlPullAudioDevice<AR>;
+        }
+    }
+    #[cfg(not(feature = "rpi"))]
+    pub mod sdl_joypad_provider;
+}
+
+cfg_if::cfg_if!{
+    if #[cfg(feature = "sdl-resample")]{
+        pub type ChosenResampler  = sdl::sdl_audio_resampler::SdlAudioResampler;
+    }
+    else{
+        pub type ChosenResampler  = audio::manual_audio_resampler::ManualAudioResampler;
+    }
+}
+
+use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
+use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu, TerminalRawModeJoypadProvider};
+use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
+use sdl2::sys::*;
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
-use sdl2::sys::*;
 
 const SCREEN_SCALE:usize = 4;
 const TURBO_MUL:u8 = 1;
+
+cfg_if::cfg_if!{
+    if #[cfg(feature = "rpi")]{
+        use crate::rpi_gpio::gpio_joypad_provider::*;
+        fn buttons_mapper(button:&Button)->GpioPin{
+            match button{
+                Button::A       => 18,
+                Button::B       => 17,
+                Button::Start   => 22,
+                Button::Select  => 23,
+                Button::Up      => 19,
+                Button::Down    => 16,
+                Button::Right   => 20,
+                Button::Left    => 21
+            }
+        }
+    }
+    else{
+        use sdl2::sys::SDL_Scancode;
+        fn buttons_mapper(button:Button)->SDL_Scancode{
+            match button{
+                Button::A       => SDL_Scancode::SDL_SCANCODE_X,
+                Button::B       => SDL_Scancode::SDL_SCANCODE_Z,
+                Button::Start   => SDL_Scancode::SDL_SCANCODE_S,
+                Button::Select  => SDL_Scancode::SDL_SCANCODE_A,
+                Button::Up      => SDL_Scancode::SDL_SCANCODE_UP,
+                Button::Down    => SDL_Scancode::SDL_SCANCODE_DOWN,
+                Button::Right   => SDL_Scancode::SDL_SCANCODE_RIGHT,
+                Button::Left    => SDL_Scancode::SDL_SCANCODE_LEFT
+            }
+        }
+    }
+}
 
 fn init_logger(debug:bool)->Result<(), fern::InitError>{
     let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
@@ -38,19 +106,6 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
     fern_logger.apply()?;
 
     Ok(())
-}
-
-fn buttons_mapper(button:Button)->SDL_Scancode{
-    match button{
-        Button::A       => SDL_Scancode::SDL_SCANCODE_X,
-        Button::B       => SDL_Scancode::SDL_SCANCODE_Z,
-        Button::Start   => SDL_Scancode::SDL_SCANCODE_S,
-        Button::Select  => SDL_Scancode::SDL_SCANCODE_A,
-        Button::Up      => SDL_Scancode::SDL_SCANCODE_UP,
-        Button::Down    => SDL_Scancode::SDL_SCANCODE_DOWN,
-        Button::Right   => SDL_Scancode::SDL_SCANCODE_RIGHT,
-        Button::Left    => SDL_Scancode::SDL_SCANCODE_LEFT
-    }
 }
 
 fn menu_buttons_mapper(button:crossterm::event::KeyCode)->Option<Button>{
@@ -113,8 +168,15 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    let mut sdl_gfx_device = sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
-     check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
+    cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
+        let reset_pin = 14;
+        let dc_pin = 15;
+        let led_pin = 25;
+        let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(reset_pin, dc_pin, led_pin, TURBO_MUL, 0);
+    }else{
+        let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+        check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
+    }}
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
@@ -140,7 +202,7 @@ fn main() {
             }
             
             let buffer = r.recv().unwrap();
-            sdl_gfx_device.swap_buffer(&*(buffer as *const [u32; SCREEN_WIDTH * SCREEN_HEIGHT]));
+            gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
         }
 
         drop(r);
@@ -153,7 +215,7 @@ fn main() {
 
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
-    let audio_device = audio::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
+    let audio_device = sdl::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
     
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
     devices.push(Box::new(audio_device));
@@ -164,7 +226,14 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     }
     let audio_devices = MultiAudioDevice::new(devices);
     let mut mbc = initialize_mbc(&program_name);
-    let joypad_provider = SdlJoypadProvider::new(buttons_mapper);
+    cfg_if::cfg_if!{
+        if #[cfg(feature = "rpi")]{
+            let joypad_provider = GpioJoypadProvider::new(buttons_mapper);
+        }
+        else{
+            let joypad_provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
+        }
+    }
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter")
     }else{
