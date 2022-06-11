@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
-pub mod bcm;
-#[cfg(target_os = "linux")]
-pub use bcm::BcmHost;
+cfg_if::cfg_if!{ if #[cfg(target_os = "linux")]{
+    pub mod bcm;
+    pub use bcm::BcmHost;
+}}
