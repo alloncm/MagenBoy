@@ -168,26 +168,40 @@ impl<SC:SpiController> Drop for Ili9341Contoller<SC>{
 
 pub struct Ili9341GfxDevice<SC:SpiController>{
     ili9341_controller:Ili9341Contoller<SC>,
+    turbo_mul:u8,
+    turbo_frame_counter:u8,
+
+    frame_limiter:u32,
     frames_counter: u32,
     time_counter:std::time::Duration,
     last_time: std::time::Instant,
 }
 
 impl<SC:SpiController> Ili9341GfxDevice<SC>{
-    pub fn new(reset_pin_bcm:u8, dc_pin_bcm:u8, led_pin_bcm:u8)->Self{
+    pub fn new(reset_pin_bcm:u8, dc_pin_bcm:u8, led_pin_bcm:u8, turbo_mul:u8, frame_limiter:u32)->Self{
         #[cfg(not(feature = "u16pixel"))]
         std::compile_error("ili9341 gfx device must have Pixel type = u16");
 
         let ili9341_controller = Ili9341Contoller::new(reset_pin_bcm, dc_pin_bcm, led_pin_bcm);
-        Ili9341GfxDevice {ili9341_controller,frames_counter:0, time_counter: std::time::Duration::ZERO, last_time:std::time::Instant::now()}
+
+        Ili9341GfxDevice {
+            ili9341_controller,frames_counter:0,
+            time_counter: std::time::Duration::ZERO, last_time:std::time::Instant::now(),
+            turbo_mul, turbo_frame_counter:0, frame_limiter
+        }
     }
 }
 
 impl<SC:SpiController> GfxDevice for Ili9341GfxDevice<SC>{
     fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        // if self.frames_counter & 1 == 0{
+        self.turbo_frame_counter = (self.turbo_frame_counter + 1) % self.turbo_mul;
+        if self.turbo_frame_counter != 0{
+            return;
+        }
+
+        if self.frames_counter & self.frame_limiter == 0{
             self.ili9341_controller.write_frame_buffer(&buffer);
-        // }
+        }
 
         // measure fps
         self.frames_counter += 1;

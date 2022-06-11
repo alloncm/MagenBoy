@@ -168,12 +168,15 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    #[cfg(feature = "rpi")]
-    let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(14, 15, 25);
-
-    #[cfg(not(feature = "rpi"))]
-    let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
-     check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
+    cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
+        let reset_pin = 14;
+        let dc_pin = 15;
+        let led_pin = 25;
+        let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(reset_pin, dc_pin, led_pin, TURBO_MUL, 0);
+    }else{
+        let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+        check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
+    }}
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
