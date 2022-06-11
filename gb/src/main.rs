@@ -199,11 +199,6 @@ fn main() {
                 if event.type_ == SDL_EventType::SDL_QUIT as u32{
                     break;
                 }
-                else if event.type_ == SDL_EventType::SDL_KEYDOWN as u32{
-                    if event.key.keysym.scancode == SDL_Scancode::SDL_SCANCODE_ESCAPE{
-                        break;
-                    }
-                }
             }
             
             let buffer = r.recv().unwrap();
