@@ -32,11 +32,14 @@ magenboy [path_to_rom] [other_optional_flags]
 cargo build --release --features [optional_features]
 ```
 #### Optional features:
-* static-sdl - will link statically to sdl2.
+* `static-sdl` - will link statically to sdl2.
 On by default (to turn off pass `--no-default-features`)
-* sdl-resample - Use the audio resampler from sdl2 library and a manual one I wrote
-* push-audio - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
-* static-scale - Will use a fixed scale values for the renderer instead of addapting to the screen size
+* `sdl-resample` - Use the audio resampler from sdl2 library and a manual one I wrote
+* `push-audio` - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
+* `static-scale` - Will use a fixed scale values for the renderer instead of addapting to the screen size
+* `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
+* `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
+* `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
 
 ## GameBoy
 
