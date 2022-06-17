@@ -37,6 +37,7 @@ impl PartialEq for Color{
 }
 
 impl From<Color> for Pixel{
+    #[inline]
     fn from(color: Color) -> Self {
         #[cfg(not(feature = "u16pixel"))]
         {
