@@ -30,13 +30,12 @@ impl Default for InterruptsHandler{
 
 impl InterruptsHandler{
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool, stat_register:u8)->InterruptRequest{
-        //there is a delay of one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
-
         let mut interrupt_request = InterruptRequest::None;
 
-        if master_interrupt_enable && self.ei_triggered{
+        //there is a delay of one instruction cause there is this delay since EI opcode is called untill the interrupt could happen
+        if master_interrupt_enable && self.ei_triggered {
             // The order is the interrupt priority of the interrupts
-            
+
             if self.interrupt_flag & BIT_0_MASK != 0 && self.interrupt_enable_flag & BIT_0_MASK != 0{
                 interrupt_request = self.prepare_for_interrupt( BIT_0_MASK, V_BLANK_INTERRUPT_ADDERESS);
             }
@@ -55,16 +54,13 @@ impl InterruptsHandler{
             }
         }
         else {
-            for i in 0..5{
-                let mask = 1 << i;
-                if self.interrupt_flag & mask != 0 && self.interrupt_enable_flag & mask != 0{
-                    interrupt_request = InterruptRequest::Unhalt;
-                }
+            // if anding them is not zero there is at least one interrupt pending
+            if (self.interrupt_enable_flag & self.interrupt_flag) & 0b1_1111 != 0{
+                interrupt_request = InterruptRequest::Unhalt;
             }
         }
 
         self.ei_triggered = master_interrupt_enable;
-
         return interrupt_request;
     }
 
