@@ -1,9 +1,9 @@
 use criterion::*;
-use lib_gb::apu::{
+use lib_gb::{apu::{
     audio_device::*, channel::Channel, 
     gb_apu::*, sound_terminal::SoundTerminal, 
     square_sample_producer::SquareSampleProducer
-};
+}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}};
 
 pub fn criterion_bench(c: &mut Criterion){
     struct StubApu;
@@ -47,5 +47,24 @@ pub fn apu_sound_terminal(c:&mut Criterion){
     }));
 }
 
-criterion_group!(benches, criterion_bench, apu_sweep_tone_channel, apu_sound_terminal);
+pub fn keypad_joypad_handler(c:&mut Criterion){
+    struct StubJoypadProvider{
+        set:bool
+    }
+    impl JoypadProvider for StubJoypadProvider{
+        fn provide(&mut self, joypad:&mut Joypad) {
+            joypad.buttons.fill(self.set);
+            self.set = !self.set;
+        }
+    }
+
+    // let mut joypad = Joypad::default();
+    let mut joypad_handler = JoypadHandler::new(StubJoypadProvider{set:true});
+
+    c.bench_function("Joypad handler", |b|b.iter(||{
+        joypad_handler.poll_joypad_state();
+    }));
+}
+
+criterion_group!(benches, criterion_bench, apu_sweep_tone_channel, apu_sound_terminal, keypad_joypad_handler);
 criterion_main!(benches);
