@@ -43,7 +43,6 @@ pub struct GbPpu<GFX: GfxDevice>{
     t_cycles_passed:u16,
     screen_buffers: [[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
     current_screen_buffer_index:usize,
-    push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
     scanline_started:bool,
@@ -85,7 +84,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             trigger_stat_interrupt:false,
             bg_fetcher:BackgroundFetcher::new(),
             sprite_fetcher:SpriteFetcher::new(),
-            push_lcd_buffer:Vec::<Color>::new(),
             pixel_x_pos:0,
             scanline_started:false
         }
@@ -121,16 +119,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
         let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
-
-        for i in 0..self.push_lcd_buffer.len(){
-            self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = Color::into(self.push_lcd_buffer[i]);
-            self.screen_buffer_index += 1;
-            if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
-               self.swap_buffer();
-            }
-        }
-
-        self.push_lcd_buffer.clear();
 
         return Some(cycles);
     }
@@ -340,8 +328,16 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 bg_pixel
             };
 
-            self.push_lcd_buffer.push(pixel);
+            self.push_pixel(Color::into(pixel));
             self.pixel_x_pos += 1;
+        }
+    }
+
+    fn push_pixel(&mut self, pixel: Pixel) {
+        self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = pixel;
+        self.screen_buffer_index += 1;
+        if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
+           self.swap_buffer();
         }
     }
 }
