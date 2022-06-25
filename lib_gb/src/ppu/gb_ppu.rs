@@ -174,28 +174,36 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         while t_cycles_counter < t_cycles{
             match self.state{
                 PpuState::OamSearch=>{
-                    let oam_index = self.t_cycles_passed / 2;
-                    let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
-                    let end_y = self.oam[oam_entry_address];
-                    let end_x = self.oam[oam_entry_address + 1];
-                
-                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.sprite_fetcher.oam_entries_len < MAX_SPRITES_PER_LINE as u8{
-                        let tile_number = self.oam[oam_entry_address + 2];
-                        let attributes = self.oam[oam_entry_address + 3];
-                        self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
-                        self.sprite_fetcher.oam_entries_len += 1;
+                    // first iteration
+                    if self.t_cycles_passed == 0{
+                        for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
+                            let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
+                            let end_y = self.oam[oam_entry_address];
+                            let end_x = self.oam[oam_entry_address + 1];
+
+                            if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height {
+                                let tile_number = self.oam[oam_entry_address + 2];
+                                let attributes = self.oam[oam_entry_address + 3];
+                                self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
+                                self.sprite_fetcher.oam_entries_len += 1;
+                                if self.sprite_fetcher.oam_entries_len == MAX_SPRITES_PER_LINE as u8{
+                                    break;
+                                }
+                            }
+                        }
+
+                        self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize]
+                            .sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                     }
                     
-                    self.t_cycles_passed += 2; //half a m_cycle
+                    let scope_t_cycles_passed = std::cmp::min(t_cycles as u16, OAM_SEARCH_T_CYCLES_LENGTH - self.t_cycles_passed);
+                    self.t_cycles_passed += scope_t_cycles_passed;
+                    t_cycles_counter += scope_t_cycles_passed as u32;
                     
                     if self.t_cycles_passed == OAM_SEARCH_T_CYCLES_LENGTH{
-                        let slice = self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize].as_mut();
-                        slice.sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                         self.state = PpuState::PixelTransfer;
                         self.scanline_started = false;
                     }
-
-                    t_cycles_counter += 2;
                 }
                 PpuState::Hblank=>{
                     let t_cycles_to_add = std::cmp::min((t_cycles - t_cycles_counter) as u16, HBLANK_T_CYCLES_LENGTH - self.t_cycles_passed);
@@ -245,36 +253,35 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     
                 }
                 PpuState::PixelTransfer=>{
-                    for _ in 0..2{
-                        if self.pixel_x_pos < SCREEN_WIDTH as u8{
-                            if self.lcd_control & BIT_1_MASK != 0{
-                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
-                            }
-                            if self.sprite_fetcher.rendering{
-                                self.bg_fetcher.pause();
-                            }
-                            else{
-                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
-                                self.try_push_to_lcd();
-                                if self.pixel_x_pos == SCREEN_WIDTH as u8{
-                                    self.state = PpuState::Hblank;
-                                    if self.h_blank_interrupt_request{
-                                        self.trigger_stat_interrupt = true;
-                                    }
-                                    self.bg_fetcher.try_increment_window_counter(self.ly_register, self.window_pos.y);
-                                    self.bg_fetcher.reset();
-                                    self.sprite_fetcher.reset();
-
-                                    // If im on the first iteration and finished the 160 pixels break;
-                                    // In this case the number of t_cycles should be eneven but it will break
-                                    // my code way too much for now so Im leaving this as it is... (maybe in the future)
-                                    break;
+                    while t_cycles_counter < t_cycles && self.pixel_x_pos < SCREEN_WIDTH as u8{
+                        if self.lcd_control & BIT_1_MASK != 0{
+                            self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
+                        }
+                        if self.sprite_fetcher.rendering{
+                            self.bg_fetcher.pause();
+                        }
+                        else{
+                            self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
+                            self.try_push_to_lcd();
+                            if self.pixel_x_pos == SCREEN_WIDTH as u8{
+                                self.state = PpuState::Hblank;
+                                if self.h_blank_interrupt_request{
+                                    self.trigger_stat_interrupt = true;
                                 }
+                                self.bg_fetcher.try_increment_window_counter(self.ly_register, self.window_pos.y);
+                                self.bg_fetcher.reset();
+                                self.sprite_fetcher.reset();
+
+                                // If im on the first iteration and finished the 160 pixels break;
+                                // In this case the number of t_cycles should be eneven but it will break
+                                // my code way too much for now so Im leaving this as it is... (maybe in the future)
+                                break;
                             }
                         }
+
+                        self.t_cycles_passed += 1;
+                        t_cycles_counter += 1;
                     }
-                    self.t_cycles_passed += 2;
-                    t_cycles_counter += 2;
                 }
             }
         }
