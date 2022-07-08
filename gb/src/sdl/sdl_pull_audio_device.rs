@@ -20,7 +20,7 @@ pub struct SdlPullAudioDevice<AR:AudioResampler>{
     buffer_index:usize,
 
     tarnsmiter: Sender<usize>,
-    userdata: UserData,
+    userdata_ptr: *mut UserData,
     device_id:SDL_AudioDeviceID,
 }
 
@@ -29,11 +29,11 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
 
         // cap of less than 2 hurts the fps
         let(s,r) = bounded(BUFFERS_NUMBER - 1);
-        let data = UserData{
+        let data = Box::new(UserData{
             current_buf:Option::None,
             current_buf_index:0,
             rx:r
-        };
+        });
 
         let mut device = SdlPullAudioDevice{
             buffers:[[DEFAULT_SAPMPLE;BUFFER_SIZE];BUFFERS_NUMBER],
@@ -41,7 +41,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             buffer_number_index:0,
             resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
             tarnsmiter:s,
-            userdata:data,
+            userdata_ptr:Box::into_raw(data),
             device_id:0
         };
         
@@ -54,7 +54,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             padding: 0,
             size: 0,
             callback: Option::Some(audio_callback),
-            userdata: (&mut device.userdata) as *mut UserData as *mut c_void
+            userdata: device.userdata_ptr as *mut c_void
         };
 
         // Ignore device id
@@ -89,6 +89,7 @@ impl<AR:AudioResampler> Drop for SdlPullAudioDevice<AR>{
     fn drop(&mut self) {
         unsafe{
             SDL_CloseAudioDevice(self.device_id);
+            Box::from_raw(self.userdata_ptr);
         }
     }
 }
