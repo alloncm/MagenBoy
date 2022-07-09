@@ -162,8 +162,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             ((self.lyc_register - self.ly_register) as u32 * HBLANK_M_CYCLES_LENGTH as u32) - self.m_cycles_passed as u32
         };
 
-        // Divide by 4 to transform the t_cycles to m_cycles
-        return t_cycles_to_next_stat_change >> 2;
+        return t_cycles_to_next_stat_change;
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
@@ -287,14 +286,14 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             }
         }
 
-        let m_cycles = match self.state{
+        let m_cycles_for_state = match self.state{
             PpuState::Vblank => ((self.m_cycles_passed / HBLANK_M_CYCLES_LENGTH)+1) * HBLANK_M_CYCLES_LENGTH,
             PpuState::Hblank => HBLANK_M_CYCLES_LENGTH,
             PpuState::OamSearch => OAM_SEARCH_M_CYCLES_LENGTH,
             PpuState::PixelTransfer => self.m_cycles_passed
         };
 
-        return m_cycles - self.m_cycles_passed;
+        return m_cycles_for_state - self.m_cycles_passed;
     }
 
     fn try_push_to_lcd(&mut self){
