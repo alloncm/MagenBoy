@@ -46,24 +46,24 @@ impl SpriteFetcher{
                 self.try_fetch_tile_number(current_x_pos, lcd_control);
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchLowTIle");
+                let tile_num = self.fetcher_state_machine.data.tile_data;
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
                 let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
                 let low_data = vram.read_current_bank(current_tile_data_address);
-                self.fetcher_state_machine.data.low_tile_data = Some(low_data);
+                self.fetcher_state_machine.data.low_tile_data = low_data;
                 self.fetcher_state_machine.advance();
             }
             FetchingState::FetchHighTile=>{
-                let tile_num= self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchHighTIle");
+                let tile_num= self.fetcher_state_machine.data.tile_data;
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
                 let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
                 let high_data = vram.read_current_bank(current_tile_data_address + 1);
-                self.fetcher_state_machine.data.high_tile_data = Some(high_data);
+                self.fetcher_state_machine.data.high_tile_data = high_data;
                 self.fetcher_state_machine.advance();
             }
             FetchingState::Push=>{
-                let low_data = self.fetcher_state_machine.data.low_tile_data.expect("State machine is corrupted, No Low data on Push");
-                let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
+                let low_data = self.fetcher_state_machine.data.low_tile_data;
+                let high_data = self.fetcher_state_machine.data.high_tile_data;
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
                 let start_x = self.fifo.len();
                 let skip_x = 8 - (oam_attribute.x - current_x_pos) as usize;
@@ -110,7 +110,7 @@ impl SpriteFetcher{
                 }
                 self.rendering = true;
                 self.fetcher_state_machine.data.reset();
-                self.fetcher_state_machine.data.tile_data = Some(tile_number);
+                self.fetcher_state_machine.data.tile_data = tile_number;
                 self.fetcher_state_machine.advance();
                 return;
             }
