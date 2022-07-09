@@ -290,7 +290,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             PpuState::Vblank => ((self.m_cycles_passed / HBLANK_M_CYCLES_LENGTH)+1) * HBLANK_M_CYCLES_LENGTH,
             PpuState::Hblank => HBLANK_M_CYCLES_LENGTH,
             PpuState::OamSearch => OAM_SEARCH_M_CYCLES_LENGTH,
-            PpuState::PixelTransfer => self.m_cycles_passed
+            
+            // taking the pixels that left to draw and divide by 4 (usually pushing 4 pixels per m_cycle) 
+            // to try and calculate how much cycles left for the pixel transfer state
+            PpuState::PixelTransfer => self.m_cycles_passed + ((SCREEN_WIDTH - self.pixel_x_pos as usize) as u16 >> 2) 
         };
 
         return m_cycles_for_state - self.m_cycles_passed;
