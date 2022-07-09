@@ -1,3 +1,4 @@
+// Since each operation takes 2 t_cycles I pad them with sleep for my implementation
 pub enum FetchingState{
     FetchTileNumber,
     FetchLowTile,

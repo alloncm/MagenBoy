@@ -18,7 +18,7 @@ pub struct SpriteFetcher{
 impl SpriteFetcher{
     pub fn new()->Self{
         let oam_entries:[SpriteAttribute; MAX_SPRITES_PER_LINE] = utils::create_array(|| SpriteAttribute::new(0,0,0,0));
-        let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
+        let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
         
         SpriteFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),

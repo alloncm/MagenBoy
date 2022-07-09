@@ -298,46 +298,47 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     fn try_push_to_lcd(&mut self){
-        if !(self.bg_fetcher.fifo.len() == 0){
-            if !self.scanline_started{
-                // discard the next pixel in the bg fifo
-                // the bg fifo should start with 8 pixels and not push more untill its empty again
-                if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
-                    self.scanline_started = true;
-                }
-                else{
-                    self.bg_fetcher.fifo.remove();
-                    return;
-                }
-            }
-
-            let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
-            let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
-            let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
-                let sprite_color_num = self.sprite_fetcher.fifo.remove();
-                let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
-
-                if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
-                    bg_pixel
-                }
-                else{
-                    let sprite_pixel = if pixel_oam_attribute.palette_number{
-                        self.obj_color_mapping1[sprite_color_num.0 as usize]
-                    }
-                    else{
-                        self.obj_color_mapping0[sprite_color_num.0 as usize]
-                    };
-
-                    sprite_pixel.expect("Corruption in the object color pallete")
-                }
+        if self.bg_fetcher.fifo.len() == 0{
+            return;
+        }
+        if !self.scanline_started{
+            // discard the next pixel in the bg fifo
+            // the bg fifo should start with 8 pixels and not push more untill its empty again
+            if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
+                self.scanline_started = true;
             }
             else{
-                bg_pixel
-            };
-
-            self.push_pixel(Color::into(pixel));
-            self.pixel_x_pos += 1;
+                self.bg_fetcher.fifo.remove();
+                return;
+            }
         }
+
+        let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
+        let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
+        let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
+            let sprite_color_num = self.sprite_fetcher.fifo.remove();
+            let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
+
+            if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
+                bg_pixel
+            }
+            else{
+                let sprite_pixel = if pixel_oam_attribute.palette_number{
+                    self.obj_color_mapping1[sprite_color_num.0 as usize]
+                }
+                else{
+                    self.obj_color_mapping0[sprite_color_num.0 as usize]
+                };
+
+                sprite_pixel.expect("Corruption in the object color pallete")
+            }
+        }
+        else{
+            bg_pixel
+        };
+
+        self.push_pixel(Color::into(pixel));
+        self.pixel_x_pos += 1;
     }
 
     fn push_pixel(&mut self, pixel: Pixel) {
