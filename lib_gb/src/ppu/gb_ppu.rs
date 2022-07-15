@@ -12,9 +12,9 @@ pub const BUFFERS_NUMBER:usize = 2;
 const OAM_ENTRY_SIZE:u16 = 4;
 const OAM_MEMORY_SIZE:usize = 0xA0;
 
-const OAM_SEARCH_T_CYCLES_LENGTH: u16 = 80;
-const HBLANK_T_CYCLES_LENGTH: u16 = 456;
-const VBLANK_T_CYCLES_LENGTH: u16 = 4560;
+const OAM_SEARCH_M_CYCLES_LENGTH: u16 = 80 / 4;
+const HBLANK_M_CYCLES_LENGTH: u16 = 456 / 4;
+const VBLANK_M_CYCLES_LENGTH: u16 = 4560 / 4;
 
 pub struct GbPpu<GFX: GfxDevice>{
     pub vram: VRam,
@@ -40,10 +40,9 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub coincidence_interrupt_request:bool,
 
     gfx_device: GFX,
-    t_cycles_passed:u16,
+    m_cycles_passed:u16,
     screen_buffers: [[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
     current_screen_buffer_index:usize,
-    push_lcd_buffer:Vec<Color>,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
     scanline_started:bool,
@@ -80,19 +79,18 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             oam_search_interrupt_request:false, 
             coincidence_interrupt_request:false,
             screen_buffer_index:0, 
-            t_cycles_passed:0,
+            m_cycles_passed:0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
             bg_fetcher:BackgroundFetcher::new(),
             sprite_fetcher:SpriteFetcher::new(),
-            push_lcd_buffer:Vec::<Color>::new(),
             pixel_x_pos:0,
             scanline_started:false
         }
     }
 
     pub fn turn_off(&mut self){
-        self.t_cycles_passed = 0;
+        self.m_cycles_passed = 0;
         //This is an expensive operation!
         unsafe{std::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
         self.swap_buffer();
@@ -121,16 +119,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
         let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
-
-        for i in 0..self.push_lcd_buffer.len(){
-            self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = Color::into(self.push_lcd_buffer[i]);
-            self.screen_buffer_index += 1;
-            if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
-               self.swap_buffer();
-            }
-        }
-
-        self.push_lcd_buffer.clear();
 
         return Some(cycles);
     }
@@ -165,58 +153,64 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.trigger_stat_interrupt = false;
 
         let t_cycles_to_next_stat_change = if self.lyc_register < self.ly_register{
-            ((self.ly_register - self.lyc_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
+            ((self.ly_register - self.lyc_register) as u32 * HBLANK_M_CYCLES_LENGTH as u32) - self.m_cycles_passed as u32
         }
         else if self.lyc_register == self.ly_register{
-            (HBLANK_T_CYCLES_LENGTH as u32 * 154 ) - self.t_cycles_passed as u32
+            (HBLANK_M_CYCLES_LENGTH as u32 * 154 ) - self.m_cycles_passed as u32
         }
         else{
-            ((self.lyc_register - self.ly_register) as u32 * HBLANK_T_CYCLES_LENGTH as u32) - self.t_cycles_passed as u32
+            ((self.lyc_register - self.ly_register) as u32 * HBLANK_M_CYCLES_LENGTH as u32) - self.m_cycles_passed as u32
         };
 
-        // Divide by 4 to transform the t_cycles to m_cycles
-        return t_cycles_to_next_stat_change >> 2;
+        return t_cycles_to_next_stat_change;
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
-        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
-        let t_cycles = m_cycles * 4;
-        let mut t_cycles_counter = 0;
+        let mut m_cycles_counter = 0;
 
-        while t_cycles_counter < t_cycles{
+        while m_cycles_counter < m_cycles{
             match self.state{
                 PpuState::OamSearch=>{
-                    let oam_index = self.t_cycles_passed / 2;
-                    let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
-                    let end_y = self.oam[oam_entry_address];
-                    let end_x = self.oam[oam_entry_address + 1];
-                
-                    if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height && self.sprite_fetcher.oam_entries_len < MAX_SPRITES_PER_LINE as u8{
-                        let tile_number = self.oam[oam_entry_address + 2];
-                        let attributes = self.oam[oam_entry_address + 3];
-                        self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
-                        self.sprite_fetcher.oam_entries_len += 1;
+                    // first iteration
+                    if self.m_cycles_passed == 0{
+                        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
+                        for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
+                            let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
+                            let end_y = self.oam[oam_entry_address];
+                            let end_x = self.oam[oam_entry_address + 1];
+
+                            if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height {
+                                let tile_number = self.oam[oam_entry_address + 2];
+                                let attributes = self.oam[oam_entry_address + 3];
+                                self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
+                                self.sprite_fetcher.oam_entries_len += 1;
+                                if self.sprite_fetcher.oam_entries_len == MAX_SPRITES_PER_LINE as u8{
+                                    break;
+                                }
+                            }
+                        }
+
+                        self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize]
+                            .sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
                     }
                     
-                    self.t_cycles_passed += 2; //half a m_cycle
+                    let scope_m_cycles_passed = std::cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    self.m_cycles_passed += scope_m_cycles_passed;
+                    m_cycles_counter += scope_m_cycles_passed as u32;
                     
-                    if self.t_cycles_passed == OAM_SEARCH_T_CYCLES_LENGTH{
-                        let slice = self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize].as_mut();
-                        slice.sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
+                    if self.m_cycles_passed == OAM_SEARCH_M_CYCLES_LENGTH{
                         self.state = PpuState::PixelTransfer;
                         self.scanline_started = false;
                     }
-
-                    t_cycles_counter += 2;
                 }
                 PpuState::Hblank=>{
-                    let t_cycles_to_add = std::cmp::min((t_cycles - t_cycles_counter) as u16, HBLANK_T_CYCLES_LENGTH - self.t_cycles_passed);
-                    self.t_cycles_passed += t_cycles_to_add;
-                    t_cycles_counter += t_cycles_to_add as u32;
+                    let m_cycles_to_add = std::cmp::min((m_cycles - m_cycles_counter) as u16, HBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    self.m_cycles_passed += m_cycles_to_add;
+                    m_cycles_counter += m_cycles_to_add as u32;
                     
-                    if self.t_cycles_passed == HBLANK_T_CYCLES_LENGTH{
+                    if self.m_cycles_passed == HBLANK_M_CYCLES_LENGTH{
                         self.pixel_x_pos = 0;
-                        self.t_cycles_passed = 0;
+                        self.m_cycles_passed = 0;
                         self.ly_register += 1;
                         if self.ly_register == SCREEN_HEIGHT as u8{
                             self.state = PpuState::Vblank;
@@ -237,28 +231,28 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     }
                 }
                 PpuState::Vblank=>{
-                    let t_cycles_to_add = std::cmp::min((t_cycles - t_cycles_counter) as u16, VBLANK_T_CYCLES_LENGTH - self.t_cycles_passed);
-                    self.t_cycles_passed += t_cycles_to_add;
-                    t_cycles_counter += t_cycles_to_add as u32;
+                    let m_cycles_to_add = std::cmp::min((m_cycles - m_cycles_counter) as u16, VBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    self.m_cycles_passed += m_cycles_to_add;
+                    m_cycles_counter += m_cycles_to_add as u32;
                     
-                    if self.t_cycles_passed == VBLANK_T_CYCLES_LENGTH{
+                    if self.m_cycles_passed == VBLANK_M_CYCLES_LENGTH{
                         self.state = PpuState::OamSearch;
                         if self.oam_search_interrupt_request{
                             self.trigger_stat_interrupt = true;
                         }
                         self.pixel_x_pos = 0;
-                        self.t_cycles_passed = 0;
+                        self.m_cycles_passed = 0;
                         self.ly_register = 0;
                     }
                     else{
                         //VBlank is technically 10 HBlank combined
-                        self.ly_register = SCREEN_HEIGHT as u8 + (self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH) as u8;
+                        self.ly_register = SCREEN_HEIGHT as u8 + (self.m_cycles_passed / HBLANK_M_CYCLES_LENGTH) as u8;
                     }
                     
                 }
                 PpuState::PixelTransfer=>{
-                    for _ in 0..2{
-                        if self.pixel_x_pos < SCREEN_WIDTH as u8{
+                    while m_cycles_counter < m_cycles && self.pixel_x_pos < SCREEN_WIDTH as u8{
+                        for _ in 0..4{
                             if self.lcd_control & BIT_1_MASK != 0{
                                 self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
                             }
@@ -276,7 +270,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                                     self.bg_fetcher.try_increment_window_counter(self.ly_register, self.window_pos.y);
                                     self.bg_fetcher.reset();
                                     self.sprite_fetcher.reset();
-
+                                
                                     // If im on the first iteration and finished the 160 pixels break;
                                     // In this case the number of t_cycles should be eneven but it will break
                                     // my code way too much for now so Im leaving this as it is... (maybe in the future)
@@ -284,64 +278,76 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                                 }
                             }
                         }
+
+                        self.m_cycles_passed += 1;
+                        m_cycles_counter += 1;
                     }
-                    self.t_cycles_passed += 2;
-                    t_cycles_counter += 2;
                 }
             }
         }
 
-        let t_cycles = match self.state{
-            PpuState::Vblank => ((self.t_cycles_passed / HBLANK_T_CYCLES_LENGTH)+1) * HBLANK_T_CYCLES_LENGTH,
-            PpuState::Hblank => HBLANK_T_CYCLES_LENGTH,
-            PpuState::OamSearch => OAM_SEARCH_T_CYCLES_LENGTH,
-            PpuState::PixelTransfer => self.t_cycles_passed
+        let m_cycles_for_state = match self.state{
+            PpuState::Vblank => ((self.m_cycles_passed / HBLANK_M_CYCLES_LENGTH)+1) * HBLANK_M_CYCLES_LENGTH,
+            PpuState::Hblank => HBLANK_M_CYCLES_LENGTH,
+            PpuState::OamSearch => OAM_SEARCH_M_CYCLES_LENGTH,
+            
+            // taking the pixels that left to draw and divide by 4 (usually pushing 4 pixels per m_cycle) 
+            // to try and calculate how much cycles left for the pixel transfer state
+            PpuState::PixelTransfer => self.m_cycles_passed + ((SCREEN_WIDTH - self.pixel_x_pos as usize) as u16 >> 2) 
         };
 
-        // Subtract by 4 in order to cast the t_cycles to m_cycles
-        return (t_cycles - self.t_cycles_passed) >> 2;
+        return m_cycles_for_state - self.m_cycles_passed;
     }
 
     fn try_push_to_lcd(&mut self){
-        if !(self.bg_fetcher.fifo.len() == 0){
-            if !self.scanline_started{
-                // discard the next pixel in the bg fifo
-                // the bg fifo should start with 8 pixels and not push more untill its empty again
-                if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
-                    self.scanline_started = true;
-                }
-                else{
-                    self.bg_fetcher.fifo.remove();
-                    return;
-                }
-            }
-
-            let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
-            let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
-            let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
-                let sprite_color_num = self.sprite_fetcher.fifo.remove();
-                let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
-
-                if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
-                    bg_pixel
-                }
-                else{
-                    let sprite_pixel = if pixel_oam_attribute.palette_number{
-                        self.obj_color_mapping1[sprite_color_num.0 as usize]
-                    }
-                    else{
-                        self.obj_color_mapping0[sprite_color_num.0 as usize]
-                    };
-
-                    sprite_pixel.expect("Corruption in the object color pallete")
-                }
+        if self.bg_fetcher.fifo.len() == 0{
+            return;
+        }
+        if !self.scanline_started{
+            // discard the next pixel in the bg fifo
+            // the bg fifo should start with 8 pixels and not push more untill its empty again
+            if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
+                self.scanline_started = true;
             }
             else{
-                bg_pixel
-            };
+                self.bg_fetcher.fifo.remove();
+                return;
+            }
+        }
 
-            self.push_lcd_buffer.push(pixel);
-            self.pixel_x_pos += 1;
+        let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
+        let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
+        let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
+            let sprite_color_num = self.sprite_fetcher.fifo.remove();
+            let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
+
+            if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
+                bg_pixel
+            }
+            else{
+                let sprite_pixel = if pixel_oam_attribute.palette_number{
+                    self.obj_color_mapping1[sprite_color_num.0 as usize]
+                }
+                else{
+                    self.obj_color_mapping0[sprite_color_num.0 as usize]
+                };
+
+                sprite_pixel.expect("Corruption in the object color pallete")
+            }
+        }
+        else{
+            bg_pixel
+        };
+
+        self.push_pixel(Color::into(pixel));
+        self.pixel_x_pos += 1;
+    }
+
+    fn push_pixel(&mut self, pixel: Pixel) {
+        self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = pixel;
+        self.screen_buffer_index += 1;
+        if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
+           self.swap_buffer();
         }
     }
 }

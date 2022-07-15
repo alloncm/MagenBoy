@@ -1,6 +1,8 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
+const EMPTY_FIFO_BUFFER:[u8;FIFO_SIZE] = [0;FIFO_SIZE];
+
 pub struct BackgroundFetcher{
     pub fifo:FixedSizeQueue<u8, FIFO_SIZE>,
     pub window_line_counter:u8,
@@ -67,47 +69,42 @@ impl BackgroundFetcher{
                 };
 
                 self.fetcher_state_machine.data.reset();
-                self.fetcher_state_machine.data.tile_data = Some(tile_num);
+                self.fetcher_state_machine.data.tile_data = tile_num;
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchLowTIle");
+                let tile_num = self.fetcher_state_machine.data.tile_data;
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let low_data = vram.read_current_bank(address);
 
-                self.fetcher_state_machine.data.low_tile_data = Some(low_data);
+                self.fetcher_state_machine.data.low_tile_data = low_data;
             }
             FetchingState::FetchHighTile=>{
-                let tile_num= self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchHighTIle");
+                let tile_num= self.fetcher_state_machine.data.tile_data;
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let high_data = vram.read_current_bank(address + 1);
 
-                self.fetcher_state_machine.data.high_tile_data = Some(high_data);
+                self.fetcher_state_machine.data.high_tile_data = high_data;
             }
-            FetchingState::Push=>{
-                let low_data = self.fetcher_state_machine.data.low_tile_data.expect("State machine is corrupted, No Low data on Push");
-                let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
-                if self.fifo.len() == 0{
-                    if lcd_control & BIT_0_MASK == 0{
-                        for _ in 0..SPRITE_WIDTH{
-                            //When the baclkground is off pushes 0
-                            self.fifo.push(0);
-                            self.current_x_pos += 1;
-                        }
-                    }
-                    else{
-                        for i in (0..SPRITE_WIDTH).rev(){
-                            let mask = 1 << i;
-                            let mut pixel = (low_data & mask) >> i;
-                            pixel |= ((high_data & mask) >> i) << 1;
-                            self.fifo.push(pixel);
-                            self.current_x_pos += 1;
-                        }
-                    }
+            FetchingState::Push if self.fifo.len() == 0 => {
+                if lcd_control & BIT_0_MASK == 0{
+                    self.fifo.fill(&EMPTY_FIFO_BUFFER);
                 }
+                else{
+                    let low_data = self.fetcher_state_machine.data.low_tile_data;
+                    let high_data = self.fetcher_state_machine.data.high_tile_data;
+                    let mut buffer:[u8;SPRITE_WIDTH as usize] = [0;SPRITE_WIDTH as usize];
+                    for i in 0..buffer.len(){
+                        let mask = 1 << i;
+                        let mut pixel = (low_data & mask) >> i;
+                        pixel |= ((high_data & mask) >> i) << 1;
+                        buffer[(buffer.len() - 1 - i) as usize] = pixel;
+                    }
+                    self.fifo.fill(&buffer);
+                }
+                self.current_x_pos += SPRITE_WIDTH;
             }
-            FetchingState::Sleep=>{}
+            _ => {}
         }
-
         self.fetcher_state_machine.advance();
     }
 
