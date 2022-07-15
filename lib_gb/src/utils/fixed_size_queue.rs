@@ -72,6 +72,14 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn len(&self)->usize{
         self.length
     }
+
+    pub fn fill(&mut self, value:&[T;SIZE]){
+        unsafe{
+            std::ptr::copy_nonoverlapping(value.as_ptr(), self.base_data_pointer, SIZE);
+            self.length = SIZE;
+            self.data_pointer = self.end_data_pointer.sub(1) as *mut T;
+        }
+    }
 }
 
 impl<T:Copy, const SIZE:usize> std::ops::Index<usize> for FixedSizeQueue<T, SIZE>{
