@@ -39,9 +39,9 @@ impl Reg{
     }
 
     fn get_offset_byte(&mut self, offset:isize)->&mut u8{
+        let ptr = (&mut self.value as *mut u16) as *mut u8;
         unsafe
         {
-            let ptr = (&mut self.value as *mut u16) as *mut u8;
             return &mut *(ptr.offset(offset));
         }
     }

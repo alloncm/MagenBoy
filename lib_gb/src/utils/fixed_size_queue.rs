@@ -32,10 +32,10 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
 
     pub fn push(&mut self, t:T){
         if self.length < SIZE{
+            if self.data_pointer == self.end_data_pointer as *mut T{
+                self.data_pointer = self.start_data_pointer as *mut T;
+            }
             unsafe{
-                if self.data_pointer == self.end_data_pointer as *mut T{
-                    self.data_pointer = self.start_data_pointer as *mut T;
-                }
                 *self.data_pointer = t;
                 self.data_pointer = self.data_pointer.add(1);
             }
@@ -48,16 +48,16 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
 
     pub fn remove(&mut self)->T{
         if self.length > 0{
-            unsafe{
-                let t = *self.base_data_pointer;
-                self.base_data_pointer = self.base_data_pointer.add(1);
+            
+                let t = unsafe { *self.base_data_pointer };
+                self.base_data_pointer = unsafe { self.base_data_pointer.add(1) };
                 if self.base_data_pointer == self.end_data_pointer as *mut T{
                     self.base_data_pointer = self.start_data_pointer as *mut T;
                 }
 
                 self.length -= 1;
                 return t;
-            }
+            
         }
         
         std::panic!("The fifo is empty");
