@@ -27,7 +27,7 @@ impl Mbc for Mbc1{
 
     fn read_current_bank(&self, address:u16)->u8{
         let bank:u16 = self.get_current_rom_bank() as u16;
-        return self.program[(ROM_BANK_SIZE * bank + address) as usize];
+        return self.program[ROM_BANK_SIZE as usize * bank as usize + address as usize];
     }
 
     fn write_rom(&mut self, address: u16, value: u8){
@@ -41,13 +41,18 @@ impl Mbc for Mbc1{
     }
 
     fn read_external_ram(&self, address: u16)->u8{
+        if self.ram.is_empty(){
+            return 0xFF;
+        }
         let bank:u16 = self.get_current_ram_bank() as u16;
         return self.ram[(bank * RAM_BANK_SIZE + address) as usize];
     }
 
     fn write_external_ram(&mut self, address: u16, value: u8){
-        let bank:u16 = self.get_current_ram_bank() as u16;
-        self.ram[(bank * RAM_BANK_SIZE + address) as usize] = value;
+        if self.ram.len() > 0{
+            let bank:u16 = self.get_current_ram_bank() as u16;
+            self.ram[(bank * RAM_BANK_SIZE + address) as usize] = value;   
+        }
     }
 }
 
