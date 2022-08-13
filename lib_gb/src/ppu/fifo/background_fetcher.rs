@@ -45,14 +45,7 @@ impl BackgroundFetcher{
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
         self.has_wy_reached_ly = self.has_wy_reached_ly || ly_register == window_pos.y;
-        let last_rendering_status = self.rendering_window;
         self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);
-        
-        // In case I was rendering a background pixel need to reset the state of the fetcher 
-        // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
-        if self.rendering_window && !last_rendering_status{
-            self.fetcher_state_machine.reset();
-        }
 
         match self.fetcher_state_machine.current_state(){
             FetchingState::FetchTileNumber=>{
@@ -88,20 +81,28 @@ impl BackgroundFetcher{
             FetchingState::Push if self.fifo.len() == 0 => {
                 if lcd_control & BIT_0_MASK == 0{
                     self.fifo.fill(&EMPTY_FIFO_BUFFER);
+                    self.current_x_pos += SPRITE_WIDTH;
                 }
                 else{
                     let low_data = self.fetcher_state_machine.data.low_tile_data;
                     let high_data = self.fetcher_state_machine.data.high_tile_data;
-                    let mut buffer:[u8;SPRITE_WIDTH as usize] = [0;SPRITE_WIDTH as usize];
-                    for i in 0..buffer.len(){
+                    for i in (0..FIFO_SIZE).rev(){
                         let mask = 1 << i;
                         let mut pixel = (low_data & mask) >> i;
                         pixel |= ((high_data & mask) >> i) << 1;
-                        buffer[(buffer.len() - 1 - i) as usize] = pixel;
+                        self.fifo.push(pixel);
+                        self.current_x_pos += 1;
+         
+                        let last_rendering_status = self.rendering_window;
+                        self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);            
+                        // In case I was rendering a background pixel need to reset the state of the fetcher 
+                        // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
+                        if self.rendering_window && !last_rendering_status{
+                            self.fetcher_state_machine.reset();
+                            return;
+                        }
                     }
-                    self.fifo.fill(&buffer);
                 }
-                self.current_x_pos += SPRITE_WIDTH;
             }
             _ => {}
         }
