@@ -85,3 +85,42 @@ fn panic_on_fifo_set_index_out_of_range(){
     //should panic
     fifo[2] = 4;
 }
+
+#[test]
+fn fill_fills_the_fifo(){
+    let mut fifo = FixedSizeQueue::<u8, 8>::new();
+    fifo.push(1);
+    fifo.push(1);
+    fifo.push(1);
+
+    fifo.remove();
+    fifo.remove();
+    
+    fifo.fill(&[0;8]);
+
+    assert_eq!(fifo.len(), 8);
+    for i in 0..8{
+        assert_eq!(fifo[i], 0);
+    }
+}
+
+#[test]
+fn fifo_index_check_happyflow(){
+    let mut fifo = FixedSizeQueue::<u8, 8>::new();
+    for i in 0..8{
+        fifo.push(i);
+    }
+    for _ in 0..6{
+        fifo.remove();
+    }
+    for i in 0..6{
+        fifo.push(i);
+    }
+
+    assert_eq!(fifo[0], 6);
+    assert_eq!(fifo[1], 7);
+    assert_eq!(fifo[2], 0);
+    assert_eq!(fifo[3], 1);
+    assert_eq!(fifo[4], 2);
+    assert_eq!(fifo[5], 3);
+}
