@@ -71,11 +71,11 @@ impl SpriteFetcher{
                 if oam_attribute.flip_x{
                     for i in (0 + skip_x)..SPRITE_WIDTH as usize{
                         let pixel = Self::get_decoded_pixel(i, low_data, high_data);
-                        if i + skip_x >= start_x {
+                        if i >= start_x {
                             self.fifo.push((pixel, self.current_oam_entry));
                         }
-                        else if self.fifo[i + skip_x].0 == 0{
-                            self.fifo[i+ skip_x] = (pixel, self.current_oam_entry);
+                        else if self.fifo[i].0 == 0{
+                            self.fifo[i] = (pixel, self.current_oam_entry);
                         }
                     }
                 }

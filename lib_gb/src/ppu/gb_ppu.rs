@@ -159,7 +159,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             (HBLANK_M_CYCLES_LENGTH as u32 * 154 ) - self.m_cycles_passed as u32
         }
         else{
-            ((self.lyc_register - self.ly_register) as u32 * HBLANK_M_CYCLES_LENGTH as u32) - self.m_cycles_passed as u32
+            ((self.lyc_register - self.ly_register) as u32 * HBLANK_M_CYCLES_LENGTH as u32) - (self.m_cycles_passed as u32 % HBLANK_M_CYCLES_LENGTH as u32)
         };
 
         return t_cycles_to_next_stat_change;

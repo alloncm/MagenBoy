@@ -10,7 +10,7 @@ const BUFFERS_NUMBER:usize = 3;
 struct UserData{
     rx: Receiver<usize>,
     current_buf: Option<usize>,
-    current_buf_index:usize,
+    current_buf_byte_index:usize,
 }
 
 pub struct SdlPullAudioDevice<AR:AudioResampler>{
@@ -31,7 +31,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
         let(s,r) = bounded(BUFFERS_NUMBER - 1);
         let data = Box::new(UserData{
             current_buf:Option::None,
-            current_buf_index:0,
+            current_buf_byte_index:0,
             rx:r
         });
 
@@ -103,22 +103,21 @@ unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length
     }
 
     let samples = &*((safe_userdata.current_buf.unwrap()) as *const [Sample;BUFFER_SIZE]);
-    let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - safe_userdata.current_buf_index;
-    let samples_ptr = (samples.as_ptr() as *mut u8).add(safe_userdata.current_buf_index);
+    let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - safe_userdata.current_buf_byte_index;
+    let samples_ptr = (samples.as_ptr() as *mut u8).add(safe_userdata.current_buf_byte_index);
     std::ptr::copy_nonoverlapping(samples_ptr, buffer, std::cmp::min(length, samples_size));
 
     if length > samples_size && safe_userdata.rx.is_empty(){
         safe_userdata.current_buf = Option::None;
-        safe_userdata.current_buf_index = 0;
-        std::ptr::write_bytes(buffer.add(samples.len() as usize), 0, length  - samples_size);
+        safe_userdata.current_buf_byte_index = 0;
+        std::ptr::write_bytes(buffer.add(samples_size), 0, length  - samples_size);
     }
     else if length > samples_size{
         safe_userdata.current_buf = Option::None;
-        safe_userdata.current_buf_index = 0;
+        safe_userdata.current_buf_byte_index = 0;
         audio_callback(userdata, buffer.add(samples_size), (length - samples_size) as i32);
     }
     else{
-        safe_userdata.current_buf_index = length;
+        safe_userdata.current_buf_byte_index = length;
     }
 }
-
