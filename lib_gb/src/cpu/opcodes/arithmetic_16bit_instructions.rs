@@ -19,8 +19,8 @@ pub fn add_hl_rr(cpu:&mut GbCpu, opcode:u8)->u8{
 
     *cpu.hl.value() = value;
 
-    //cycles
-    return 2;
+    // 2 cycles - 1 reading opcode, 1 internal operation
+    return 1;
 }
 
 pub fn add_sp_dd(cpu:&mut GbCpu, opcode:u16)->u8{
@@ -34,8 +34,8 @@ pub fn add_sp_dd(cpu:&mut GbCpu, opcode:u16)->u8{
     cpu.set_by_value(Flag::Carry, signed_check_for_carry_first_nible_add(temp as i16, dd));
     cpu.set_by_value(Flag::HalfCarry, signed_check_for_half_carry_first_nible_add(temp as i16, dd));
     
-    //cycles
-    return 4;
+    // 4 cycles - 2 reading opcode, 2 internal operation
+    return 2;
 }
 
 pub fn inc_rr(cpu:&mut GbCpu, opcode:u8)->u8{
@@ -43,8 +43,8 @@ pub fn inc_rr(cpu:&mut GbCpu, opcode:u8)->u8{
     let reg = get_arithmetic_16reg(cpu, reg);
     *reg = (*reg).wrapping_add(1);
     
-    //cycles
-    return 2;
+    // 2 cycles - 1 reading opcode, 1 internal operation
+    return 1;
 }
 
 
@@ -53,6 +53,6 @@ pub fn dec_rr(cpu:&mut GbCpu, opcode:u8)->u8{
     let reg = get_arithmetic_16reg(cpu, reg);
     *reg = (*reg).wrapping_sub(1);
     
-    //cycles
-    return 2;
+    // 2 cycles - 1 reading opcode, 1 internal operation
+    return 1;
 }

@@ -11,11 +11,12 @@ pub struct BackgroundFetcher{
     current_x_pos:u8,
     rendering_window:bool,
     fetcher_state_machine:FetcherStateMachine,
+    scanline_rendering_started:bool,
 }
 
 impl BackgroundFetcher{
     pub fn new()->Self{
-        let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
+        let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Push, FetchingState::Sleep];
         BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
@@ -23,6 +24,7 @@ impl BackgroundFetcher{
             window_line_counter:0,
             rendering_window:false,
             has_wy_reached_ly:false,
+            scanline_rendering_started:false
         }
     }
 
@@ -31,6 +33,7 @@ impl BackgroundFetcher{
         self.current_x_pos = 0;
         self.fetcher_state_machine.reset();
         self.rendering_window = false;
+        self.scanline_rendering_started = false;
     }
 
     pub fn pause(&mut self){
@@ -77,8 +80,18 @@ impl BackgroundFetcher{
                 let high_data = vram.read_current_bank(address + 1);
 
                 self.fetcher_state_machine.data.high_tile_data = high_data;
+
+                // The gameboy has this quirk that in the first fetch of the scanline it reset itself after reaching the fetch high tile step
+                if !self.scanline_rendering_started{
+                    self.reset();
+                    self.scanline_rendering_started = true;
+                }
             }
-            FetchingState::Push if self.fifo.len() == 0 => {
+            FetchingState::Push => {
+                if self.fifo.len() != 0{
+                    // wait until the fifo is empty, dont advance the state machine either
+                    return;
+                }
                 if lcd_control & BIT_0_MASK == 0{
                     self.fifo.fill(&EMPTY_FIFO_BUFFER);
                     self.current_x_pos += SPRITE_WIDTH;
@@ -104,7 +117,7 @@ impl BackgroundFetcher{
                     }
                 }
             }
-            _ => {}
+            FetchingState::Sleep => {}
         }
         self.fetcher_state_machine.advance();
     }

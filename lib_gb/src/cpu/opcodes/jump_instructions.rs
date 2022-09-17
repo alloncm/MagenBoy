@@ -15,20 +15,18 @@ pub fn call(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
     push_pc(cpu, memory);
     cpu.program_counter = address_to_jump;
     
-    //cycles
-    return 6;
+    // 6 cycles - 3 reading opcode, 2 writing pc to sp address, 1 internal operation
+    return 1;
 }
 
 fn call_if_true(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32, flag:bool)->u8{
     if flag{
-        call(cpu, memory, opcode);
-        
-        //cycles
-        return 6;
+        // 6 cycles - 6 as call opcode
+        return call(cpu, memory, opcode);
     }
     
-    //cycles
-    return 3;
+    // 3 cycles - 3 reading opcode (no call executed)
+    return 0;
 }
 
 pub fn call_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
@@ -47,20 +45,20 @@ pub fn call_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
 pub fn ret(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     cpu.program_counter = pop(cpu, memory);
     
-    //cycles
-    return 4;
+    // 4 cycles - 1 reading opcode, 2 writing pc to sp address, 1 internal operation
+    return 1;
 }
 
 fn ret_if_true(cpu:&mut GbCpu, memory:&mut impl Memory, flag:bool)->u8{
     if flag{
-        ret(cpu, memory);
+        let cycles = ret(cpu, memory);
         
-        //cycles
-        return 5;
+        // 5 cycles - 4 as ret opcode, 1 internal operation
+        return cycles+1;
     }
     
-    //cycles
-    return 2;
+    // 2 cycles - 1 reading opcode, 1 internal operation
+    return 1;
 }
 
 pub fn ret_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
@@ -92,35 +90,34 @@ pub fn rst(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     push_pc(cpu, memory);
     cpu.program_counter = value as u16;
     
-    //cycles
-    return 4;
+    // 4 cycles - 1 reading opcode, 2 writing pc to sp address, 1 internal operation
+    return 1;
 }
 
 pub fn reti(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
     let cycles = ret(cpu, memory);
     cpu.mie = true;
 
-    cycles
+    // 4 cycles - 4 as ret opcode
+    return cycles;
 }
 
 fn jump_if_true(cpu:&mut GbCpu, opcode:u32, flag:bool)->u8{
     if flag{
-        jump(cpu, opcode);
-        
-        //cycles
-        return 4;
+        // 4 cycles - 4 as jump opcode
+        return jump(cpu, opcode);
     }
     
-    //cycles
-    return 3;
+    // 3 cycles - 3 reading opcode
+    return 0;
 }
 
 pub fn jump(cpu:&mut GbCpu, opcode:u32)->u8{
     let address = (((opcode & 0xFF) as u16)<<8) | (((opcode & 0xFF00)as u16)>>8);
     cpu.program_counter = address;
     
-    //cycles
-    return 4;
+    // 4 cycles - 3 reading opcode, 1 internal operation
+    return 1;
 }
 
 pub fn jump_cc(cpu:&mut GbCpu, opcode:u32)->u8{
@@ -139,20 +136,18 @@ pub fn jump_cc(cpu:&mut GbCpu, opcode:u32)->u8{
 pub fn jump_hl(cpu:&mut GbCpu)->u8{
     cpu.program_counter = *cpu.hl.value();
     
-    //cycles
-    return 1;
+    // 1 cycles - 1 reading opcode
+    return 0;
 }
 
 fn jump_r_if_true(cpu:&mut GbCpu, opcode:u16, flag:bool)->u8{
     if flag{
-        jump_r(cpu, opcode);
-
-        //cycles for jump
-        return 3;
+        // 3 cycles - 3 as jump_r opcode
+        return jump_r(cpu, opcode);
     }
 
-    //cycles for no jump
-    return 2;
+    // 2 cycles - 2 reading opcode (no jump)
+    return 0;
 }
 
 pub fn jump_r(cpu:&mut GbCpu, opcode:u16)->u8{
@@ -160,8 +155,8 @@ pub fn jump_r(cpu:&mut GbCpu, opcode:u16)->u8{
     let address = address as i8;
     cpu.program_counter = cpu.program_counter.wrapping_add(address as u16);
     
-    //cycles
-    return 3;
+    // 3 cycles - 2 reading opcode, 1 internal operation
+    return 1;
 }
 
 pub fn jump_r_cc(cpu:&mut GbCpu, opcode:u16)->u8{

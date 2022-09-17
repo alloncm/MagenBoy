@@ -57,8 +57,8 @@ impl GbCpu {
         //unhalting the CPU
         self.halt = false;
 
-        //cycles passed
-        return 5;
+        // 5 cycles - 2 pushing pc to memory, 3 internal operation
+        return 3;
     }
 
     pub fn set_flag(&mut self, flag:Flag){

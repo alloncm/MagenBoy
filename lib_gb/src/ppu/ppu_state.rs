@@ -14,6 +14,12 @@ impl Clone for PpuState{
     }
 }
 
+impl PartialEq for PpuState{
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
+}
+
 impl PpuState{
     pub fn from_u8(mut value:u8)->Self{
         value = value & 0b0000_0011;

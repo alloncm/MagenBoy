@@ -41,9 +41,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
     }
 
     pub fn cycle_frame(&mut self){
-        let mut cycles_counter = 0;
-
-        while cycles_counter < CYCLES_PER_FRAME{
+        while self.mmu.m_cycle_counter < CYCLES_PER_FRAME{
             self.mmu.poll_joypad_state();
 
             //CPU
@@ -51,18 +49,19 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             if !self.cpu.halt{
                 cpu_cycles_passed = self.execute_opcode();
             }
-            
-            self.mmu.cycle(cpu_cycles_passed);
+            if cpu_cycles_passed != 0{
+                self.mmu.cycle(cpu_cycles_passed);
+            }
             
             //interrupts
             let interrupt_request = self.mmu.handle_interrupts(self.cpu.mie);
             let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
-            if interrupt_cycles != 0{                
+            if interrupt_cycles != 0{
                 self.mmu.cycle(interrupt_cycles);
             }
-
-            cycles_counter += cpu_cycles_passed as u32 + interrupt_cycles as u32;
         }
+
+        self.mmu.m_cycle_counter = 0;
     }
 
     fn execute_opcode(&mut self)->u8{
@@ -79,7 +78,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             let h = *self.cpu.hl.high();
             let l = *self.cpu.hl.low();
             debug!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
-            a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc), self.mmu.read(pc+1), self.mmu.read(pc+2), self.mmu.read(pc+3));
+            a,f,b,c,d,e,h,l, self.cpu.stack_pointer, pc, self.mmu.read(pc,0), self.mmu.read(pc+1,0), self.mmu.read(pc+2,0), self.mmu.read(pc+3,0));
         }
 
         self.cpu.run_opcode(&mut self.mmu)
