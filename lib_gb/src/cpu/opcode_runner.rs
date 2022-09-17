@@ -24,6 +24,7 @@ impl GbCpu{
         match opcode{
             //Stop
             0x10=>{
+                // TODO: verify if stop is 1 byte or 2 bytes
                 let next_byte = self.fetch_next_byte(memory);
                 if next_byte == 0{
                     stop(self, memory)
@@ -34,7 +35,7 @@ impl GbCpu{
             }
     
             //just cpu
-            0x00=>1,
+            0x00=>0,    // 1 cycles - 1 reading opcode
             0x07=>rlca(self),
             0x0F=>rrca(self),
             0x17=>rla(self),
@@ -124,7 +125,6 @@ impl GbCpu{
             0xF0=>run_u16_memory_opcode(self, memory, opcode, ld_a_ioport_n),
     
             //Memory u32 opcodes
-            
             0x08=>run_u32_memory_opcode(self, memory, opcode, ld_nn_sp),
             0xC4|0xCC|0xD4|0xDC=>run_u32_memory_opcode(self, memory, opcode, call_cc),
             0xCD=>run_u32_memory_opcode(self, memory, opcode, call),
@@ -172,7 +172,7 @@ impl GbCpu{
 
     
     fn fetch_next_byte(&mut self, memory: &mut impl Memory)->u8{
-        let byte:u8 = memory.read(self.program_counter);
+        let byte:u8 = memory.read(self.program_counter, 1);
         self.program_counter+=1;
         return byte;
     }

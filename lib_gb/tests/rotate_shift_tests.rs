@@ -1,21 +1,9 @@
+mod memory_stub;
+
+use memory_stub::MemoryStub;
 use lib_gb::cpu::opcodes::rotate_shift_instructions::*;
 use lib_gb::cpu::gb_cpu::*;
 use lib_gb::cpu::flag::Flag;
-use lib_gb::mmu::memory::Memory;
-
-struct MemoryStub{
-    pub data:[u8;0xFFFF]
-}
-
-impl Memory for MemoryStub{
-    fn read(&mut self, address:u16)->u8{
-        self.data[address as usize]
-    }
-
-    fn write(&mut self, address:u16, value:u8){
-        self.data[address as usize] = value;
-    }
-}
 
 #[test]
 fn test_rlc_r(){

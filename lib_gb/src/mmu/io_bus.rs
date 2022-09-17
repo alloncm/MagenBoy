@@ -4,7 +4,7 @@ use crate::{
     timer::{timer_register_updater::*, gb_timer::GbTimer}, 
     keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}
 };
-use super::{interrupts_handler::*, memory::*,io_ports::*, oam_dma_controller::OamDmaController};
+use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
@@ -31,8 +31,8 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     ppu_event:Option<u32>,
 }
 
-impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX, JP>{
-    fn read(&mut self, address:u16)->u8 {
+impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
+    pub fn read(&mut self, address:u16)->u8 {
 
         match address{
             TAC_REGISTER_INDEX | DIV_REGISTER_INDEX | TIMA_REGISTER_INDEX=> self.cycle_timer(),
@@ -95,7 +95,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> Memory for IoBus<AD, GFX,
         };
     }
 
-    fn write(&mut self, address:u16, value:u8) {
+    pub fn write(&mut self, address:u16, value:u8) {
         match address{
             DIV_REGISTER_INDEX | TIMA_REGISTER_INDEX | TMA_REGISTER_INDEX | TAC_REGISTER_INDEX => self.cycle_timer(),
             NR10_REGISTER_INDEX..=WAVE_RAM_END_INDEX => self.cycle_apu(),

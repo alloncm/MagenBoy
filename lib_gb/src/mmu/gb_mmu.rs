@@ -16,6 +16,7 @@ const BAD_READ_VALUE:u8 = 0xFF;
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     pub io_bus: IoBus<D, G, J>,
+    pub m_cycle_counter:u32,
     boot_rom:[u8;BOOT_ROM_SIZE],
     external_memory_bus:ExternalMemoryBus<'a>,
     oucupied_access_bus:Option<AccessBus>,
@@ -26,7 +27,8 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
-    fn read(&mut self, address:u16)->u8{
+    fn read(&mut self, address:u16, m_cycles:u8)->u8{
+        self.cycle(m_cycles);
         if let Some (bus) = &self.oucupied_access_bus{
             return match address{
                 0xFF00..=0xFF7F => self.io_bus.read(address - 0xFF00),
@@ -61,7 +63,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
         };
     }
 
-    fn write(&mut self, address:u16, value:u8){
+    fn write(&mut self, address:u16, value:u8, m_cycles:u8){
+        self.cycle(m_cycles);
         if let Some(bus) = &self.oucupied_access_bus{
             match address{
                 0xFF00..=0xFF7F => self.io_bus.write(address- 0xFF00, value),
@@ -136,6 +139,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn new_with_bootrom(mbc:&'a mut Box<dyn Mbc>, boot_rom:[u8;BOOT_ROM_SIZE], apu:GbApu<D>, gfx_device:G, joypad_proider:J)->Self{
         GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider),
+            m_cycle_counter:0,
             external_memory_bus: ExternalMemoryBus::new(mbc),
             oucupied_access_bus:None,
             hram:[0;HRAM_SIZE],
@@ -148,7 +152,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         let mut mmu = GbMmu::new_with_bootrom(mbc, [0;BOOT_ROM_SIZE], apu, gfx_device, joypad_proider);
 
         //Setting the bootrom register to be set (the boot sequence has over)
-        mmu.write(BOOT_REGISTER_ADDRESS, 1);
+        mmu.write(BOOT_REGISTER_ADDRESS, 1, 0);
         
         return mmu;
     }
@@ -156,6 +160,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn cycle(&mut self, m_cycles:u8){
         self.oucupied_access_bus = self.io_bus.dma_controller.cycle(m_cycles as u32, &mut self.external_memory_bus, &mut self.io_bus.ppu);
         self.io_bus.cycle(m_cycles as u32);
+        self.m_cycle_counter += m_cycles as u32;
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -167,12 +172,11 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     fn is_oam_ready_for_io(&self)->bool{
-        let ppu_state = self.io_bus.ppu.state as u8;
-        return ppu_state != PpuState::OamSearch as u8 && ppu_state != PpuState::PixelTransfer as u8
+        return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer
     }
 
     fn is_vram_ready_for_io(&self)->bool{
-        return self.io_bus.ppu.state as u8 != PpuState::PixelTransfer as u8;
+        return self.io_bus.ppu.state != PpuState::PixelTransfer;
     }
 
     fn bad_dma_read(address:u16)->u8{
