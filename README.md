@@ -48,18 +48,24 @@ On by default (to turn off pass `--no-default-features`)
 - CPU - Cycle accurate CPU
 - PPU - Cycle accurate fifo PPU
 - Timer - Mostly accurate timer
-- APU - Cycle mostly accurate APU
+- APU - mostly accurate APU
 - Tests
     - [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
     - [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
     - [TurtleTests](https://github.com/Powerlated/TurtleTests) - :thumbsup:
     - [CPU cycle accurate](https://github.com/retrio/gb-test-roms/tree/master/instr_timing) - :thumbsup:
+    - [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite)
+        - acceptance/ppu/intr_2_0_timing - :thumbsup:
+        - acceptance/ppu/intr_2_mode0_timing - :thumbsup:
+        - acceptance/ppu/intr_2_mode3_timing - :thumbsup:
+        - acceptance/ppu/intr_2_oam_ok_timing - :thumbsup:
     - APU passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)- :thumbsup:
-    - Timer passes most of [mooneye-gb tests](https://github.com/Gekkio/mooneye-gb/tree/master/tests/acceptance/timer) - :thumbsup:
+    - Timer passes most of [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite/tree/main/acceptance/timer) - :thumbsup:
 
 ### Games Tested
 - Pokemon Red - :thumbsup:
 - Tetris - :thumbsup:
+- Super Mario World - :thumbsup:
 
 ## GameBoy Color
 
@@ -73,3 +79,5 @@ Curerently there is no Support (support is planned in the future)
 - [Hactix's awsome blog post](https://hacktix.github.io/GBEDG/)
 - [Nightshade's awsome blog post](https://nightshade256.github.io/2021/03/27/gb-sound-emulation.html)
 - [The Ultimate GameBoy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI)
+- [Nitty gritty Gameboy timing](http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.xt)
+- [mgba gbdoc](https://mgba-emu.github.io/gbdoc/)
