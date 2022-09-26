@@ -3,10 +3,11 @@ use rppal::gpio::{OutputPin, IoPin};
 
 use crate::rpi_gpio::dma::DmaSpiTransferer;
 
-use super::{ili9341_controller::{Ili9341Commands, SpiController, SPI_BUFFER_SIZE}, decl_write_volatile_field, decl_read_volatile_field};
+use super::{ili9341_controller::{Ili9341Commands, SpiController, SPI_BUFFER_SIZE}, decl_write_volatile_field, decl_read_volatile_field, memory_barrier};
 
 const BCM_SPI0_BASE_ADDRESS:usize = 0x20_4000;
-const SPI_CLOCK_DIVISOR:u32 = 4;    // the smaller the faster (on my system below 4 there are currptions)
+const FAST_SPI_CLOCK_DIVISOR:u32 = 4;   // the smaller the faster (on my ili9341 screen below 4 there are currptions)
+const INIT_SPI_CLOCK_DIVISOR:u32 = 34;  // slow clock for verifiying the initialization goes smooth with no corruptions   
 
 // The register are 4 bytes each so making sure the allignment and padding are correct
 #[repr(C, align(4))]
@@ -65,12 +66,14 @@ impl MmioSpi{
             // ChipSelect = 0, ClockPhase = 0, ClockPolarity = 0
             spi_cs0.set_low();
             Self::setup_poll_fast_transfer(&mut *spi_registers);
-            (*spi_registers).write_clk(SPI_CLOCK_DIVISOR);
+            (*spi_registers).write_clk(INIT_SPI_CLOCK_DIVISOR);
         }
 
-
+        memory_barrier();   // Change SPI to DMA
         let dma_transferer = DmaSpiTransferer::new(&bcm_host, Self::SPI_CS_DMAEN);
+        memory_barrier();   // Change DMA to SPI
 
+        log::info!("Finish initializing spi mmio interface");
         MmioSpi { 
             _bcm:bcm_host, spi_registers, dc_pin, _spi_pins: spi_pins, _spi_cs0: spi_cs0, last_transfer_was_dma: false,
             dma_transferer
@@ -88,7 +91,9 @@ impl MmioSpi{
 
     fn prepare_for_transfer(&mut self) {
         if self.last_transfer_was_dma{
+            memory_barrier();   // Change SPI to DMA
             self.dma_transferer.end_dma_transfer();
+            memory_barrier();   // Change DMA to SPI
             Self::setup_poll_fast_transfer(self.spi_registers);
         }
     }
@@ -139,7 +144,9 @@ impl MmioSpi{
     // Since generic_const_exprs is not stable yet Im reserving the first 4 bytes of the data variable for internal use
     fn write_dma_raw(&mut self, data:&[u8;SPI_BUFFER_SIZE]){
         unsafe{(*self.spi_registers).write_cs(Self::SPI_CS_DMAEN | Self::SPI_CS_CLEAR)};
+        memory_barrier();   // Change SPI to DMA
         self.dma_transferer.start_dma_transfer(data, Self::SPI_CS_TA as u8);
+        memory_barrier();   // Change DMA to SPI
     }
 }
 
@@ -160,5 +167,15 @@ impl SpiController for MmioSpi{
 
     fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]) {
         self.write_dma(command, data);
+    }
+
+    fn fast_mode(&mut self) {
+        unsafe{(*self.spi_registers).write_clk(FAST_SPI_CLOCK_DIVISOR)};
+    }
+}
+
+impl Drop for MmioSpi{
+    fn drop(&mut self) {
+        unsafe{(*self.spi_registers).write_cs(Self::SPI_CS_CLEAR)};
     }
 }

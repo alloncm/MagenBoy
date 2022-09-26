@@ -15,6 +15,12 @@ fn libc_abort(message:&str){
     std::io::Result::<&str>::Err(std::io::Error::last_os_error()).expect(message);
 }
 
+// According to the docs the raspberrypi requires memory barrier between reads and writes to differnet peripherals 
+#[inline] 
+pub(self) fn memory_barrier(){
+    std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
+}
+
 macro_rules! decl_write_volatile_field{
     ($function_name:ident, $field_name:ident) =>{
         #[inline] unsafe fn $function_name(&mut self,value:u32){

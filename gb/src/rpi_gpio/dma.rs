@@ -96,7 +96,7 @@ impl GpuMemory{
     const ALLOCATE_MEMORY_TAG:u32 = 0x3000C;
     const LOCK_MEMORY_TAG:u32 = 0x3000D;
     const UNLOCK_MEMORY_TAG:u32 = 0x3000E;
-    const RELEASE_MEMORY_TAG:u32 = 0x3000E;
+    const RELEASE_MEMORY_TAG:u32 = 0x3000F;
     const PAGE_SIZE:u32 = 4096;
 
     // This function converts the from the bus address of the SDRAM uncached memory to the arm physical address
@@ -107,8 +107,16 @@ impl GpuMemory{
     fn allocate(mbox:&Mailbox, size:u32, mem_fd:c_int)->GpuMemory{
         let flags = (Self::MEM_ALLOC_FLAG_COHERENT | Self::MEM_ALLOC_FLAG_DIRECT) as u32;
         let handle = mbox.send_command(Self::ALLOCATE_MEMORY_TAG, [size, Self::PAGE_SIZE, flags]);
-
+        // This is not documented well but after testing - on out of Gpu memory mailbox returns handle = 0
+        if handle == 0{
+            std::panic!("Error allocating Gpu memory! perhaps there is not enough free Gpu memory");
+        }
         let bus_address = mbox.send_command(Self::LOCK_MEMORY_TAG, [handle]);
+        // This is not documented well but after testing - on invalid handle mailbox returns bus_address = 0
+        if bus_address == 0{
+            std::panic!("Error locking Gpu memory!");
+        }
+
         let virtual_address = unsafe{libc::mmap(
             std::ptr::null_mut(),
             size as libc::size_t,
@@ -123,18 +131,15 @@ impl GpuMemory{
 
     fn release(&self, mbox:&Mailbox){
         unsafe{
-            let result = libc::munmap(self.virtual_address_ptr as *mut c_void, self.size as libc::size_t);
-            if result != 0 {
+            if libc::munmap(self.virtual_address_ptr as *mut c_void, self.size as libc::size_t) != 0 {
                 libc_abort("Error while trying to un map gpu memory");
             }
         }
-        let status = mbox.send_command(Self::UNLOCK_MEMORY_TAG, [self.mailbox_memory_handle]);
-        if status != 0{
+        if mbox.send_command(Self::UNLOCK_MEMORY_TAG, [self.mailbox_memory_handle]) != 0{
             std::panic!("Error while trying to unlock gpu memory using mailbox");
         }
-        let status = mbox.send_command(Self::RELEASE_MEMORY_TAG, [self.mailbox_memory_handle]);
-        if status != 0{
-            std::panic!("Error while to release gpu memory using mailbox");
+        if mbox.send_command(Self::RELEASE_MEMORY_TAG, [self.mailbox_memory_handle]) != 0{
+            std::panic!("Error while trying to release gpu memory using mailbox");
         }
     }
 }
@@ -278,6 +283,8 @@ impl DmaSpiTransferer{
 
         unsafe{dma_controller.init_dma_control_blocks()};
 
+        log::info!("Initialized dma contorller");
+
         return dma_controller;
     }
 
@@ -348,6 +355,10 @@ impl DmaSpiTransferer{
 
     pub fn start_dma_transfer(&mut self, data:&[u8; SPI_BUFFER_SIZE], transfer_active_flag:u8){        
         unsafe{
+            if (*self.tx_dma).read_cs() & 0x100 != 0{
+                log::error!("Error in the tx dma");
+            }
+
             let data_len = Self::DMA_SPI_CHUNK_SIZE - Self::DMA_SPI_HEADER_SIZE as usize;  // Removing the first 4 bytes from this length param
             let header = [transfer_active_flag, 0, (data_len & 0xFF) as u8,  /*making sure this is little endian order*/ (data_len >> 8) as u8];
 
@@ -365,9 +376,12 @@ impl DmaSpiTransferer{
             (*self.tx_dma).write_conblk_ad(self.tx_control_block_memory.bus_address);
             (*self.rx_dma).write_conblk_ad(self.rx_control_block_memory.bus_address);
 
+            memory_barrier();   // Sync all the memory operations happened in this function 
             // Starting the dma transfer
             (*self.tx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
             (*self.rx_dma).write_cs(Self::DMA_CS_ACTIVE | Self::DMA_CS_END);
+            // Since the DMA controller writes to the SPI registers adding a barrier (even though it wrties afterwards to the DMA registers)
+            memory_barrier();   // Change DMA to SPI
         }
     }
 
@@ -400,11 +414,17 @@ impl DmaSpiTransferer{
 
 impl Drop for DmaSpiTransferer{
     fn drop(&mut self) {
+        // Finish current dma operation
+        self.end_dma_transfer();
+        
         // reset the dma channels before releasing the memory
         unsafe{
             // reset the dma channels
             (*self.tx_dma).write_cs(Self::DMA_CS_RESET);
             (*self.rx_dma).write_cs(Self::DMA_CS_RESET);
+            // clear the permaps for the channels
+            (*self.tx_dma).control_block.write_ti(0);
+            (*self.rx_dma).control_block.write_ti(0);
             // disable the channels I used
             let mask = !((1 << Self::TX_CHANNEL_NUMBER) | (1 << Self::RX_CHANNEL_NUMBER));
             write_volatile(self.dma_enable_register_ptr, read_volatile(self.dma_enable_register_ptr) & mask);
@@ -415,5 +435,7 @@ impl Drop for DmaSpiTransferer{
         self.rx_control_block_memory.release(&self.mbox);
         self.source_buffer_memory.release(&self.mbox);
         self.tx_control_block_memory.release(&self.mbox);
+
+        log::info!("Successfuly release dma resources");
     }
 }
