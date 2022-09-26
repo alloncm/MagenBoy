@@ -9,6 +9,7 @@ log = "0.4"
 
 [features]
 u16pixel = []
+apu = []
 
 [dev-dependencies]
 criterion = "0.3"

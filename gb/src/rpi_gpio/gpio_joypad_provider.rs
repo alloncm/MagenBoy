@@ -2,14 +2,14 @@ use lib_gb::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::JoypadProvid
 use lib_gb::utils::create_array;
 use rppal::gpio::{Gpio, InputPin};
 
-pub type GpioPin = u8;
+pub type GpioBcmPin = u8;
 
 pub struct GpioJoypadProvider{
     input_pins:[InputPin;NUM_OF_KEYS]
 }
 
 impl GpioJoypadProvider{
-    pub fn new<F:Fn(&Button)->GpioPin>(mapper:F)->Self{   
+    pub fn new<F:Fn(&Button)->GpioBcmPin>(mapper:F)->Self{   
         let gpio = Gpio::new().unwrap();
         let buttons = [Button::A,Button::B,Button::Start,Button::Select,Button::Up,Button::Down,Button::Right,Button::Left];
         let mut counter = 0;
