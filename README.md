@@ -13,19 +13,6 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 
 ## How to use
 
-```shell
-magenboy [path_to_rom] [other_optional_flags]
-```
-
-### Optional flags
-
-* `--log` - Print logs in debug mode to a file
-* `--file-audio` - Saves the audio to a file
-* `--full-screen` - Full screen mode
-* `--no-vsync` - Disable vsync
-* `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
-* `--rom_menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
-
 ### Building
 
 ```shell
@@ -40,6 +27,25 @@ On by default (to turn off pass `--no-default-features`)
 * `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
 * `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
 * `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
+
+### Running
+
+#### Desktop
+```sh
+magenboy [path_to_rom] [other_optional_flags]
+```
+
+#### Raspberry Pi
+Coming soon!
+
+### Optional flags
+
+* `--log` - Print logs in debug mode to a file
+* `--file-audio` - Saves the audio to a file
+* `--full-screen` - Full screen mode
+* `--no-vsync` - Disable vsync
+* `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
+* `--rom_menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 
 ## GameBoy
 
@@ -72,6 +78,7 @@ On by default (to turn off pass `--no-default-features`)
 Curerently there is no Support (support is planned in the future)
 
 ## Resources
+### Gameboy
 - [The Pandocs](https://gbdev.io/pandocs/)
 - [gbops](https://izik1.github.io/gbops/index.html)
 - [The GameBoy Programming Manual](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwi2muaT98j4AhWwhc4BHRaxAaEQFnoECAcQAQ&url=https%3A%2F%2Farchive.org%2Fdownload%2FGameBoyProgManVer1.1%2FGameBoyProgManVer1.1.pdf&usg=AOvVaw3LoEvXhZRBH7r68qdXIhiP)
@@ -81,3 +88,8 @@ Curerently there is no Support (support is planned in the future)
 - [The Ultimate GameBoy Talk](https://www.youtube.com/watch?v=HyzD8pNlpwI)
 - [Nitty gritty Gameboy timing](http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.xt)
 - [mgba gbdoc](https://mgba-emu.github.io/gbdoc/)
+
+### RPI
+- [Raspberry Pi docs](https://www.raspberrypi.com/documentation/computers/processors.html)
+- [juj/fbcp-ili9341 as a refference](https://github.com/juj/fbcp-ili9341)
+- [Raspberry Pi DMA programming in C](https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/)
