@@ -41,6 +41,7 @@ pub const SPI_BUFFER_SIZE:usize = TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * s
 
 pub trait SpiController {
     fn new(dc_pin_number:u8)->Self;
+    fn fast_mode(&mut self);
     fn write<const SIZE:usize>(&mut self, command:Ili9341Commands, data:&[u8;SIZE]);
     fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]);
 }
@@ -101,7 +102,7 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
         // Configuring the screen
         spi.write(Ili9341Commands::MemoryAccessControl, &[0x20]); // This command tlit the screen 90 degree
         spi.write(Ili9341Commands::PixelFormatSet, &[0x55]);     // set pixel format to 16 bit per pixel;
-        spi.write(Ili9341Commands::FrameRateControl, &[0x0, 0x1F /*According to the docs this is 61 hrz */]);
+        spi.write(Ili9341Commands::FrameRateControl, &[0x0, 0x10 /*According to the docs this is 119 hrz, setting this option in order to avoid screen tearing on rpi zero2 */]);
         spi.write(Ili9341Commands::DisplayFunctionControl, &[0x8, 0x82, 0x27]);
         
         // Gamma values - pretty sure its redundant
@@ -117,14 +118,21 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
         /*---------------------------------------------------------------------------------------------------------------------- */
         //End of fbcp-ili9341 inpired implementation
 
+        log::info!("Finish configuring ili9341");
+
+        // turn backlight on
+        led_pin.set_high();
+
         // Clear screen
         spi.write(Ili9341Commands::ColumnAddressSet, &[0,0,((ILI9341_SCREEN_WIDTH -1) >> 8) as u8, ((ILI9341_SCREEN_WIDTH -1) & 0xFF) as u8]);
         spi.write(Ili9341Commands::PageAddressSet, &[0,0,((ILI9341_SCREEN_HEIGHT -1) >> 8) as u8, ((ILI9341_SCREEN_HEIGHT -1) & 0xFF) as u8]);
         // using write and not write buffer since this is not the correct size 
         spi.write(Ili9341Commands::MemoryWrite, &Self::CLEAN_BUFFER);
 
-        // turn backlight on
-        led_pin.set_high();
+        // need to sleep before changing the clock after transferring pixels to the lcd
+        Self::sleep_ms(120);
+
+        spi.fast_mode();
 
         log::info!("finish ili9341 device init");
 
@@ -159,6 +167,7 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
 
 impl<SC:SpiController> Drop for Ili9341Contoller<SC>{
     fn drop(&mut self) {
+        self.spi.write(Ili9341Commands::DisplayOff, &[]);
         self.led_pin.set_low();
         self.reset_pin.set_high();
         Self::sleep_ms(1);
@@ -209,7 +218,7 @@ impl<SC:SpiController> GfxDevice for Ili9341GfxDevice<SC>{
         self.time_counter = self.time_counter.add(time.duration_since(self.last_time));
         self.last_time = time;
         if self.time_counter.as_millis() > 1000{
-            log::info!("FPS: {}", self.frames_counter);
+            log::debug!("FPS: {}", self.frames_counter);
             self.frames_counter = 0;
             self.time_counter = std::time::Duration::ZERO;
         }

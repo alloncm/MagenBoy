@@ -204,7 +204,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         self.ppu_cycles = 0;
     }
     fn cycle_apu(&mut self){
-        self.apu_event_cycles = self.apu.cycle(self.apu_cycles_counter);
+        #[cfg(feature = "apu")]{
+            self.apu_event_cycles = self.apu.cycle(self.apu_cycles_counter);
+        }
+        
         self.apu_cycles_counter = 0;
     }
     fn cycle_timer(&mut self){

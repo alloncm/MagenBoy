@@ -44,4 +44,9 @@ impl SpiController for RppalSpi{
     fn write_buffer(&mut self, command:Ili9341Commands, data:&[u8;SPI_BUFFER_SIZE]) {
         self.write(command, data);
     }
+
+    fn fast_mode(&mut self) {
+        // No need to change the clock here, 
+        // since we have no access directly to the clock register we cant set it high enough for it to matter :()
+    }
 }

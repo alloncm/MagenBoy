@@ -1,4 +1,5 @@
 fn main() {
-    #[cfg(target_os = "linux")]
+    // Checking for rpi
+    #[cfg(all(target_os = "linux", target_arch = "arm"))]
     println!("cargo:rustc-link-lib=bcm_host");
 }

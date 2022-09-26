@@ -6,10 +6,12 @@ mod rpi_gpio;
 mod audio{
     pub mod audio_resampler;
     pub mod multi_device_audio;
+    #[cfg(feature = "apu")]
     pub mod wav_file_audio_device;
     #[cfg(not(feature = "sdl-resample"))]
     pub mod manual_audio_resampler;
 }
+#[cfg(feature = "sdl")]
 mod sdl{
     pub mod utils;
     #[cfg(not(feature = "u16pixel"))]
@@ -17,6 +19,7 @@ mod sdl{
     #[cfg(feature = "sdl-resample")]
     pub mod sdl_audio_resampler;
 
+    #[cfg(feature = "apu")]
     cfg_if::cfg_if!{
         if #[cfg(feature = "push-audio")]{
             pub mod sdl_push_audio_device;
@@ -40,20 +43,27 @@ cfg_if::cfg_if!{
     }
 }
 
-use crate::{audio::multi_device_audio::*, audio::audio_resampler::ResampledAudioDevice, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
+use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
 use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu, TerminalRawModeJoypadProvider};
-use lib_gb::{keypad::button::Button, GB_FREQUENCY, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
-use sdl2::sys::*;
+use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 use std::{fs, env, result::Result, vec::Vec};
 use log::info;
+cfg_if::cfg_if! {if #[cfg(feature = "apu")]{
+    use lib_gb::GB_FREQUENCY;
+    use crate::audio::audio_resampler::ResampledAudioDevice;
+}}
+#[cfg(feature = "sdl")]
+use sdl2::sys::*;
 
-const SCREEN_SCALE:usize = 4;
 const TURBO_MUL:u8 = 1;
 
 cfg_if::cfg_if!{
     if #[cfg(feature = "rpi")]{
+        const RESET_PIN_BCM:u8 = 14;
+        const DC_PIN_BCM:u8 = 15;
+        const LED_PIN_BCM:u8 = 25;
         use crate::rpi_gpio::gpio_joypad_provider::*;
-        fn buttons_mapper(button:&Button)->GpioPin{
+        fn buttons_mapper(button:&Button)->GpioBcmPin{
             match button{
                 Button::A       => 18,
                 Button::B       => 17,
@@ -67,6 +77,7 @@ cfg_if::cfg_if!{
         }
     }
     else{
+        const SCREEN_SCALE:usize = 4;
         use sdl2::sys::SDL_Scancode;
         fn buttons_mapper(button:Button)->SDL_Scancode{
             match button{
@@ -150,6 +161,8 @@ fn get_rom_selection(roms_path:&str)->String{
     return result;
 }
 
+static mut RUNNING:bool = true;
+
 fn main() {
     let args: Vec<String> = env::args().collect();  
 
@@ -169,10 +182,7 @@ fn main() {
     }
 
     cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
-        let reset_pin = 14;
-        let dc_pin = 15;
-        let led_pin = 25;
-        let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(reset_pin, dc_pin, led_pin, TURBO_MUL, 0);
+        let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(RESET_PIN_BCM, DC_PIN_BCM, LED_PIN_BCM, TURBO_MUL, 0);
     }else{
         let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
         check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
@@ -180,20 +190,21 @@ fn main() {
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
-
-
-    let mut running = true;
-    // Casting to ptr cause you cant pass a raw ptr (*const/mut T) to another thread
-    let running_ptr:usize = (&running as *const bool) as usize;
     
     let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-        move || emulation_thread_main(args, program_name, mpmc_device, running_ptr)
+        move || emulation_thread_main(args, program_name, mpmc_device)
     ).unwrap();
 
     unsafe{
+        #[cfg(feature = "rpi")]{
+            let handler = nix::sys::signal::SigHandler::Handler(sigint_handler);
+            nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, handler).unwrap();
+        }
+
+        #[cfg(feature = "sdl")]
         let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
         loop{
-
+            #[cfg(feature = "sdl")]
             if SDL_PollEvent(event.as_mut_ptr()) != 0{
                 let event: SDL_Event = event.assume_init();
                 if event.type_ == SDL_EventType::SDL_QUIT as u32{
@@ -201,28 +212,44 @@ fn main() {
                 }
             }
             
-            let buffer = r.recv().unwrap();
-            gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
+            match r.recv() {
+                Result::Ok(buffer) => gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT])),
+                Result::Err(_) => break,
+            }
+
         }
 
         drop(r);
-        std::ptr::write_volatile(&mut running as *mut bool, false);
+        RUNNING = false;
         emualation_thread.join().unwrap();
 
+        #[cfg(feature = "sdl")]
         SDL_Quit();
     }
 }
 
+#[cfg(feature = "rpi")]
+extern "C" fn sigint_handler(_:std::os::raw::c_int){
+    unsafe {RUNNING = false};
+}
+
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
-fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, running_ptr: usize) {
-    let audio_device = sdl::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
-    
-    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    devices.push(Box::new(audio_device));
-    if check_for_terminal_feature_flag(&args, "--file-audio"){
-        let wav_ad = audio::wav_file_audio_device::WavfileAudioDevice::<ChosenResampler>::new(44100, GB_FREQUENCY, "output.wav");
-        devices.push(Box::new(wav_ad));
-        log::info!("Writing audio to file: output.wav");
+fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice) {
+    cfg_if::cfg_if!{ 
+        if #[cfg(feature = "apu")]{
+            let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+            let audio_device = sdl::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
+            devices.push(Box::new(audio_device));
+            
+            if check_for_terminal_feature_flag(&args, "--file-audio"){
+                let wav_ad = audio::wav_file_audio_device::WavfileAudioDevice::<ChosenResampler>::new(44100, GB_FREQUENCY, "output.wav");
+                devices.push(Box::new(wav_ad));
+                log::info!("Writing audio to file: output.wav");
+            }
+        }
+        else{
+            let devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+        }
     }
     let audio_devices = MultiAudioDevice::new(devices);
     let mut mbc = initialize_mbc(&program_name);
@@ -260,7 +287,7 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     info!("initialized gameboy successfully!");
 
     unsafe{
-        while std::ptr::read_volatile(running_ptr as *const bool){
+        while RUNNING{
             gameboy.cycle_frame();
         }
     }
