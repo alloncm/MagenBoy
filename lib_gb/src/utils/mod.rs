@@ -12,7 +12,7 @@ pub fn create_default_array<T:Default,const SIZE:usize>()->[T;SIZE]{
     create_array(||T::default())
 }
 
-pub fn create_array<T, F:Fn()->T,const SIZE:usize>(func:F)->[T;SIZE]{
+pub fn create_array<T, F:FnMut()->T,const SIZE:usize>(mut func:F)->[T;SIZE]{
     let mut data: [MaybeUninit<T>; SIZE] = unsafe{MaybeUninit::uninit().assume_init()};
 
     for elem in &mut data[..]{

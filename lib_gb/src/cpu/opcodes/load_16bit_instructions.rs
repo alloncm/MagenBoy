@@ -18,16 +18,16 @@ pub fn load_rr_nn(cpu:&mut GbCpu, opcode:u32)->u8{
 
     *reg = nn;
 
-    //cycles
-    return 3;
+    // 3 cycles - 3 reading opcode
+    return 0;
 }
 
 //loads register HL into the SP
 pub fn load_sp_hl(cpu:&mut GbCpu)->u8{
     cpu.stack_pointer = *cpu.hl.value();
     
-    //cycles
-    return 2;
+    // 2 cycles - 1 reading opcode, 1 internal operation
+    return 1;
 }
 
 //pop from the stack pointer to one register
@@ -44,8 +44,8 @@ pub fn pop(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
 
     *reg.value() = poped_value;
     
-    //cycles
-    return 3;
+    // 3 cycles - 1 reading opcode, 2 reading sp address and sp+1 address
+    return 0;
 }
 
 //push to stack the register 
@@ -61,8 +61,8 @@ pub fn push(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
 
     opcodes_utils::push(cpu, memory, value);
 
-    //cycles
-    return 4;
+    // 4 cycles - 1 reading opcode, 2 writing to sp address and sp+1 address, 1 internal operation
+    return 1;
 }
 
 //load into hl sp + rr
@@ -84,17 +84,17 @@ pub fn ld_hl_spdd(cpu:&mut GbCpu, opcode:u16)->u8{
     cpu.unset_flag(Flag::Zero);
     cpu.unset_flag(Flag::Subtraction);
     
-    //cycles
-    return 3;
+    // 3 cycles - 2 reading opcode, 1 internal operation
+    return 1;
 }
 
 //load sp into memory
 pub fn ld_nn_sp(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
     let address = opcode_to_u16_value((opcode & 0xFFFF) as u16);
     let (high, low):(u8, u8) = u16_to_high_and_low(cpu.stack_pointer);
-    memory.write(address, low);
-    memory.write(address+1, high);
+    memory.write(address, low, 1);
+    memory.write(address+1, high, 1);
 
-    //cycles
-    return 5;
+    // 5 cycles - 3 reading opcode, 2 writing sp to nn address
+    return 0;
 }

@@ -73,14 +73,14 @@ pub fn push(cpu:&mut GbCpu,memory:&mut impl Memory, value:u16){
     let high = ((value & 0xFF00) >> 8) as u8;
     let low = (value & 0xFF) as u8;
     
-    memory.write(cpu.stack_pointer-1, high);
-    memory.write(cpu.stack_pointer-2, low);
+    memory.write(cpu.stack_pointer-1, high, 1);
+    memory.write(cpu.stack_pointer-2, low, 1);
     cpu.stack_pointer-=2;
 }
 
 pub fn pop(cpu:&mut GbCpu,memory:&mut impl Memory)->u16{
-    let mut value:u16 = memory.read(cpu.stack_pointer) as u16;
-    value |= (memory.read(cpu.stack_pointer+1) as u16)<<8;
+    let mut value:u16 = memory.read(cpu.stack_pointer, 1) as u16;
+    value |= (memory.read(cpu.stack_pointer+1, 1) as u16)<<8;
     cpu.stack_pointer+=2;
     
     return value;

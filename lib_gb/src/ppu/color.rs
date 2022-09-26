@@ -1,3 +1,5 @@
+use super::gfx_device::Pixel;
+
 pub struct Color{
     pub r:u8,
     pub g:u8,
@@ -34,8 +36,16 @@ impl PartialEq for Color{
     }
 }
 
-impl From<Color> for u32{
+impl From<Color> for Pixel{
+    #[inline]
     fn from(color: Color) -> Self {
-        ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
+        #[cfg(not(feature = "u16pixel"))]
+        {
+            ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
+        }
+        #[cfg(feature = "u16pixel")]
+        {
+            (((color.r >> 3) as u16) << 11) | (((color.g >> 2) as u16) << 5) | ((color.b >> 3) as u16)
+        }
     }
 }

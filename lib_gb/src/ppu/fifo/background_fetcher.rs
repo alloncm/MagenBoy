@@ -1,6 +1,8 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
 
+const EMPTY_FIFO_BUFFER:[u8;FIFO_SIZE] = [0;FIFO_SIZE];
+
 pub struct BackgroundFetcher{
     pub fifo:FixedSizeQueue<u8, FIFO_SIZE>,
     pub window_line_counter:u8,
@@ -9,11 +11,12 @@ pub struct BackgroundFetcher{
     current_x_pos:u8,
     rendering_window:bool,
     fetcher_state_machine:FetcherStateMachine,
+    scanline_rendering_started:bool,
 }
 
 impl BackgroundFetcher{
     pub fn new()->Self{
-        let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
+        let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Push, FetchingState::Sleep];
         BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
             current_x_pos:0,
@@ -21,6 +24,7 @@ impl BackgroundFetcher{
             window_line_counter:0,
             rendering_window:false,
             has_wy_reached_ly:false,
+            scanline_rendering_started:false
         }
     }
 
@@ -29,6 +33,7 @@ impl BackgroundFetcher{
         self.current_x_pos = 0;
         self.fetcher_state_machine.reset();
         self.rendering_window = false;
+        self.scanline_rendering_started = false;
     }
 
     pub fn pause(&mut self){
@@ -43,14 +48,7 @@ impl BackgroundFetcher{
 
     pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
         self.has_wy_reached_ly = self.has_wy_reached_ly || ly_register == window_pos.y;
-        let last_rendering_status = self.rendering_window;
         self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);
-        
-        // In case I was rendering a background pixel need to reset the state of the fetcher 
-        // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
-        if self.rendering_window && !last_rendering_status{
-            self.fetcher_state_machine.reset();
-        }
 
         match self.fetcher_state_machine.current_state(){
             FetchingState::FetchTileNumber=>{
@@ -67,47 +65,60 @@ impl BackgroundFetcher{
                 };
 
                 self.fetcher_state_machine.data.reset();
-                self.fetcher_state_machine.data.tile_data = Some(tile_num);
+                self.fetcher_state_machine.data.tile_data = tile_num;
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchLowTIle");
+                let tile_num = self.fetcher_state_machine.data.tile_data;
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let low_data = vram.read_current_bank(address);
 
-                self.fetcher_state_machine.data.low_tile_data = Some(low_data);
+                self.fetcher_state_machine.data.low_tile_data = low_data;
             }
             FetchingState::FetchHighTile=>{
-                let tile_num= self.fetcher_state_machine.data.tile_data.expect("State machine is corrupted, No Tile data on FetchHighTIle");
+                let tile_num= self.fetcher_state_machine.data.tile_data;
                 let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
                 let high_data = vram.read_current_bank(address + 1);
 
-                self.fetcher_state_machine.data.high_tile_data = Some(high_data);
+                self.fetcher_state_machine.data.high_tile_data = high_data;
+
+                // The gameboy has this quirk that in the first fetch of the scanline it reset itself after reaching the fetch high tile step
+                if !self.scanline_rendering_started{
+                    self.reset();
+                    self.scanline_rendering_started = true;
+                }
             }
-            FetchingState::Push=>{
-                let low_data = self.fetcher_state_machine.data.low_tile_data.expect("State machine is corrupted, No Low data on Push");
-                let high_data = self.fetcher_state_machine.data.high_tile_data.expect("State machine is corrupted, No High data on Push");
-                if self.fifo.len() == 0{
-                    if lcd_control & BIT_0_MASK == 0{
-                        for _ in 0..SPRITE_WIDTH{
-                            //When the baclkground is off pushes 0
-                            self.fifo.push(0);
-                            self.current_x_pos += 1;
-                        }
-                    }
-                    else{
-                        for i in (0..SPRITE_WIDTH).rev(){
-                            let mask = 1 << i;
-                            let mut pixel = (low_data & mask) >> i;
-                            pixel |= ((high_data & mask) >> i) << 1;
-                            self.fifo.push(pixel);
-                            self.current_x_pos += 1;
+            FetchingState::Push => {
+                if self.fifo.len() != 0{
+                    // wait until the fifo is empty, dont advance the state machine either
+                    return;
+                }
+                if lcd_control & BIT_0_MASK == 0{
+                    self.fifo.fill(&EMPTY_FIFO_BUFFER);
+                    self.current_x_pos += SPRITE_WIDTH;
+                }
+                else{
+                    let low_data = self.fetcher_state_machine.data.low_tile_data;
+                    let high_data = self.fetcher_state_machine.data.high_tile_data;
+                    for i in (0..FIFO_SIZE).rev(){
+                        let mask = 1 << i;
+                        let mut pixel = (low_data & mask) >> i;
+                        pixel |= ((high_data & mask) >> i) << 1;
+                        self.fifo.push(pixel);
+                        self.current_x_pos += 1;
+         
+                        let last_rendering_status = self.rendering_window;
+                        self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);            
+                        // In case I was rendering a background pixel need to reset the state of the fetcher 
+                        // (and maybe clear the fifo but right now Im not doing it since im not sure what about the current_x_pos var)
+                        if self.rendering_window && !last_rendering_status{
+                            self.fetcher_state_machine.reset();
+                            return;
                         }
                     }
                 }
             }
-            FetchingState::Sleep=>{}
+            FetchingState::Sleep => {}
         }
-
         self.fetcher_state_machine.advance();
     }
 

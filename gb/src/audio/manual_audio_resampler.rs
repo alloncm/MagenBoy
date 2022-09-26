@@ -1,7 +1,8 @@
 use lib_gb::apu::audio_device::{BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample};
-use super::AudioResampler;
+use super::audio_resampler::AudioResampler;
 
-pub struct MagenAudioResampler{
+
+pub struct ManualAudioResampler{
     to_skip:u32,
     sampling_buffer:Vec<StereoSample>,
     sampling_counter:u32,
@@ -11,7 +12,7 @@ pub struct MagenAudioResampler{
     skip_to_use:u32,
 }
 
-impl MagenAudioResampler{
+impl ManualAudioResampler{
     fn interpolate_sample(samples:&[StereoSample])->StereoSample{
         let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
         let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
@@ -20,7 +21,7 @@ impl MagenAudioResampler{
     }
 }
 
-impl AudioResampler for MagenAudioResampler{
+impl AudioResampler for ManualAudioResampler{
     fn new(original_frequency:u32, target_frequency:u32)->Self{
         // Calling round in order to get the nearest integer and resample as precise as possible
         let div = original_frequency as f32 /  target_frequency as f32;
@@ -40,7 +41,7 @@ impl AudioResampler for MagenAudioResampler{
             std::panic!("target freqency is too high: {}", target_frequency);
         }
 
-        MagenAudioResampler{
+        ManualAudioResampler{
             to_skip:to_skip,
             sampling_buffer:Vec::with_capacity(upper_to_skip as usize),
             sampling_counter: 0,
