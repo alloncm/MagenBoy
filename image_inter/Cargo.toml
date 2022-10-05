@@ -1,6 +1,7 @@
 [package]
 name = "image_inter"
-version = "1.0.0"
+version.workspace = true
+authors.workspace = true
 edition = "2021"
 description = "A small crate for the image interpolation, I sperated it cause I wanted to benchmark in properly"
 
