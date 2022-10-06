@@ -27,6 +27,7 @@ On by default (to turn off pass `--no-default-features`)
 * `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
 * `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
 * `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
+* `terminal-menu` - replace the gui menu with a terminal menu, since it is more capable this is the defualt
 
 ### Running
 
@@ -45,7 +46,7 @@ Coming soon!
 * `--full-screen` - Full screen mode
 * `--no-vsync` - Disable vsync
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
-* `--rom_menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
+* `--rom-menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 
 ## GameBoy
 
