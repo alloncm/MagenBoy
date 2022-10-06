@@ -89,7 +89,8 @@ Curerently there is no Support (support is planned in the future)
 - [Nitty gritty Gameboy timing](http://blog.kevtris.org/blogfiles/Nitty%20Gritty%20Gameboy%20VRAM%20Timing.xt)
 - [mgba gbdoc](https://mgba-emu.github.io/gbdoc/)
 
-### RPI
+### RaspberryPi
 - [Raspberry Pi docs](https://www.raspberrypi.com/documentation/computers/processors.html)
 - [juj/fbcp-ili9341 as a refference](https://github.com/juj/fbcp-ili9341)
 - [Raspberry Pi DMA programming in C](https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/)
+- [Ili9341 docs](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf)
