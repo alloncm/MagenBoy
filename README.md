@@ -19,15 +19,32 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 cargo build --release --features [optional_features]
 ```
 #### Optional features:
-* `static-sdl` - will link statically to sdl2.
-On by default (to turn off pass `--no-default-features`)
+* `sdl` - Link to sdl2 (On by default)
+* `static-sdl` - will link statically to sdl2 
+On by default 
 * `sdl-resample` - Use the audio resampler from sdl2 library and a manual one I wrote
 * `push-audio` - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
 * `static-scale` - Will use a fixed scale values for the renderer instead of addapting to the screen size
 * `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
+* `apu` - Turn on the apu (On by default)
 * `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
 * `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
 * `terminal-menu` - replace the gui menu with a terminal menu, since it is more capable this is the defualt
+
+> **Note** to turn off on by default features pass `--no-default-features` when building
+
+### Key bindings:
+
+| Joypad     | Keyboard    |
+| ---------- | ----------- |
+| A          | X           |
+| B          | Z           |
+| Start      | S           |
+| Select     | A           |
+| Dpad Up    | Up arrow    |
+| Dpad Down  | Down arrow  |
+| Dpad Left  | Left arrow  |
+| Dpad Right | Right arrow |
 
 ### Running
 
@@ -37,7 +54,7 @@ magenboy [path_to_rom] [other_optional_flags]
 ```
 
 #### Raspberry Pi
-Coming soon!
+See - [RealMagenBoy](docs/RealMagenBoy.md)
 
 ### Optional flags
 
@@ -47,6 +64,7 @@ Coming soon!
 * `--no-vsync` - Disable vsync
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 * `--rom-menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
+Choose a game with the Joypad bindings (Dpad and A to confirm)
 
 ## GameBoy
 
