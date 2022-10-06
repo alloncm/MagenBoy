@@ -89,7 +89,7 @@ impl<AR:AudioResampler> Drop for SdlPullAudioDevice<AR>{
     fn drop(&mut self) {
         unsafe{
             SDL_CloseAudioDevice(self.device_id);
-            Box::from_raw(self.userdata_ptr);
+            drop(Box::from_raw(self.userdata_ptr));
         }
     }
 }

@@ -1,6 +1,7 @@
 mod mbc_handler;
 mod mpmc_gfx_device;
-mod joypad_terminal_menu;
+mod joypad_menu;
+
 #[cfg(feature = "rpi")]
 mod rpi_gpio;
 mod audio{
@@ -44,9 +45,9 @@ cfg_if::cfg_if!{
 }
 
 use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
-use joypad_terminal_menu::{MenuOption, JoypadTerminalMenu, TerminalRawModeJoypadProvider};
+use joypad_menu::{JoypadMenu, MenuOption, MenuRenderer};
 use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
-use std::{fs, env, result::Result, vec::Vec};
+use std::{fs, env, result::Result, vec::Vec, path::PathBuf};
 use log::info;
 cfg_if::cfg_if! {if #[cfg(feature = "apu")]{
     use lib_gb::GB_FREQUENCY;
@@ -119,15 +120,6 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
     Ok(())
 }
 
-fn menu_buttons_mapper(button:crossterm::event::KeyCode)->Option<Button>{
-    match button{
-        crossterm::event::KeyCode::Char('x') => Option::Some(Button::A),
-        crossterm::event::KeyCode::Up        => Option::Some(Button::Up),
-        crossterm::event::KeyCode::Down      => Option::Some(Button::Down),
-        _=> Option::None
-    }
-}
-
 fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
     args.len() >= 3 && args.contains(&String::from(flag))
 }
@@ -137,7 +129,7 @@ fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_message:&
     return args.get(index + 1).expect(error_message).clone();
 }
 
-fn get_rom_selection(roms_path:&str)->String{
+fn get_rom_selection<MR:MenuRenderer<PathBuf>>(roms_path:&str, menu_renderer:MR)->String{
     let mut menu_options = Vec::new();
     let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
     for entry in dir_entries{
@@ -151,10 +143,15 @@ fn get_rom_selection(roms_path:&str)->String{
             }
         }
     }
-
-    let mut menu = JoypadTerminalMenu::new(menu_options);
-    let mut provider = TerminalRawModeJoypadProvider::new(menu_buttons_mapper);
+    cfg_if::cfg_if!{if #[cfg(feature = "rpi")]{
+        let mut provider = GpioJoypadProvider::new(buttons_mapper);
+    }
+    else{
+        let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
+    }}
+    let mut menu = JoypadMenu::new(menu_options, menu_renderer);
     let result = menu.get_menu_selection(&mut provider);
+
     // Removing the file extenstion and casting to String
     let result = String::from(result.with_extension("").to_str().unwrap());
     
@@ -166,14 +163,6 @@ static mut RUNNING:bool = true;
 fn main() {
     let args: Vec<String> = env::args().collect();  
 
-    let program_name = if check_for_terminal_feature_flag(&args, "--rom_menu"){
-        let roms_path = get_terminal_feature_flag_value(&args, "--rom_menu", "Error! no roms folder specified");
-        get_rom_selection(roms_path.as_str())
-    }
-    else{
-        args[1].clone()
-    };
-
     let debug_level = check_for_terminal_feature_flag(&args, "--log");
     
     match init_logger(debug_level){
@@ -181,12 +170,27 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
+    // Initialize the gfx first cause it initialize both the screen and the sdl context for the joypad
     cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
         let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(RESET_PIN_BCM, DC_PIN_BCM, LED_PIN_BCM, TURBO_MUL, 0);
     }else{
         let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
         check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     }}
+
+    let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
+        let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
+        cfg_if::cfg_if!{if #[cfg(feature = "terminal-menu")]{
+            let menu_renderer = joypad_menu::joypad_terminal_menu::TerminalMenuRenderer{};
+        }
+        else{
+            let menu_renderer = joypad_menu::joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx_device);
+        }}
+        get_rom_selection(roms_path.as_str(), menu_renderer)
+    }
+    else{
+        args[1].clone()
+    };
     
     let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
     let mpmc_device = MpmcGfxDevice::new(s);
