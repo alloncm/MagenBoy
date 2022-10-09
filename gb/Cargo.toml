@@ -26,7 +26,7 @@ libc = {version = "0.2", optional = true}
 nix = {version = "0.24", optional = true}
 
 [features]
-default = ["static-sdl", "apu", "terminal-menu"]
+default = ["static-sdl", "apu"]
 sdl = ["sdl2"]
 sdl-resample = ["apu"]
 push-audio = ["apu"]
