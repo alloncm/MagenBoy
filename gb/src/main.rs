@@ -95,9 +95,8 @@ cfg_if::cfg_if!{
     }
 }
 
-fn init_logger(debug:bool)->Result<(), fern::InitError>{
-    let level = if debug {log::LevelFilter::Debug} else {log::LevelFilter::Info};
-    let mut fern_logger = fern::Dispatch::new()
+fn init_logger()->Result<(), fern::InitError>{
+    let fern_logger = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{}[{}] {}",
@@ -106,14 +105,8 @@ fn init_logger(debug:bool)->Result<(), fern::InitError>{
                 message
             ))
         })
-        .level(level);
-
-    if !debug{
-        fern_logger = fern_logger.chain(std::io::stdout());
-    }
-    else{
-        fern_logger = fern_logger.chain(fern::log_file("output.log")?);
-    }
+        .chain(std::io::stdout())
+        .chain(fern::log_file("output.log")?);
 
     fern_logger.apply()?;
 
@@ -162,10 +155,8 @@ static mut RUNNING:bool = true;
 
 fn main() {
     let args: Vec<String> = env::args().collect();  
-
-    let debug_level = check_for_terminal_feature_flag(&args, "--log");
     
-    match init_logger(debug_level){
+    match init_logger(){
         Result::Ok(())=>{},
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
