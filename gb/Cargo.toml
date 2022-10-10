@@ -13,7 +13,7 @@ path = "src/main.rs"
 lib_gb = {path = "../lib_gb/"}
 image_inter = {path = "../image_inter", optional = true}
 bcm_host = {path = "../bcm_host", optional = true}
-log = "0.4"
+log = {version = "0.4", features = ["max_level_debug", "release_max_level_info"]}
 fern = "0.6"
 chrono = "0.4"
 sdl2 = {version = "0.35", optional = true}

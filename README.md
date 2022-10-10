@@ -41,7 +41,6 @@ Coming soon!
 
 ### Optional flags
 
-* `--log` - Print logs in debug mode to a file
 * `--file-audio` - Saves the audio to a file
 * `--full-screen` - Full screen mode
 * `--no-vsync` - Disable vsync
