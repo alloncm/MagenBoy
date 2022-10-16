@@ -64,6 +64,7 @@ See - [RealMagenBoy](docs/RealMagenBoy.md)
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 * `--rom-menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 Choose a game with the Joypad bindings (Dpad and A to confirm)
+* `--shutdown-rpi` - Requires `rpi` feature, shutdown the RPi upon shutdown of the program
 
 ## GameBoy
 
