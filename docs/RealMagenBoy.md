@@ -62,6 +62,8 @@ Make sure that dtparam=spi is turned of, should be commented out or be like this
 
 I created (using the prototypes PCB's and a solderer) 2 PCB's, one for the Dpad and one for A, B, Start, Select buttons, each contains 4 buttons and exposes 6 pins to be connected with a jumper cable, this is just a recommendation and an example of how this should be done.
 
+> **Notice** The code in MagenBoy expect the buttons to be low on idle and high on press
+
 #### Dpad connection
 
 > I used soft tactile buttons here for a better authentic feel
@@ -104,6 +106,24 @@ If you followed untill here the bindings we have is:
 | Dpad Left  | BCM 21      |
 | Dpad Right | BCM 20      |
 
+### Menu button
+
+As you can see in the images below there is a 9th button, this is the menu button which triggers the menu.
+
+This button can also turn on the RPi if configured correctly.
+
+#### Configure the Menu button
+
+First we need to understand how the RPi wakeup [works](https://github.com/Howchoo/pi-power-button).
+
+We need to short the ground with GPIO BCM 3 button, so unlike the other buttons here we go for low on press and high on idle.
+
+In order for the RPi to wake up in press we need to add another configuration to the `/boot/config.txt` file (thanks to this [post](https://forums.raspberrypi.com/viewtopic.php?t=221760#p1360405))
+```
+dtparam=i2c_arm=off
+```
+Notice the `i2c_arm` and not just `i2c`, both should be disabled (if the regualr i2c is on by mistake)
+
 ### Configuring pins
 
 Aside from the SPI interface pins all the pins can be configured by changing the correspond value in `main.rs` and recompiling
@@ -118,11 +138,16 @@ Aside from the SPI interface pins all the pins can be configured by changing the
 
 ## Running 
 
-Edit /etc/rc.local and add the following line
+Edit `/etc/rc.local` and add the following line
 
 `sudo /home/[path_to_magenboy_root_folder]/target/release/magenboy --rom-menu [path_to_roms_folder] --bootrom [path_to_bootrom]`
 
 The bootrom flag is not neccessary but can complete the experience, it is also recommended to use [MagenBoot](https://github.com/alloncm/MagenBoot) for the best experience
+
+### Shutdown on exit
+
+In order to shutdown the rpi on magenboy shutdown you can add `--shutdown-rpi` to the `rc.local` command 
+> **Warning** be careful to not get stuck in shutdown loop in case of a configuration error
 
 **Now the MagenBoy rom menu will open every time you turn on the RPi!**
 

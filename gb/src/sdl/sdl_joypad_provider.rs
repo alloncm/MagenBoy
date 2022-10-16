@@ -1,45 +1,62 @@
 use sdl2::sys::*;
-use lib_gb::keypad::{
-    joypad::Joypad,
-    joypad_provider::JoypadProvider,
-    button::Button
-};
+use lib_gb::{keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider, button::Button}, utils::create_array};
+use crate::joypad_menu::MenuJoypadProvider;
+use super::utils::get_sdl_error_message;
 
 const PUMP_THRESHOLD:u32 = 500;
 
-pub struct SdlJoypadProvider<F:Fn(Button)->SDL_Scancode>{
-    mapper: F,
+pub struct SdlJoypadProvider{
     pump_counter:u32,
-    keyborad_state: *const u8
+    keyborad_state: [*const u8;NUM_OF_KEYS],
 }
 
-impl<F:Fn(Button)->SDL_Scancode> SdlJoypadProvider<F>{
-    pub fn new(mapper:F)->Self{
+impl SdlJoypadProvider{
+    pub fn new<F:Fn(&Button)->SDL_Scancode>(mapper:F)->Self{
+        let keyboard_ptr = unsafe{SDL_GetKeyboardState(std::ptr::null_mut())};
+        let mut counter:u8 = 0;
+        let init_lambda = ||{
+            let button:Button = unsafe{std::mem::transmute(counter)};
+            let result = unsafe{keyboard_ptr.offset(mapper(&button) as isize)};
+            counter += 1;
+            return result;
+        };
+        let state:[*const u8; NUM_OF_KEYS] = create_array(init_lambda);
         SdlJoypadProvider{
-            mapper,
             pump_counter:PUMP_THRESHOLD,
-            keyborad_state: unsafe{SDL_GetKeyboardState(std::ptr::null_mut())}
+            keyborad_state: state
         }
     }
 }
 
-impl<F:Fn(Button)->SDL_Scancode> JoypadProvider for SdlJoypadProvider<F>{
+impl JoypadProvider for SdlJoypadProvider{
     fn provide(&mut self, joypad:&mut Joypad) {
-        let mapper = &(self.mapper);
         unsafe{
             self.pump_counter = (self.pump_counter + 1) % PUMP_THRESHOLD;
             if self.pump_counter == 0{
                 SDL_PumpEvents();
             }
 
-            joypad.buttons[Button::A as usize]      = *self.keyborad_state.offset(mapper(Button::A) as isize) != 0;
-            joypad.buttons[Button::B as usize]      = *self.keyborad_state.offset(mapper(Button::B) as isize) != 0;
-            joypad.buttons[Button::Start as usize]  = *self.keyborad_state.offset(mapper(Button::Start) as isize) != 0;
-            joypad.buttons[Button::Select as usize] = *self.keyborad_state.offset(mapper(Button::Select) as isize) != 0;
-            joypad.buttons[Button::Up as usize]     = *self.keyborad_state.offset(mapper(Button::Up) as isize) != 0;
-            joypad.buttons[Button::Down as usize]   = *self.keyborad_state.offset(mapper(Button::Down) as isize) != 0;
-            joypad.buttons[Button::Right as usize]  = *self.keyborad_state.offset(mapper(Button::Right) as isize) != 0;
-            joypad.buttons[Button::Left as usize]   = *self.keyborad_state.offset(mapper(Button::Left) as isize) != 0;
+            for i in 0..NUM_OF_KEYS{
+                joypad.buttons[i] = *self.keyborad_state[i] != 0;
+            }
         }
+    }
+}
+
+impl MenuJoypadProvider for SdlJoypadProvider{
+    fn poll(&mut self, mut joypad:&mut Joypad) {
+        unsafe{
+            loop{
+                let mut event = std::mem::MaybeUninit::<SDL_Event>::uninit();
+                if SDL_WaitEvent(event.as_mut_ptr()) == 0{
+                    std::panic!("SDL_Error: {}", get_sdl_error_message());
+                }
+                let event = event.assume_init();
+                if event.type_ == SDL_EventType::SDL_KEYDOWN as u32 || event.type_ == SDL_EventType::SDL_KEYUP as u32 {
+                    break;
+                }
+            }
+        }
+        self.provide(&mut joypad);
     }
 }
