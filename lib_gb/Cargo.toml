@@ -1,7 +1,7 @@
 [package]
 name = "lib_gb"
-version = "2.2.0"
-authors = ["alloncm <alloncm@gmail.com>"]
+version.workspace = true
+authors.workspace = true
 edition = "2018"
 
 [dependencies]

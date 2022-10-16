@@ -5,3 +5,7 @@ members = [
     "image_inter",
     "bcm_host"
 ]
+
+[workspace.package]
+version = "2.3.0"
+authors = ["alloncm <alloncm@gmail.com>"]

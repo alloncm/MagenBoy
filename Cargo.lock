@@ -33,7 +33,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bcm_host"
-version = "1.0.0"
+version = "2.3.0"
 dependencies = [
  "cfg-if",
  "libc",
@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "gb"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "bcm_host",
  "cfg-if",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "image_inter"
-version = "1.0.0"
+version = "2.3.0"
 dependencies = [
  "cc",
  "criterion",
@@ -732,7 +732,7 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "lib_gb"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "criterion",
  "image",
