@@ -10,8 +10,8 @@ impl<'a, GFX: GfxDevice> GfxDeviceMenuRenderer<'a, GFX> {
     pub fn new(device: &'a mut GFX) -> Self { Self { device } }
 }
 
-impl<'a, GFX: GfxDevice, T> MenuRenderer<T> for GfxDeviceMenuRenderer<'a, GFX>{
-    fn render_menu(&mut self, menu:&Vec<super::MenuOption<T>>, selection:usize) {
+impl<'a, GFX: GfxDevice, T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRenderer<'a, GFX>{
+    fn render_menu(&mut self, menu:&[super::MenuOption<T, S>], selection:usize) {
         let mut frame_buffer = [0 as Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];
 
         // Calculate the range of the visible menu
@@ -26,7 +26,7 @@ impl<'a, GFX: GfxDevice, T> MenuRenderer<T> for GfxDeviceMenuRenderer<'a, GFX>{
         for option_index in start_index..end_index{
             let prompt = &menu[option_index].prompt;
             let mut width_index = 0;
-            for char in prompt.as_bytes(){
+            for char in prompt.as_ref().as_bytes(){
                 let glyph = FONT_LUT[(char - FONT_ASCII_START_INDEX) as usize];
                 for i in 0..GLYPH_HEIGHT{
                     for j in 0..GLYPH_WIDTH{

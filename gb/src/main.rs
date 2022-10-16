@@ -1,6 +1,7 @@
 mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_menu;
+mod emulation_menu;
 
 #[cfg(feature = "rpi")]
 mod rpi_gpio;
@@ -44,7 +45,8 @@ cfg_if::cfg_if!{
     }
 }
 
-use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice};
+use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, emulation_menu::MagenBoyMenu};
+use emulation_menu::MagenBoyState;
 use joypad_menu::{JoypadMenu, MenuOption, MenuRenderer};
 use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 use std::{fs, env, result::Result, vec::Vec, path::PathBuf};
@@ -58,42 +60,40 @@ use sdl2::sys::*;
 
 const TURBO_MUL:u8 = 1;
 
-cfg_if::cfg_if!{
-    if #[cfg(feature = "rpi")]{
-        const RESET_PIN_BCM:u8 = 14;
-        const DC_PIN_BCM:u8 = 15;
-        const LED_PIN_BCM:u8 = 25;
-        use crate::rpi_gpio::gpio_joypad_provider::*;
-        fn buttons_mapper(button:&Button)->GpioBcmPin{
-            match button{
-                Button::A       => 18,
-                Button::B       => 17,
-                Button::Start   => 22,
-                Button::Select  => 23,
-                Button::Up      => 19,
-                Button::Down    => 16,
-                Button::Right   => 20,
-                Button::Left    => 21
-            }
+cfg_if::cfg_if!{ if #[cfg(feature = "rpi")] {
+    const RESET_PIN_BCM:u8 = 14;
+    const DC_PIN_BCM:u8 = 15;
+    const LED_PIN_BCM:u8 = 25;
+    const MENU_PIN_BCM:u8 = 3; // This pin is the turn on pin
+    use crate::rpi_gpio::gpio_joypad_provider::*;
+    fn buttons_mapper(button:&Button)->GpioBcmPin{
+        match button{
+            Button::A       => 18,
+            Button::B       => 17,
+            Button::Start   => 22,
+            Button::Select  => 23,
+            Button::Up      => 19,
+            Button::Down    => 16,
+            Button::Right   => 20,
+            Button::Left    => 21
         }
     }
-    else{
-        const SCREEN_SCALE:usize = 4;
-        use sdl2::sys::SDL_Scancode;
-        fn buttons_mapper(button:Button)->SDL_Scancode{
-            match button{
-                Button::A       => SDL_Scancode::SDL_SCANCODE_X,
-                Button::B       => SDL_Scancode::SDL_SCANCODE_Z,
-                Button::Start   => SDL_Scancode::SDL_SCANCODE_S,
-                Button::Select  => SDL_Scancode::SDL_SCANCODE_A,
-                Button::Up      => SDL_Scancode::SDL_SCANCODE_UP,
-                Button::Down    => SDL_Scancode::SDL_SCANCODE_DOWN,
-                Button::Right   => SDL_Scancode::SDL_SCANCODE_RIGHT,
-                Button::Left    => SDL_Scancode::SDL_SCANCODE_LEFT
-            }
+} else if #[cfg(feature = "sdl")] {
+    const SCREEN_SCALE:usize = 4;
+    use sdl2::sys::SDL_Scancode;
+    fn buttons_mapper(button:&Button)->SDL_Scancode{
+        match button{
+            Button::A       => SDL_Scancode::SDL_SCANCODE_X,
+            Button::B       => SDL_Scancode::SDL_SCANCODE_Z,
+            Button::Start   => SDL_Scancode::SDL_SCANCODE_S,
+            Button::Select  => SDL_Scancode::SDL_SCANCODE_A,
+            Button::Up      => SDL_Scancode::SDL_SCANCODE_UP,
+            Button::Down    => SDL_Scancode::SDL_SCANCODE_DOWN,
+            Button::Right   => SDL_Scancode::SDL_SCANCODE_RIGHT,
+            Button::Left    => SDL_Scancode::SDL_SCANCODE_LEFT
         }
     }
-}
+}}
 
 fn init_logger()->Result<(), fern::InitError>{
     let fern_logger = fern::Dispatch::new()
@@ -122,7 +122,7 @@ fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_message:&
     return args.get(index + 1).expect(error_message).clone();
 }
 
-fn get_rom_selection<MR:MenuRenderer<PathBuf>>(roms_path:&str, menu_renderer:MR)->String{
+fn get_rom_selection<MR:MenuRenderer<PathBuf, String>>(roms_path:&str, menu_renderer:MR)->String{
     let mut menu_options = Vec::new();
     let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
     for entry in dir_entries{
@@ -142,7 +142,7 @@ fn get_rom_selection<MR:MenuRenderer<PathBuf>>(roms_path:&str, menu_renderer:MR)
     else{
         let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
     }}
-    let mut menu = JoypadMenu::new(menu_options, menu_renderer);
+    let mut menu = JoypadMenu::new(&menu_options, menu_renderer);
     let result = menu.get_menu_selection(&mut provider);
 
     // Removing the file extenstion and casting to String
@@ -151,7 +151,8 @@ fn get_rom_selection<MR:MenuRenderer<PathBuf>>(roms_path:&str, menu_renderer:MR)
     return result;
 }
 
-static mut RUNNING:bool = true;
+// This is static and not local for the unix signal handler to access it
+static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
 fn main() {
     let args: Vec<String> = env::args().collect();  
@@ -169,63 +170,92 @@ fn main() {
         check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     }}
 
-    let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
-        let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
-        cfg_if::cfg_if!{if #[cfg(feature = "terminal-menu")]{
-            let menu_renderer = joypad_menu::joypad_terminal_menu::TerminalMenuRenderer{};
-        }
-        else{
-            let menu_renderer = joypad_menu::joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx_device);
-        }}
-        get_rom_selection(roms_path.as_str(), menu_renderer)
+    cfg_if::cfg_if!{if #[cfg(feature = "rpi")]{
+        let provider = GpioJoypadProvider::new(buttons_mapper);
     }
     else{
-        args[1].clone()
-    };
-    
-    let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
-    let mpmc_device = MpmcGfxDevice::new(s);
-    
-    let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-        move || emulation_thread_main(args, program_name, mpmc_device)
-    ).unwrap();
+        let provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
+    }} 
+    let mut emulation_menu = MagenBoyMenu::new(provider);
 
-    unsafe{
-        #[cfg(feature = "rpi")]{
-            let handler = nix::sys::signal::SigHandler::Handler(sigint_handler);
-            nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, handler).unwrap();
+    while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
+        let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
+            let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
+            cfg_if::cfg_if!{if #[cfg(feature = "terminal-menu")]{
+                let menu_renderer = joypad_menu::joypad_terminal_menu::TerminalMenuRenderer{};
+            }
+            else{
+                let menu_renderer = joypad_menu::joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx_device);
+            }}
+            get_rom_selection(roms_path.as_str(), menu_renderer)
         }
+        else{
+            args[1].clone()
+        };
 
-        #[cfg(feature = "sdl")]
-        let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
-        loop{
-            #[cfg(feature = "sdl")]
-            if SDL_PollEvent(event.as_mut_ptr()) != 0{
-                let event: SDL_Event = event.assume_init();
-                if event.type_ == SDL_EventType::SDL_QUIT as u32{
-                    break;
+        let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
+        let mpmc_device = MpmcGfxDevice::new(s);
+
+        let args_clone = args.clone();
+        let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
+            move || emulation_thread_main(args_clone, program_name, mpmc_device)
+        ).unwrap();
+
+        unsafe{
+            cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
+                let handler = nix::sys::signal::SigHandler::Handler(sigint_handler);
+                nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, handler).unwrap();
+                let menu_pin = rppal::gpio::Gpio::new().unwrap().get(MENU_PIN_BCM).unwrap().into_input_pullup();
+            } else if #[cfg(feature = "sdl")]{
+                let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+            }}
+
+            loop{
+                cfg_if::cfg_if!{ if #[cfg(feature = "sdl")]{
+                    if SDL_PollEvent(event.as_mut_ptr()) != 0{
+                        let event: SDL_Event = event.assume_init();
+                        if event.type_ == SDL_EventType::SDL_QUIT as u32{
+                            EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                            break;
+                        }
+                        else if event.type_ == SDL_EventType::SDL_KEYDOWN as u32 && event.key.keysym.scancode == SDL_Scancode::SDL_SCANCODE_ESCAPE{
+                            emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut gfx_device, r.clone());
+                        }
+                    }
+                } else if #[cfg(feature = "rpi")]{
+                    if menu_pin.is_low(){
+                        emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut gfx_device, r.clone());
+                    }
+                }}
+
+                match r.recv() {
+                    Result::Ok(buffer) => gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT])),
+                    Result::Err(_) => break,
                 }
             }
-            
-            match r.recv() {
-                Result::Ok(buffer) => gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT])),
-                Result::Err(_) => break,
-            }
 
+            drop(r);
+            EMULATOR_STATE.running.store(false, std::sync::atomic::Ordering::Relaxed);
+            emualation_thread.join().unwrap();
         }
+    }
 
-        drop(r);
-        RUNNING = false;
-        emualation_thread.join().unwrap();
+    drop(gfx_device);
 
-        #[cfg(feature = "sdl")]
-        SDL_Quit();
+    #[cfg(feature = "sdl")]
+    unsafe{SDL_Quit();}
+
+    #[cfg(feature = "rpi")]
+    if check_for_terminal_feature_flag(&args, "--shutdown-rpi"){
+        log::info!("Shuting down the RPi! Goodbye");
+        std::process::Command::new("shutdown").arg("-h").arg("now").spawn().expect("Failed to shutdown system");
     }
 }
 
 #[cfg(feature = "rpi")]
 extern "C" fn sigint_handler(_:std::os::raw::c_int){
-    unsafe {RUNNING = false};
+    EMULATOR_STATE.running.store(false, std::sync::atomic::Ordering::Relaxed);
+    EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
@@ -281,8 +311,11 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     };
     info!("initialized gameboy successfully!");
 
-    unsafe{
-        while RUNNING{
+    EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
+    while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
+        if !EMULATOR_STATE.pause.load(std::sync::atomic::Ordering::SeqCst){
+            let state = &EMULATOR_STATE;
+            let _mutex_ctx = state.state_mutex.lock().unwrap();
             gameboy.cycle_frame();
         }
     }
