@@ -70,12 +70,12 @@ I created (using the prototypes PCB's and a solderer) 2 PCB's, one for the Dpad 
 
 ```
 Pin | RPi physical pin |comment
-1   | 40               | DPAD left - pin GPIO BCM 21 (any GPIO pin, after changing need to change the software too)
-2   | 38               | DPAD right - pin GPIO BCM 20 (any GPIO pin, after changing need to change the software too)
+1   | 35               | DPAD up - pin GPIO BCM 19 (any GPIO pin, after changing need to change the software too)
+2   | 40               | DPAD left - pin GPIO BCM 21 (any GPIO pin, after changing need to change the software too)
 3   | 36               | DPAD down - pin GPIO BCM 16 (any GPIO pin, after changing need to change the software too)
 4   | 39               | ground pin (any ground pin)
-5   | 17               | power connected to 3.3v (any 3.3v power pin)
-6   | 35               | DPAD up - pin GPIO BCM 19 (any GPIO pin, after changing need to change the software too)
+5   | 38               | DPAD right - pin GPIO BCM 20 (any GPIO pin, after changing need to change the software too)
+6   | 17               | power connected to 3.3v (any 3.3v power pin)
 ```
 
 #### A, B, Start, Select
