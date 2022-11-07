@@ -63,7 +63,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             lyc_register: 0,
             lcd_control: 0,
             bg_pos: Vec2::<u8>{x:0, y:0},
-            window_pos: Vec2::<u8>{x:0,y:0},
+            window_pos: Vec2::<u8>{x:0, y:0},
             screen_buffers:[[0;SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
             current_screen_buffer_index:0,
             bg_palette_register:0,
