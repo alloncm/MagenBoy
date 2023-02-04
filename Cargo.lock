@@ -33,7 +33,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bcm_host"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "cfg-if",
  "libc",
@@ -120,9 +120,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.70"
+version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26a6ce4b6a484fa3edb70f7efa6fc430fd2b87285fe8b84304fd0936faa0dc0"
+checksum = "2fff2a6927b3bb87f9595d67196a70493f627687a71d87a0d692242c33f58c11"
 
 [[package]]
 name = "cfg-if"
@@ -156,9 +156,9 @@ dependencies = [
 
 [[package]]
 name = "cmake"
-version = "0.1.46"
+version = "0.1.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7b858541263efe664aead4a5209a4ae5c5d2811167d4ed4ee0944503f8d2089"
+checksum = "e8ad8cef104ac57b68b89df3208164d228503abbdce70f6880ffa3d970e7443a"
 dependencies = [
  "cc",
 ]
@@ -477,7 +477,7 @@ dependencies = [
 
 [[package]]
 name = "gb"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "bcm_host",
  "cfg-if",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "image_inter"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "cc",
  "criterion",
@@ -732,7 +732,7 @@ checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
 name = "lib_gb"
-version = "2.3.0"
+version = "2.3.1"
 dependencies = [
  "criterion",
  "image",
