@@ -1,5 +1,5 @@
 use crate::{mmu::vram::VRam, ppu::sprite_attribute::SpriteAttribute, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}};
-use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
+use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*};
 
 pub const NORMAL_SPRITE_HIGHT:u8 = 8;
 pub const EXTENDED_SPRITE_HIGHT:u8 = 16;
@@ -43,21 +43,15 @@ impl SpriteFetcher{
 
         match self.fetcher_state_machine.current_state(){
             FetchingState::FetchTileNumber=>{
-                self.try_fetch_tile_number(current_x_pos, lcd_control);
+                self.try_fetch_tile_number(current_x_pos, lcd_control, sprite_size, ly_register);
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = self.fetcher_state_machine.data.tile_data;
-                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
-                let low_data = vram.read_current_bank(current_tile_data_address);
+                let low_data = vram.read_current_bank(self.fetcher_state_machine.data.tile_data_address);
                 self.fetcher_state_machine.data.low_tile_data = low_data;
                 self.fetcher_state_machine.advance();
             }
             FetchingState::FetchHighTile=>{
-                let tile_num= self.fetcher_state_machine.data.tile_data;
-                let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let current_tile_data_address = Self::get_current_tile_data_address(ly_register, oam_attribute, sprite_size, tile_num);
-                let high_data = vram.read_current_bank(current_tile_data_address + 1);
+                let high_data = vram.read_current_bank(self.fetcher_state_machine.data.tile_data_address + 1);
                 self.fetcher_state_machine.data.high_tile_data = high_data;
                 self.fetcher_state_machine.advance();
             }
@@ -100,7 +94,7 @@ impl SpriteFetcher{
     }
 
     //This is a function on order to abort if rendering
-    fn try_fetch_tile_number(&mut self, current_x_pos: u8, lcd_control: u8) {
+    fn try_fetch_tile_number(&mut self, current_x_pos: u8, lcd_control: u8, sprite_size:u8, ly_register:u8) {
         if self.oam_entries_len > self.current_oam_entry{
             let oam_entry = &self.oam_entries[self.current_oam_entry as usize];
             if oam_entry.x <= current_x_pos + SPRITE_WIDTH && current_x_pos < oam_entry.x{
@@ -111,6 +105,8 @@ impl SpriteFetcher{
                 self.rendering = true;
                 self.fetcher_state_machine.data.reset();
                 self.fetcher_state_machine.data.tile_data = tile_number;
+                self.fetcher_state_machine.data.tile_data_address = Self::get_current_tile_data_address(ly_register, 
+                    &self.oam_entries[self.current_oam_entry as usize], sprite_size, tile_number);
                 self.fetcher_state_machine.advance();
                 return;
             }

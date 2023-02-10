@@ -315,9 +315,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             return;
         }
         if !self.scanline_started{
+            let screen_x_indicator = if self.bg_fetcher.rendering_window{self.window_pos.x}else{self.bg_pos.x};
             // discard the next pixel in the bg fifo
             // the bg fifo should start with 8 pixels and not push more untill its empty again
-            if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= self.bg_pos.x as usize % FIFO_SIZE as usize{
+            if FIFO_SIZE as usize - self.bg_fetcher.fifo.len() >= screen_x_indicator as usize % FIFO_SIZE as usize{
                 self.scanline_started = true;
             }
             else{

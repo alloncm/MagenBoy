@@ -1,5 +1,5 @@
 use crate::{mmu::vram::VRam, utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}};
-use super::{FIFO_SIZE, SPRITE_WIDTH, fetcher_state_machine::FetcherStateMachine, fetching_state::*};
+use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*};
 
 const EMPTY_FIFO_BUFFER:[u8;FIFO_SIZE] = [0;FIFO_SIZE];
 
@@ -7,9 +7,9 @@ pub struct BackgroundFetcher{
     pub fifo:FixedSizeQueue<u8, FIFO_SIZE>,
     pub window_line_counter:u8,
     pub has_wy_reached_ly:bool,
+    pub rendering_window:bool,
 
     current_x_pos:u8,
-    rendering_window:bool,
     fetcher_state_machine:FetcherStateMachine,
     scanline_rendering_started:bool,
 }
@@ -66,19 +66,15 @@ impl BackgroundFetcher{
 
                 self.fetcher_state_machine.data.reset();
                 self.fetcher_state_machine.data.tile_data = tile_num;
+                // Calculating once per fetching cycle might be inaccurate (not sure), but could improve perf
+                self.fetcher_state_machine.data.tile_data_address = self.get_tila_data_address(lcd_control, bg_pos.y, ly_register, tile_num);
             }
             FetchingState::FetchLowTile=>{
-                let tile_num = self.fetcher_state_machine.data.tile_data;
-                let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
-                let low_data = vram.read_current_bank(address);
-
+                let low_data = vram.read_current_bank(self.fetcher_state_machine.data.tile_data_address);
                 self.fetcher_state_machine.data.low_tile_data = low_data;
             }
             FetchingState::FetchHighTile=>{
-                let tile_num= self.fetcher_state_machine.data.tile_data;
-                let address = self.get_tila_data_address(lcd_control, bg_pos, ly_register, tile_num);
-                let high_data = vram.read_current_bank(address + 1);
-
+                let high_data = vram.read_current_bank(self.fetcher_state_machine.data.tile_data_address + 1);
                 self.fetcher_state_machine.data.high_tile_data = high_data;
 
                 // The gameboy has this quirk that in the first fetch of the scanline it reset itself after reaching the fetch high tile step
@@ -122,13 +118,13 @@ impl BackgroundFetcher{
         self.fetcher_state_machine.advance();
     }
 
-    fn get_tila_data_address(&self, lcd_control:u8, bg_pos:&Vec2<u8>, ly_register:u8, tile_num:u8)->u16{
+    fn get_tila_data_address(&self, lcd_control:u8, scy:u8, ly_register:u8, tile_num:u8)->u16{
         let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
         let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
         return if self.rendering_window{
             current_tile_data_address + (2 * (self.window_line_counter % SPRITE_WIDTH)) as u16
         } else{
-            current_tile_data_address + (2 * ((bg_pos.y as u16 + ly_register as u16) % SPRITE_WIDTH as u16))
+            current_tile_data_address + (2 * ((scy as u16 + ly_register as u16) % SPRITE_WIDTH as u16))
         };
     }
 
