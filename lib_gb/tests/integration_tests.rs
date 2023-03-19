@@ -2,7 +2,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
-use lib_gb::mmu::gb_mmu::BOOT_ROM_SIZE;
+use lib_gb::machine::Mode;
+use lib_gb::mmu::external_memory_bus::Bootrom;
 use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{Pixel, GfxDevice}};
 use lib_gb::apu::audio_device::{BUFFER_SIZE, AudioDevice};
 use lib_gb::keypad::joypad_provider::JoypadProvider;
@@ -41,19 +42,19 @@ impl JoypadProvider for StubJoypadProvider{
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
-    run_integration_test_from_url(file_url, 800, 3798827046966939676);
+    run_integration_test_from_url(file_url, 800, 3798827046966939676, Some(Mode::DMG));
 }
 
 #[test]
 fn test_cpu_instrs_timing(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/instr_timing/instr_timing.gb";
-    run_integration_test_from_url(file_url, 100, 469033992149587554);
+    run_integration_test_from_url(file_url, 100, 469033992149587554, Some(Mode::DMG));
 }
 
 #[test]
 fn test_dmg_acid(){
     let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
-    run_integration_test_from_url(file_url, 60, 1690571533691915665);
+    run_integration_test_from_url(file_url, 60, 1690571533691915665, Some(Mode::DMG));
 }
 
 #[test]
@@ -86,10 +87,28 @@ fn test_mooneye_acceptance_ppu_intr_2_oam_ok_timing(){
     run_mooneye_test_suite_test("acceptance/ppu/intr_2_oam_ok_timing.gb", 1784377789505089325);
 }
 
+#[test]
+fn test_magentests_bg_oam_priority(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.1.2/bg_oam_priority.gbc";
+    run_integration_test_from_url(file_url, 60, 14781023578080553257, Some(Mode::CGB));
+}
+
+#[test]
+fn test_magentests_oam_internal_priority(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.2.0/oam_internal_priority.gbc";
+    run_integration_test_from_url(file_url, 60, 9280650417949081747, Some(Mode::CGB));
+}
+
+#[test]
+fn test_cgb_acid2(){
+    let file_url = "https://github.com/mattcurrie/cgb-acid2/releases/download/v1.1/cgb-acid2.gbc";
+    run_integration_test_from_url(file_url, 60, 16716513650835367856, Some(Mode::CGB));
+}
+
 fn run_turtle_integration_test(program_name:&str, hash:u64){
     let zip_url = "https://github.com/Powerlated/TurtleTests/releases/download/v1.0/release.zip";
     let program = get_ziped_program(zip_url, program_name);
-    run_integration_test(program, None, 100, hash, format!("The program: {} has failed", program_name));
+    run_integration_test(program, Bootrom::None, 100, hash, format!("The program: {} has failed", program_name), Some(Mode::DMG));
 }
 
 fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
@@ -98,7 +117,7 @@ fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
     let program_zip_path = format!("{}/{program_name}", "mts-20220522-1522-55c535c");
     let program = get_ziped_program(zip_url, program_zip_path.as_str());
     let boot_rom = reqwest::blocking::get(boot_rom_url).unwrap().bytes().unwrap().to_vec();
-    run_integration_test(program, Some(boot_rom.try_into().unwrap()), 300, hash, format!("The program: {} has failed", program_zip_path));
+    run_integration_test(program, Bootrom::Gb(boot_rom.try_into().unwrap()), 300, hash, format!("The program: {} has failed", program_zip_path), Some(Mode::DMG));
 }
 
 fn get_ziped_program(zip_url:&str, program_zip_path:&str)->Vec<u8>{
@@ -110,34 +129,25 @@ fn get_ziped_program(zip_url:&str, program_zip_path:&str)->Vec<u8>{
     return program;
 }
 
-fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expected_hash:u64){
+fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expected_hash:u64, mode:Option<Mode>){
     let file = reqwest::blocking::get(program_url).unwrap().bytes().unwrap();
     let program = Vec::from(file.as_ref());
     let fail_message = format!("The program {} has failed", program_url);
-    run_integration_test(program, None, frames_to_execute, expected_hash, fail_message);
+    run_integration_test(program, Bootrom::None, frames_to_execute, expected_hash, fail_message, mode);
 }
 
-fn run_integration_test(program:Vec<u8>, boot_rom:Option<[u8;BOOT_ROM_SIZE]>, frames_to_execute:u32, expected_hash:u64, fail_message:String){
-    let mut mbc = initialize_mbc(program, None);
+fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
+    let mut mbc = initialize_mbc(program, None, mode);
     let mut last_hash:u64 = 0;
     let mut found = false;
-    let mut gameboy = if let Some(boot_rom) = boot_rom {
-        GameBoy::new_with_bootrom(
-            &mut mbc,
-            StubJoypadProvider{},
-            StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found},
-            boot_rom.try_into().expect("Error bootrom is not the correct size")
-        )
-    }
-    else{
-        GameBoy::new(
-            &mut mbc,
-            StubJoypadProvider{},
-            StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found}
-        )
-    };
+    let mut gameboy = GameBoy::new(
+        &mut mbc,
+        StubJoypadProvider{},
+        StubAudioDevice{}, 
+        CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found},
+        boot_rom,
+        mode
+    );
 
     for _ in 0..frames_to_execute {
         gameboy.cycle_frame();
@@ -165,10 +175,11 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Option<[u8;BOOT_ROM_SIZE]>, fr
 fn generate_hash(){
     let path = "path to rom";
     let boot_rom_path = None;
-    calc_hash(path, boot_rom_path);
+    let mode = Some(Mode::DMG);
+    calc_hash(path, boot_rom_path, mode);
 }
 
-fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>){
+fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
     static mut FRAMES_COUNTER:u32 = 0;
     static mut LAST_HASH:u64 = 0;
     struct GetHashGfxDevice;
@@ -205,14 +216,14 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>){
     
     let program = Vec::from(program);
 
-    let mut mbc = initialize_mbc(program, None);
+    let mut mbc = initialize_mbc(program, None, mode);
 
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new_with_bootrom(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, boot_rom.try_into().unwrap())
+        GameBoy::new(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
     }
     else{
-        GameBoy::new(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{})
+        GameBoy::new(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::None, mode)
     };
 
     loop {gameboy.cycle_frame();}
