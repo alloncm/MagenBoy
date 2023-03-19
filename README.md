@@ -30,7 +30,6 @@ On by default
 * `apu` - Turn on the apu (On by default)
 * `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
 * `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
-* `terminal-menu` - replace the gui menu with a terminal menu, since it is more capable this is the defualt
 
 > **Note** to turn off on by default features pass `--no-default-features` when building
 
@@ -109,7 +108,7 @@ Choose a game with the Joypad bindings (Dpad and A to confirm)
 ### Games Tested
 
 - Pokemon Yellow
-- Tetris XD
+- Tetris DX
 
 ## Resources
 ### Gameboy
