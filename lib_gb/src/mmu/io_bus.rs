@@ -2,9 +2,9 @@ use crate::{
     apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
     ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
     timer::{timer_register_updater::*, gb_timer::GbTimer}, 
-    keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}
+    keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}, machine::Mode
 };
-use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController};
+use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController, vram_dma_controller::VramDmaController, external_memory_bus::ExternalMemoryBus, access_bus::AccessBus};
 
 pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
@@ -14,10 +14,13 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
     pub ppu:GbPpu<GFX>,
-    pub dma_controller:OamDmaController,
+    pub oam_dma_controller:OamDmaController,
+    pub vram_dma_controller: VramDmaController,
     pub interrupt_handler:InterruptsHandler,
     pub joypad_handler: JoypadHandler<JP>,
-    pub finished_boot:bool,
+    pub speed_switch_register:u8,
+
+    speed_cycle_reminder:u8,
 
     apu_cycles_counter:u32,
     ppu_cycles:u32,
@@ -81,14 +84,22 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             SCX_REGISTER_INDEX=> self.ppu.bg_pos.x,
             LY_REGISTER_INDEX=> self.ppu.ly_register,
             LYC_REGISTER_INDEX=> self.ppu.lyc_register,
-            DMA_REGISTER_INDEX=> self.dma_controller.get_dma_register(),
+            DMA_REGISTER_INDEX=> self.oam_dma_controller.get_dma_register(),
             BGP_REGISTER_INDEX=> self.ppu.bg_palette_register,
             OBP0_REGISTER_INDEX=> self.ppu.obj_pallete_0_register,
             OBP1_REGISTER_INDEX=> self.ppu.obj_pallete_1_register,
             WY_REGISTER_INDEX => self.ppu.window_pos.y,
             WX_REGISTER_INDEX=> get_wx_register(&self.ppu),
-            //BOOT
-            BOOT_REGISTER_INDEX=> self.finished_boot as u8,
+            VBK_REGISTER_INDEX=>self.ppu.vram.get_bank(),
+            //GBC speed switch
+            KEY1_REGISTER_INDEX=>self.speed_switch_register | 0b0111_1110,
+            // VRAM DMA
+            HDMA5_REGISTER_INDEX=>self.vram_dma_controller.get_mode_length(),
+            //Color ram
+            BGPI_REGISTER_INDEX=>get_bgpi(&self.ppu),
+            BGPD_REGISTER_INDEX=>get_bgpd(&self.ppu),
+            OBPI_REGISTER_INDEX=>get_obpi(&self.ppu),
+            OBPD_REGISTER_INDEX=>get_obpd(&self.ppu),
             //Joypad
             JOYP_REGISTER_INDEX => self.joypad_handler.register,
             _=>0xFF
@@ -140,30 +151,47 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             SCX_REGISTER_INDEX=> set_scx(&mut self.ppu, value),
             // LY is readonly
             LYC_REGISTER_INDEX=> set_lyc(&mut self.ppu, value),
-            DMA_REGISTER_INDEX=>self.dma_controller.set_dma_register(value),
+            DMA_REGISTER_INDEX=>self.oam_dma_controller.set_dma_register(value),
             BGP_REGISTER_INDEX=> handle_bg_pallet_register(value,&mut self.ppu.bg_color_mapping, &mut self.ppu.bg_palette_register),
             OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0, &mut self.ppu.obj_pallete_0_register),
             OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1, &mut self.ppu.obj_pallete_1_register),
             WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
             WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
-            BOOT_REGISTER_INDEX=> self.finished_boot = value != 0,
+            VBK_REGISTER_INDEX=>self.ppu.vram.set_bank(value),
+            KEY1_REGISTER_INDEX=>{
+                self.speed_switch_register &= 0b1111_1110;    // clear bit 0
+                self.speed_switch_register |= value & 1;      // change state for bit 0
+            }
+            // VRAM DMA
+            HDMA1_REGISTER_INDEX=>self.vram_dma_controller.set_source_high(value),
+            HDMA2_REGISTER_INDEX=>self.vram_dma_controller.set_source_low(value),
+            HDMA3_REGISTER_INDEX=>self.vram_dma_controller.set_dest_high(value),
+            HDMA4_REGISTER_INDEX=>self.vram_dma_controller.set_dest_low(value),
+            HDMA5_REGISTER_INDEX=>self.vram_dma_controller.set_mode_length(value),
+            // COLOR Ram
+            BGPI_REGISTER_INDEX=>set_bgpi(&mut self.ppu, value),
+            BGPD_REGISTER_INDEX=>set_bgpd(&mut self.ppu, value),
+            OBPI_REGISTER_INDEX=>set_obpi(&mut self.ppu, value),
+            OBPD_REGISTER_INDEX=>set_obpd(&mut self.ppu, value),
+
             JOYP_REGISTER_INDEX => self.joypad_handler.set_register(value),
-            // TODO: handle gbc registers (expecailly ram and vram)
             _=>{}
         }
     }
 }
 
 impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
-    pub fn new(apu:GbApu<AD>, gfx_device:GFX, joypad_provider:JP)->Self{
+    pub fn new(apu:GbApu<AD>, gfx_device:GFX, joypad_provider:JP, mode:Mode)->Self{
         Self{
             apu,
             timer:GbTimer::default(),
-            ppu:GbPpu::new(gfx_device),
-            dma_controller: OamDmaController::new(),
+            ppu:GbPpu::new(gfx_device, mode),
+            oam_dma_controller: OamDmaController::new(),
+            vram_dma_controller: VramDmaController::new(),
             interrupt_handler: InterruptsHandler::default(),
             joypad_handler: JoypadHandler::new(joypad_provider),
-            finished_boot:false,
+            speed_switch_register:0,
+            speed_cycle_reminder:0,
             apu_cycles_counter:0,
             ppu_cycles:0,
             timer_cycles:0,
@@ -173,9 +201,26 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         }
     }
 
-    pub fn cycle(&mut self, cycles:u32){
-        self.apu_cycles_counter += cycles;
+    pub fn cycle(&mut self, mut cycles:u32, double_speed_mode:bool, external_memory_bus:&mut ExternalMemoryBus)->Option<AccessBus>{
+        // Timer is effected by double speed mode so handling it first
         self.timer_cycles += cycles;
+        
+        if self.timer_event_cycles <= self.timer_cycles{
+            self.cycle_timer();
+        }
+
+        let access_bus = self.oam_dma_controller.cycle(cycles, external_memory_bus, &mut self.ppu);
+
+        // APU, PPU and vram dma are not effected by the speed mode
+        if double_speed_mode{
+            cycles += self.speed_cycle_reminder as u32;
+            self.speed_cycle_reminder = cycles as u8 & 1;   // Saves the LSB (the bit to indicate odd number)
+            cycles >>= 1;                                   // divide by 2 (discard the LSB bit)
+        }
+
+        self.vram_dma_controller.cycle(cycles, external_memory_bus, &mut self.ppu);
+
+        self.apu_cycles_counter += cycles;
         
         if !self.ppu_event.is_none(){
             self.ppu_cycles += cycles;
@@ -191,12 +236,11 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                 self.cycle_ppu();
             }
         }
-        if self.timer_event_cycles <= self.timer_cycles{
-            self.cycle_timer();
-        }
         if self.apu_event_cycles <= self.apu_cycles_counter{
             self.cycle_apu();
         }
+
+        return access_bus;
     }
 
     fn cycle_ppu(&mut self){

@@ -1,6 +1,5 @@
 use std::vec::Vec;
-use super::mbc::Mbc;
-use super::mbc::*;
+use super::*;
 
 pub struct Rom{
     program: Vec<u8>,
@@ -27,7 +26,7 @@ impl Mbc for Rom{
     }
 
     fn read_current_bank(&self, address:u16)->u8{
-        return self.program[(ROM_BANK_SIZE + address) as usize];
+        return self.program[ROM_BANK_SIZE + (address as usize)];
     }
 
     fn read_external_ram(&self, address:u16)->u8{

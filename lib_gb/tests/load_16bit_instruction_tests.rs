@@ -27,9 +27,7 @@ fn test_push_af(){
     let mut cpu = GbCpu::default();
     *cpu.af.value() = 0xEFC7;
     cpu.stack_pointer = 0xFFFE;		
-    let mut mmu = MemoryStub{
-        data:[0;0xFFFF]
-    };
+    let mut mmu = MemoryStub{data:[0;0xFFFF], double_speed:false};
 
     //Act
     load_16bit_instructions::push(&mut cpu, &mut mmu, opcode);
@@ -47,9 +45,7 @@ fn test_pop_af(){
     let opcode = 0xF1;
     let mut cpu = GbCpu::default();
     cpu.stack_pointer = 0xFFFC;		
-    let mut mmu = MemoryStub{
-        data:[0;0xFFFF]
-    };
+    let mut mmu = MemoryStub{data:[0;0xFFFF], double_speed:false};
     mmu.data[0xFFFC] = 0x54;
     mmu.data[0xFFFD] = 0x98;
 

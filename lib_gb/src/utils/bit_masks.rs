@@ -10,16 +10,16 @@ pub const BIT_7_MASK:u8 = 1 << 7;
 pub const BIT_9_MASK:u16 = 1 << 9;
 
 #[inline]
-pub fn flip_bit_u8(value:&mut u8, bit_number:u8, set:bool){
+pub fn flip_bit_u8(value:&mut u8, bit_number:u8, state:bool){
     let mask = !(1 << bit_number);
-    let bit_value = (set as u8) << bit_number;
+    let bit_value = (state as u8) << bit_number;
     *value |= bit_value;            // setting the bit if set or do nothing if unset
     *value &= mask | bit_value;     // masking value with the mask and the bit (if set)
 }
 
-pub fn flip_bit_u16(value:&mut u16, bit_number:u8, set:bool){
+pub fn flip_bit_u16(value:&mut u16, bit_number:u8, state:bool){
     let mask = 1 << bit_number;
-    if set{
+    if state{
         *value |= mask;
     }
     else{

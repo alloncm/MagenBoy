@@ -48,8 +48,8 @@ cfg_if::cfg_if!{
 use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, emulation_menu::MagenBoyMenu};
 use emulation_menu::MagenBoyState;
 use joypad_menu::{JoypadMenu, MenuOption, MenuRenderer};
-use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::gameboy::GameBoy, mmu::gb_mmu::BOOT_ROM_SIZE, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
-use std::{fs, env, result::Result, vec::Vec, path::PathBuf};
+use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::{gameboy::GameBoy, Mode}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}};
+use std::{fs, env, result::Result, vec::Vec, path::PathBuf, convert::TryInto};
 use log::info;
 cfg_if::cfg_if! {if #[cfg(feature = "apu")]{
     use lib_gb::GB_FREQUENCY;
@@ -277,7 +277,6 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         }
     }
     let audio_devices = MultiAudioDevice::new(devices);
-    let mut mbc = initialize_mbc(&program_name);
     cfg_if::cfg_if!{
         if #[cfg(feature = "rpi")]{
             let joypad_provider = GpioJoypadProvider::new(buttons_mapper);
@@ -292,23 +291,43 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         String::from("dmg_boot.bin")
     };
 
-    let mut gameboy = match fs::read(bootrom_path){
+    let bootrom = match fs::read(&bootrom_path){
         Result::Ok(file)=>{
             info!("found bootrom!");
-    
-            let mut bootrom:[u8;BOOT_ROM_SIZE] = [0;BOOT_ROM_SIZE];
-            for i in 0..BOOT_ROM_SIZE{
-                bootrom[i] = file[i];
+            if file.len() == GBC_BOOT_ROM_SIZE{
+                Bootrom::Gbc(file.try_into().unwrap())
             }
-        
-            GameBoy::new_with_bootrom(&mut mbc, joypad_provider,audio_devices, spsc_gfx_device, bootrom)
+            else if file.len() == GB_BOOT_ROM_SIZE{
+                Bootrom::Gb(file.try_into().unwrap())
+            }
+            else{
+                std::panic!("Error! bootrom: \"{}\" length is invalid", bootrom_path);
+            }
         }
         Result::Err(_)=>{
-            info!("could not find bootrom... booting directly to rom");
-    
-            GameBoy::new(&mut mbc, joypad_provider, audio_devices, spsc_gfx_device)
+            info!("Could not find bootrom... booting directly to rom");
+            Bootrom::None
         }
     };
+
+    let mode = match bootrom{
+        Bootrom::Gb(_) => Some(Mode::DMG),
+        Bootrom::Gbc(_)=> Some(Mode::CGB),
+        Bootrom::None=>{
+            if check_for_terminal_feature_flag(&args, "--mode"){
+                let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
+                let mode = mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode.as_str()).as_str());
+                Some(mode)
+            }
+            else{
+                Option::None
+            }
+        }
+    };
+
+    let mut mbc = initialize_mbc(&program_name, mode);
+    let mut gameboy = GameBoy::new(&mut mbc, joypad_provider, audio_devices, spsc_gfx_device, bootrom, mode);
+
     info!("initialized gameboy successfully!");
 
     EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);

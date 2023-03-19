@@ -1,4 +1,4 @@
-use lib_gb::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, colors::{BLACK, WHITE}};
+use lib_gb::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, color::{BLACK, WHITE}};
 
 use super::{font::*, MenuRenderer};
 

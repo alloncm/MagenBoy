@@ -3,7 +3,7 @@ use lib_gb::{apu::{
     audio_device::*, channel::Channel, 
     gb_apu::*, sound_terminal::SoundTerminal, 
     square_sample_producer::SquareSampleProducer
-}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}, mmu::interrupts_handler::InterruptsHandler, ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice}};
+}, keypad::{joypad::Joypad, joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}, mmu::interrupts_handler::InterruptsHandler, ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice}, machine::Mode};
 
 pub fn criterion_bench(c: &mut Criterion){
     struct StubApu;
@@ -110,7 +110,7 @@ pub fn ppu_gb_ppu(c:&mut Criterion){
         fn swap_buffer(&mut self, _:&[lib_gb::ppu::gfx_device::Pixel; lib_gb::ppu::gb_ppu::SCREEN_HEIGHT * lib_gb::ppu::gb_ppu::SCREEN_WIDTH]) {}
     }
 
-    let mut ppu = GbPpu::new(StubGfxDevice{});
+    let mut ppu = GbPpu::new(StubGfxDevice{}, Mode::DMG);
     ppu.lcd_control = 0xFF;
     ppu.stat_register = 0b111_1000;
     for i in 0..4{
