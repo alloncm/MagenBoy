@@ -8,6 +8,7 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 - Rom (No MBC controller)
 - MBC1
 - MBC3
+- MBC5
 
 **More will be added if neccessary (and by neccessary I mean if games I want to play will require them)**
 
@@ -64,6 +65,7 @@ See - [RealMagenBoy](docs/RealMagenBoy.md)
 * `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 * `--rom-menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 Choose a game with the Joypad bindings (Dpad and A to confirm)
+* `--mode [mahcine mode]` - Override the auto machine detection for the game (mode can be: `CGB` - Gameboy color | `DMG` - Original Gameboy  | `ANY` - default)
 * `--shutdown-rpi` - Requires `rpi` feature, shutdown the RPi upon shutdown of the program
 
 ## GameBoy
@@ -75,26 +77,39 @@ Choose a game with the Joypad bindings (Dpad and A to confirm)
 - Timer - Mostly accurate timer
 - APU - mostly accurate APU
 - Tests
-    - [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs) - :thumbsup:
-    - [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) - :thumbsup:
-    - [TurtleTests](https://github.com/Powerlated/TurtleTests) - :thumbsup:
-    - [CPU cycle accurate](https://github.com/retrio/gb-test-roms/tree/master/instr_timing) - :thumbsup:
+    - [Blargg's cpu_instrs](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs)
+    - [dmg-acid2](https://github.com/mattcurrie/dmg-acid2) 
+    - [TurtleTests](https://github.com/Powerlated/TurtleTests)
+    - [CPU cycle accurate](https://github.com/retrio/gb-test-roms/tree/master/instr_timing)
     - [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite)
-        - acceptance/ppu/intr_2_0_timing - :thumbsup:
-        - acceptance/ppu/intr_2_mode0_timing - :thumbsup:
-        - acceptance/ppu/intr_2_mode3_timing - :thumbsup:
-        - acceptance/ppu/intr_2_oam_ok_timing - :thumbsup:
-    - APU passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)- :thumbsup:
-    - Timer passes most of [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite/tree/main/acceptance/timer) - :thumbsup:
+        - acceptance/ppu/intr_2_0_timing
+        - acceptance/ppu/intr_2_mode0_timing 
+        - acceptance/ppu/intr_2_mode3_timing 
+        - acceptance/ppu/intr_2_oam_ok_timing 
+    - APU passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)
+    - Timer passes most of [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite/tree/main/acceptance/timer)
 
 ### Games Tested
-- Pokemon Red - :thumbsup:
-- Tetris - :thumbsup:
-- Super Mario World - :thumbsup:
+
+- Pokemon Red 
+- Tetris 
+- Super Mario World 
+- The Legend of Zelda: A Link to the Past 
 
 ## GameBoy Color
 
-Curerently there is no Support (support is planned in the future)
+### Developement Status
+
+- CPU - Full support
+- PPU - Kinds of works
+- Tests
+    - [cgb-acid2](https://github.com/mattcurrie/cgb-acid2) 
+    - [MagenTests](https://github.com/alloncm/MagenTests) 
+
+### Games Tested
+
+- Pokemon Yellow
+- Tetris XD
 
 ## Resources
 ### Gameboy
