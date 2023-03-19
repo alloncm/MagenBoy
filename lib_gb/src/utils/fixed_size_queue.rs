@@ -12,7 +12,7 @@ pub struct FixedSizeQueue<T:Copy, const SIZE:usize>{
 
 impl<T:Copy + Default, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn new()->Self{
-        let data = Vec::with_capacity(SIZE);
+        let data = vec![T::default();SIZE];
         let mut s = Self{
             _data: data,
             length:0,

@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use super::mbc::*;
+use super::*;
 
 
 pub struct Mbc1{
@@ -45,13 +45,13 @@ impl Mbc for Mbc1{
             return 0xFF;
         }
         let bank:u16 = self.get_current_ram_bank() as u16;
-        return self.ram[(bank * RAM_BANK_SIZE + address) as usize];
+        return self.ram[(bank as usize * RAM_BANK_SIZE) + address as usize];
     }
 
     fn write_external_ram(&mut self, address: u16, value: u8){
         if self.ram.len() > 0{
             let bank:u16 = self.get_current_ram_bank() as u16;
-            self.ram[(bank * RAM_BANK_SIZE + address) as usize] = value;   
+            self.ram[(bank as usize * RAM_BANK_SIZE) + address as usize] = value;
         }
     }
 }

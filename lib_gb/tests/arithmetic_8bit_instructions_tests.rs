@@ -139,7 +139,7 @@ fn test_inc_hl(){
     let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x50;
     cpu.set_flag(Flag::Carry);
-    let mut memory = MemoryStub{data:[0;0xFFFF]};
+    let mut memory = MemoryStub{data:[0;0xFFFF], double_speed:false};
     
     arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);
 
@@ -156,7 +156,7 @@ fn test_inc_hl_half_carry(){
     let mut cpu = GbCpu::default();
     *cpu.hl.value() = 0x50;
     cpu.set_flag(Flag::Carry);
-    let mut memory = MemoryStub{data:[0;0xFFFF]};
+    let mut memory = MemoryStub{data:[0;0xFFFF], double_speed:false};
     memory.data[0x50] = 0x0F;
     
     arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);

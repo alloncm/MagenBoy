@@ -1,6 +1,4 @@
-use crate::{cpu::gb_cpu::GbCpu, utils::memory_registers::{IE_REGISTER_ADDRESS, JOYP_REGISTER_ADDRESS}};
-use crate::cpu::flag::Flag;
-use crate::mmu::memory::Memory;
+use crate::{mmu::memory::Memory, cpu::{gb_cpu::GbCpu, flag::Flag}, utils::memory_registers::{IE_REGISTER_ADDRESS, JOYP_REGISTER_ADDRESS, KEY1_REGISTER_ADDRESS}};
 
 pub fn ccf(cpu:&mut GbCpu)->u8{
     let carry:bool = cpu.get_flag(Flag::Carry);
@@ -28,9 +26,17 @@ pub fn halt(cpu:&mut GbCpu)->u8{
     return 0;
 }
 
+
+// For some reason inlining boost perf on gbc
+#[inline]
 pub fn stop(cpu:&mut GbCpu, memory: &mut impl Memory)->u8{
     if (memory.read(IE_REGISTER_ADDRESS, 0) & 0b11111 == 0) && (memory.read(JOYP_REGISTER_ADDRESS, 0) & 0b1111 == 0){
         cpu.stop = true;
+    }
+    if memory.read(KEY1_REGISTER_ADDRESS, 0) & 1 != 0{
+        cpu.double_speed = !cpu.double_speed;
+        memory.set_double_speed_mode(cpu.double_speed);
+        memory.write(KEY1_REGISTER_ADDRESS, 0, 0);
     }
 
     // 1 cycles - 1 reading opcode

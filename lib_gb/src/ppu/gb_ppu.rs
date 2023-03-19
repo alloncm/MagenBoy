@@ -1,9 +1,9 @@
+use crate::machine::Mode;
 use crate::mmu::vram::VRam;
 use crate::utils::{vec2::Vec2, bit_masks::*};
-use crate::ppu::{gfx_device::GfxDevice, ppu_state::PpuState, sprite_attribute::SpriteAttribute, colors::*, color::*};
 
-use super::fifo::{FIFO_SIZE, sprite_fetcher::*, background_fetcher::BackgroundFetcher};
-use super::gfx_device::Pixel;
+use super::fifo::{SPRITE_WIDTH, background_fetcher::{BackgroundPixel, BackgroundFetcher}, FIFO_SIZE, sprite_fetcher::*};
+use super::{gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -33,6 +33,12 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub obj_pallete_1_register:u8,
     pub obj_color_mapping1: [Option<Color>;4],
 
+    // CGB
+    pub bg_color_ram:[u8;64],
+    pub bg_color_pallete_index:u8,
+    pub obj_color_ram:[u8;64],
+    pub obj_color_pallete_index:u8,
+
     //interrupts
     pub v_blank_interrupt_request:bool,
     pub h_blank_interrupt_request:bool,
@@ -50,11 +56,12 @@ pub struct GbPpu<GFX: GfxDevice>{
     sprite_fetcher:SpriteFetcher,
     stat_triggered:bool,
     trigger_stat_interrupt:bool,
-    next_state:PpuState
+    next_state:PpuState,
+    mode: Mode,
 }
 
 impl<GFX:GfxDevice> GbPpu<GFX>{
-    pub fn new(device:GFX) -> Self {
+    pub fn new(device:GFX, mode: Mode) -> Self {
         Self{
             gfx_device: device,
             vram: VRam::default(),
@@ -74,6 +81,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             obj_color_mapping1: [None, Some(LIGHT_GRAY), Some(DARK_GRAY), Some(BLACK)],
             ly_register:0,
             state: PpuState::Hblank,
+            // CGB
+            bg_color_ram:[0;64],
+            bg_color_pallete_index:0,
+            obj_color_ram:[0;64],
+            obj_color_pallete_index:0,
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -83,11 +95,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             m_cycles_passed:0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
-            bg_fetcher:BackgroundFetcher::new(),
-            sprite_fetcher:SpriteFetcher::new(),
+            bg_fetcher:BackgroundFetcher::new(mode),
+            sprite_fetcher:SpriteFetcher::new(mode),
             pixel_x_pos:0,
             scanline_started:false,
-            next_state:PpuState::OamSearch
+            next_state:PpuState::OamSearch,
+            mode,
         }
     }
 
@@ -176,25 +189,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.state = PpuState::OamSearch;
                     // first iteration
                     if self.m_cycles_passed == 0{
-                        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
-                        for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
-                            let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
-                            let end_y = self.oam[oam_entry_address];
-                            let end_x = self.oam[oam_entry_address + 1];
-
-                            if end_x > 0 && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height {
-                                let tile_number = self.oam[oam_entry_address + 2];
-                                let attributes = self.oam[oam_entry_address + 3];
-                                self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = SpriteAttribute::new(end_y, end_x, tile_number, attributes);
-                                self.sprite_fetcher.oam_entries_len += 1;
-                                if self.sprite_fetcher.oam_entries_len == MAX_SPRITES_PER_LINE as u8{
-                                    break;
-                                }
-                            }
-                        }
-
-                        self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize]
-                            .sort_by(|s1:&SpriteAttribute, s2:&SpriteAttribute| s1.x.cmp(&s2.x));
+                        self.read_sprites_from_oam();
                     }
                     
                     let scope_m_cycles_passed = std::cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
@@ -310,6 +305,58 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return m_cycles_for_state - self.m_cycles_passed;
     }
 
+    fn read_sprites_from_oam(&mut self) {
+        let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
+        for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
+            let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
+            let end_y = self.oam[oam_entry_address];
+            let end_x = self.oam[oam_entry_address + 1];
+
+            if end_x > 0 && end_x < SCREEN_WIDTH as u8 + SPRITE_WIDTH && self.ly_register + 16 >= end_y && self.ly_register + 16 < end_y + sprite_height {
+                let tile_number = self.oam[oam_entry_address + 2];
+                let attributes = self.oam[oam_entry_address + 3];
+                let mut vis_start = 0;
+                let mut vis_end = SPRITE_WIDTH;
+                for i in 0..self.sprite_fetcher.oam_entries_len{
+                    let mut entry = &mut self.sprite_fetcher.oam_entries[i as usize];
+                    // check collision
+                    if entry.x < end_x + SPRITE_WIDTH && entry.x + SPRITE_WIDTH > end_x {
+                        // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
+                        // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
+                        if end_x < entry.x{
+                            if self.mode == Mode::CGB{
+                                vis_end = std::cmp::min(entry.x - end_x, vis_end);
+                            }else{
+                                entry.visibility_start = std::cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
+                            }
+                        }else if end_x > entry.x{
+                            vis_start = std::cmp::max(SPRITE_WIDTH - (end_x - entry.x), vis_start);
+                        }else{
+                            vis_start = SPRITE_WIDTH;
+                        }
+                    }
+                }
+        
+                // bounds checks
+                if end_x < SPRITE_WIDTH{
+                    vis_start = std::cmp::max(SPRITE_WIDTH - end_x, vis_start);
+                }
+                else if end_x > SCREEN_WIDTH as u8{
+                    vis_end = std::cmp::min(SPRITE_WIDTH - (end_x - SCREEN_WIDTH as u8), vis_end);
+                }
+        
+                self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = 
+                    SpriteAttributes::new(end_y, end_x, tile_number, attributes, vis_start, vis_end);
+                self.sprite_fetcher.oam_entries_len += 1;
+                if self.sprite_fetcher.oam_entries_len == MAX_SPRITES_PER_LINE as u8{
+                    break;
+                }
+            }
+        }
+        self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize]
+            .sort_by(|s1:&SpriteAttributes, s2:&SpriteAttributes| s1.x.cmp(&s2.x));
+    }
+
     fn try_push_to_lcd(&mut self){
         if self.bg_fetcher.fifo.len() == 0{
             return;
@@ -327,32 +374,55 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             }
         }
 
-        let bg_pixel_color_num = self.bg_fetcher.fifo.remove();
-        let bg_pixel = self.bg_color_mapping[bg_pixel_color_num as usize];
-        let pixel = if !(self.sprite_fetcher.fifo.len() == 0){
-            let sprite_color_num = self.sprite_fetcher.fifo.remove();
-            let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_color_num.1 as usize];
-
-            if sprite_color_num.0 == 0 || (pixel_oam_attribute.is_bg_priority && bg_pixel_color_num != 0){
-                bg_pixel
-            }
-            else{
-                let sprite_pixel = if pixel_oam_attribute.palette_number{
-                    self.obj_color_mapping1[sprite_color_num.0 as usize]
-                }
-                else{
-                    self.obj_color_mapping0[sprite_color_num.0 as usize]
-                };
-
-                sprite_pixel.expect("Corruption in the object color pallete")
-            }
-        }
-        else{
-            bg_pixel
-        };
-
+        let bg_pixel = self.bg_fetcher.fifo.remove();
+        let pixel = self.get_pixel_color(bg_pixel);
         self.push_pixel(Color::into(pixel));
         self.pixel_x_pos += 1;
+    }
+
+    fn get_pixel_color(&mut self, bg_pixel:BackgroundPixel) -> Color {
+        if self.sprite_fetcher.fifo.len() == 0{
+            return self.get_bg_pixel(bg_pixel);
+        }
+        let sprite_pixel = self.sprite_fetcher.fifo.remove();
+        if sprite_pixel.color_index == 0{
+            return self.get_bg_pixel(bg_pixel);
+        }
+        let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_pixel.oam_entry as usize];
+        if self.mode == Mode::CGB{
+            // Based on MagenTests ColorBgOamPriority - https://github.com/alloncm/MagenTests
+            // in case BG pixel is 0 or BG layer is diabled or both BG and OAM attributes has BG priority disabled
+            // draw the OAM pixel else draw the BG pixel
+            return if bg_pixel.color_index == 0 || self.lcd_control & BIT_0_MASK == 0 || (!pixel_oam_attribute.attributes.bg_priority && !bg_pixel.attributes.attribute.bg_priority){
+                Self::get_color_from_color_ram(&self.obj_color_ram, pixel_oam_attribute.gbc_palette_number, sprite_pixel.color_index)
+            }
+            else{
+                Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)                    
+            };
+        }
+        else{
+            if pixel_oam_attribute.attributes.bg_priority && bg_pixel.color_index != 0{
+                return self.bg_color_mapping[bg_pixel.color_index as usize];
+            }
+            else{
+                let sprite_pixel = if pixel_oam_attribute.gb_palette_number{
+                    self.obj_color_mapping1[sprite_pixel.color_index as usize]
+                }
+                else{
+                    self.obj_color_mapping0[sprite_pixel.color_index as usize]
+                };
+                return sprite_pixel.expect("Corruption in the object color pallete");
+            }
+        }
+    }
+
+    fn get_bg_pixel(&mut self, bg_pixel:BackgroundPixel) -> Color {
+        return if self.mode == Mode::CGB{
+            Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)
+        }            
+        else{
+            self.bg_color_mapping[bg_pixel.color_index as usize]
+        };
     }
 
     fn push_pixel(&mut self, pixel: Pixel) {
@@ -361,5 +431,14 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
            self.swap_buffer();
         }
+    }
+
+    fn get_color_from_color_ram(color_ram:&[u8;64], pallete: u8, pixel: u8) -> Color {
+        const COLOR_PALLETE_SIZE:u8 = 8;
+        let pixel_color_index = (pallete * COLOR_PALLETE_SIZE) + (pixel * 2);
+        let mut color:u16 = color_ram[pixel_color_index as usize] as u16;
+        color |= (color_ram[pixel_color_index as usize + 1] as u16) << 8;
+        
+        return Color::from(color);
     }
 }

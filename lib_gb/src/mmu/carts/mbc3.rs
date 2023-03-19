@@ -1,4 +1,4 @@
-use super::mbc::*;
+use super::*;
 
 const RAM_TIMER_ENABLE_VALUE:u8 = 0xA;
 const EXTERNAL_RAM_READ_ERROR_VALUE:u8 = 0xFF;

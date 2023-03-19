@@ -10,7 +10,7 @@ macro_rules! rst_test{
         fn $name(){
             let mut cpu = GbCpu::default();
             cpu.stack_pointer =0xFFFE;
-            let mut memory = MemoryStub{data:[0;0xFFFF]};
+            let mut memory = MemoryStub{data:[0;0xFFFF], double_speed:false};
 
             rst(&mut cpu,&mut memory,$opcode);
 

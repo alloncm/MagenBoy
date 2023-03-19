@@ -29,8 +29,10 @@ impl Ram{
             bank = 1;
         }
         
-        self.ram_bank_register = bank;
+        self.ram_bank_register = bank & 0b111;
     }
+
+    pub fn get_bank(&self)->u8{self.ram_bank_register}
 
     fn get_valid_address(&self, address:u16)->usize{
         return BANK_SIZE*(self.ram_bank_register as usize) + (address as usize);
