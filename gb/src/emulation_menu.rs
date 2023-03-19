@@ -30,12 +30,13 @@ impl MagenBoyState{
 }
 
 pub struct MagenBoyMenu<JP:JoypadProvider + MenuJoypadProvider>{
+    header:String,
     provider:JP,
 }
 
 impl<JP:JoypadProvider + MenuJoypadProvider> MagenBoyMenu<JP> {
-    pub fn new(provider:JP)->Self{
-        Self { provider }
+    pub fn new(provider:JP, header:String)->Self{
+        Self { provider, header }
     }
 
     pub fn pop_game_menu<GFX:GfxDevice>(&mut self, state:&MagenBoyState, gfx_device:&mut GFX, receiver:crossbeam_channel::Receiver<usize>){
@@ -52,7 +53,7 @@ impl<JP:JoypadProvider + MenuJoypadProvider> MagenBoyMenu<JP> {
     fn get_game_menu_selection<GFX:GfxDevice>(&mut self, state:&MagenBoyState,gfx_device:&mut GFX, emulation_framebuffer_channel:crossbeam_channel::Receiver<usize>)->&EmulatorMenuOption{
         let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(gfx_device);
     
-        let mut menu = JoypadMenu::new(&GAME_MENU_OPTIONS, menu_renderer);  
+        let mut menu = JoypadMenu::new(&GAME_MENU_OPTIONS, &self.header, menu_renderer);  
     
         // lock the mutex here to sync the 2 threads
         state.pause.store(true, std::sync::atomic::Ordering::SeqCst);

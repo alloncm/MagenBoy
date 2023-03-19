@@ -128,11 +128,14 @@ fn get_rom_selection<MR:MenuRenderer<PathBuf, String>>(roms_path:&str, menu_rend
     for entry in dir_entries{
         let entry = entry.unwrap();
         let path = entry.path();
-        if let Some(extension) = path.as_path().extension(){
-            if extension == "gb"{
-                let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
-                let option = MenuOption{value: path, prompt: filename};
-                menu_options.push(option);
+        if let Some(extension) = path.as_path().extension().and_then(std::ffi::OsStr::to_str){
+            match extension {
+                "gb" | "gbc"=>{
+                    let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
+                    let option = MenuOption{value: path, prompt: filename};
+                    menu_options.push(option);
+                },
+                _=>{}
             }
         }
     }
@@ -142,19 +145,19 @@ fn get_rom_selection<MR:MenuRenderer<PathBuf, String>>(roms_path:&str, menu_rend
     else{
         let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
     }}
-    let mut menu = JoypadMenu::new(&menu_options, menu_renderer);
+    let mut menu = JoypadMenu::new(&menu_options, String::from("Choose ROM"), menu_renderer);
     let result = menu.get_menu_selection(&mut provider);
 
-    // Removing the file extenstion and casting to String
-    let result = String::from(result.with_extension("").to_str().unwrap());
-    
-    return result;
+    return String::from(result.to_str().unwrap());
 }
 
 // This is static and not local for the unix signal handler to access it
 static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
+const VERSION:&str = env!("CARGO_PKG_VERSION");
+
 fn main() {
+    let header = std::format!("MagenBoy v{}", VERSION);
     let args: Vec<String> = env::args().collect();  
     
     match init_logger(){
@@ -166,7 +169,7 @@ fn main() {
     cfg_if::cfg_if!{ if #[cfg(feature = "rpi")]{
         let mut gfx_device:rpi_gpio::ili9341_controller::Ili9341GfxDevice<rpi_gpio::SpiType> = rpi_gpio::ili9341_controller::Ili9341GfxDevice::new(RESET_PIN_BCM, DC_PIN_BCM, LED_PIN_BCM, TURBO_MUL, 0);
     }else{
-        let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new("MagenBoy", SCREEN_SCALE, TURBO_MUL,
+        let mut gfx_device = sdl::sdl_gfx_device::SdlGfxDevice::new(header.as_str(), SCREEN_SCALE, TURBO_MUL,
         check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
     }}
 
@@ -176,17 +179,12 @@ fn main() {
     else{
         let provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(buttons_mapper);
     }} 
-    let mut emulation_menu = MagenBoyMenu::new(provider);
+    let mut emulation_menu = MagenBoyMenu::new(provider, header);
 
     while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
-            cfg_if::cfg_if!{if #[cfg(feature = "terminal-menu")]{
-                let menu_renderer = joypad_menu::joypad_terminal_menu::TerminalMenuRenderer{};
-            }
-            else{
-                let menu_renderer = joypad_menu::joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx_device);
-            }}
+            let menu_renderer = joypad_menu::joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx_device);
             get_rom_selection(roms_path.as_str(), menu_renderer)
         }
         else{

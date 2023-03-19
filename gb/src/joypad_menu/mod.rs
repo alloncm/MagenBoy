@@ -1,12 +1,7 @@
-use lib_gb::keypad::{button::Button, joypad::Joypad, joypad_provider::JoypadProvider};
+mod font;
+pub mod joypad_gfx_menu;
 
-cfg_if::cfg_if!{if #[cfg(feature = "terminal-menu")]{
-    pub mod joypad_terminal_menu;
-}
-else{
-    mod font;
-    pub mod joypad_gfx_menu;    
-}}
+use lib_gb::keypad::{button::Button, joypad::Joypad, joypad_provider::JoypadProvider};
 
 pub struct MenuOption<T, S:AsRef<str>>{
     pub prompt:S,
@@ -14,7 +9,7 @@ pub struct MenuOption<T, S:AsRef<str>>{
 }
 
 pub trait MenuRenderer<T, S:AsRef<str>>{
-    fn render_menu(&mut self, menu:&[MenuOption<T, S>], selection:usize);
+    fn render_menu(&mut self,header:&S, menu:&[MenuOption<T, S>], selection:usize);
 }
 
 pub trait MenuJoypadProvider{
@@ -22,14 +17,16 @@ pub trait MenuJoypadProvider{
 }
 
 pub struct JoypadMenu<'a, T, S:AsRef<str>, MR:MenuRenderer<T, S>>{
+    header:S,
     options: &'a [MenuOption< T, S>],
     selection: usize,
     renderer:MR,
 }
 
 impl<'a, T, S: AsRef<str>, MR:MenuRenderer<T, S>> JoypadMenu<'a, T, S, MR>{
-    pub fn new(menu_options:&'a[MenuOption<T, S>], renderer:MR)->Self{
+    pub fn new(menu_options:&'a[MenuOption<T, S>], header:S, renderer:MR)->Self{
         JoypadMenu { 
+            header,
             options: menu_options,
             selection: 0,
             renderer
@@ -41,7 +38,7 @@ impl<'a, T, S: AsRef<str>, MR:MenuRenderer<T, S>> JoypadMenu<'a, T, S, MR>{
         let mut redraw = true;
         while !joypad.buttons[Button::A as usize]{
             if redraw{
-                self.renderer.render_menu(&self.options, self.selection);
+                self.renderer.render_menu(&self.header,&self.options, self.selection);
                 redraw = false;
             }
             provider.poll(&mut joypad);
