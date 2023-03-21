@@ -9,8 +9,10 @@ edition = "2018"
 log = "0.4"
 
 [features]
+default = ["dbg"]
 u16pixel = []
 apu = []
+dbg = []
 
 [dev-dependencies]
 criterion = "0.3"

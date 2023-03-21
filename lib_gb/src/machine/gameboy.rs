@@ -4,18 +4,19 @@ use crate::{
     mmu::{carts::Mbc, gb_mmu::GbMmu, memory::Memory, external_memory_bus::Bootrom}, 
     ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
 };
-use super::Mode;
+use super::{Mode, debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger}};
 
 //CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
 pub const CYCLES_PER_FRAME:u32 = 17556;
 
-pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
+pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> {
     cpu: GbCpu,
-    mmu: GbMmu::<'a, AD, GFX, JP>
+    mmu: GbMmu::<'a, AD, GFX, JP>,
+    debugger:Debugger<DUI>
 }
 
-impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX>{
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, boot_rom:Bootrom, mode:Option<Mode>)->GameBoy<JP, AD, GFX>{
+impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameBoy<'a, JP, AD, GFX, DUI>{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->GameBoy<JP, AD, GFX, DUI>{
         let mode = mode.unwrap_or_else(||mbc.get_compatibility_mode().into());
         
         let mut cpu = GbCpu::default();
@@ -49,31 +50,58 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
         GameBoy{
             cpu:cpu,
             mmu:GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            debugger: Debugger::new(dui),
         }
     }
 
     pub fn cycle_frame(&mut self){
         while self.mmu.m_cycle_counter < CYCLES_PER_FRAME{
-            self.mmu.poll_joypad_state();
-
-            //CPU
-            let mut cpu_cycles_passed = 1;
-            if !self.cpu.halt && !self.mmu.dma_block_cpu(){
-                cpu_cycles_passed = self.execute_opcode();
-            }
-            if cpu_cycles_passed != 0{
-                self.mmu.cycle(cpu_cycles_passed);
-            }
-            
-            //interrupts
-            let interrupt_request = self.mmu.handle_interrupts(self.cpu.mie);
-            let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
-            if interrupt_cycles != 0{
-                self.mmu.cycle(interrupt_cycles);
-            }
+            self.handle_debugger();
+            self.step();
         }
 
         self.mmu.m_cycle_counter = 0;
+    }
+
+    fn handle_debugger(&mut self) {
+        while self.debugger.ui.stop() || self.debugger.should_break(self.cpu.program_counter){
+            match self.debugger.ui.recv_command(){
+                DebuggerCommand::Stop=>self.debugger.ui.send_result(DebuggerResult::Address(self.cpu.program_counter)),
+                DebuggerCommand::Step=>{
+                    self.step();
+                    self.debugger.ui.send_result(DebuggerResult::Address(self.cpu.program_counter));
+                }
+                DebuggerCommand::Continue=>{
+                    self.debugger.ui.send_result(DebuggerResult::None);
+                    break;
+                }
+                DebuggerCommand::Registers => todo!(),
+                DebuggerCommand::Break(address) => {
+                    self.debugger.add_breakpoint(address);
+                    self.debugger.ui.send_result(DebuggerResult::None);
+                },
+            }
+        }
+    }
+
+    fn step(&mut self) {
+        self.mmu.poll_joypad_state();
+
+        //CPU
+        let mut cpu_cycles_passed = 1;
+        if !self.cpu.halt && !self.mmu.dma_block_cpu(){
+            cpu_cycles_passed = self.execute_opcode();
+        }
+        if cpu_cycles_passed != 0{
+            self.mmu.cycle(cpu_cycles_passed);
+        }
+            
+        //interrupts
+        let interrupt_request = self.mmu.handle_interrupts(self.cpu.mie);
+        let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
+        if interrupt_cycles != 0{
+            self.mmu.cycle(interrupt_cycles);
+        }
     }
 
     fn execute_opcode(&mut self)->u8{
@@ -87,7 +115,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
             self.cpu.stack_pointer, pc,
             self.mmu.read(pc,0), self.mmu.read(pc+1,0), self.mmu.read(pc+2,0), self.mmu.read(pc+3,0)
         );
-    
         self.cpu.run_opcode(&mut self.mmu)
     }
 }

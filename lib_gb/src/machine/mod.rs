@@ -2,6 +2,8 @@ use std::convert::TryFrom;
 
 pub mod gameboy;
 pub mod mbc_initializer;
+#[cfg(feature = "dbg")]
+pub mod debugger;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
