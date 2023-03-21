@@ -137,13 +137,13 @@ fn test_adc_nn_on_carry_set_expeced_carry_half_carry_zero(){
 #[test]
 fn test_inc_hl(){
     let mut cpu = GbCpu::default();
-    *cpu.hl.value() = 0x50;
+    *cpu.hl.value_mut() = 0x50;
     cpu.set_flag(Flag::Carry);
     let mut memory = MemoryStub{data:[0;0xFFFF], double_speed:false};
     
     arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);
 
-    assert_eq!(*cpu.hl.value(), 0x50);
+    assert_eq!(*cpu.hl.value_mut(), 0x50);
     assert_eq!(memory.data[0x50], 1);
     assert_eq!(cpu.get_flag(Flag::Zero), false);
     assert_eq!(cpu.get_flag(Flag::HalfCarry), false);
@@ -154,14 +154,14 @@ fn test_inc_hl(){
 #[test]
 fn test_inc_hl_half_carry(){
     let mut cpu = GbCpu::default();
-    *cpu.hl.value() = 0x50;
+    *cpu.hl.value_mut() = 0x50;
     cpu.set_flag(Flag::Carry);
     let mut memory = MemoryStub{data:[0;0xFFFF], double_speed:false};
     memory.data[0x50] = 0x0F;
     
     arithmetic_8bit_instructions::inc_hl(&mut cpu, &mut memory);
 
-    assert_eq!(*cpu.hl.value(), 0x50);
+    assert_eq!(*cpu.hl.value_mut(), 0x50);
     assert_eq!(memory.data[0x50], 0x10);
     assert_eq!(cpu.get_flag(Flag::Zero), false);
     assert_eq!(cpu.get_flag(Flag::HalfCarry), true);

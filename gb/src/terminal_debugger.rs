@@ -35,7 +35,7 @@ impl TerminalDebugger{
                         _=>std::panic!("Wrong debugger result")
                     }
                 }
-                "c"=>{
+                "c" if ENABLE_FLAG.load(Ordering::SeqCst)=>{
                     ENABLE_FLAG.store(false, Ordering::SeqCst);
                     match send_command(DebuggerCommand::Continue) {
                         DebuggerResult::None => {}
@@ -64,6 +64,14 @@ impl TerminalDebugger{
                     match send_command(DebuggerCommand::Break(address)){
                         DebuggerResult::None => println!("Set break point at: 0x{:X}", address),
                         _=> todo!(),
+                    }
+                },
+                "r"=>{
+                    match send_command(DebuggerCommand::Registers){
+                        DebuggerResult::Registers(regs)=>
+                            println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
+                            regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc),
+                        _=>std::panic!("Wrong debuger results")
                     }
                 }
                 _=>println!("invalid input")

@@ -28,7 +28,7 @@ pub fn bit_r(cpu:&mut GbCpu, opcode:u16)->u8{
 
 pub fn bit_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
-    let byte = memory.read(*cpu.hl.value(), 1);
+    let byte = memory.read(cpu.hl.value(), 1);
     let bit_number = get_bit_number(opcode);
     let bit = byte & bit_number;
     set_flags_bit(cpu, bit == 0);
@@ -49,10 +49,10 @@ pub fn set_r(cpu:&mut GbCpu, opcode:u16)->u8{
 
 pub fn set_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
-    let mut byte = memory.read(*cpu.hl.value(), 1);
+    let mut byte = memory.read(cpu.hl.value(), 1);
     let bit_number = get_bit_number(opcode);
     byte |= bit_number;
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
 
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
     return 0;
@@ -71,11 +71,11 @@ pub fn res_r(cpu:&mut GbCpu, opcode:u16)->u8{
 
 pub fn res_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let opcode = get_cb_opcode(opcode);
-    let mut byte = memory.read(*cpu.hl.value(), 1);
+    let mut byte = memory.read(cpu.hl.value(), 1);
     let bit_number = get_bit_number(opcode);
     let bit_mask:u8 = 0xFF ^ bit_number;
     byte &= bit_mask;
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
     return 0;

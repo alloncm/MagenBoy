@@ -1,14 +1,33 @@
+use crate::cpu::gb_cpu::GbCpu;
+
 pub enum DebuggerCommand{
     Stop,
     Step,
     Continue,
     Registers,
-    Break(u16)
+    Break(u16),
+}
+
+#[derive(Clone, Copy)]
+pub struct Registers{
+    pub af:u16,
+    pub bc:u16,
+    pub de: u16,
+    pub hl:u16,
+    pub pc:u16,
+    pub sp:u16
+}
+
+impl Registers{
+    pub fn new(cpu:&GbCpu)->Self{
+        Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
+    }
 }
 
 pub enum DebuggerResult{
     None,
     Address(u16),
+    Registers(Registers)
 }
 
 pub trait DebuggerUi{

@@ -19,9 +19,9 @@ pub fn get_src_register(cpu: &mut GbCpu, opcode:u8)-> &mut u8{
 
 pub fn get_arithmetic_16reg(cpu:&mut GbCpu, reg:u8)->&mut u16{
     return match reg{
-        0x0=>cpu.bc.value(),
-        0x1=>cpu.de.value(),
-        0x2=>cpu.hl.value(),
+        0x0=>cpu.bc.value_mut(),
+        0x1=>cpu.de.value_mut(),
+        0x2=>cpu.hl.value_mut(),
         0x3=>&mut cpu.stack_pointer,
         _=>panic!("no register")
     };

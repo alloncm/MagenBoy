@@ -4,7 +4,7 @@ use crate::{
     mmu::{carts::Mbc, gb_mmu::GbMmu, memory::Memory, external_memory_bus::Bootrom}, 
     ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
 };
-use super::{Mode, debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger}};
+use super::{Mode, debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger, Registers}};
 
 //CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
 pub const CYCLES_PER_FRAME:u32 = 17556;
@@ -24,16 +24,16 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
             //Values after the bootrom
             match mode{
                 Mode::DMG=>{
-                    *cpu.af.value() = 0x190;
-                    *cpu.bc.value() = 0x13;
-                    *cpu.de.value() = 0xD8;
-                    *cpu.hl.value() = 0x14D;
+                    *cpu.af.value_mut() = 0x190;
+                    *cpu.bc.value_mut() = 0x13;
+                    *cpu.de.value_mut() = 0xD8;
+                    *cpu.hl.value_mut() = 0x14D;
                 },
                 Mode::CGB=>{
-                    *cpu.af.value() = 0x1180;
-                    *cpu.bc.value() = 0x0;
-                    *cpu.de.value() = 0xFF56;
-                    *cpu.hl.value() = 0xD;
+                    *cpu.af.value_mut() = 0x1180;
+                    *cpu.bc.value_mut() = 0x0;
+                    *cpu.de.value_mut() = 0xFF56;
+                    *cpu.hl.value_mut() = 0xD;
                 }
             }
             cpu.stack_pointer = 0xFFFE;
@@ -75,7 +75,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
                     self.debugger.ui.send_result(DebuggerResult::None);
                     break;
                 }
-                DebuggerCommand::Registers => todo!(),
+                DebuggerCommand::Registers => self.debugger.ui.send_result(DebuggerResult::Registers(Registers::new(&self.cpu))),
                 DebuggerCommand::Break(address) => {
                     self.debugger.add_breakpoint(address);
                     self.debugger.ui.send_result(DebuggerResult::None);

@@ -8,7 +8,7 @@ fn test_ld_hl_sp_dd(){
     let opcode:u16 = 0x23;
     let mut cpu = GbCpu::default();
     load_16bit_instructions::ld_hl_spdd(&mut cpu, opcode);
-    assert_eq!(*cpu.hl.value(), opcode);
+    assert_eq!(*cpu.hl.value_mut(), opcode);
 }
 
 #[test]
@@ -25,7 +25,7 @@ fn test_push_af(){
     //PUSH AF opcode
     let opcode = 0xF5;
     let mut cpu = GbCpu::default();
-    *cpu.af.value() = 0xEFC7;
+    *cpu.af.value_mut() = 0xEFC7;
     cpu.stack_pointer = 0xFFFE;		
     let mut mmu = MemoryStub{data:[0;0xFFFF], double_speed:false};
 
@@ -49,12 +49,12 @@ fn test_pop_af(){
     mmu.data[0xFFFC] = 0x54;
     mmu.data[0xFFFD] = 0x98;
 
-    *cpu.af.value() = 0;
+    *cpu.af.value_mut() = 0;
 
     //Act
     load_16bit_instructions::pop(&mut cpu, &mut mmu, opcode);
 
     //Assert
     assert_eq!(cpu.stack_pointer, 0xFFFE);
-    assert_eq!(*cpu.af.value(), 0x9850);
+    assert_eq!(*cpu.af.value_mut(), 0x9850);
 }

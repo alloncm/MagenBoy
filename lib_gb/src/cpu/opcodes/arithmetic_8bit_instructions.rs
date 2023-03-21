@@ -114,7 +114,7 @@ pub fn add_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //add A and (hl)
 pub fn add_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = add(cpu, dest, src);
     
@@ -144,7 +144,7 @@ pub fn adc_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //add A and (hl) + Scarry
 pub fn adc_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = adc(cpu, dest, src);
     
@@ -174,7 +174,7 @@ pub fn sub_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //sub A and (hl)
 pub fn sub_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = sub(cpu, dest, src);
     
@@ -205,7 +205,7 @@ pub fn sbc_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //sub A and (hl)
 pub fn sbc_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = subc(cpu, dest, src);
     
@@ -235,7 +235,7 @@ pub fn and_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //and A and (hl)
 pub fn and_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = and(cpu, dest, src);
     
@@ -265,7 +265,7 @@ pub fn xor_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //xor A and (hl)
 pub fn xor_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = xor(cpu, dest, src);
     
@@ -295,7 +295,7 @@ pub fn or_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //or A and (hl)
 pub fn or_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     *cpu.af.high() = or(cpu, dest, src);
     
@@ -325,7 +325,7 @@ pub fn cp_a_nn(cpu:&mut GbCpu, opcode:u16)->u8{
 
 //or A and (hl)
 pub fn cp_a_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let src = memory.read(*cpu.hl.value(), 1);
+    let src = memory.read(cpu.hl.value(), 1);
     let dest = *cpu.af.high();
     sub(cpu, dest, src);
     
@@ -351,9 +351,9 @@ pub fn inc_r(cpu:&mut GbCpu, opcode:u8)->u8{
 }
 
 pub fn inc_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let value = memory.read(*cpu.hl.value(), 1);
+    let value = memory.read(cpu.hl.value(), 1);
     let altered_value = value.wrapping_add(1);
-    memory.write(*cpu.hl.value(), altered_value, 1);
+    memory.write(cpu.hl.value(), altered_value, 1);
     
     cpu.set_by_value(Flag::Zero, altered_value == 0);
     cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_add(value, 1));
@@ -381,9 +381,9 @@ pub fn dec_r(cpu:&mut GbCpu, opcode:u8)->u8{
 }
 
 pub fn dec_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let value = memory.read(*cpu.hl.value(), 1);
+    let value = memory.read(cpu.hl.value(), 1);
     let altered_value = value.wrapping_sub(1);
-    memory.write(*cpu.hl.value(), altered_value, 1);
+    memory.write(cpu.hl.value(), altered_value, 1);
     
     cpu.set_by_value(Flag::Zero, altered_value == 0);
     cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_first_nible_sub(value, altered_value));

@@ -134,7 +134,7 @@ pub fn jump_cc(cpu:&mut GbCpu, opcode:u32)->u8{
 }
 
 pub fn jump_hl(cpu:&mut GbCpu)->u8{
-    cpu.program_counter = *cpu.hl.value();
+    cpu.program_counter = cpu.hl.value();
     
     // 1 cycles - 1 reading opcode
     return 0;
