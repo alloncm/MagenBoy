@@ -57,12 +57,14 @@ pub unsafe fn scale_bilinear<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, c
     }
 }
 
-// implemented based on this article - https://kwojcicki.github.io/blog/NEAREST-NEIGHBOUR
-pub unsafe fn scale_nearest<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8, scale:f32){
+// implemented based on this article - https://towardsdatascience.com/image-processing-image-scaling-algorithms-ae29aaa6b36c
+pub unsafe fn scale_nearest<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
+    let scale_x = OUTPUT_WIDTH as f32 / INPUT_WIDTH as f32;
+    let scale_y = OUTPUT_HEIGHT as f32 / INPUT_HEIGHT as f32;
     for y in 0..OUTPUT_HEIGHT{
         for x in 0..OUTPUT_WIDTH{
-            let proj_x = ((1.0 / scale) * x as f32) as usize;
-            let proj_y = ((1.0 / scale) * y as f32) as usize;
+            let proj_x = (x as f32 / scale_x).round() as usize;
+            let proj_y = (y as f32 / scale_y).round() as usize;
             let pixel = *input_buffer.add((proj_y * INPUT_WIDTH) + proj_x);
             let output_index = (y * OUTPUT_WIDTH) + x;
             *output_buffer.add(output_index * 2) = (pixel >> 8) as u8;

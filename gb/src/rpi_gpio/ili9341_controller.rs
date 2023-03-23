@@ -100,7 +100,7 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
         spi.write(Ili9341Commands::VcomControl2, &[0x86]);
 
         // Configuring the screen
-        spi.write(Ili9341Commands::MemoryAccessControl, &[0x20]); // This command tlit the screen 90 degree
+        spi.write(Ili9341Commands::MemoryAccessControl, &[0x28]); // This command tlit the screen 90 degree and set pixel BGR order
         spi.write(Ili9341Commands::PixelFormatSet, &[0x55]);     // set pixel format to 16 bit per pixel;
         spi.write(Ili9341Commands::FrameRateControl, &[0x0, 0x10 /*According to the docs this is 119 hrz, setting this option in order to avoid screen tearing on rpi zero2 */]);
         spi.write(Ili9341Commands::DisplayFunctionControl, &[0x8, 0x82, 0x27]);
@@ -142,7 +142,7 @@ impl<SC:SpiController> Ili9341Contoller<SC>{
 
     pub fn write_frame_buffer(&mut self, buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH]){
         let mut scaled_buffer: [u8;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2] = [0;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2];
-        unsafe{image_inter::scale_biliniear_c::<SCREEN_WIDTH, SCREEN_HEIGHT, TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
+        unsafe{image_inter::scale_nearest::<SCREEN_WIDTH, SCREEN_HEIGHT, TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
 
         let end_x_index = TARGET_SCREEN_WIDTH + FRAME_BUFFER_X_OFFSET - 1;
         self.spi.write(Ili9341Commands::ColumnAddressSet, &[
