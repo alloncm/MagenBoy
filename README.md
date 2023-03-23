@@ -25,7 +25,6 @@ cargo build --release --features [optional_features]
 On by default 
 * `sdl-resample` - Use the audio resampler from sdl2 library and a manual one I wrote
 * `push-audio` - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
-* `static-scale` - Will use a fixed scale values for the renderer instead of addapting to the screen size
 * `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
 * `apu` - Turn on the apu (On by default)
 * `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.

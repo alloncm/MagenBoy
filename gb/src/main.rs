@@ -16,7 +16,6 @@ mod audio{
 #[cfg(feature = "sdl")]
 mod sdl{
     pub mod utils;
-    #[cfg(not(feature = "u16pixel"))]
     pub mod sdl_gfx_device;
     #[cfg(feature = "sdl-resample")]
     pub mod sdl_audio_resampler;
