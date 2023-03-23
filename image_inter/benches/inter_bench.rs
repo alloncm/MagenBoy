@@ -22,7 +22,7 @@ pub fn neighbor_rust_inter(c: &mut Criterion){
     let input_buffer = [0_u16; 160*144];
     let mut output_buffer = [0_u8; 240*266*2];
     c.bench_function("bench rust neighbor", |b|b.iter(||{
-        unsafe{scale_nearest::<160, 144, 266, 240>(input_buffer.as_ptr(), output_buffer.as_mut_ptr(), 5.0/3.0)};
+        unsafe{scale_nearest::<160, 144, 266, 240>(input_buffer.as_ptr(), output_buffer.as_mut_ptr())};
     }));
 }
 

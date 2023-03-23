@@ -43,7 +43,7 @@ impl<'a, GFX: GfxDevice, T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRe
 }
 
 impl<'a, GFX:GfxDevice> GfxDeviceMenuRenderer<'a, GFX>{
-    fn render_string<S:AsRef<str>>(prompt: S, frame_buffer: &mut [u32; 23040], frame_buffer_height_index: usize, color:Color, bg:Color) {
+    fn render_string<S:AsRef<str>>(prompt: S, frame_buffer: &mut [Pixel; SCREEN_HEIGHT * SCREEN_WIDTH], frame_buffer_height_index: usize, color:Color, bg:Color) {
         let mut width_index = 0;
         for char in prompt.as_ref().as_bytes(){
             let glyph = FONT_LUT[(char - FONT_ASCII_START_INDEX) as usize];
