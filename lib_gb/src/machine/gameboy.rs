@@ -72,14 +72,17 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
                     self.debugger.ui.send_result(DebuggerResult::Address(self.cpu.program_counter));
                 }
                 DebuggerCommand::Continue=>{
-                    self.debugger.ui.send_result(DebuggerResult::None);
+                    self.debugger.ui.send_result(DebuggerResult::Success);
                     break;
                 }
                 DebuggerCommand::Registers => self.debugger.ui.send_result(DebuggerResult::Registers(Registers::new(&self.cpu))),
                 DebuggerCommand::Break(address) => {
                     self.debugger.add_breakpoint(address);
-                    self.debugger.ui.send_result(DebuggerResult::None);
+                    self.debugger.ui.send_result(DebuggerResult::Success);
                 },
+                DebuggerCommand::DeleteBreak(address)=>{
+
+                }
             }
         }
     }

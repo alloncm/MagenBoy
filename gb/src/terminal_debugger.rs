@@ -38,7 +38,7 @@ impl TerminalDebugger{
                 "c" if ENABLE_FLAG.load(Ordering::SeqCst)=>{
                     ENABLE_FLAG.store(false, Ordering::SeqCst);
                     match send_command(DebuggerCommand::Continue) {
-                        DebuggerResult::None => {}
+                        DebuggerResult::Success => {}
                         _=>std::panic!("Wrong debugger result")
                     }
                 }
@@ -62,7 +62,7 @@ impl TerminalDebugger{
                         continue;
                     };
                     match send_command(DebuggerCommand::Break(address)){
-                        DebuggerResult::None => println!("Set break point at: 0x{:X}", address),
+                        DebuggerResult::Success => println!("Set break point at: 0x{:X}", address),
                         _=> todo!(),
                     }
                 },

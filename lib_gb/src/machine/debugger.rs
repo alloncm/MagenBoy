@@ -6,6 +6,7 @@ pub enum DebuggerCommand{
     Continue,
     Registers,
     Break(u16),
+    DeleteBreak(u16),
 }
 
 #[derive(Clone, Copy)]
@@ -25,9 +26,14 @@ impl Registers{
 }
 
 pub enum DebuggerResult{
-    None,
+    Success,
+    Error,
     Address(u16),
     Registers(Registers)
+}
+
+pub enum DebuggerPush{
+    Breakpoint(u16),
 }
 
 pub trait DebuggerUi{
@@ -51,9 +57,22 @@ impl<UI:DebuggerUi> Debugger<UI>{
         self.get_breakpoints().contains(&pc)
     }
 
-    pub fn add_breakpoint(&mut self, pc:u16){
-        self.breakpoints[self.breakpoints_size] = pc;
+    pub fn add_breakpoint(&mut self, address:u16){
+        if self.breakpoints.contains(&address){
+            return;
+        }
+        self.breakpoints[self.breakpoints_size] = address;
         self.breakpoints_size += 1;
+    }
+
+    pub fn try_remove_breakpoint(&mut self, address:u16)->bool{
+        if !self.breakpoints.contains(&address){
+            return false;
+        }
+        for i in 0..self.breakpoints_size{
+            
+        }
+        return true;
     }
 
     pub fn breakable(&self)->bool{self.breakpoints_size != 0}
