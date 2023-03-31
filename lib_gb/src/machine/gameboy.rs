@@ -64,24 +64,31 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
     }
 
     fn handle_debugger(&mut self) {
-        while self.debugger.ui.stop() || self.debugger.should_break(self.cpu.program_counter){
-            match self.debugger.ui.recv_command(){
-                DebuggerCommand::Stop=>self.debugger.ui.send_result(DebuggerResult::Address(self.cpu.program_counter)),
+        while self.debugger.should_halt(self.cpu.program_counter) {
+            if self.debugger.check_for_break(self.cpu.program_counter){
+                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter));
+            }
+            match self.debugger.recv(){
+                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter)),
                 DebuggerCommand::Step=>{
                     self.step();
-                    self.debugger.ui.send_result(DebuggerResult::Address(self.cpu.program_counter));
+                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter));
                 }
                 DebuggerCommand::Continue=>{
-                    self.debugger.ui.send_result(DebuggerResult::Success);
+                    self.debugger.send(DebuggerResult::Continuing);
                     break;
                 }
-                DebuggerCommand::Registers => self.debugger.ui.send_result(DebuggerResult::Registers(Registers::new(&self.cpu))),
+                DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
                 DebuggerCommand::Break(address) => {
                     self.debugger.add_breakpoint(address);
-                    self.debugger.ui.send_result(DebuggerResult::Success);
+                    self.debugger.send(DebuggerResult::AddedBreak(address));
                 },
                 DebuggerCommand::DeleteBreak(address)=>{
-
+                    let result = match self.debugger.try_remove_breakpoint(address) {
+                        true => DebuggerResult::RemovedBreak(address),
+                        false => DebuggerResult::BreakDoNotExist(address)
+                    };
+                    self.debugger.send(result);
                 }
             }
         }

@@ -26,10 +26,14 @@ impl Registers{
 }
 
 pub enum DebuggerResult{
-    Success,
-    Error,
-    Address(u16),
-    Registers(Registers)
+    Registers(Registers),
+    HitBreak(u16),
+    AddedBreak(u16),
+    RemovedBreak(u16),
+    BreakDoNotExist(u16),
+    Continuing,
+    Stepped(u16),
+    Stopped(u16)
 }
 
 pub enum DebuggerPush{
@@ -37,15 +41,15 @@ pub enum DebuggerPush{
 }
 
 pub trait DebuggerUi{
-    fn stop(&self)->bool;
+    fn should_stop(&self)->bool;
     fn recv_command(&self)->DebuggerCommand;
     fn send_result(&self, result:DebuggerResult);
 }
 
 pub struct Debugger<UI:DebuggerUi>{
-    pub ui:UI,
+    ui:UI,
     breakpoints:[u16;0xFF],
-    breakpoints_size:usize
+    breakpoints_size:usize,
 }
 
 impl<UI:DebuggerUi> Debugger<UI>{
@@ -53,7 +57,14 @@ impl<UI:DebuggerUi> Debugger<UI>{
         Self { ui, breakpoints: [0;0xFF], breakpoints_size:0 }
     }
 
-    pub fn should_break(&self, pc:u16)->bool{
+    pub fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
+    pub fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
+
+    pub fn should_halt(&self, pc:u16)->bool{
+        self.check_for_break(pc) || self.ui.should_stop()
+    }
+
+    pub fn check_for_break(&self, pc:u16)->bool{
         self.get_breakpoints().contains(&pc)
     }
 
@@ -66,16 +77,21 @@ impl<UI:DebuggerUi> Debugger<UI>{
     }
 
     pub fn try_remove_breakpoint(&mut self, address:u16)->bool{
-        if !self.breakpoints.contains(&address){
+        if !self.breakpoints.contains(&address) || self.breakpoints_size == 0 {
             return false;
         }
-        for i in 0..self.breakpoints_size{
-            
+        let mut found = false;
+        for i in 0..self.breakpoints_size {
+            if found {
+                self.breakpoints[i-1] = self.breakpoints[i];
+            }
+            if address == self.breakpoints[i]{
+                found = true;
+            }
         }
+        self.breakpoints_size -= 1;
         return true;
     }
-
-    pub fn breakable(&self)->bool{self.breakpoints_size != 0}
 
     fn get_breakpoints(&self)->&[u16]{
         &self.breakpoints[0..self.breakpoints_size]
