@@ -2,6 +2,7 @@ mod mbc_handler;
 mod mpmc_gfx_device;
 mod joypad_menu;
 mod emulation_menu;
+#[cfg(feature = "dbg")]
 mod terminal_debugger;
 
 #[cfg(feature = "rpi")]
@@ -45,7 +46,9 @@ cfg_if::cfg_if!{
     }
 }
 
-use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, emulation_menu::MagenBoyMenu, terminal_debugger::TerminalDebugger};
+use crate::{audio::multi_device_audio::*, mbc_handler::*, mpmc_gfx_device::MpmcGfxDevice, emulation_menu::MagenBoyMenu};
+#[cfg(feature = "dbg")]
+use crate::terminal_debugger::TerminalDebugger;
 use emulation_menu::MagenBoyState;
 use joypad_menu::{JoypadMenu, MenuOption, MenuRenderer};
 use lib_gb::{keypad::button::Button, apu::audio_device::*, machine::{gameboy::GameBoy, Mode}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}};
@@ -324,8 +327,13 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     };
 
     let mut mbc = initialize_mbc(&program_name, mode);
+    #[cfg(feature = "dbg")]
     let dbg = TerminalDebugger::new();
-    let mut gameboy = GameBoy::new(&mut mbc, joypad_provider, audio_devices, spsc_gfx_device, dbg, bootrom, mode);
+    let mut gameboy = GameBoy::new(
+        &mut mbc, joypad_provider, audio_devices, spsc_gfx_device, 
+        #[cfg(feature = "dbg")]
+        dbg,
+        bootrom, mode);
 
     info!("initialized gameboy successfully!");
 

@@ -4,19 +4,38 @@ use crate::{
     mmu::{carts::Mbc, gb_mmu::GbMmu, memory::Memory, external_memory_bus::Bootrom}, 
     ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
 };
-use super::{Mode, debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger, Registers}};
+use super::Mode;
+#[cfg(feature = "dbg")]
+use super::debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger, Registers};
 
 //CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
 pub const CYCLES_PER_FRAME:u32 = 17556;
 
-pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> {
+pub struct GameBoy<'a, 
+    JP: JoypadProvider, 
+    AD:AudioDevice, 
+    GFX:GfxDevice, 
+    #[cfg(feature = "dbg")] DUI:DebuggerUi
+> {
     cpu: GbCpu,
     mmu: GbMmu::<'a, AD, GFX, JP>,
+    #[cfg(feature = "dbg")]
     debugger:Debugger<DUI>
 }
 
-impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameBoy<'a, JP, AD, GFX, DUI>{
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->GameBoy<JP, AD, GFX, DUI>{
+// https://stackoverflow.com/questions/72955038/varying-number-of-generic-parameters-based-on-a-feature
+macro_rules! impl_gameboy {
+    ($implementations:tt) => {
+        #[cfg(feature = "dbg")]
+        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameBoy<'a, JP, AD, GFX, DUI> $implementations
+        #[cfg(not(feature = "dbg"))]
+        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX> $implementations
+    };
+}
+
+// impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameBoy<'a, JP, AD, GFX, DUI>{
+impl_gameboy! {{
+    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->Self{
         let mode = mode.unwrap_or_else(||mbc.get_compatibility_mode().into());
         
         let mut cpu = GbCpu::default();
@@ -50,12 +69,14 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
         GameBoy{
             cpu:cpu,
             mmu:GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
         }
     }
 
     pub fn cycle_frame(&mut self){
         while self.mmu.m_cycle_counter < CYCLES_PER_FRAME{
+            #[cfg(feature = "dbg")]
             self.handle_debugger();
             self.step();
         }
@@ -63,6 +84,7 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
         self.mmu.m_cycle_counter = 0;
     }
 
+    #[cfg(feature = "dbg")]
     fn handle_debugger(&mut self) {
         while self.debugger.should_halt(self.cpu.program_counter) {
             if self.debugger.check_for_break(self.cpu.program_counter){
@@ -127,4 +149,4 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameB
         );
         self.cpu.run_opcode(&mut self.mmu)
     }
-}
+}}
