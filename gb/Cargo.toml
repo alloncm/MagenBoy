@@ -27,6 +27,7 @@ nix = {version = "0.24", optional = true}
 
 [features]
 default = ["static-sdl", "apu"]
+dbg = []
 sdl = ["sdl2"]
 sdl-resample = ["apu"]
 push-audio = ["apu"]

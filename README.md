@@ -20,6 +20,7 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 cargo build --release --features [optional_features]
 ```
 #### Optional features:
+* `dbg` - Enable debugger
 * `sdl` - Link to sdl2 (On by default)
 * `static-sdl` - will link statically to sdl2 
 On by default 
