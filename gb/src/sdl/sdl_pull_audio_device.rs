@@ -1,4 +1,5 @@
-use std::ffi::c_void;
+use std::{mem::ManuallyDrop, ffi::c_void};
+
 use lib_gb::{GB_FREQUENCY, apu::audio_device::*};
 use sdl2::sys::*;
 use crossbeam_channel::{Receiver, Sender, bounded};
@@ -19,9 +20,13 @@ pub struct SdlPullAudioDevice<AR:AudioResampler>{
     buffer_number_index:usize,
     buffer_index:usize,
 
-    tarnsmiter: Sender<usize>,
     userdata_ptr: *mut UserData,
     device_id:SDL_AudioDeviceID,
+
+    // Needs to be droped manually cause the callback might be blocking on the channel,
+    // Closing the channel is only possible by droping and Im closing the callback before the destructor is called
+    // So I need to call it before closing the callback
+    tarnsmiter: ManuallyDrop<Sender<usize>>,
 }
 
 impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
@@ -40,7 +45,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             buffer_index:0,
             buffer_number_index:0,
             resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
-            tarnsmiter:s,
+            tarnsmiter: ManuallyDrop::new(s),
             userdata_ptr:Box::into_raw(data),
             device_id:0
         };
@@ -88,6 +93,11 @@ impl<AR:AudioResampler> AudioDevice for SdlPullAudioDevice<AR>{
 impl<AR:AudioResampler> Drop for SdlPullAudioDevice<AR>{
     fn drop(&mut self) {
         unsafe{
+            // Drops the trasmitter manully since we need it to close the channel before we can close the device
+            // if the callback will still wait for more samples we will be in a deadlock since the gameboy will 
+            // no longer supply audio samples
+            ManuallyDrop::drop(&mut self.tarnsmiter);
+
             SDL_CloseAudioDevice(self.device_id);
             drop(Box::from_raw(self.userdata_ptr));
         }
@@ -99,7 +109,8 @@ unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length
     let safe_userdata = &mut *(userdata as *mut UserData);
 
     if safe_userdata.current_buf.is_none(){
-        safe_userdata.current_buf = Some(safe_userdata.rx.recv().unwrap());
+        let Ok(rx_data) = safe_userdata.rx.recv() else {return};
+        safe_userdata.current_buf = Some(rx_data);
     }
 
     let samples = &*((safe_userdata.current_buf.unwrap()) as *const [Sample;BUFFER_SIZE]);

@@ -7,5 +7,6 @@ members = [
 ]
 
 [workspace.package]
-version = "3.0.0"
+version = "3.0.1"
 authors = ["alloncm <alloncm@gmail.com>"]
+rust-version = "1.65"   # cause of let else feature

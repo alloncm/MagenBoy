@@ -2,6 +2,7 @@
 name = "lib_gb"
 version.workspace = true
 authors.workspace = true
+rust-version.workspace = true
 edition = "2018"
 
 [dependencies]
