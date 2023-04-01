@@ -33,10 +33,17 @@ impl TerminalDebugger{
     fn io_loop(sender:Sender<DebuggerCommand>, receiver:Receiver<DebuggerResult>, input_receiver:Receiver<String>){
         loop{
             crossbeam_channel::select! {
-                recv(input_receiver)-> msg => Self::handle_buffer(&sender, msg.unwrap()),
-                recv(receiver)->       res => Self::handle_debugger_result(res.unwrap()),
+                recv(input_receiver)-> msg => {
+                    let Ok(message) = msg else {break};
+                    Self::handle_buffer(&sender, message);
+                },
+                recv(receiver)-> res =>{ 
+                    let Ok(result) = res else {break};
+                    Self::handle_debugger_result(result);
+                },
             }
         }
+        log::info!("Closing the debugger IO loop thread");
     }
     
     fn handle_debugger_result(result:DebuggerResult){
