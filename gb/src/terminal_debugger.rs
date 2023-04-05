@@ -60,6 +60,11 @@ impl TerminalDebugger{
             DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint succesfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
+            DebuggerResult::Disassembly(size, buffer) => {
+                for i in 0..size as usize{
+                    println!("{:#X}: {:#X}", buffer[i].address, buffer[i].value);
+                }
+            },
         }
     }
     
@@ -80,9 +85,13 @@ impl TerminalDebugger{
                 Err(msg) => println!("Error setting BreakPoint {}", msg),
             },
             "r"=>sender.send(DebuggerCommand::Registers).unwrap(),
-            "d"=>match parse_address_string(&buffer) {
+            "dl"=>match parse_address_string(&buffer) {
                 Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
                 Err(msg) => println!("Error deleting BreakPoint {}", msg),
+            },
+            "di"=>match parse_number_string(&buffer){
+                Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
+                Err(msg) => println!("Error disassembling: {}", msg),
             },
             _=>println!("invalid input: {}", buffer[0])
         }
@@ -93,7 +102,7 @@ impl TerminalDebugger{
 
 fn parse_address_string(buffer: &Vec<&str>) -> Result<u16, String> {
     let Some(param) = buffer.get(1) else {
-        return Result::Err(String::from("No parameter"));
+        return Result::Err(String::from("No parameter"))
     };
     let (str, base) = match param.strip_prefix("0x") {
         Some(hex_str) => (hex_str, 16),
@@ -103,6 +112,14 @@ fn parse_address_string(buffer: &Vec<&str>) -> Result<u16, String> {
         return Result::Err(format!("param: {} is not a valid address", str));
     };
     return Result::Ok(address);
+}
+
+fn parse_number_string(buffer: &Vec<&str>)->Result<u8, String>{
+    let Some(param) = buffer.get(1) else{
+        return Result::Err(String::from("No param"))
+    };
+    return u8::from_str_radix(param, 10)
+        .map_err(|err|format!("Error parsing string: {}", err));
 }
 
 impl DebuggerUi for TerminalDebugger{

@@ -7,6 +7,19 @@ pub enum DebuggerCommand{
     Registers,
     Break(u16),
     DeleteBreak(u16),
+    Disassemble(u8)
+}
+
+pub enum DebuggerResult{
+    Registers(Registers),
+    HitBreak(u16),
+    AddedBreak(u16),
+    RemovedBreak(u16),
+    BreakDoNotExist(u16),
+    Continuing,
+    Stepped(u16),
+    Stopped(u16),
+    Disassembly(u8, [MemoryEntry;0xFF])
 }
 
 #[derive(Clone, Copy)]
@@ -19,21 +32,16 @@ pub struct Registers{
     pub sp:u16
 }
 
+#[derive(Clone, Copy)]
+pub struct MemoryEntry{
+    pub address:u16,
+    pub value:u8
+}
+
 impl Registers{
     pub fn new(cpu:&GbCpu)->Self{
         Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
     }
-}
-
-pub enum DebuggerResult{
-    Registers(Registers),
-    HitBreak(u16),
-    AddedBreak(u16),
-    RemovedBreak(u16),
-    BreakDoNotExist(u16),
-    Continuing,
-    Stepped(u16),
-    Stopped(u16)
 }
 
 pub enum DebuggerPush{

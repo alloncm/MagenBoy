@@ -6,7 +6,7 @@ use crate::{
 };
 use super::Mode;
 #[cfg(feature = "dbg")]
-use super::debugger::{DebuggerUi, DebuggerResult, DebuggerCommand, Debugger, Registers};
+use super::debugger::{MemoryEntry, DebuggerUi, DebuggerResult, DebuggerCommand, Debugger, Registers};
 
 //CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
 pub const CYCLES_PER_FRAME:u32 = 17556;
@@ -111,6 +111,17 @@ impl_gameboy! {{
                         false => DebuggerResult::BreakDoNotExist(address)
                     };
                     self.debugger.send(result);
+                },
+                DebuggerCommand::Disassemble(len)=>{
+                    let mut buffer = [MemoryEntry{address:0, value:0};0xFF];
+                    for i in 0..len as usize{
+                        let address = self.cpu.program_counter + i as u16;
+                        buffer[i] = MemoryEntry {
+                            value: self.mmu.read(address, 0),
+                            address,
+                        };
+                    }
+                    self.debugger.send(DebuggerResult::Disassembly(len, buffer));
                 }
             }
         }
