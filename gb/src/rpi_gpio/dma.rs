@@ -195,8 +195,8 @@ pub struct DmaSpiTransferer{
 }
 
 impl DmaSpiTransferer{
-    const BCM_DMA0_OFFSET:usize = 0x7_000;
-    const BCM_DMA_ENABLE_REGISTER_OFFSET:usize = Self::BCM_DMA0_OFFSET + 0xFF;
+    const BCM_DMA0_OFFSET:usize = 0x7000;
+    const BCM_DMA_ENABLE_REGISTER_OFFSET:usize = Self::BCM_DMA0_OFFSET + 0xFF0;
     const DMA_CHANNEL_REGISTERS_SIZE:usize = 0x100;
 
     const DMA_CS_RESET:u32 = 1 << 31;
@@ -255,8 +255,9 @@ impl DmaSpiTransferer{
             write_volatile(ptr, spi_enable_dma_flag);                                       // this int enable spi with dma
             write_volatile(ptr.add(1), Self::DMA_CS_ACTIVE | Self::DMA_CS_END);      // this int starts the dma (set active and wrtie to end to reset it)
 
-            // enable the rx & tx dma channels
-            write_volatile(dma_enable_register, *dma_enable_register | 1 << Self::TX_CHANNEL_NUMBER | 1<< Self::RX_CHANNEL_NUMBER);
+            // enable the rx & tx dma channels, on most of the cases this just to make sure they are enabled since they are enabled by default
+            let enable_value = read_volatile(dma_enable_register);
+            write_volatile(dma_enable_register, enable_value | 1 << Self::TX_CHANNEL_NUMBER | 1 << Self::RX_CHANNEL_NUMBER);
 
             //reset the dma channels
             (*tx_registers).write_cs(Self::DMA_CS_RESET);
