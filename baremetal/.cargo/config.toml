@@ -1,0 +1,6 @@
+[build]
+target = "armv7a-none-eabihf"
+rustflags = [
+    "-Clink-arg=--script=./baremetal/link.ld", 
+    "-Ctarget-feature=+virtualization"
+]

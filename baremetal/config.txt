@@ -1,0 +1,7 @@
+# configuration for the RPI
+arm_64bit=0 # boot to 32 bit mode
+
+# fast boot
+boot_delay=0
+disable_poe_fan=1
+disable_splash=1
