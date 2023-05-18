@@ -3,7 +3,8 @@ members = [
     "gb",
     "lib_gb",
     "image_inter",
-    "bcm_host"
+    "bcm_host",
+    "baremetal"
 ]
 
 [workspace.package]
