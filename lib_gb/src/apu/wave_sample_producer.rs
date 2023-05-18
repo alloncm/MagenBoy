@@ -60,7 +60,7 @@ impl WaveSampleProducer{
             1=>sample,
             2=>sample >> 1,
             3=>sample >> 2,
-            _=>std::panic!("wave channel volume value is invalid {}", self.volume)
+            _=>core::panic!("wave channel volume value is invalid {}", self.volume)
         }
     }
 }

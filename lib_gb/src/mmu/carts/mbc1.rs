@@ -1,10 +1,9 @@
-use std::vec::Vec;
 use super::*;
 
 
-pub struct Mbc1{
-    program:Vec<u8>,
-    ram:Vec<u8>,
+pub struct Mbc1<'a>{
+    program:&'a[u8],
+    ram:&'static mut [u8],
     register0:u8,
     register1:u8,
     register2:u8,
@@ -12,9 +11,9 @@ pub struct Mbc1{
     battery:bool
 }
 
-impl Mbc for Mbc1{
+impl<'a> Mbc for Mbc1<'a>{
     fn get_ram(&self) ->&[u8] {
-        self.ram.as_slice()
+        self.ram
     }
 
     fn has_battery(&self) ->bool {
@@ -36,7 +35,7 @@ impl Mbc for Mbc1{
             0x2000..=0x3FFF =>self.register1 = value,
             0x4000..=0x5FFF =>self.register2 = value,
             0x6000..=0x7FFF =>self.register3 = value,
-            _=>std::panic!("cannot write to this address in bank0 in mbc1 cartridge")
+            _=>core::panic!("cannot write to this address in bank0 in mbc1 cartridge")
         }
     }
 
@@ -56,21 +55,19 @@ impl Mbc for Mbc1{
     }
 }
 
-impl Mbc1{
-    pub fn new(v:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Self{
-        let mut mbc = Mbc1{
-            program:v,
-            ram:Vec::new(),
+impl<'a> Mbc1<'a>{
+    pub fn new(program:&'a[u8], battery:bool, ram:Option<&'static mut[u8]>)->Self{
+        let ram = init_ram(program[MBC_RAM_SIZE_LOCATION], ram);
+
+        return Mbc1{
+            program,
+            ram,
             register0:0,
             register1:0,
             register2:0,
             register3:0,
             battery:battery
         };
-
-        mbc.ram = init_ram(mbc.program[MBC_RAM_SIZE_LOCATION], ram);
-
-        return mbc;
     }
 
     fn get_current_rom_bank(&self)->u8{

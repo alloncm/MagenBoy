@@ -62,7 +62,7 @@ impl VramDmaController{
                 self.mode = if (value & BIT_7_MASK) == 0{TransferMode::GeneralPurpose}else{TransferMode::Hblank};
                 self.remaining_length = (value & !BIT_7_MASK) + 1;
             }
-            TransferMode::GeneralPurpose=>std::panic!("Cant pause DMA GP transfer")
+            TransferMode::GeneralPurpose=>core::panic!("Cant pause DMA GP transfer")
         }
     }
 

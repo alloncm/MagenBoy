@@ -6,7 +6,6 @@ use crate::{
     ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 
     utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
 };
-use std::boxed::Box;
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -130,7 +129,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 }
 
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, boot_rom:Bootrom, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
+    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Bootrom, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
         let bootrom_missing = boot_rom == Bootrom::None;
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),

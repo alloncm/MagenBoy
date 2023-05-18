@@ -24,7 +24,7 @@ impl Mbc for EmptyMbc{
 fn vram_dma_transfer_test(){
     let mut controller = VramDmaController::new();
     let mut ppu = GbPpu::new(StubGfxDevice, lib_gb::machine::Mode::CGB);
-    let mut mbc:Box<dyn Mbc> = Box::new(EmptyMbc{memory:[22;MEMORY_SIZE]});
+    let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
     let mut memory = ExternalMemoryBus::new(&mut mbc, lib_gb::mmu::external_memory_bus::Bootrom::None);
     let dma_len_reg = 100;
 
@@ -42,10 +42,10 @@ fn vram_dma_transfer_test(){
 }
 
 #[test]
-fn vram_hblank_dma_transfer_test(){
+fn vram_hblank_dma_transfer_test<'a>(){
     let mut controller = VramDmaController::new();
     let mut ppu = GbPpu::new(StubGfxDevice, lib_gb::machine::Mode::CGB);
-    let mut mbc:Box<dyn Mbc> = Box::new(EmptyMbc{memory:[22;MEMORY_SIZE]});
+    let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
     let mut memory = ExternalMemoryBus::new(&mut mbc, lib_gb::mmu::external_memory_bus::Bootrom::None);
     let dma_len_reg = 100;
 

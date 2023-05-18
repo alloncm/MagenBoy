@@ -1,16 +1,15 @@
-use std::vec::Vec;
 use super::*;
 
-pub struct Rom{
-    program: Vec<u8>,
-    external_ram:Vec<u8>,
+pub struct Rom<'a>{
+    program: &'a[u8],
+    external_ram:&'static mut[u8],
     battery:bool
 }
 
-impl Mbc for Rom{
+impl<'a> Mbc for Rom<'a>{
     
     fn get_ram(&self) ->&[u8] {
-        self.external_ram.as_slice()
+        self.external_ram
     }
 
     fn has_battery(&self) ->bool {
@@ -39,17 +38,15 @@ impl Mbc for Rom{
 
 }
 
-impl Rom{
+impl<'a> Rom<'a>{
     
-    pub fn new(vec:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Rom{
-        let mut rom = Rom{
-            program:vec,
-            external_ram:Vec::new(),
-            battery:battery
+    pub fn new(program:&'a[u8], battery:bool, ram:Option<&'static mut [u8]>)->Self{
+        let ram_reg = program[MBC_RAM_SIZE_LOCATION];
+        let external_ram = init_ram(ram_reg, ram);
+        return Self{
+            program,
+            external_ram,
+            battery
         };
-
-        rom.external_ram = init_ram(rom.program[MBC_RAM_SIZE_LOCATION], ram);
-
-        rom
     }
 }

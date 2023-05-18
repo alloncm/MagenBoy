@@ -54,7 +54,7 @@ fn get_matching_color(number:u8)->Color{
         0b01=>LIGHT_GRAY,
         0b10=>DARK_GRAY,
         0b11=>BLACK,
-        _=>std::panic!("no macthing color for color number: {}", number)
+        _=>core::panic!("no macthing color for color number: {}", number)
     };
 }
 

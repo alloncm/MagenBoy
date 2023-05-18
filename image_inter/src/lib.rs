@@ -1,4 +1,6 @@
-use libc::c_int;
+#![no_std]
+
+use core::ffi::c_int;
 
 extern "C" {
     fn scale_buffer(
@@ -63,14 +65,21 @@ pub unsafe fn scale_nearest<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, co
     let scale_y = OUTPUT_HEIGHT as f32 / INPUT_HEIGHT as f32;
     for y in 0..OUTPUT_HEIGHT{
         for x in 0..OUTPUT_WIDTH{
-            let proj_x = (x as f32 / scale_x).round() as usize;
-            let proj_y = (y as f32 / scale_y).round() as usize;
+            let proj_x = round_f32(x as f32 / scale_x) as usize;
+            let proj_y = round_f32(y as f32 / scale_y) as usize;
             let pixel = *input_buffer.add((proj_y * INPUT_WIDTH) + proj_x);
             let output_index = (y * OUTPUT_WIDTH) + x;
             *output_buffer.add(output_index * 2) = (pixel >> 8) as u8;
             *output_buffer.add((output_index * 2) + 1) = (pixel & 0xFF) as u8;
         }
     }
+}
+
+#[inline]
+// round is not present in core so implementing it myself
+fn round_f32(mut f:f32)->u32{
+    f += 0.5;
+    return f as u32;
 }
 
 pub unsafe fn scale_biliniear_c<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){

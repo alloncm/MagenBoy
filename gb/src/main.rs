@@ -322,8 +322,8 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         }
     };
 
-    let mut mbc = initialize_mbc(&program_name, mode);
-    let mut gameboy = GameBoy::new(&mut mbc, joypad_provider, audio_devices, spsc_gfx_device, bootrom, mode);
+    let mbc = initialize_mbc(&program_name, mode);
+    let mut gameboy = GameBoy::new(mbc, joypad_provider, audio_devices, spsc_gfx_device, bootrom, mode);
 
     info!("initialized gameboy successfully!");
 

@@ -15,8 +15,8 @@ pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice> {
 }
 
 impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX>{
-    pub fn new(mbc:&'a mut Box<dyn Mbc>,joypad_provider:JP, audio_device:AD, gfx_device:GFX, boot_rom:Bootrom, mode:Option<Mode>)->GameBoy<JP, AD, GFX>{
-        let mode = mode.unwrap_or_else(||mbc.get_compatibility_mode().into());
+    pub fn new(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, boot_rom:Bootrom, mode:Option<Mode>)->GameBoy<JP, AD, GFX>{
+        let mode = mode.unwrap_or(mbc.get_compatibility_mode().into());
         
         let mut cpu = GbCpu::default();
         if boot_rom == Bootrom::None{
@@ -41,8 +41,8 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
         else {
             // Make sure that the mode and bootrom are compatible
             match mode{
-                Mode::DMG => {let Bootrom::Gb(_) = boot_rom else {std::panic!("Bootrom doesnt match mode DMG")};}
-                Mode::CGB => {let Bootrom::Gbc(_) = boot_rom else {std::panic!("Bootrom doesnt match mode CGB")};}
+                Mode::DMG => {let Bootrom::Gb(_) = boot_rom else {core::panic!("Bootrom doesnt match mode DMG")};}
+                Mode::CGB => {let Bootrom::Gbc(_) = boot_rom else {core::panic!("Bootrom doesnt match mode CGB")};}
             }
         }
 

@@ -106,7 +106,7 @@ impl SpriteFetcher{
                 if self.mode == Mode::CGB && end_x >= start_x{
                     // support CGB mode with sprite with lower priority (high OAM index) at a small x
                     // and a sprite with higher prority (low OAM index) at high x
-                    let start_index = std::cmp::max(end_x, self.fifo.len());
+                    let start_index =  core::cmp::max(end_x, self.fifo.len());
                     for i in start_index..FIFO_SIZE{
                         self.fifo.push(SpritePixel { color_index: pixels[i], oam_entry: self.current_oam_entry});
                     }

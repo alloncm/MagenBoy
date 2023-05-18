@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
 use lib_gb::machine::Mode;
-use lib_gb::mmu::external_memory_bus::Bootrom;
+use lib_gb::mmu::{external_memory_bus::Bootrom, carts::Mbc};
 use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{Pixel, GfxDevice}};
 use lib_gb::apu::audio_device::{BUFFER_SIZE, AudioDevice};
 use lib_gb::keypad::joypad_provider::JoypadProvider;
@@ -137,11 +137,11 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
 }
 
 fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
-    let mut mbc = initialize_mbc(program, None, mode);
+    let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None, mode);
     let mut last_hash:u64 = 0;
     let mut found = false;
     let mut gameboy = GameBoy::new(
-        &mut mbc,
+        mbc,
         StubJoypadProvider{},
         StubAudioDevice{}, 
         CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found},
@@ -216,14 +216,14 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
     
     let program = Vec::from(program);
 
-    let mut mbc = initialize_mbc(program, None, mode);
+    let mbc = initialize_mbc(&program, None, mode);
 
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
     }
     else{
-        GameBoy::new(&mut mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::None, mode)
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::None, mode)
     };
 
     loop {gameboy.cycle_frame();}

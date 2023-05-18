@@ -3,9 +3,9 @@ use super::*;
 const RAM_TIMER_ENABLE_VALUE:u8 = 0xA;
 const EXTERNAL_RAM_READ_ERROR_VALUE:u8 = 0xFF;
 
-pub struct Mbc3{
-    program:Vec<u8>,
-    ram:Vec<u8>,
+pub struct Mbc3<'a>{
+    program:&'a[u8],
+    ram:&'a mut[u8],
     battery:bool,
     current_bank:u8, 
     ram_timer_enable:u8,
@@ -14,10 +14,10 @@ pub struct Mbc3{
     rtc_registers:[u8;4]
 }
 
-impl Mbc for Mbc3{
+impl<'a> Mbc for Mbc3<'a>{
 
     fn get_ram(&self) ->&[u8] {
-        self.ram.as_slice()
+        self.ram
     }
 
     fn has_battery(&self) ->bool {
@@ -41,7 +41,7 @@ impl Mbc for Mbc3{
             0x2000..=0x3FFF=>self.current_bank = value,
             0x4000..=0x5FFF=>self.ram_rtc_select = value,
             0x6000..=0x7FFF=>self.latch_clock_data = value,
-            _=>std::panic!("cannot write to this address in mbc3 cartridge")
+            _=>core::panic!("cannot write to this address in mbc3 cartridge")
         }
     }
 
@@ -74,23 +74,20 @@ impl Mbc for Mbc3{
     }
 }
 
-impl Mbc3{
+impl<'a> Mbc3<'a>{
 
-    pub fn new(program:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Self{
-        let mut mbc = Mbc3{
+    pub fn new(program:&'a[u8], battery:bool, ram:Option<&'static mut[u8]>)->Self{
+        let ram = init_ram(program[MBC_RAM_SIZE_LOCATION], ram);
+        return Self{
             current_bank:0,
             battery:battery,
             latch_clock_data:0,
             program:program,
-            ram:Vec::new(),
+            ram,
             ram_rtc_select:0,
             ram_timer_enable:0,
             rtc_registers:[0;4]
         };
-
-        mbc.ram = init_ram(mbc.program[MBC_RAM_SIZE_LOCATION], ram);
-
-        mbc
     }
 
     fn get_current_rom_bank(&self)->u8{
