@@ -30,7 +30,7 @@ impl GbCpu{
                     stop(self, memory)
                 }
                 else{
-                    std::panic!("Invalid stop opcode, second byte: {:#X}", next_byte);
+                    core::panic!("Invalid stop opcode, second byte: {:#X}", next_byte);
                 }
             }
     
@@ -166,7 +166,7 @@ impl GbCpu{
                 }
             },
     
-            _=>std::panic!("Unsupported opcode:{:#X}", opcode)
+            _=>core::panic!("Unsupported opcode:{:#X}", opcode)
         }
     }
 

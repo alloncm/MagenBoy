@@ -13,13 +13,13 @@ pub enum Bootrom {
 
 pub struct ExternalMemoryBus<'a>{
     ram: Ram,
-    mbc: &'a mut Box<dyn Mbc>,
+    mbc: &'a mut dyn Mbc,
     bootrom :Bootrom,
     bootrom_register:u8,
 }
 
 impl<'a> ExternalMemoryBus<'a> {
-    pub fn new(mbc:&'a mut Box<dyn Mbc>, bootrom: Bootrom)->Self{
+    pub fn new(mbc:&'a mut dyn Mbc, bootrom: Bootrom)->Self{
         Self{
             mbc,
             ram:Ram::default(),
@@ -53,7 +53,7 @@ impl<'a> ExternalMemoryBus<'a> {
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
             BOOT_REGISTER_ADDRESS=>self.bootrom_register,
             SVBK_REGISTER_ADRRESS=>self.ram.get_bank(),
-            _=>std::panic!("Error: attemp to read invalid external memory bus address: {:#X}", address)
+            _=>core::panic!("Error: attemp to read invalid external memory bus address: {:#X}", address)
         }
     }
 
@@ -71,7 +71,7 @@ impl<'a> ExternalMemoryBus<'a> {
                 }
             }
             SVBK_REGISTER_ADRRESS=>self.ram.set_bank(value),
-            _=>std::panic!("Error: attemp to write invalid external memory bus address: {:#X}", address)
+            _=>core::panic!("Error: attemp to write invalid external memory bus address: {:#X}", address)
         }
     }
 }

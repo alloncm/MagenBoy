@@ -23,6 +23,6 @@ impl PartialEq for PpuState{
 impl PpuState{
     pub fn from_u8(mut value:u8)->Self{
         value = value & 0b0000_0011;
-        return unsafe{std::mem::transmute::<u8, Self>(value)};
+        return unsafe{core::mem::transmute::<u8, Self>(value)};
     }
 }

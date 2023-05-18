@@ -16,7 +16,7 @@ impl OamDmaController{
     }
     pub fn cycle<G:GfxDevice>(&mut self, m_cycles:u32, external_bus: &mut ExternalMemoryBus, ppu:&mut GbPpu<G>)->Option<AccessBus>{
         if let Some(bus) = self.enable{
-            let cycles_to_run = std::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
+            let cycles_to_run = core::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
             match bus{
                 AccessBus::External=>{
                     for i in self.dma_cycle_counter..cycles_to_run as u16{

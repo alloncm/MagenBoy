@@ -2,16 +2,16 @@ use super::*;
 
 const ENABLE_RAM_VALUE:u8 = 0xA;
 
-pub struct Mbc5{
-    program:Vec<u8>,
-    ram:Vec<u8>,
+pub struct Mbc5<'a>{
+    program:&'a [u8],
+    ram:&'a mut [u8],
     battery:bool,
     ram_enable_register:u8,
     rom_bank_number_register:u16,
     ram_bank_number:u8,
 }
 
-impl Mbc for Mbc5 {
+impl<'a> Mbc for Mbc5<'a> {
     fn get_ram(&self)->&[u8] {
         &self.ram
     }
@@ -64,19 +64,16 @@ impl Mbc for Mbc5 {
     }
 }
 
-impl Mbc5{
-    pub fn new(program:Vec<u8>, battery:bool, ram:Option<Vec<u8>>)->Self{
-        let mut mbc = Self{
+impl<'a> Mbc5<'a>{
+    pub fn new(program:&'a[u8], battery:bool, ram:Option<&'static mut[u8]>)->Self{
+        let ram = init_ram(program[MBC_RAM_SIZE_LOCATION], ram);
+        return Self{
             program,
-            ram: Vec::new(),
+            ram,
             battery,
             ram_enable_register: 0,
             rom_bank_number_register: 0,
             ram_bank_number: 0,
         };
-
-        mbc.ram = init_ram(mbc.program[MBC_RAM_SIZE_LOCATION], ram);
-
-        return mbc;
     }
 }

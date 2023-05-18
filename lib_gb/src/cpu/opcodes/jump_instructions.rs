@@ -38,7 +38,7 @@ pub fn call_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
         0b01=>call_if_true(cpu, memory, opcode, zero),
         0b10=>call_if_true(cpu, memory, opcode, !carry),
         0b11=>call_if_true(cpu, memory, opcode, carry),
-        _=>std::panic!("error call opcode {}",opcode)
+        _=>core::panic!("error call opcode {}",opcode)
     }
 }
 
@@ -70,7 +70,7 @@ pub fn ret_cc(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
         0b01=>ret_if_true(cpu, memory, zero),
         0b10=>ret_if_true(cpu, memory, !carry),
         0b11=>ret_if_true(cpu, memory, carry),
-        _=>std::panic!("error call opcode {}",opcode)
+        _=>core::panic!("error call opcode {}",opcode)
     }
 }
 
@@ -129,7 +129,7 @@ pub fn jump_cc(cpu:&mut GbCpu, opcode:u32)->u8{
         0b01=>jump_if_true(cpu, opcode, zero),
         0b10=>jump_if_true(cpu, opcode, !carry),
         0b11=>jump_if_true(cpu, opcode, carry),
-        _=>std::panic!("error call opcode {}",opcode)
+        _=>core::panic!("error call opcode {}",opcode)
     }
 }
 
@@ -169,6 +169,6 @@ pub fn jump_r_cc(cpu:&mut GbCpu, opcode:u16)->u8{
         0b01=>jump_r_if_true(cpu, opcode, zero),
         0b10=>jump_r_if_true(cpu, opcode, !carry),
         0b11=>jump_r_if_true(cpu, opcode, carry),
-        _=>std::panic!("error call opcode {}",opcode)
+        _=>core::panic!("error call opcode {}",opcode)
     }
 }

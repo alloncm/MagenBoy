@@ -8,6 +8,8 @@ pub use mbc1::Mbc1;
 pub use mbc3::Mbc3;
 pub use mbc5::Mbc5;
 
+use crate::utils::global_static_alloctor::static_alloc_array;
+
 pub const ROM_BANK_SIZE:usize = 0x4000;
 pub const RAM_BANK_SIZE:usize = 0x2000;
 pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
@@ -20,22 +22,22 @@ pub fn get_ram_size(ram_size_register:u8)->usize{
         0x3=>0x8000,
         0x4=>0x20000,
         0x5=>0x10000,
-        _=>std::panic!("invalid ram size register {:#X}", ram_size_register)
+        _=>core::panic!("invalid ram size register {:#X}", ram_size_register)
     }
 }
 
-pub fn init_ram(ram_reg:u8, external_ram:Option<Vec<u8>>)->Vec<u8>{
+pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut [u8]{
     let ram_size = get_ram_size(ram_reg);
     
     match external_ram{
         Some(ram)=>{
             if ram.len() != ram_size{
-                std::panic!("external rom is not in the correct size for the cartridge");
+                core::panic!("external rom is not in the correct size for the cartridge");
             }
 
             return ram;
         }
-        None=>vec![0;ram_size]
+        None=>static_alloc_array(ram_size)
     }
 }
 

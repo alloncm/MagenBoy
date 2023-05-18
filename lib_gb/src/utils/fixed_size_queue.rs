@@ -1,8 +1,10 @@
-pub struct FixedSizeQueue<T:Copy, const SIZE:usize>{
-    // According to the docs Vec should not be moved in memory if it not modified
-    // Im modifing it but not increasing its allocated size once its allocated so I hope this will work for me
-    // and I wont get weird memory issues
-    _data: Vec<T>,   // This field is not use directly only through pointers aquired in the new() function
+use core::{ops::{IndexMut, Index}, ptr};
+
+use super::global_static_alloctor::static_alloc;
+
+pub struct FixedSizeQueue<T:Copy + 'static, const SIZE:usize>{
+    // this uses the internal static allocator hope its works
+    _data: &'static mut [T;SIZE],   // This field is not use directly only through pointers aquired in the new() function
     end_alloc_pointer: *const T,
     start_alloc_pointer: *const T,
     data_pointer: *mut T,
@@ -12,14 +14,14 @@ pub struct FixedSizeQueue<T:Copy, const SIZE:usize>{
 
 impl<T:Copy + Default, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn new()->Self{
-        let data = vec![T::default();SIZE];
+        let data = static_alloc([T::default(); SIZE]);
         let mut s = Self{
             _data: data,
             length:0,
-            base_data_pointer: std::ptr::null_mut(),
-            data_pointer: std::ptr::null_mut(),
-            end_alloc_pointer: std::ptr::null_mut(),
-            start_alloc_pointer: std::ptr::null_mut(),
+            base_data_pointer: ptr::null_mut(),
+            data_pointer: ptr::null_mut(),
+            end_alloc_pointer: ptr::null_mut(),
+            start_alloc_pointer: ptr::null_mut(),
         };
 
         s.base_data_pointer = s._data.as_mut_ptr();
@@ -42,7 +44,7 @@ impl<T:Copy + Default, const SIZE:usize> FixedSizeQueue<T, SIZE>{
             self.length += 1;
         }
         else{
-            std::panic!("queue is already full, size: {}", SIZE);
+            core::panic!("queue is already full, size: {}", SIZE);
         }
     }
 
@@ -60,7 +62,7 @@ impl<T:Copy + Default, const SIZE:usize> FixedSizeQueue<T, SIZE>{
             }
         }
         
-        std::panic!("The fifo is empty");
+        core::panic!("The fifo is empty");
     }
 
     pub fn clear(&mut self){
@@ -76,7 +78,7 @@ impl<T:Copy + Default, const SIZE:usize> FixedSizeQueue<T, SIZE>{
     pub fn fill(&mut self, value:&[T;SIZE]){
         unsafe{
             self.base_data_pointer = self.start_alloc_pointer as *mut T;
-            std::ptr::copy_nonoverlapping(value.as_ptr(), self.base_data_pointer, SIZE);
+            ptr::copy_nonoverlapping(value.as_ptr(), self.base_data_pointer, SIZE);
             self.length = SIZE;
             self.data_pointer = self.end_alloc_pointer as *mut T;
         }
@@ -97,11 +99,11 @@ impl<T:Copy, const SIZE:usize> FixedSizeQueue<T, SIZE>{
                 }
             }
         }
-        std::panic!("Index is out of range");
+        core::panic!("Index is out of range");
     }
 }
 
-impl<T:Copy, const SIZE:usize> std::ops::Index<usize> for FixedSizeQueue<T, SIZE>{
+impl<T:Copy, const SIZE:usize> Index<usize> for FixedSizeQueue<T, SIZE>{
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -109,7 +111,7 @@ impl<T:Copy, const SIZE:usize> std::ops::Index<usize> for FixedSizeQueue<T, SIZE
     }
 }
 
-impl<T:Copy, const SIZE:usize> std::ops::IndexMut<usize> for FixedSizeQueue<T, SIZE>{
+impl<T:Copy, const SIZE:usize> IndexMut<usize> for FixedSizeQueue<T, SIZE>{
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         unsafe{&mut *(self.get_index_ptr(index) as *mut T)}
     }

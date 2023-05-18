@@ -39,7 +39,7 @@ impl FrameSequencer{
                 },
                 7 => tick.volume_envelope = true,
                 1 | 3 | 5 => {},
-                _=>std::panic!("wrong modolu operation in the fs")
+                _=>core::panic!("wrong modolu operation in the fs")
             }
 
             self.counter += 1;

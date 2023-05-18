@@ -49,7 +49,7 @@ impl GbTimer{
                 0b01=>(self.system_counter & BIT_3_MASK as u16) != 0,
                 0b10=>(self.system_counter & BIT_5_MASK as u16) != 0,
                 0b11=>(self.system_counter & BIT_7_MASK as u16) != 0,
-                _=> std::panic!("bad timer interval vlaue: {}", timer_interval)
+                _=> core::panic!("bad timer interval vlaue: {}", timer_interval)
             };
 
             let current_and_result = bit_value && timer_enable;
@@ -67,7 +67,7 @@ impl GbTimer{
             0b01=>0b1000 - (self.system_counter & 0b111),
             0b10=>0b10_0000 - (self.system_counter & 0b1_1111),
             0b11=>0b1000_0000 - (self.system_counter & 0b111_1111),
-            _=>std::panic!("error ")
+            _=>core::panic!("error ")
         };
 
         // Divide by 4 to cast m_cycles to t_cycles

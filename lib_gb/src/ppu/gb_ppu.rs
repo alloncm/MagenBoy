@@ -1,3 +1,5 @@
+use core::cmp;
+
 use crate::machine::Mode;
 use crate::mmu::vram::VRam;
 use crate::utils::{vec2::Vec2, bit_masks::*};
@@ -107,7 +109,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     pub fn turn_off(&mut self){
         self.m_cycles_passed = 0;
         //This is an expensive operation!
-        unsafe{std::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
+        unsafe{core::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
         self.swap_buffer();
         self.state = PpuState::Hblank;
         self.ly_register = 0;
@@ -133,7 +135,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
-        let cycles = std::cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
+        let cycles = cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
 
         return Some(cycles);
     }
@@ -192,7 +194,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         self.read_sprites_from_oam();
                     }
                     
-                    let scope_m_cycles_passed = std::cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    let scope_m_cycles_passed = cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
                     self.m_cycles_passed += scope_m_cycles_passed;
                     m_cycles_counter += scope_m_cycles_passed as u32;
                     
@@ -203,7 +205,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 }
                 PpuState::Hblank=>{
                     self.state = PpuState::Hblank;
-                    let m_cycles_to_add = std::cmp::min((m_cycles - m_cycles_counter) as u16, HBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    let m_cycles_to_add = cmp::min((m_cycles - m_cycles_counter) as u16, HBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
                     self.m_cycles_passed += m_cycles_to_add;
                     m_cycles_counter += m_cycles_to_add as u32;
                     
@@ -231,7 +233,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 }
                 PpuState::Vblank=>{
                     self.state = PpuState::Vblank;
-                    let m_cycles_to_add = std::cmp::min((m_cycles - m_cycles_counter) as u16, VBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
+                    let m_cycles_to_add = cmp::min((m_cycles - m_cycles_counter) as u16, VBLANK_M_CYCLES_LENGTH - self.m_cycles_passed);
                     self.m_cycles_passed += m_cycles_to_add;
                     m_cycles_counter += m_cycles_to_add as u32;
                     
@@ -325,12 +327,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
                         if end_x < entry.x{
                             if self.mode == Mode::CGB{
-                                vis_end = std::cmp::min(entry.x - end_x, vis_end);
+                                vis_end = cmp::min(entry.x - end_x, vis_end);
                             }else{
-                                entry.visibility_start = std::cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
+                                entry.visibility_start = cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
                             }
                         }else if end_x > entry.x{
-                            vis_start = std::cmp::max(SPRITE_WIDTH - (end_x - entry.x), vis_start);
+                            vis_start = cmp::max(SPRITE_WIDTH - (end_x - entry.x), vis_start);
                         }else{
                             vis_start = SPRITE_WIDTH;
                         }
@@ -339,10 +341,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         
                 // bounds checks
                 if end_x < SPRITE_WIDTH{
-                    vis_start = std::cmp::max(SPRITE_WIDTH - end_x, vis_start);
+                    vis_start = cmp::max(SPRITE_WIDTH - end_x, vis_start);
                 }
                 else if end_x > SCREEN_WIDTH as u8{
-                    vis_end = std::cmp::min(SPRITE_WIDTH - (end_x - SCREEN_WIDTH as u8), vis_end);
+                    vis_end = cmp::min(SPRITE_WIDTH - (end_x - SCREEN_WIDTH as u8), vis_end);
                 }
         
                 self.sprite_fetcher.oam_entries[self.sprite_fetcher.oam_entries_len as usize] = 
@@ -353,8 +355,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 }
             }
         }
+        // I beleive using unstable sort here shouldnt be a problem since the above make sure that each sprite is treated well 
+        // and knows which part of it should be rendered.
+        // I might be wrong so leaving this comment here
         self.sprite_fetcher.oam_entries[0..self.sprite_fetcher.oam_entries_len as usize]
-            .sort_by(|s1:&SpriteAttributes, s2:&SpriteAttributes| s1.x.cmp(&s2.x));
+            .sort_unstable_by(|s1:&SpriteAttributes, s2:&SpriteAttributes| s1.x.cmp(&s2.x));
     }
 
     fn try_push_to_lcd(&mut self){
