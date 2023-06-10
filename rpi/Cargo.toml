@@ -1,0 +1,30 @@
+[package]
+name = "rpi"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lib_gb = {path = "../lib_gb", features = ["u16pixel"]}
+common = {path = "../common", optional = true}
+log = "0.4"
+image_inter = {path = "../image_inter"}
+libc = {version = "0.2", optional = true}
+nix = {version = "0.24", optional = true}
+crossbeam-channel = {version = "0.5", optional = true}
+rppal = {version = "0.14", optional = true}
+
+[features]
+default = ["rpi4"]
+rpi4 = []
+rpi2 = []
+std = ["common", "libc", "nix/ioctl", "crossbeam-channel", "rppal"]
+
+[[bin]]
+name = "rpios"
+required-features = ["std"]
+
+[[bin]]
+name = "baremetal"
