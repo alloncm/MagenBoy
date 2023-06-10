@@ -14,7 +14,19 @@ The main goal of this project is to be able to play Pokemon on my own emulator.
 
 ## Building
 
+Install `cargo-make`
+```sh
+cargo install cargo-make
+```
+verify you have docker or podman installed 
+
 ### Desktop
+
+```sh
+cargo make sdl
+```
+
+or with more configuration options:
 
 ```shell
 cargo build --release --package gb --features [optional_features]
@@ -46,6 +58,12 @@ On by default
 | Dpad Right | Right arrow |
 
 ### Raspberry Pi Baremetal (with ili9341 display and gpio buttons)
+
+```sh
+cargo make rpi_baremetal
+```
+
+or manually:
 
 1. Install the rust nightly toolchain for `armv7a-none-eabihf`:
 ```shell

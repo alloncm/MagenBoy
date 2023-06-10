@@ -1,6 +1,6 @@
 use sdl2::sys::*;
 use lib_gb::{keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider, button::Button}, utils::create_array};
-use crate::joypad_menu::MenuJoypadProvider;
+use common::joypad_menu::MenuJoypadProvider;
 use super::utils::get_sdl_error_message;
 
 const PUMP_THRESHOLD:u32 = 500;

@@ -1,0 +1,12 @@
+
+[target.armv7-unknown-linux-gnueabihf]
+pre-build = [
+    "echo deb http://raspbian.raspberrypi.org/raspbian/ buster main contrib non-free rpi >> /etc/apt/sources.list",
+    "touch /etc/apt/sources.list.d/raspi.list",
+    "echo deb http://archive.raspberrypi.org/debian/ buster main >> /etc/apt/sources.list.d/raspi.list",
+    "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9165938D90FDDD2E",
+    "apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 82B129927FA3303E",
+    "dpkg --add-architecture armhf",
+    "apt-get update",
+    "apt-get install -y libraspberrypi-dev"
+]

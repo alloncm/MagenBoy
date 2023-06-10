@@ -1,6 +1,5 @@
 use std::ffi::CStr;
 use sdl2::{libc::c_char, sys::*};
-#[cfg(feature = "apu")]
 use std::mem::MaybeUninit;
 
 pub fn get_sdl_error_message()->&'static str{
@@ -11,7 +10,6 @@ pub fn get_sdl_error_message()->&'static str{
     }
 }
 
-#[cfg(feature = "apu")]
 pub fn init_sdl_audio_device(audio_spec:&SDL_AudioSpec)->SDL_AudioDeviceID{
     let mut uninit_audio_spec:MaybeUninit<SDL_AudioSpec> = MaybeUninit::uninit();
 
