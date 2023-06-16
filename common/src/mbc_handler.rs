@@ -1,5 +1,5 @@
-use lib_gb::machine::Mode;
-use lib_gb::mmu::carts::*;
+use magenboy_core::machine::Mode;
+use magenboy_core::mmu::carts::*;
 use std::fs;
 use log::info;
 
@@ -9,7 +9,7 @@ pub fn initialize_mbc(program_name:&String, mode:Option<Mode>)->&'static mut dyn
     let program = fs::read(program_name).expect(format!("No program found - {}\n", program_name).as_str());
     let save_data = try_get_save_data(program_name);
     let save_data = if let Some(sd) = &save_data{Some(&sd[..])}else{None};
-    return lib_gb::machine::mbc_initializer::initialize_mbc(&program, save_data, mode);
+    return magenboy_core::machine::mbc_initializer::initialize_mbc(&program, save_data, mode);
 }
 
 fn try_get_save_data(name:&String)->Option<Vec<u8>>{

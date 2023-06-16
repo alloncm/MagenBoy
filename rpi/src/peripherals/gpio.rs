@@ -1,6 +1,6 @@
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 pub use no_std_impl::*;
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 pub use std_impl::*;
 
 
@@ -22,7 +22,7 @@ pub enum Trigger{
     RisingEdge
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 pub mod no_std_impl{
     use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier}};
     use super::*;
@@ -45,18 +45,21 @@ pub mod no_std_impl{
     }
     compile_time_size_assert!(GpioRegisters, 0xF4);
 
-    const RPI4_GPIO_PINS_COUNT:usize = 58;
+    #[cfg(feature = "rpi4")]
+    const GPIO_PINS_COUNT:usize = 58;
+    #[cfg(feature = "rpi2")]
+    const GPIO_PINS_COUNT:usize = 54;
     const BASE_GPIO_OFFSET: usize = 0x20_0000;
     static mut GPIO_REGISTERS:Option<Mutex<&'static mut GpioRegisters>> = None;
 
     pub struct GpioManager{
-        pins_availability:[bool;RPI4_GPIO_PINS_COUNT]
+        pins_availability:[bool;GPIO_PINS_COUNT]
     }
 
     impl GpioManager{
         pub(in crate::peripherals) fn new()->GpioManager{
             unsafe{GPIO_REGISTERS = Some(Mutex::new(get_static_peripheral(BASE_GPIO_OFFSET)));}
-            GpioManager { pins_availability: [true;RPI4_GPIO_PINS_COUNT]}
+            GpioManager { pins_availability: [true;GPIO_PINS_COUNT]}
         }
 
         pub fn take_pin(&mut self, bcm_pin_number:u8)->GpioPin{
@@ -68,32 +71,32 @@ pub mod no_std_impl{
         }
 
         // This func is not tested
-        pub fn poll_interrupts(pins:&[InputGpioPin], reset_before_poll:bool){
-            let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
-            let pins_mask = pins
-                .iter()
-                .map(|p|p.inner.bcm_pin_number)
-                .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
+    //     pub fn poll_interrupts(pins:&[InputGpioPin], reset_before_poll:bool){
+    //         let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
+    //         let pins_mask = pins
+    //             .iter()
+    //             .map(|p|p.inner.bcm_pin_number)
+    //             .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
         
-            memory_barrier();
-            if reset_before_poll{
-                gpio_registers.lock(|r|{
-                    // reset the event detection
-                    r.gpeds[0].write(0);
-                    r.gpeds[1].write(0);
-                });
-            }
-            log::info!("polling gpio joypad input...");
-            loop{
-                let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
-                log::info!("regs value: {:#X}", registers_value);
-                let detected_pins = registers_value & pins_mask;
-                if detected_pins != 0{
-                    log::info!("Detected gpio input interrupt");
-                    return;
-                }
-            }
-        }
+    //         memory_barrier();
+    //         if reset_before_poll{
+    //             gpio_registers.lock(|r|{
+    //                 // reset the event detection
+    //                 r.gpeds[0].write(0);
+    //                 r.gpeds[1].write(0);
+    //             });
+    //         }
+    //         log::info!("polling gpio joypad input...");
+    //         loop{
+    //             let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
+    //             log::info!("regs value: {:#X}", registers_value);
+    //             let detected_pins = registers_value & pins_mask;
+    //             if detected_pins != 0{
+    //                 log::info!("Detected gpio input interrupt");
+    //                 return;
+    //             }
+    //         }
+    //     }
     }
 
     pub struct GpioPin{
@@ -232,7 +235,7 @@ pub mod no_std_impl{
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 pub mod std_impl{
     use rppal::gpio::{Gpio, InputPin, OutputPin, IoPin};
     use super::*;

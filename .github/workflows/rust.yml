@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build gb
-      run: cargo build --verbose --package gb
+    - name: Build sdl
+      run: cargo build --verbose --package magenboy_sdl
     - name: Run tests
-      run: cargo test --verbose --package lib_gb
+      run: cargo test --verbose --package magenboy_core

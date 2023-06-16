@@ -1,4 +1,4 @@
-use lib_gb::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}};
+use magenboy_core::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}};
 
 use crate::peripherals::{Timer, Spi0, PERIPHERALS, OutputGpioPin};
 
@@ -137,7 +137,7 @@ impl Ili9341Contoller{
 
     pub fn write_frame_buffer(&mut self, buffer:&[u16;SCREEN_HEIGHT*SCREEN_WIDTH]){
         let mut scaled_buffer: [u8;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2] = [0;TARGET_SCREEN_HEIGHT * TARGET_SCREEN_WIDTH * 2];
-        unsafe{image_inter::scale_bilinear::<SCREEN_WIDTH, SCREEN_HEIGHT, TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
+        unsafe{magenboy_common::interpolation::scale_bilinear::<SCREEN_WIDTH, SCREEN_HEIGHT, TARGET_SCREEN_WIDTH, TARGET_SCREEN_HEIGHT>(buffer.as_ptr(), scaled_buffer.as_mut_ptr())};
 
         let end_x_index = TARGET_SCREEN_WIDTH + FRAME_BUFFER_X_OFFSET - 1;
         self.spi.write(Ili9341Command::ColumnAddressSet as u8, &[

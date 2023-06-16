@@ -6,7 +6,7 @@ mod gpu;
 mod spi;
 mod dma;
 mod timer;
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 mod bcm_host;
 
 pub use gpio::*;
@@ -14,7 +14,7 @@ pub use mini_uart::MiniUart;
 pub use mailbox::*;
 pub use timer::*;
 pub use spi::Spi0;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 pub use utils::PERIPHERALS_BASE_ADDRESS;
 
 use utils::Peripheral;

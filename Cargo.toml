@@ -1,8 +1,7 @@
 [workspace]
 members = [
-    "gb",
-    "lib_gb",
-    "image_inter",
+    "sdl",
+    "core",
     "rpi",
     "common"
 ]

@@ -42,7 +42,7 @@ impl GpuMemory{
         }
 
         let address = Self::bus_to_phys(bus_address);
-        #[cfg(feature = "std")]
+        #[cfg(feature = "os")]
         let address = unsafe{libc::mmap(
             std::ptr::null_mut(),
             size as libc::size_t,
@@ -56,7 +56,7 @@ impl GpuMemory{
     }
 
     fn release(&self){
-        #[cfg(feature = "std")]
+        #[cfg(feature = "os")]
         unsafe{
             if libc::munmap(self.virtual_address_ptr as *mut libc::c_void, self.size as libc::size_t) != 0 {
                 crate::peripherals::utils::libc_abort("Error while trying to unmap gpu memory");
