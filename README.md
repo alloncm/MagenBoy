@@ -29,18 +29,13 @@ cargo make sdl
 or with more configuration options:
 
 ```shell
-cargo build --release --package gb --features [optional_features]
+cargo build --release --package magenboy_sdl --features [optional_features]
 ```
 #### Optional features:
-* `sdl` - Link to sdl2 (On by default)
-* `static-sdl` - will link statically to sdl2 
-On by default 
+* `static-sdl` - will link statically to sdl2, On by default 
 * `sdl-resample` - Use the audio resampler from sdl2 library and a manual one I wrote
 * `push-audio` - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
-* `u16pixel` - pixels are represented by 16 bits and not 32 bits - neccessary for interfacing the ili9341 spi lcd
-* `apu` - Turn on the apu (On by default)
-* `rpi` - Input is from the RPI GPIO pins and output is to an ili9341 spi lcd connected to the RPI GPIO pins, activates the `u16pixel` feature.
-* `mmio` - Will interface the spi lcd screen using the Memory Mapped IO interface of the RPI for better performance (uses the DMA peripherals as well, activates the `rpi` feature.
+* `u16pixel` - pixels are represented by 16 bits and not 32 bits
 
 > **Note** to turn off on by default features pass `--no-default-features` when building
 
@@ -57,13 +52,15 @@ On by default
 | Dpad Left  | Left arrow  |
 | Dpad Right | Right arrow |
 
-### Raspberry Pi Baremetal (with ili9341 display and gpio buttons)
+### (WIP) Raspberry Pi Baremetal (with ili9341 display and gpio buttons)
+
+Edit the relevant settings in `configuration.rs` and then run:
 
 ```sh
-cargo make rpi_baremetal
+cargo make rpibm
 ```
 
-or manually:
+This command will do the folowing:
 
 1. Install the rust nightly toolchain for `armv7a-none-eabihf`:
 ```shell
@@ -73,7 +70,7 @@ rustup +nightly component add rust-src
 
 Unfurtuantly `armv7a-none-eabihf` is a [tier3](https://doc.rust-lang.org/nightly/rustc/platform-support.html#tier-3) target for the Rust compiler so building for it requires the nightly toolchain - [source](https://stackoverflow.com/questions/67352828/how-to-build-for-tier-3-target-not-included-in-rustup-target-list)
 
-> **Notice** Verify that you install the `armv7a-none-eabihf` target and not the `armv7a-none-eabi` target, as the later doesn't have support for hardware floats.
+> **Notice** We install the `armv7a-none-eabihf` target and not the `armv7a-none-eabi` target, as the later doesn't have support for hardware floats.
 
 2. Install Cargo Binutils:
 ```shell
@@ -81,8 +78,7 @@ cargo install cargo-binutils
 rustup component add llvm-tools-preview
 ```
 
-3. Edit the relevant settings in `configuration.rs`
-4. Run `build.sh` or `build.bat` which will compile and create an bootable image called `kernel7.img`
+3. Builds the image
 
 ## Running
 
