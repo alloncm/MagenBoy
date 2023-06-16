@@ -32,15 +32,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
 
 [[package]]
-name = "bcm_host"
-version = "3.0.1"
-dependencies = [
- "cfg-if",
- "libc",
- "log",
-]
-
-[[package]]
 name = "bit_field"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -132,14 +123,15 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chrono"
-version = "0.4.19"
+version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+checksum = "6127248204b9aba09a362f6c930ef6a78f2c1b2215f8a7b398c06e1083f17af0"
 dependencies = [
- "libc",
+ "js-sys",
  "num-integer",
  "num-traits",
  "time",
+ "wasm-bindgen",
  "winapi",
 ]
 
@@ -481,25 +473,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gb"
-version = "3.0.1"
-dependencies = [
- "bcm_host",
- "cfg-if",
- "chrono",
- "crossbeam-channel",
- "fern",
- "image_inter",
- "lib_gb",
- "libc",
- "log",
- "nix",
- "rppal",
- "sdl2",
- "wav",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,16 +643,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "image_inter"
-version = "3.0.1"
-dependencies = [
- "cc",
- "criterion",
- "fast_image_resize",
- "libc",
-]
-
-[[package]]
 name = "indexmap"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -767,17 +730,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03087c2bad5e1034e8cace5926dec053fb3790248370865f5117a7d0213354c8"
 
 [[package]]
-name = "lib_gb"
-version = "3.0.1"
-dependencies = [
- "criterion",
- "image",
- "log",
- "reqwest",
- "zip",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -806,6 +758,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "magenboy_common"
+version = "3.0.2"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "chrono",
+ "criterion",
+ "crossbeam-channel",
+ "fast_image_resize",
+ "fern",
+ "log",
+ "magenboy_core",
+]
+
+[[package]]
+name = "magenboy_core"
+version = "3.0.2"
+dependencies = [
+ "criterion",
+ "image",
+ "log",
+ "reqwest",
+ "zip",
+]
+
+[[package]]
+name = "magenboy_rpi"
+version = "3.0.2"
+dependencies = [
+ "crossbeam-channel",
+ "libc",
+ "log",
+ "magenboy_common",
+ "magenboy_core",
+ "nix",
+ "rppal",
+]
+
+[[package]]
+name = "magenboy_sdl"
+version = "3.0.2"
+dependencies = [
+ "cfg-if",
+ "crossbeam-channel",
+ "log",
+ "magenboy_common",
+ "magenboy_core",
+ "sdl2",
+ "wav",
 ]
 
 [[package]]
@@ -1224,11 +1228,10 @@ checksum = "b9b1a3d5f46d53f4a3478e2be4a5a5ce5108ea58b100dcd139830eae7f79a3a1"
 
 [[package]]
 name = "rppal"
-version = "0.13.1"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c88c9c6248de4d337747b619d8f671055ef48a87dc21b97998833f189a0bbd4f"
+checksum = "612e1a22e21f08a246657c6433fe52b773ae43d07c9ef88ccfc433cc8683caba"
 dependencies = [
- "lazy_static",
  "libc",
 ]
 

@@ -1,0 +1,29 @@
+[package]
+name = "magenboy_rpi"
+version.workspace = true
+authors.workspace = true
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+magenboy_core = {path = "../core", features = ["u16pixel"]}
+magenboy_common = {path = "../common"}
+log = "0.4"
+libc = {version = "0.2", optional = true}
+nix = {version = "0.24", optional = true}
+crossbeam-channel = {version = "0.5", optional = true}
+rppal = {version = "0.14", optional = true}
+
+[features]
+default = ["rpi4"]
+rpi4 = []
+rpi2 = []
+os = ["magenboy_common/std", "libc", "nix/ioctl", "crossbeam-channel", "rppal"]
+
+[[bin]]
+name = "rpios"
+required-features = ["os"]
+
+[[bin]]
+name = "baremetal"

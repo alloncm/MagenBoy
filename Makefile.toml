@@ -1,0 +1,42 @@
+[config]
+default_to_workspace = false
+
+[tasks.all]
+dependencies = ["test", "sdl", "rpios", "rpibm"]
+
+[tasks.test]
+command = "cargo"
+args = ["test", "--package", "magenboy_core"]
+
+[tasks.sdl]
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_sdl"]
+
+[tasks.sdl.linux]
+args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features"]
+dependencies = ["install_sdl2_linux"]
+
+[tasks.install_sdl2_linux]
+script = ["sudo apt-get install -y libsdl2-dev"]
+
+[tasks.rpios]
+install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}
+command = "cross"
+args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
+
+[tasks.rpibm]
+toolchain = "nightly"
+install_crate = "cargo-binutils"
+command = "rust-objcopy"
+args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
+dependencies = ["build_rpi_baremetal","install_llvm_tools"]
+
+[tasks.build_rpi_baremetal]
+toolchain = "nightly"
+cwd = "./rpi/"
+command = "cargo"
+args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core", "--no-default-features", "--features", "rpi4"]
+
+[tasks.install_llvm_tools]
+toolchain = "nightly"
+install_crate = {rustup_component_name = "llvm-tools-preview"}

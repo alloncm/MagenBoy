@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "gb",
-    "lib_gb",
-    "image_inter",
-    "bcm_host"
+    "sdl",
+    "core",
+    "rpi",
+    "common"
 ]
 
 [workspace.package]
-version = "3.0.1"
+version = "3.0.2"
 authors = ["alloncm <alloncm@gmail.com>"]
 rust-version = "1.65"   # cause of let else feature

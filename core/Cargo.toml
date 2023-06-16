@@ -1,0 +1,24 @@
+[package]
+name = "magenboy_core"
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+
+[features]
+u16pixel = []
+apu = []
+dbg = []
+
+[dev-dependencies]
+criterion = "0.3"
+reqwest = { version = "0.11", features = ["blocking"] }
+zip = "0.5"
+image = "0.24"
+
+[[bench]]
+name = "lib_gb_bench"
+harness = false

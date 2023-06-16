@@ -10,13 +10,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build-and-test:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
+    - name: Build sdl
+      run: cargo build --verbose --package magenboy_sdl
     - name: Run tests
-      run: cargo test --verbose --workspace --exclude bcm_host
+      run: cargo test --verbose --package magenboy_core

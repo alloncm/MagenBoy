@@ -1,0 +1,28 @@
+[package]
+name = "magenboy_sdl"
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+edition = "2018"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "magenboy_sdl"
+path = "src/main.rs"
+
+[dependencies]
+magenboy_core = {path = "../core/", features = ["apu"]}
+magenboy_common = {path = "../common/", features = ["std"]}
+log = {version = "0.4", features = ["max_level_debug", "release_max_level_info"]}
+sdl2 = "0.35"
+crossbeam-channel = "0.5"
+cfg-if = "1.0"
+wav = "1.0"
+
+[features]
+default = ["static-sdl"]
+sdl-resample = []
+push-audio = []
+static-sdl = ["sdl2/bundled", "sdl2/static-link"]
+u16pixel = ["magenboy_core/u16pixel"]
+dbg = ["magenboy_core/dbg"]
