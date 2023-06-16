@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use rpi::{peripherals::{MiniUart, PERIPHERALS}, syncronization::Mutex};
+use magenboy_rpi::{peripherals::{MiniUart, PERIPHERALS}, syncronization::Mutex};
 
 use log::{Record, Metadata, Log, LevelFilter};
 

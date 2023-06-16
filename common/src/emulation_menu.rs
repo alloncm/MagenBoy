@@ -1,7 +1,7 @@
 use std::sync::{atomic::AtomicBool, Mutex};
-use lib_gb::{ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
+use magenboy_core::{ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
 
-use crate::joypad_menu::{MenuOption, MenuJoypadProvider, joypad_gfx_menu, JoypadMenu};
+use super::joypad_menu::{MenuOption, MenuJoypadProvider, joypad_gfx_menu, JoypadMenu};
 
 enum EmulatorMenuOption{
     Resume,

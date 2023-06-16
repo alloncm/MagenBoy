@@ -1,5 +1,5 @@
 pub mod joypad{
-    use lib_gb::keypad::button::Button;
+    use magenboy_core::keypad::button::Button;
 
     pub const fn button_to_bcm_pin(button:Button)->u8{
         match button{
@@ -26,7 +26,7 @@ pub mod peripherals{
     pub const SPI0_DC_BCM_PIN:u8 = 12;
     pub const DMA_RX_CHANNEL_NUMBER:u8 = 7;
     pub const DMA_TX_CHANNEL_NUMBER:u8 = 1;
-    pub const FAST_SPI_CLOCK_DIVISOR:u32 = 8;   // the smaller the faster
+    pub const FAST_SPI_CLOCK_DIVISOR:u32 = 6;   // the smaller the faster
     pub const INIT_SPI_CLOCK_DIVISOR:u32 = 34;  // slow clock for verifiying the initialization goes smooth with no corruptions
 }
 

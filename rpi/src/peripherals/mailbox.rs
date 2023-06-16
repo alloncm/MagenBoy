@@ -9,9 +9,9 @@ use core::mem::size_of;
 
 use super::utils::compile_time_size_assert;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 pub use std_impl::Mailbox;
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 pub use no_std_impl::Mailbox;
 
 #[repr(C, align(4))]
@@ -62,7 +62,7 @@ impl<const DATA_LEN:usize> Message<DATA_LEN>{
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 mod no_std_impl{
     use core::mem::size_of;
     use crate::peripherals::utils::{MmioReg32, compile_time_size_assert, memory_barrier, get_static_peripheral};
@@ -139,7 +139,7 @@ mod no_std_impl{
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 mod std_impl{
     use libc::{c_int, c_void};
 

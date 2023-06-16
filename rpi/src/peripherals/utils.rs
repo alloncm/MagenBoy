@@ -59,13 +59,13 @@ pub const PERIPHERALS_BASE_ADDRESS:usize = 0xFE00_0000;
 pub const PERIPHERALS_BASE_ADDRESS:usize = 0x3F00_0000;
 
 pub(super) fn get_static_peripheral<T>(offset:usize)->&'static mut T{
-    #[cfg(feature = "std")]
+    #[cfg(feature = "os")]
     unsafe{&mut *(super::bcm_host::BcmHost::get().get_ptr(offset) as *mut T)}
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(feature = "os"))]
     unsafe{&mut *((offset + PERIPHERALS_BASE_ADDRESS) as *mut T)}
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "os")]
 pub(super) fn libc_abort(message:&str){
     std::io::Result::<&str>::Err(std::io::Error::last_os_error()).expect(message);
 }
