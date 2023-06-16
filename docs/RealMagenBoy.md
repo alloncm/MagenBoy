@@ -126,15 +126,15 @@ Notice the `i2c_arm` and not just `i2c`, both should be disabled (if the regualr
 
 ### Configuring pins
 
-Aside from the SPI interface pins all the pins can be configured by changing the correspond value in `main.rs` and recompiling
+Aside from the SPI interface pins all the pins can be configured by changing the correspond value in [configuration.rs](../rpi/src/configuration.rs) and recompiling
 
 ## Compiling MagenBoy
 
 * install Rust on the RPi
 * Download MagenBoy `git clone https://github.com/alloncm/MagenBoy.git`
-* Checkout a version greater or equal to 2.2.0 `git checkout 2.2.0`
-* At project root Run `cargo b -r --no-default-features --features mmio`
-* Make sure it runs `sudo ./target/release/magenboy [path_to_rom]` - notice that the `mmio` feature (Memory Mapped IO) needs root access to access some RPi peripherals
+* Checkout master
+* At project root Run `cargo make rpios`
+* Make sure it runs: `sudo ./target/release/magenboy [path_to_rom]`
 
 ## Running 
 
