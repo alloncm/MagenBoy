@@ -75,24 +75,29 @@ impl TerminalDebugger{
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
                 sender.send(DebuggerCommand::Stop).unwrap();
             }
-            "c" if ENABLE_FLAG.load(Ordering::SeqCst)=>{
-                ENABLE_FLAG.store(false, Ordering::SeqCst);
-                sender.send(DebuggerCommand::Continue).unwrap();
+            _ if ENABLE_FLAG.load(Ordering::SeqCst)=>{
+                match buffer[0]{
+                    "c"=>{
+                        ENABLE_FLAG.store(false, Ordering::SeqCst);
+                        sender.send(DebuggerCommand::Continue).unwrap();
+                    }
+                    "s"=>sender.send(DebuggerCommand::Step).unwrap(),
+                    "b"=>match parse_address_string(&buffer) {
+                        Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
+                        Err(msg) => println!("Error setting BreakPoint {}", msg),
+                    },
+                    "r"=>sender.send(DebuggerCommand::Registers).unwrap(),
+                    "dl"=>match parse_address_string(&buffer) {
+                        Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
+                        Err(msg) => println!("Error deleting BreakPoint {}", msg),
+                    },
+                    "di"=>match parse_number_string(&buffer){
+                        Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
+                        Err(msg) => println!("Error disassembling: {}", msg),
+                    },
+                    _=>println!("invalid input: {}", buffer[0])
+                }
             }
-            "s"=>sender.send(DebuggerCommand::Step).unwrap(),
-            "b"=>match parse_address_string(&buffer) {
-                Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
-                Err(msg) => println!("Error setting BreakPoint {}", msg),
-            },
-            "r"=>sender.send(DebuggerCommand::Registers).unwrap(),
-            "dl"=>match parse_address_string(&buffer) {
-                Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
-                Err(msg) => println!("Error deleting BreakPoint {}", msg),
-            },
-            "di"=>match parse_number_string(&buffer){
-                Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
-                Err(msg) => println!("Error disassembling: {}", msg),
-            },
             _=>println!("invalid input: {}", buffer[0])
         }
     }
