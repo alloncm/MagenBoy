@@ -1,7 +1,7 @@
 use core::arch::{global_asm, asm};
 
 #[no_mangle]
-static PERIPHERALS_BASE_ADDRESS:u32 = rpi::peripherals::PERIPHERALS_BASE_ADDRESS as u32;
+static PERIPHERALS_BASE_ADDRESS:u32 = magenboy_rpi::peripherals::PERIPHERALS_BASE_ADDRESS as u32;
 
 global_asm!(include_str!("boot_armv7a.s"));
 

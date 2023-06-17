@@ -2,29 +2,41 @@
 default_to_workspace = false
 
 [tasks.all]
-dependencies = ["test", "sdl", "rpios", "rpi_baremetal"]
+dependencies = ["test", "sdl", "rpios", "rpibm"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "--package", "lib_gb"]
+args = ["test", "--package", "magenboy_core"]
 
 [tasks.sdl]
 command = "cargo"
-args = ["build", "--release", "--package", "gb"]
+args = ["build", "--release", "--package", "magenboy_sdl"]
 
 [tasks.sdl.linux]
-args = ["build", "--release", "--package", "gb", "--no-default-features"]
+args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features"]
 dependencies = ["install_sdl2_linux"]
 
 [tasks.install_sdl2_linux]
-script = ["sudo apt-get install -y libsdl2-dev"]
+script = [
+"""
+# returns early if the package was already installed and install it otherwise. The first
+# argument is the package name to be checked (and installed if not already).
+# other arguments are passed to apt-get
+try_install() {
+    dpkg -l "$1" | grep -q ^ii && return 0
+    sudo apt-get -y install "$@"
+    return 0
+}
+try_install libsdl2-dev
+"""
+]
 
 [tasks.rpios]
 install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}
 command = "cross"
-args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "std"]
+args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
 
-[tasks.rpi_baremetal]
+[tasks.rpibm]
 toolchain = "nightly"
 install_crate = "cargo-binutils"
 command = "rust-objcopy"
@@ -35,7 +47,7 @@ dependencies = ["build_rpi_baremetal","install_llvm_tools"]
 toolchain = "nightly"
 cwd = "./rpi/"
 command = "cargo"
-args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "rpi", "--bin", "baremetal", "-Z", "build-std=core", "--no-default-features", "--features", "rpi4"]
+args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core", "--no-default-features", "--features", "rpi4"]
 
 [tasks.install_llvm_tools]
 toolchain = "nightly"

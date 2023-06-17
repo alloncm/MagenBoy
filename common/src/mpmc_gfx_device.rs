@@ -1,4 +1,4 @@
-use lib_gb::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}};
+use magenboy_core::ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}};
 
 pub struct MpmcGfxDevice{
     sender: crossbeam_channel::Sender<usize>

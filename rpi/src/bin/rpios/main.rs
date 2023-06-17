@@ -1,9 +1,9 @@
 use std::{env, fs};
 
-use common::{emulation_menu::{MagenBoyMenu, MagenBoyState}, joypad_menu::joypad_gfx_menu, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
-use lib_gb::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, apu::audio_device::AudioDevice, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}, machine::{Mode, gameboy::GameBoy}, keypad::joypad_provider::JoypadProvider};
+use magenboy_common::{emulation_menu::{MagenBoyMenu, MagenBoyState}, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
+use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}, machine::{Mode, gameboy::GameBoy}, keypad::joypad_provider::JoypadProvider};
 use log::info;
-use rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS};
+use magenboy_rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS};
 
 const MENU_PIN_BCM:u8 = 3; // This pin is the turn on pin on thr RPI
 
@@ -11,14 +11,14 @@ const MENU_PIN_BCM:u8 = 3; // This pin is the turn on pin on thr RPI
 static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
 fn main(){
-    unsafe{rpi::peripherals::PERIPHERALS.set_core_clock()};
-    common::init_fern_logger().unwrap();
+    unsafe{magenboy_rpi::peripherals::PERIPHERALS.set_core_clock()};
+    magenboy_common::logging::init_fern_logger().unwrap();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
 
     let args: Vec<String> = env::args().collect(); 
     
-    let header = std::format!("MagenBoy v{}", common::VERSION);
+    let header = std::format!("MagenBoy v{}", magenboy_common::VERSION);
 
     let mut emulation_menu = MagenBoyMenu::new(joypad_provider.clone(), header.clone());
 
@@ -27,7 +27,7 @@ fn main(){
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
             let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
-            common::get_rom_selection(roms_path.as_str(), menu_renderer, &mut joypad_provider)
+            get_rom_selection(roms_path.as_str(), menu_renderer, &mut joypad_provider)
         }
         else{
             args[1].clone()
@@ -45,7 +45,7 @@ fn main(){
         unsafe{
             let handler = nix::sys::signal::SigHandler::Handler(sigint_handler);
             nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, handler).unwrap();
-            let menu_pin = PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(rpi::peripherals::GpioPull::PullUp);
+            let menu_pin = PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(magenboy_rpi::peripherals::GpioPull::PullUp);
 
             loop{
                 if menu_pin.read_state() == false{
@@ -68,11 +68,6 @@ fn main(){
         log::info!("Shuting down the RPi! Goodbye");
         std::process::Command::new("shutdown").arg("-h").arg("now").spawn().expect("Failed to shutdown system");
     }
-}
-
-struct BlankAudioDevice;
-impl AudioDevice for BlankAudioDevice{
-    fn push_buffer(&mut self, _:&[lib_gb::apu::audio_device::StereoSample; lib_gb::apu::audio_device::BUFFER_SIZE]) {}
 }
 
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, joypad_provider:impl JoypadProvider) {
@@ -118,7 +113,7 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     };
 
     let mbc = initialize_mbc(&program_name, mode);
-    let mut gameboy = GameBoy::new(mbc, joypad_provider , BlankAudioDevice, spsc_gfx_device, bootrom, mode);
+    let mut gameboy = GameBoy::new(mbc, joypad_provider , magenboy_rpi::BlankAudioDevice, spsc_gfx_device, bootrom, mode);
 
     info!("initialized gameboy successfully!");
 

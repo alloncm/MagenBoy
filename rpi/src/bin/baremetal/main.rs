@@ -6,14 +6,9 @@ mod logging;
 
 use core::panic::PanicInfo;
 
-use lib_gb::{apu::audio_device::AudioDevice, machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::external_memory_bus::Bootrom};
+use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::external_memory_bus::Bootrom};
 
-use rpi::{drivers::{GpioJoypadProvider, Ili9341GfxDevice}, peripherals::PERIPHERALS, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}};
-
-struct BlankAudioDevice;
-impl AudioDevice for BlankAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[lib_gb::apu::audio_device::StereoSample; lib_gb::apu::audio_device::BUFFER_SIZE]) {}
-}
+use magenboy_rpi::{drivers::{GpioJoypadProvider, Ili9341GfxDevice}, peripherals::PERIPHERALS, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}};
 
 // This function is no regular main.
 // It will not return and will be jumped to from the _start proc in the boot code
@@ -30,7 +25,7 @@ pub extern "C" fn main()->!{
 
     let gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     log::info!("Init joypad");
-    let mut gameboy = GameBoy::new(mbc, joypad_provider, BlankAudioDevice, gfx, Bootrom::None, None);
+    let mut gameboy = GameBoy::new(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, Bootrom::None, None);
     log::info!("Initialized gameboy!");
     loop{
         gameboy.cycle_frame();

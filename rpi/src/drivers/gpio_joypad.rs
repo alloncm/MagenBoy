@@ -1,4 +1,4 @@
-use lib_gb::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::JoypadProvider, button::Button};
+use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::JoypadProvider, button::Button};
 
 use crate::peripherals::{PERIPHERALS, GpioPull, Trigger, InputGpioPin};
 
@@ -43,8 +43,8 @@ impl JoypadProvider for GpioJoypadProvider{
     }
 }
 
-#[cfg(feature = "std")]
-impl common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
+#[cfg(feature = "os")]
+impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
     fn poll(&mut self, joypad:&mut Joypad) {
         let gpio = unsafe{PERIPHERALS.get_gpio()};
         gpio.poll_interrupts(&self.input_pins,false);

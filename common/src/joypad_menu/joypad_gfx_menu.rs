@@ -1,4 +1,4 @@
-use lib_gb::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, color::{BLACK, WHITE}, color::Color};
+use magenboy_core::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, color::{BLACK, WHITE}, color::Color};
 
 use super::{font::*, MenuRenderer};
 

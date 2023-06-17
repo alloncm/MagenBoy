@@ -1,4 +1,4 @@
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "os"))]
 mod config{
     pub const LD_SCRIPT_PATH:&str = "src/bin/baremetal/link.ld";
     pub const CONFIG_FILE_PATH: &str = "config.txt";
@@ -13,12 +13,12 @@ mod config{
 }
 
 fn main(){
-    #[cfg(feature = "std")]
+    #[cfg(feature = "os")]
     {
         println!("cargo:rustc-link-lib=bcm_host");
         println!("cargo:rustc-link-search=/opt/vc/lib");
     }
-    #[cfg(not(feature = "std"))]
+    #[cfg(not(feature = "os"))]
     {
         println!("cargo:rerun-if-changed={}", config::LD_SCRIPT_PATH);
         std::fs::write(config::CONFIG_FILE_PATH, config::CONFIG_TXT_CONTENT).unwrap();
