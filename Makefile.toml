@@ -17,7 +17,19 @@ args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-feature
 dependencies = ["install_sdl2_linux"]
 
 [tasks.install_sdl2_linux]
-script = ["sudo apt-get install -y libsdl2-dev"]
+script = [
+"""
+# returns early if the package was already installed and install it otherwise. The first
+# argument is the package name to be checked (and installed if not already).
+# other arguments are passed to apt-get
+try_install() {
+    dpkg -l "$1" | grep -q ^ii && return 0
+    sudo apt-get -y install "$@"
+    return 0
+}
+try_install libsdl2-dev
+"""
+]
 
 [tasks.rpios]
 install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}

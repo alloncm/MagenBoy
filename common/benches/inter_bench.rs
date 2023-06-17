@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use common::interpolation::{scale_bilinear, scale_biliniear_c, scale_nearest};
+use magenboy_common::interpolation::{scale_bilinear, scale_biliniear_c, scale_nearest};
 
 
 pub fn interpolation_rust_bench(c: &mut Criterion){
