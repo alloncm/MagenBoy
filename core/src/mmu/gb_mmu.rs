@@ -77,6 +77,10 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
+        #[cfg(feature = "dbg")]
+        if self.mem_watch.watching_addrs.as_slice().contains(&address){
+            self.mem_watch.hit_addr = Some(address);
+        }
         self.cycle(m_cycles);
         if let Some(bus) = &self.oucupied_access_bus{
             match address{
