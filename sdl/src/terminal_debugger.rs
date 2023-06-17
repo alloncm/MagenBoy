@@ -69,7 +69,14 @@ impl TerminalDebugger{
                 for i in 0..size as usize{
                     println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
                 }
-            }
+            },
+            DebuggerResult::SetWatchPoint(addr)=>println!("Set Watchpoint at: {:#X} succesfully", addr),
+            DebuggerResult::HitWatchPoint(address, pc) => {
+                println!("Hit watchpoint: {:#X} at address: {:#X}", address, pc);
+                ENABLE_FLAG.store(true, Ordering::SeqCst);
+            },
+            DebuggerResult::RemovedWatch(addr) => println!("Removed watchpoint {:#X}", addr),
+            DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
         }
     }
     
@@ -92,7 +99,7 @@ impl TerminalDebugger{
                         Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
                     "r"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "dl"=>match parse_address_string(&buffer) {
+                    "db"=>match parse_address_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
@@ -103,6 +110,14 @@ impl TerminalDebugger{
                     "dump"=>match parse_number_string(&buffer){
                         Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
                         Err(msg) => println!("Error dumping memory: {}", msg),
+                    },
+                    "w"=> match parse_address_string(&buffer){
+                        Ok(addr) => sender.send(DebuggerCommand::AddWatchPoint(addr)).unwrap(),
+                        Err(msg) => println!("Error setting watchpoint {}", msg),
+                    }
+                    "dw"=>match parse_address_string(&buffer){
+                        Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
+                        Err(msg) => println!("Error deleting watchpoint: {}", msg),
                     }
                     _=>println!("invalid input: {}", buffer[0])
                 }

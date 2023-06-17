@@ -8,6 +8,8 @@ pub mod static_allocator;
 pub mod global_static_alloctor;
 #[cfg(feature = "dbg")]
 pub mod stack_string;
+#[cfg(feature = "dbg")]
+pub mod fixed_size_set;
 
 // Frequency in m_cycles (m_cycle = 4 t_cycles)
 pub const GB_FREQUENCY:u32 = 4_194_304 / 4;

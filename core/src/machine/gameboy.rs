@@ -85,9 +85,13 @@ impl_gameboy! {{
 
     #[cfg(feature = "dbg")]
     fn handle_debugger(&mut self) {
-        while self.debugger.should_halt(self.cpu.program_counter) {
+        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.hit_addr.is_some()) {
             if self.debugger.check_for_break(self.cpu.program_counter){
                 self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter));
+            }
+            if let Some(addr) = self.mmu.mem_watch.hit_addr{
+                self.debugger.send(DebuggerResult::HitWatchPoint(addr, self.cpu.program_counter));
+                self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
                 DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter)),
@@ -125,6 +129,16 @@ impl_gameboy! {{
                 DebuggerCommand::Disassemble(len)=>{
                     let result = crate::cpu::disassembler::disassemble(&self.cpu, &mut self.mmu, len);
                     self.debugger.send(DebuggerResult::Disassembly(len, result));
+                },
+                DebuggerCommand::AddWatchPoint(address)=>{
+                    self.mmu.mem_watch.add_address(address);
+                    self.debugger.send(DebuggerResult::SetWatchPoint(address));
+                },
+                DebuggerCommand::RemoveWatch(address)=>{
+                    match self.mmu.mem_watch.try_remove_address(address){
+                        true=>self.debugger.send(DebuggerResult::RemovedWatch(address)),
+                        false=>self.debugger.send(DebuggerResult::WatchDonotExist(address)),
+                    }
                 }
             }
         }

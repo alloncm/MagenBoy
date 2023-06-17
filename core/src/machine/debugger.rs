@@ -1,4 +1,4 @@
-use crate::cpu::{gb_cpu::GbCpu, disassembler::OpcodeEntry};
+use crate::{cpu::{gb_cpu::GbCpu, disassembler::OpcodeEntry}, utils::fixed_size_set::FixedSizeSet};
 
 pub enum DebuggerCommand{
     Stop,
@@ -8,7 +8,9 @@ pub enum DebuggerCommand{
     Break(u16),
     DeleteBreak(u16),
     DumpMemory(u8),
-    Disassemble(u8)
+    Disassemble(u8),
+    AddWatchPoint(u16),
+    RemoveWatch(u16),
 }
 
 pub enum DebuggerResult{
@@ -21,7 +23,11 @@ pub enum DebuggerResult{
     Stepped(u16),
     Stopped(u16),
     MemoryDump(u8, [MemoryEntry;0xFF]),
-    Disassembly(u8, [OpcodeEntry;0xFF])
+    Disassembly(u8, [OpcodeEntry;0xFF]),
+    SetWatchPoint(u16),
+    HitWatchPoint(u16, u16),
+    RemovedWatch(u16),
+    WatchDonotExist(u16),
 }
 
 #[derive(Clone, Copy)]
@@ -58,52 +64,28 @@ pub trait DebuggerUi{
 
 pub struct Debugger<UI:DebuggerUi>{
     ui:UI,
-    breakpoints:[u16;0xFF],
-    breakpoints_size:usize,
+    breakpoints:FixedSizeSet<u16, 0xFF>
 }
 
 impl<UI:DebuggerUi> Debugger<UI>{
     pub fn new(ui:UI)->Self{
-        Self { ui, breakpoints: [0;0xFF], breakpoints_size:0 }
+        Self { ui, breakpoints: FixedSizeSet::<u16, 0xFF>::new() }
     }
 
     pub fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
     pub fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
 
-    pub fn should_halt(&self, pc:u16)->bool{
-        self.check_for_break(pc) || self.ui.should_stop()
+    pub fn should_halt(&self, pc:u16, hit_watch:bool)->bool{
+        self.check_for_break(pc) || self.ui.should_stop() || hit_watch
     }
 
     pub fn check_for_break(&self, pc:u16)->bool{
         self.get_breakpoints().contains(&pc)
     }
 
-    pub fn add_breakpoint(&mut self, address:u16){
-        if self.breakpoints.contains(&address){
-            return;
-        }
-        self.breakpoints[self.breakpoints_size] = address;
-        self.breakpoints_size += 1;
-    }
+    pub fn add_breakpoint(&mut self, address:u16){self.breakpoints.add(address)}
 
-    pub fn try_remove_breakpoint(&mut self, address:u16)->bool{
-        if !self.breakpoints.contains(&address) || self.breakpoints_size == 0 {
-            return false;
-        }
-        let mut found = false;
-        for i in 0..self.breakpoints_size {
-            if found {
-                self.breakpoints[i-1] = self.breakpoints[i];
-            }
-            if address == self.breakpoints[i]{
-                found = true;
-            }
-        }
-        self.breakpoints_size -= 1;
-        return true;
-    }
+    pub fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.try_remove(address)}
 
-    fn get_breakpoints(&self)->&[u16]{
-        &self.breakpoints[0..self.breakpoints_size]
-    }
+    fn get_breakpoints(&self)->&[u16]{self.breakpoints.as_slice()}
 }
