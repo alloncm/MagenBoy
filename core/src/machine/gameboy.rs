@@ -111,7 +111,7 @@ impl_gameboy! {{
                     };
                     self.debugger.send(result);
                 },
-                DebuggerCommand::Disassemble(len)=>{
+                DebuggerCommand::DumpMemory(len)=>{
                     let mut buffer = [MemoryEntry{address:0, value:0};0xFF];
                     for i in 0..len as usize{
                         let address = self.cpu.program_counter + i as u16;
@@ -120,7 +120,11 @@ impl_gameboy! {{
                             address,
                         };
                     }
-                    self.debugger.send(DebuggerResult::Disassembly(len, buffer));
+                    self.debugger.send(DebuggerResult::MemoryDump(len, buffer));
+                }
+                DebuggerCommand::Disassemble(len)=>{
+                    let result = crate::cpu::disassembler::disassemble(&self.cpu, &mut self.mmu, len);
+                    self.debugger.send(DebuggerResult::Disassembly(len, result));
                 }
             }
         }

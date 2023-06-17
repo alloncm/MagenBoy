@@ -1,4 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
+use crate::cpu::{gb_cpu::GbCpu, disassembler::OpcodeEntry};
 
 pub enum DebuggerCommand{
     Stop,
@@ -7,6 +7,7 @@ pub enum DebuggerCommand{
     Registers,
     Break(u16),
     DeleteBreak(u16),
+    DumpMemory(u8),
     Disassemble(u8)
 }
 
@@ -19,7 +20,8 @@ pub enum DebuggerResult{
     Continuing,
     Stepped(u16),
     Stopped(u16),
-    Disassembly(u8, [MemoryEntry;0xFF])
+    MemoryDump(u8, [MemoryEntry;0xFF]),
+    Disassembly(u8, [OpcodeEntry;0xFF])
 }
 
 #[derive(Clone, Copy)]

@@ -60,11 +60,16 @@ impl TerminalDebugger{
             DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint succesfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
-            DebuggerResult::Disassembly(size, buffer) => {
+            DebuggerResult::MemoryDump(size, buffer) => {
                 for i in 0..size as usize{
                     println!("{:#X}: {:#X}", buffer[i].address, buffer[i].value);
                 }
             },
+            DebuggerResult::Disassembly(size, opcodes)=>{
+                for i in 0..size as usize{
+                    println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
+                }
+            }
         }
     }
     
@@ -75,7 +80,7 @@ impl TerminalDebugger{
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
                 sender.send(DebuggerCommand::Stop).unwrap();
             }
-            _ if ENABLE_FLAG.load(Ordering::SeqCst)=>{
+            _ if Self::enabled()=>{
                 match buffer[0]{
                     "c"=>{
                         ENABLE_FLAG.store(false, Ordering::SeqCst);
@@ -95,6 +100,10 @@ impl TerminalDebugger{
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
                         Err(msg) => println!("Error disassembling: {}", msg),
                     },
+                    "dump"=>match parse_number_string(&buffer){
+                        Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
+                        Err(msg) => println!("Error dumping memory: {}", msg),
+                    }
                     _=>println!("invalid input: {}", buffer[0])
                 }
             }
