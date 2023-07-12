@@ -1,3 +1,5 @@
+pub mod dbg_mmu;
+
 use crate::{cpu::{gb_cpu::GbCpu, disassembler::OpcodeEntry}, utils::fixed_size_set::FixedSizeSet};
 
 pub enum DebuggerCommand{
@@ -52,22 +54,18 @@ impl Registers{
     }
 }
 
-pub enum DebuggerPush{
-    Breakpoint(u16),
-}
-
-pub trait DebuggerUi{
+pub trait DebuggerInterface{
     fn should_stop(&self)->bool;
     fn recv_command(&self)->DebuggerCommand;
     fn send_result(&self, result:DebuggerResult);
 }
 
-pub struct Debugger<UI:DebuggerUi>{
+pub struct Debugger<UI:DebuggerInterface>{
     ui:UI,
     breakpoints:FixedSizeSet<u16, 0xFF>
 }
 
-impl<UI:DebuggerUi> Debugger<UI>{
+impl<UI:DebuggerInterface> Debugger<UI>{
     pub fn new(ui:UI)->Self{
         Self { ui, breakpoints: FixedSizeSet::<u16, 0xFF>::new() }
     }

@@ -8,5 +8,7 @@ pub mod keypad;
 pub mod apu;
 pub mod timer;
 pub mod utils;
+#[cfg(feature = "dbg")]
+pub mod debugger;
 
 pub use utils::GB_FREQUENCY;

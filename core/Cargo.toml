@@ -7,8 +7,10 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
+cfg-if = "1"
 
 [features]
+#default = ["dbg"]
 u16pixel = []
 apu = []
 dbg = []

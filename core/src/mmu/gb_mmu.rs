@@ -4,46 +4,27 @@ use super::{
 };
 use crate::{
     ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 
-    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
+    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS, CYCLES_PER_FRAME}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
 };
 
 const HRAM_SIZE:usize = 0x7F;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-#[cfg(feature = "dbg")]
-pub struct MemoryWatcher{
-    watching_addrs:crate::utils::fixed_size_set::FixedSizeSet<u16, 0xFF>,
-    pub hit_addr:Option<u16>,
-}
-
-#[cfg(feature = "dbg")]
-impl MemoryWatcher{
-    pub fn add_address(&mut self, address:u16){self.watching_addrs.add(address)}
-
-    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addrs.try_remove(address)}
-}
-
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
-    pub m_cycle_counter:u32,
+    m_cycle_counter:u32,
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
     oucupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
     mode:Mode,
-    #[cfg(feature = "dbg")]
-    pub mem_watch:MemoryWatcher,
 }
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
-        #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addrs.as_slice().contains(&address){
-            self.mem_watch.hit_addr = Some(address);
-        }
         self.cycle(m_cycles);
         if let Some (bus) = &self.oucupied_access_bus{
             return match address{
@@ -77,10 +58,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
-        #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addrs.as_slice().contains(&address){
-            self.mem_watch.hit_addr = Some(address);
-        }
         self.cycle(m_cycles);
         if let Some(bus) = &self.oucupied_access_bus{
             match address{
@@ -162,8 +139,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
             mode,
-            #[cfg(feature = "dbg")]
-            mem_watch:MemoryWatcher { watching_addrs: crate::utils::fixed_size_set::FixedSizeSet::new(), hit_addr: None, }
         };
         if bootrom_missing{
             //Setting the bootrom register to be set (the boot sequence has over)
@@ -192,6 +167,14 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             Mode::DMG => false,
             Mode::CGB => self.io_bus.vram_dma_controller.should_block_cpu(),
         };
+    }
+
+    pub fn is_frame_finished(&mut self) -> bool{
+        if self.m_cycle_counter == CYCLES_PER_FRAME{
+            self.m_cycle_counter = 0;
+            return true;
+        }
+        return false;
     }
 
     fn is_oam_ready_for_io(&self)->bool{

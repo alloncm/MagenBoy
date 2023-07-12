@@ -5,30 +5,33 @@ use crate::{
     ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
 };
 use super::Mode;
-#[cfg(feature = "dbg")]
-use super::debugger::*;
-
-//CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
-pub const CYCLES_PER_FRAME:u32 = 17556;
+cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
+    use crate::debugger::*;
+    use crate::debugger::dbg_mmu::*;
+}}
 
 pub struct GameBoy<'a, 
     JP: JoypadProvider, 
     AD:AudioDevice, 
     GFX:GfxDevice, 
-    #[cfg(feature = "dbg")] DUI:DebuggerUi> 
+    #[cfg(feature = "dbg")] DUI:DebuggerInterface> 
 {
     cpu: GbCpu,
+    #[cfg(not(feature = "dbg"))]
     mmu: GbMmu::<'a, AD, GFX, JP>,
+    #[cfg(feature = "dbg")]
+    mmu:DbgMmu<'a, AD, GFX, JP>,
     #[cfg(feature = "dbg")]
     debugger:Debugger<DUI>
 }
 
 
 // https://stackoverflow.com/questions/72955038/varying-number-of-generic-parameters-based-on-a-feature
+// In order to conditionaly add the debugger based on the dbg feature Im having this macro
 macro_rules! impl_gameboy {
     ($implementations:tt) => {
         #[cfg(feature = "dbg")]
-        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerUi> GameBoy<'a, JP, AD, GFX, DUI> $implementations
+        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerInterface> GameBoy<'a, JP, AD, GFX, DUI> $implementations
         #[cfg(not(feature = "dbg"))]
         impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX> $implementations
     };
@@ -64,23 +67,23 @@ impl_gameboy! {{
                 Mode::CGB => {let Bootrom::Gbc(_) = boot_rom else {core::panic!("Bootrom doesnt match mode CGB")};}
             }
         }
-
+        let mmu = GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode);
+        #[cfg(feature = "dbg")]
+        let mmu = DbgMmu::new(mmu);
         GameBoy{
             cpu:cpu,
-            mmu:GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            mmu,
             #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
         }
     }
 
     pub fn cycle_frame(&mut self){
-        while self.mmu.m_cycle_counter < CYCLES_PER_FRAME{
+        while self.mmu.is_frame_finished(){
             #[cfg(feature = "dbg")]
             self.handle_debugger();
             self.step();
         }
-
-        self.mmu.m_cycle_counter = 0;
     }
 
     #[cfg(feature = "dbg")]
