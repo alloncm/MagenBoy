@@ -79,7 +79,7 @@ impl_gameboy! {{
     }
 
     pub fn cycle_frame(&mut self){
-        while self.mmu.is_frame_finished(){
+        while !self.mmu.is_frame_finished(){
             #[cfg(feature = "dbg")]
             self.handle_debugger();
             self.step();

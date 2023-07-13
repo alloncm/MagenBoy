@@ -170,11 +170,11 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn is_frame_finished(&mut self) -> bool{
-        if self.m_cycle_counter == CYCLES_PER_FRAME{
-            self.m_cycle_counter = 0;
-            return true;
+        if self.m_cycle_counter < CYCLES_PER_FRAME{
+            return false;
         }
-        return false;
+        self.m_cycle_counter = 0;
+        return true;
     }
 
     fn is_oam_ready_for_io(&self)->bool{
