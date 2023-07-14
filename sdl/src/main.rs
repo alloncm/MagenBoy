@@ -100,9 +100,12 @@ fn main() {
         let mpmc_device = MpmcGfxDevice::new(s);
 
         let args_clone = args.clone();
-        let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-            move || emulation_thread_main(args_clone, program_name, mpmc_device)
-        ).unwrap();
+        let emualation_thread = std::thread::Builder::new()
+            .name("Emualtion Thread".to_string())
+            .stack_size(0x30_0000)      // On debug builds Ill get stack overflow when initializing the program so setting this just for case
+            .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device))
+            .unwrap();
+
 
         unsafe{
             let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
