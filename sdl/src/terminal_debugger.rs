@@ -5,6 +5,20 @@ use magenboy_core::debugger::{DebuggerInterface, DebuggerCommand, DebuggerResult
 
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
+const HELP_MESSAGE:&'static str = r#"
+    Debugger commands:
+    - halt(h) - start the debugging session
+    - contine(c) - continue execution
+    - step(s) - step 1 instruction
+    - break(b) [address] - set a break point
+    - delete_break(db) [address] - delete a breakpoint 
+    - registers(r) - print the cpu registers state
+    - disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
+    - dump [number of bytes] - print next the memory addresses values
+    - watch(w) [address] - set a watchpoint
+    - delete_watch(dw) [address] - delete a watchpoint
+"#;
+
 pub struct TerminalDebugger{
     command_receiver:Receiver<DebuggerCommand>,
     result_sender:Sender<DebuggerResult>,
@@ -83,27 +97,27 @@ impl TerminalDebugger{
     fn handle_buffer(sender:&Sender<DebuggerCommand>, buffer: String) {
         let buffer:Vec<&str> = buffer.trim().split(' ').collect();
         match buffer[0]{
-            "h"=>{
+            "h"|"halt"=>{
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
                 sender.send(DebuggerCommand::Stop).unwrap();
             }
             _ if Self::enabled()=>{
                 match buffer[0]{
-                    "c"=>{
+                    "c"|"continue"=>{
                         ENABLE_FLAG.store(false, Ordering::SeqCst);
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
-                    "s"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"=>match parse_address_string(&buffer) {
+                    "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
+                    "b"|"break"=>match parse_address_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
                         Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
-                    "r"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "db"=>match parse_address_string(&buffer) {
+                    "r"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
+                    "db"|"delete_break"=>match parse_address_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
-                    "di"=>match parse_number_string(&buffer){
+                    "di"|"disassemble"=>match parse_number_string(&buffer){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
                         Err(msg) => println!("Error disassembling: {}", msg),
                     },
@@ -111,14 +125,15 @@ impl TerminalDebugger{
                         Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
                         Err(msg) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"=> match parse_address_string(&buffer){
+                    "w"|"watch"=> match parse_address_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::AddWatchPoint(addr)).unwrap(),
                         Err(msg) => println!("Error setting watchpoint {}", msg),
                     }
-                    "dw"=>match parse_address_string(&buffer){
+                    "dw"|"delete_watch"=>match parse_address_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watchpoint: {}", msg),
                     }
+                    "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }
             }
