@@ -10,7 +10,7 @@ log = "0.4"
 cfg-if = "1"
 
 [features]
-#default = ["dbg"]
+# default = ["dbg"]
 u16pixel = []
 apu = []
 dbg = []

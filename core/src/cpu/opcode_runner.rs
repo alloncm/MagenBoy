@@ -1,4 +1,4 @@
-use crate::mmu::memory::Memory;
+use crate::mmu::Memory;
 use super::{
     gb_cpu::GbCpu, 
     opcodes::{

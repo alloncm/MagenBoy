@@ -1,9 +1,5 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::mmu::memory::Memory;
-use super::opcodes_utils::{
-    get_src_register,
-    get_reg_two_rows
-};
+use crate::{cpu::gb_cpu::GbCpu, mmu::Memory};
+use super::opcodes_utils::{get_src_register, get_reg_two_rows};
 
 const IO_PORTS_ADDRESS:u16 = 0xFF00;
 

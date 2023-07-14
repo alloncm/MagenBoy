@@ -1,8 +1,6 @@
-use crate::{
-    apu::{audio_device::AudioDevice, gb_apu::GbApu},
-    cpu::gb_cpu::GbCpu,
-    mmu::{carts::Mbc, gb_mmu::GbMmu, memory::Memory, external_memory_bus::Bootrom}, 
-    ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider
+use crate::{*,
+    apu::gb_apu::GbApu, cpu::gb_cpu::GbCpu,
+    mmu::{Memory, carts::Mbc, gb_mmu::GbMmu, external_memory_bus::Bootrom},
 };
 use super::Mode;
 cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
@@ -10,21 +8,18 @@ cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
     use crate::debugger::dbg_mmu::*;
 }}
 
-pub struct GameBoy<'a, 
-    JP: JoypadProvider, 
-    AD:AudioDevice, 
-    GFX:GfxDevice, 
-    #[cfg(feature = "dbg")] DUI:DebuggerInterface> 
-{
-    cpu: GbCpu,
-    #[cfg(not(feature = "dbg"))]
-    mmu: GbMmu::<'a, AD, GFX, JP>,
-    #[cfg(feature = "dbg")]
-    mmu:DbgMmu<'a, AD, GFX, JP>,
-    #[cfg(feature = "dbg")]
-    debugger:Debugger<DUI>
-}
-
+cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
+    pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DI:DebuggerInterface>{
+        pub(crate) cpu: GbCpu,       
+        pub(crate) mmu:DbgMmu<'a, AD, GFX, JP>,
+        pub(crate) debugger:Debugger<DI>
+    }
+}else{
+    pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice>{
+        cpu: GbCpu,
+        mmu: GbMmu::<'a, AD, GFX, JP>,
+    }
+}}
 
 // https://stackoverflow.com/questions/72955038/varying-number-of-generic-parameters-based-on-a-feature
 // In order to conditionaly add the debugger based on the dbg feature Im having this macro
@@ -36,6 +31,7 @@ macro_rules! impl_gameboy {
         impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX> $implementations
     };
 }
+pub(crate) use impl_gameboy;
 impl_gameboy! {{
     pub fn new(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->Self{
         let mode = mode.unwrap_or(mbc.get_compatibility_mode().into());
@@ -81,12 +77,12 @@ impl_gameboy! {{
     pub fn cycle_frame(&mut self){
         while !self.mmu.is_frame_finished(){
             #[cfg(feature = "dbg")]
-            self.handle_debugger();
+            self.run_debugger();
             self.step();
         }
     }
 
-    fn step(&mut self) {
+    pub(crate) fn step(&mut self) {
         self.mmu.poll_joypad_state();
 
         //CPU
@@ -103,67 +99,6 @@ impl_gameboy! {{
         let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);
         if interrupt_cycles != 0{
             self.mmu.cycle(interrupt_cycles);
-        }
-    }
-
-    #[cfg(feature = "dbg")]
-    fn handle_debugger(&mut self) {
-        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.hit_addr.is_some()) {
-            if self.debugger.check_for_break(self.cpu.program_counter){
-                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter));
-            }
-            if let Some(addr) = self.mmu.mem_watch.hit_addr{
-                self.debugger.send(DebuggerResult::HitWatchPoint(addr, self.cpu.program_counter));
-                self.mmu.mem_watch.hit_addr = None;
-            }
-            match self.debugger.recv(){
-                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter)),
-                DebuggerCommand::Step=>{
-                    self.step();
-                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter));
-                }
-                DebuggerCommand::Continue=>{
-                    self.debugger.send(DebuggerResult::Continuing);
-                    break;
-                }
-                DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
-                DebuggerCommand::Break(address) => {
-                    self.debugger.add_breakpoint(address);
-                    self.debugger.send(DebuggerResult::AddedBreak(address));
-                },
-                DebuggerCommand::DeleteBreak(address)=>{
-                    let result = match self.debugger.try_remove_breakpoint(address) {
-                        true => DebuggerResult::RemovedBreak(address),
-                        false => DebuggerResult::BreakDoNotExist(address)
-                    };
-                    self.debugger.send(result);
-                },
-                DebuggerCommand::DumpMemory(len)=>{
-                    let mut buffer = [MemoryEntry{address:0, value:0};0xFF];
-                    for i in 0..len as usize{
-                        let address = self.cpu.program_counter + i as u16;
-                        buffer[i] = MemoryEntry {
-                            value: self.mmu.read(address, 0),
-                            address,
-                        };
-                    }
-                    self.debugger.send(DebuggerResult::MemoryDump(len, buffer));
-                }
-                DebuggerCommand::Disassemble(len)=>{
-                    let result = crate::cpu::disassembler::disassemble(&self.cpu, &mut self.mmu, len);
-                    self.debugger.send(DebuggerResult::Disassembly(len, result));
-                },
-                DebuggerCommand::AddWatchPoint(address)=>{
-                    self.mmu.mem_watch.add_address(address);
-                    self.debugger.send(DebuggerResult::SetWatchPoint(address));
-                },
-                DebuggerCommand::RemoveWatch(address)=>{
-                    match self.mmu.mem_watch.try_remove_address(address){
-                        true=>self.debugger.send(DebuggerResult::RemovedWatch(address)),
-                        false=>self.debugger.send(DebuggerResult::WatchDonotExist(address)),
-                    }
-                }
-            }
         }
     }
 

@@ -1,10 +1,5 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::cpu::flag::Flag;
-use crate::mmu::memory::Memory;
-use super::opcodes_utils::{
-    pop,
-    push
-};
+use crate::{cpu::{gb_cpu::GbCpu, flag::Flag}, mmu::Memory};
+use super::opcodes_utils::{pop,push};
 
 fn push_pc(cpu:&mut GbCpu, memory: &mut impl Memory){
     push(cpu, memory, cpu.program_counter);

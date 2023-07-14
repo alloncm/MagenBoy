@@ -1,5 +1,4 @@
-use crate::mmu::interrupts_handler::InterruptRequest;
-use crate::mmu::memory::Memory;
+use crate::mmu::{interrupts_handler::InterruptRequest, Memory};
 
 use super::register::Reg;
 use super::flag::Flag;

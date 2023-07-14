@@ -1,7 +1,7 @@
 use std::{sync::atomic::{AtomicBool, Ordering}, io::stdin, thread};
 
 use crossbeam_channel::{bounded, Sender, Receiver};
-use magenboy_core::{machine::debugger::{DebuggerUi, DebuggerCommand, DebuggerResult}};
+use magenboy_core::debugger::{DebuggerInterface, DebuggerCommand, DebuggerResult};
 
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
@@ -151,7 +151,7 @@ fn parse_number_string(buffer: &Vec<&str>)->Result<u8, String>{
         .map_err(|err|format!("Error parsing string: {}", err));
 }
 
-impl DebuggerUi for TerminalDebugger{
+impl DebuggerInterface for TerminalDebugger{
     fn should_stop(&self)->bool {Self::enabled()}
 
     fn recv_command(&self)->DebuggerCommand {

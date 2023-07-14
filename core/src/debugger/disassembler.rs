@@ -1,5 +1,4 @@
-use crate::{utils::stack_string::StackString, mmu::memory::Memory};
-use super::gb_cpu::GbCpu;
+use crate::{utils::stack_string::StackString, mmu::Memory, cpu::gb_cpu::GbCpu};
 
 macro_rules! define_single_opcode_instr {
     ($name:ident) => {

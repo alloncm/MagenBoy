@@ -1,6 +1,8 @@
 pub mod dbg_mmu;
+pub mod disassembler;
 
-use crate::{cpu::{gb_cpu::GbCpu, disassembler::OpcodeEntry}, utils::fixed_size_set::FixedSizeSet};
+use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::fixed_size_set::FixedSizeSet};
+use self::disassembler::{OpcodeEntry, disassemble};
 
 pub enum DebuggerCommand{
     Stop,
@@ -67,23 +69,85 @@ pub struct Debugger<UI:DebuggerInterface>{
 
 impl<UI:DebuggerInterface> Debugger<UI>{
     pub fn new(ui:UI)->Self{
-        Self { ui, breakpoints: FixedSizeSet::<u16, 0xFF>::new() }
+        Self { ui, breakpoints: FixedSizeSet::new() }
     }
 
-    pub fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
-    pub fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
+    fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
+    fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
 
-    pub fn should_halt(&self, pc:u16, hit_watch:bool)->bool{
+    fn should_halt(&self, pc:u16, hit_watch:bool)->bool{
         self.check_for_break(pc) || self.ui.should_stop() || hit_watch
     }
 
-    pub fn check_for_break(&self, pc:u16)->bool{
+    fn check_for_break(&self, pc:u16)->bool{
         self.get_breakpoints().contains(&pc)
     }
 
-    pub fn add_breakpoint(&mut self, address:u16){self.breakpoints.add(address)}
+    fn add_breakpoint(&mut self, address:u16){self.breakpoints.add(address)}
 
-    pub fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.try_remove(address)}
+    fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.try_remove(address)}
 
     fn get_breakpoints(&self)->&[u16]{self.breakpoints.as_slice()}
 }
+
+impl_gameboy!{{
+    pub fn run_debugger(&mut self){
+        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.hit_addr.is_some()) {
+            if self.debugger.check_for_break(self.cpu.program_counter){
+                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter));
+            }
+            if let Some(addr) = self.mmu.mem_watch.hit_addr{
+                self.debugger.send(DebuggerResult::HitWatchPoint(addr, self.cpu.program_counter));
+                self.mmu.mem_watch.hit_addr = None;
+            }
+            match self.debugger.recv(){
+                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter)),
+                DebuggerCommand::Step=>{
+                    self.step();
+                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter));
+                }
+                DebuggerCommand::Continue=>{
+                    self.debugger.send(DebuggerResult::Continuing);
+                    break;
+                }
+                DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
+                DebuggerCommand::Break(address) => {
+                    self.debugger.add_breakpoint(address);
+                    self.debugger.send(DebuggerResult::AddedBreak(address));
+                },
+                DebuggerCommand::DeleteBreak(address)=>{
+                    let result = match self.debugger.try_remove_breakpoint(address) {
+                        true => DebuggerResult::RemovedBreak(address),
+                        false => DebuggerResult::BreakDoNotExist(address)
+                    };
+                    self.debugger.send(result);
+                },
+                DebuggerCommand::DumpMemory(len)=>{
+                    let mut buffer = [MemoryEntry{address:0, value:0};0xFF];
+                    for i in 0..len as usize{
+                        let address = self.cpu.program_counter + i as u16;
+                        buffer[i] = MemoryEntry {
+                            value: self.mmu.read(address, 0),
+                            address,
+                        };
+                    }
+                    self.debugger.send(DebuggerResult::MemoryDump(len, buffer));
+                }
+                DebuggerCommand::Disassemble(len)=>{
+                    let result = disassemble(&self.cpu, &mut self.mmu, len);
+                    self.debugger.send(DebuggerResult::Disassembly(len, result));
+                },
+                DebuggerCommand::AddWatchPoint(address)=>{
+                    self.mmu.mem_watch.add_address(address);
+                    self.debugger.send(DebuggerResult::SetWatchPoint(address));
+                },
+                DebuggerCommand::RemoveWatch(address)=>{
+                    match self.mmu.mem_watch.try_remove_address(address){
+                        true=>self.debugger.send(DebuggerResult::RemovedWatch(address)),
+                        false=>self.debugger.send(DebuggerResult::WatchDonotExist(address)),
+                    }
+                }
+            }
+        }
+    }
+}}

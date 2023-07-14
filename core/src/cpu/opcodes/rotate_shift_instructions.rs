@@ -1,8 +1,5 @@
-use crate::cpu::gb_cpu::*;
-use crate::cpu::flag::Flag;
+use crate::{cpu::{gb_cpu::*, flag::Flag}, mmu::Memory, utils::bit_masks::*};
 use super::opcodes_utils::*;
-use crate::mmu::memory::Memory;
-use crate::utils::bit_masks::*;
 
 fn a_rotate_flags(cpu:&mut GbCpu, carry:bool){
     cpu.unset_flag(Flag::HalfCarry);

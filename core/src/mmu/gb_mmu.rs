@@ -1,6 +1,6 @@
 use super::{
-    carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, 
-    interrupts_handler::InterruptRequest, io_bus::IoBus, memory::*, access_bus::AccessBus
+    Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, 
+    interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus
 };
 use crate::{
     ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 

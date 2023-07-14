@@ -1,4 +1,4 @@
-use crate::{mmu::{memory::Memory, gb_mmu::GbMmu, interrupts_handler::InterruptRequest}, utils::fixed_size_set::FixedSizeSet, apu::audio_device::AudioDevice, ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
+use crate::{mmu::{Memory, gb_mmu::GbMmu, interrupts_handler::InterruptRequest}, utils::fixed_size_set::FixedSizeSet, apu::audio_device::AudioDevice, ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
 
 pub struct MemoryWatcher{
     watching_addrs:crate::utils::fixed_size_set::FixedSizeSet<u16, 0xFF>,

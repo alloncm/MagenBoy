@@ -1,6 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::cpu::flag::Flag;
-use crate::mmu::memory::Memory;
+use crate::{cpu::{gb_cpu::GbCpu, flag::Flag}, mmu::Memory};
 use super::opcodes_utils::{
     get_arithmetic_16reg,
     opcode_to_u16_value,

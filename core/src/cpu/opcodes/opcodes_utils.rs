@@ -1,7 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::mmu::memory::Memory;
-
-
+use crate::{cpu::gb_cpu::GbCpu, mmu::Memory};
 
 pub fn get_src_register(cpu: &mut GbCpu, opcode:u8)-> &mut u8{
     let reg_num = opcode & 0b111;
