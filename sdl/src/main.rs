@@ -102,7 +102,6 @@ fn main() {
         let args_clone = args.clone();
         let emualation_thread = std::thread::Builder::new()
             .name("Emualtion Thread".to_string())
-            .stack_size(0x30_0000)      // On debug builds Ill get stack overflow when initializing the program so setting this just for case
             .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device))
             .unwrap();
 

@@ -11,6 +11,18 @@ const HRAM_SIZE:usize = 0x7F;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
+cfg_if::cfg_if!{if #[cfg(feature = "dbg")]{
+    pub struct MemoryWatcher{
+        watching_addrs:crate::utils::FixedSizeSet<u16, 0xFF>,
+        pub hit_addr:Option<u16>,
+    }
+    
+    impl MemoryWatcher{
+        pub fn add_address(&mut self, address:u16){self.watching_addrs.add(address)}
+        pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addrs.try_remove(address)}
+    }
+}}
+
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     m_cycle_counter:u32,
     io_bus: IoBus<D, G, J>,
@@ -19,12 +31,19 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
     mode:Mode,
+    #[cfg(feature = "dbg")]
+    pub mem_watch:MemoryWatcher,
 }
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
+        #[cfg(feature = "dbg")]
+        if self.mem_watch.watching_addrs.as_slice().contains(&address){
+            self.mem_watch.hit_addr = Some(address);
+        }
+
         self.cycle(m_cycles);
         if let Some (bus) = &self.oucupied_access_bus{
             return match address{
@@ -58,6 +77,11 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
+        #[cfg(feature = "dbg")]
+        if self.mem_watch.watching_addrs.as_slice().contains(&address){
+            self.mem_watch.hit_addr = Some(address);
+        }
+
         self.cycle(m_cycles);
         if let Some(bus) = &self.oucupied_access_bus{
             match address{
@@ -139,6 +163,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
             mode,
+            #[cfg(feature = "dbg")]
+            mem_watch: MemoryWatcher { watching_addrs: crate::utils::FixedSizeSet::new(), hit_addr: None, } 
         };
         if bootrom_missing{
             //Setting the bootrom register to be set (the boot sequence has over)
@@ -176,6 +202,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         self.m_cycle_counter = 0;
         return true;
     }
+
+    #[cfg(feature = "dbg")]
+    pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer

@@ -1,7 +1,6 @@
-pub mod dbg_mmu;
-pub mod disassembler;
+mod disassembler;
 
-use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::fixed_size_set::FixedSizeSet};
+use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::{FixedSizeSet, vec2::Vec2}, ppu::{ppu_state::PpuState, gb_ppu::GbPpu}};
 use self::disassembler::{OpcodeEntry, disassemble};
 
 pub enum DebuggerCommand{
@@ -15,6 +14,7 @@ pub enum DebuggerCommand{
     Disassemble(u8),
     AddWatchPoint(u16),
     RemoveWatch(u16),
+    PpuInfo
 }
 
 pub enum DebuggerResult{
@@ -32,6 +32,7 @@ pub enum DebuggerResult{
     HitWatchPoint(u16, u16),
     RemovedWatch(u16),
     WatchDonotExist(u16),
+    PpuInfo(PpuInfo)
 }
 
 #[derive(Clone, Copy)]
@@ -44,15 +45,33 @@ pub struct Registers{
     pub sp:u16
 }
 
+impl Registers{
+    fn new(cpu:&GbCpu)->Self{
+        Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct MemoryEntry{
     pub address:u16,
     pub value:u8
 }
 
-impl Registers{
-    pub fn new(cpu:&GbCpu)->Self{
-        Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
+pub struct PpuInfo{
+    pub ppu_state:PpuState,
+    pub lcdc:u8,
+    pub stat:u8,
+    pub ly:u8,
+    pub window_pos:Vec2<u8>,
+    pub background_pos:Vec2<u8>
+}
+
+impl PpuInfo{
+    fn new<GFX:GfxDevice>(ppu:&GbPpu<GFX>)->Self{
+        Self { 
+            ppu_state: ppu.state, lcdc: ppu.lcd_control, stat: ppu.stat_register, 
+            ly: ppu.ly_register, window_pos: ppu.window_pos, background_pos: ppu.bg_pos 
+        }
     }
 }
 
@@ -146,7 +165,8 @@ impl_gameboy!{{
                         true=>self.debugger.send(DebuggerResult::RemovedWatch(address)),
                         false=>self.debugger.send(DebuggerResult::WatchDonotExist(address)),
                     }
-                }
+                },
+                DebuggerCommand::PpuInfo=>self.debugger.send(DebuggerResult::PpuInfo(PpuInfo::new(self.mmu.get_ppu()))),
             }
         }
     }

@@ -17,6 +17,7 @@ const HELP_MESSAGE:&'static str = r#"
     - dump [number of bytes] - print next the memory addresses values
     - watch(w) [address] - set a watchpoint
     - delete_watch(dw) [address] - delete a watchpoint
+    - ppu_info - print info about the ppu execution state
 "#;
 
 pub struct TerminalDebugger{
@@ -91,6 +92,8 @@ impl TerminalDebugger{
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watchpoint {:#X}", addr),
             DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
+            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
+                info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
         }
     }
     
@@ -132,7 +135,8 @@ impl TerminalDebugger{
                     "dw"|"delete_watch"=>match parse_address_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watchpoint: {}", msg),
-                    }
+                    },
+                    "ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
                     "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }

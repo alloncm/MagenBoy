@@ -8,7 +8,9 @@ pub mod static_allocator;
 pub mod global_static_alloctor;
 cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
     pub mod stack_string;
-    pub mod fixed_size_set;
+
+    mod fixed_size_set;
+    pub use fixed_size_set::FixedSizeSet;
 }}
 
 // Frequency in m_cycles (m_cycle = 4 t_cycles)

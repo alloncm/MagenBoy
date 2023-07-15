@@ -3,15 +3,13 @@ use crate::{*,
     mmu::{Memory, carts::Mbc, gb_mmu::GbMmu, external_memory_bus::Bootrom},
 };
 use super::Mode;
-cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    use crate::debugger::*;
-    use crate::debugger::dbg_mmu::*;
-}}
+#[cfg(feature = "dbg")]
+use crate::debugger::*;
 
 cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
     pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DI:DebuggerInterface>{
         pub(crate) cpu: GbCpu,       
-        pub(crate) mmu:DbgMmu<'a, AD, GFX, JP>,
+        pub(crate) mmu:GbMmu<'a, AD, GFX, JP>,
         pub(crate) debugger:Debugger<DI>
     }
 }else{
@@ -63,12 +61,9 @@ impl_gameboy! {{
                 Mode::CGB => {let Bootrom::Gbc(_) = boot_rom else {core::panic!("Bootrom doesnt match mode CGB")};}
             }
         }
-        let mmu = GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode);
-        #[cfg(feature = "dbg")]
-        let mmu = DbgMmu::new(mmu);
         GameBoy{
-            cpu:cpu,
-            mmu,
+            cpu: cpu,
+            mmu: GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
             #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
         }
