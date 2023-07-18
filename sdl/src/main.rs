@@ -102,6 +102,7 @@ fn main() {
         let args_clone = args.clone();
         let emualation_thread = std::thread::Builder::new()
             .name("Emualtion Thread".to_string())
+            .stack_size(0x100_0000)
             .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device))
             .unwrap();
 

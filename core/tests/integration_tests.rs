@@ -37,14 +37,14 @@ impl JoypadProvider for StubJoypadProvider{
 #[cfg(feature = "dbg")]
 struct StubDebuggerUi;
 #[cfg(feature = "dbg")]
-impl magenboy_core::machine::debugger::DebuggerUi for StubDebuggerUi{
+impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
     fn should_stop(&self)->bool {false}
 
-    fn recv_command(&self)->magenboy_core::machine::debugger::DebuggerCommand {
-        magenboy_core::machine::debugger::DebuggerCommand::Continue
+    fn recv_command(&self)->magenboy_core::debugger::DebuggerCommand {
+        magenboy_core::debugger::DebuggerCommand::Continue
     }
 
-    fn send_result(&self, result:magenboy_core::machine::debugger::DebuggerResult) {}
+    fn send_result(&self, _:magenboy_core::debugger::DebuggerResult) {}
 }
 
 #[test]

@@ -30,8 +30,15 @@ impl TerminalDebugger{
         let (command_sender, command_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
         let (ternimal_input_sender, terminal_input_receiver) = bounded(0);
-        thread::spawn(move || Self::get_string_loop(ternimal_input_sender));
-        thread::spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver));
+        let _ = thread::Builder::new()
+            .name("Debugger input loop".to_string())
+            .spawn(move || Self::get_string_loop(ternimal_input_sender))
+            .unwrap();
+        let _ = thread::Builder::new()
+            .name("Debugger IO loop".to_string())
+            .stack_size(0x40_0000)
+            .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver))
+            .unwrap();
         Self{command_receiver, result_sender}
     }
 
@@ -94,6 +101,11 @@ impl TerminalDebugger{
             DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
+            DebuggerResult::PpuLayer(buffer) => {
+                let mut window = crate::sdl::sdl_gfx_device::PpuLayerWidnow::new(magenboy_core::debugger::PpuLayer::Background);
+                window.render(buffer);
+                loop{}
+            },
         }
     }
     
@@ -137,6 +149,7 @@ impl TerminalDebugger{
                         Err(msg) => println!("Error deleting watchpoint: {}", msg),
                     },
                     "ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
+                    "ppu"=>sender.send(DebuggerCommand::GetPpuLayer(magenboy_core::debugger::PpuLayer::Background)).unwrap(),
                     "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }

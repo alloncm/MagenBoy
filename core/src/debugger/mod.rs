@@ -14,7 +14,8 @@ pub enum DebuggerCommand{
     Disassemble(u8),
     AddWatchPoint(u16),
     RemoveWatch(u16),
-    PpuInfo
+    PpuInfo,
+    GetPpuLayer(PpuLayer)
 }
 
 pub enum DebuggerResult{
@@ -32,7 +33,12 @@ pub enum DebuggerResult{
     HitWatchPoint(u16, u16),
     RemovedWatch(u16),
     WatchDonotExist(u16),
-    PpuInfo(PpuInfo)
+    PpuInfo(PpuInfo),
+    PpuLayer([Pixel;0x100*0x100])
+}
+
+pub enum PpuLayer{
+    Background,
 }
 
 #[derive(Clone, Copy)]
@@ -167,6 +173,12 @@ impl_gameboy!{{
                     }
                 },
                 DebuggerCommand::PpuInfo=>self.debugger.send(DebuggerResult::PpuInfo(PpuInfo::new(self.mmu.get_ppu()))),
+                DebuggerCommand::GetPpuLayer(layer)=>{
+                    let buffer = match layer{
+                        PpuLayer::Background=>self.mmu.get_ppu().get_bg_layer()
+                    };
+                    self.debugger.send(DebuggerResult::PpuLayer(buffer));
+                }
             }
         }
     }

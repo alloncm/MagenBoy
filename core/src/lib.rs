@@ -13,7 +13,7 @@ pub mod debugger;
 
 pub use {
     machine::gameboy::GameBoy,
-    ppu::gfx_device::GfxDevice,
+    ppu::gfx_device::*,
     apu::audio_device::AudioDevice,
     keypad::joypad_provider::JoypadProvider,
     utils::GB_FREQUENCY, 

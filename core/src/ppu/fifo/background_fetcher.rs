@@ -1,4 +1,4 @@
-use crate::{mmu::vram::VRam, utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}, ppu::attributes::GbcBackgroundAttributes, machine::Mode};
+use crate::{utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}, ppu::{VRam, attributes::GbcBackgroundAttributes}, machine::Mode};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*, get_decoded_pixel};
 
 #[derive(Clone, Copy, Default)]

@@ -20,7 +20,7 @@ cfg-if = "1.0"
 wav = "1.0"
 
 [features]
-default = ["static-sdl"]
+default = ["static-sdl", "dbg"]
 sdl-resample = []
 push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
