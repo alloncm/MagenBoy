@@ -1,4 +1,4 @@
-use crate::{mmu::memory::Memory, cpu::{gb_cpu::GbCpu, flag::Flag}, utils::memory_registers::{IE_REGISTER_ADDRESS, JOYP_REGISTER_ADDRESS, KEY1_REGISTER_ADDRESS}};
+use crate::{mmu::Memory, cpu::{gb_cpu::GbCpu, flag::Flag}, utils::memory_registers::{IE_REGISTER_ADDRESS, JOYP_REGISTER_ADDRESS, KEY1_REGISTER_ADDRESS}};
 
 pub fn ccf(cpu:&mut GbCpu)->u8{
     let carry:bool = cpu.get_flag(Flag::Carry);

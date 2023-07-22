@@ -1,9 +1,5 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::mmu::memory::Memory;
-use super::opcodes_utils::{
-    get_src_register,
-    get_reg_two_rows
-};
+use crate::{cpu::gb_cpu::GbCpu, mmu::Memory};
+use super::opcodes_utils::{get_src_register, get_reg_two_rows};
 
 const IO_PORTS_ADDRESS:u16 = 0xFF00;
 
@@ -46,7 +42,7 @@ pub fn ld_r_n(cpu: &mut GbCpu, opcode:u16)->u8 {
 //load the value in address of HL into dest register
 pub fn ld_r_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let reg = opcode>>3;
-    let hl_value = *cpu.hl.value();
+    let hl_value = cpu.hl.value();
     let reg = match reg{
         0x8=>cpu.bc.high(),
         0x9=>cpu.bc.low(),
@@ -66,7 +62,7 @@ pub fn ld_r_hl(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
 
 //load the value in reg_src into the address of HL in memory
 pub fn ld_hl_r(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
-    memory.write(*cpu.hl.value(), *get_src_register(cpu, opcode), 1);
+    memory.write(cpu.hl.value(), *get_src_register(cpu, opcode), 1);
     
     // 2 cycles, 1 reading opcode, 1 writing hl address
     return 0;
@@ -75,7 +71,7 @@ pub fn ld_hl_r(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
 //load the valie src into the address HL in memory
 pub fn ld_hl_n(cpu: &mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
     let src = (0xFF & opcode) as u8;
-    memory.write(*cpu.hl.value(), src, 1);
+    memory.write(cpu.hl.value(), src, 1);
     
     // 3 cycles - 2 reading opcode, 1 writing hl address
     return 0;
@@ -83,7 +79,7 @@ pub fn ld_hl_n(cpu: &mut GbCpu, memory:&mut impl Memory, opcode:u16)->u8{
 
 //load the value in address of BC into register A
 pub fn ld_a_bc(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    *cpu.af.high() = memory.read(*cpu.bc.value(), 1);
+    *cpu.af.high() = memory.read(cpu.bc.value(), 1);
     
     // 2 cycles - 1 reading opcode, 1 reading bc address
     return 0;
@@ -91,7 +87,7 @@ pub fn ld_a_bc(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
 
 //load the value in address of DE into register A
 pub fn ld_a_de(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    *cpu.af.high() = memory.read(*cpu.de.value(), 1);
+    *cpu.af.high() = memory.read(cpu.de.value(), 1);
     
     // 2 cycles - 1 reading opcode, 1 reading de address
     return 0;
@@ -109,7 +105,7 @@ pub fn ld_a_nn(cpu: &mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
 
 //load the value in register A into the address of BC
 pub fn ld_bc_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    memory.write(*cpu.bc.value(), *cpu.af.high(), 1);
+    memory.write(cpu.bc.value(), *cpu.af.high(), 1);
 
     // 2 cycles - 1 reading opcode, 1 writing bc address
     return 0;
@@ -117,7 +113,7 @@ pub fn ld_bc_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
 
 //load the value in register A into the address of DE
 pub fn ld_de_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    memory.write(*cpu.de.value(), *cpu.af.high(), 1);
+    memory.write(cpu.de.value(), *cpu.af.high(), 1);
 
     // 2 cycles - 1 reading opcode, 1 writing de address
     return 0;
@@ -135,7 +131,7 @@ pub fn ld_nn_a(cpu: &mut GbCpu, memory:&mut impl Memory, opcode:u32)->u8{
 
 //load value in register A into address HL and then increment register HL value
 pub fn ldi_hl_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    memory.write(*cpu.hl.value(), *cpu.af.high(), 1);
+    memory.write(cpu.hl.value(), *cpu.af.high(), 1);
     cpu.inc_hl();
 
     // 2 cycles - 1 reading opcode, 1 writing hl address
@@ -144,7 +140,7 @@ pub fn ldi_hl_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
 
 //load into register A the value in address HL and then increment register HL value
 pub fn ldi_a_hl(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    *cpu.af.high() = memory.read(*cpu.hl.value(), 1);
+    *cpu.af.high() = memory.read(cpu.hl.value(), 1);
     cpu.inc_hl();
     
     // 2 cycles - 1 reading opcode, 1 reading hl address
@@ -153,7 +149,7 @@ pub fn ldi_a_hl(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
 
 //load value in register A into address HL and then decrement register HL value
 pub fn ldd_hl_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    memory.write(*cpu.hl.value(), *cpu.af.high(), 1);
+    memory.write(cpu.hl.value(), *cpu.af.high(), 1);
     cpu.dec_hl();
     
     // 2 cycles - 1 reading opcode, 1 writing hl address
@@ -162,7 +158,7 @@ pub fn ldd_hl_a(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
 
 //load into register A the value in address HL and then decrement register HL value
 pub fn ldd_a_hl(cpu: &mut GbCpu, memory:&mut impl Memory)->u8{
-    *cpu.af.high() = memory.read(*cpu.hl.value(), 1);
+    *cpu.af.high() = memory.read(cpu.hl.value(), 1);
     cpu.dec_hl();
     
     // 2 cycles - 1 reading opcode, 1 reading hl address

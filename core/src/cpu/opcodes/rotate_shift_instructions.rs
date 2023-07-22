@@ -1,8 +1,5 @@
-use crate::cpu::gb_cpu::*;
-use crate::cpu::flag::Flag;
+use crate::{cpu::{gb_cpu::*, flag::Flag}, mmu::Memory, utils::bit_masks::*};
 use super::opcodes_utils::*;
-use crate::mmu::memory::Memory;
-use crate::utils::bit_masks::*;
 
 fn a_rotate_flags(cpu:&mut GbCpu, carry:bool){
     cpu.unset_flag(Flag::HalfCarry);
@@ -108,9 +105,9 @@ pub fn rlc_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn rlc_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = rotate_left(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -136,9 +133,9 @@ pub fn rl_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn rl_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = rotate_left_carry(&mut byte, cpu.get_flag(Flag::Carry));
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -163,9 +160,9 @@ pub fn rrc_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn rrc_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = rotate_right(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -191,10 +188,10 @@ pub fn rr_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn rr_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry_flag = cpu.get_flag(Flag::Carry);
     let carry:bool = rotate_right_carry(&mut byte, carry_flag);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -238,9 +235,9 @@ pub fn sla_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn sla_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = shift_left(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -277,9 +274,9 @@ pub fn swap_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn swap_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     swap_nibbles(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     set_swap_flags(cpu, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -303,9 +300,9 @@ pub fn sra_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn sra_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = arithmetic_shift_right(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address
@@ -329,9 +326,9 @@ pub fn srl_r(cpu:&mut GbCpu, opcode:u16)->u8{
 }
 
 pub fn srl_hl(cpu:&mut GbCpu, memory:&mut impl Memory)->u8{
-    let mut byte: u8 = memory.read(*cpu.hl.value(), 1);
+    let mut byte: u8 = memory.read(cpu.hl.value(), 1);
     let carry:bool = logical_shift_right(&mut byte);
-    memory.write(*cpu.hl.value(), byte, 1);
+    memory.write(cpu.hl.value(), byte, 1);
     rotate_shift_flags(cpu, carry, byte == 0);
     
     // 4 cycles - 2 reading opcode, 1 reading hl address, 1 writing hl address

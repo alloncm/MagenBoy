@@ -1,11 +1,11 @@
 use core::cmp;
 
-use crate::machine::Mode;
-use crate::mmu::vram::VRam;
-use crate::utils::{vec2::Vec2, bit_masks::*};
+use crate::{machine::Mode, utils::{vec2::Vec2, bit_masks::*}};
 
-use super::fifo::{SPRITE_WIDTH, background_fetcher::{BackgroundPixel, BackgroundFetcher}, FIFO_SIZE, sprite_fetcher::*};
-use super::{gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
+use super::{
+    fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, 
+    VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*
+};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -124,6 +124,38 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
     pub fn turn_on(&mut self){
         self.state = PpuState::OamSearch;
+    }
+
+    #[cfg(feature = "dbg")]
+    pub fn get_bg_layer(&self)->[Pixel; 0x100*0x100]{
+        use core::convert::TryInto;
+        use super::attributes::GbcBackgroundAttributes;
+
+        let bg_tile_map_addr = if self.lcd_control & BIT_3_MASK == 0 {0x1800} else {0x1C00};
+        let vram_bank = self.vram.get_current_bank();
+        let tile_map:&[u8; 32*32] = vram_bank[bg_tile_map_addr .. bg_tile_map_addr + (32 * 32)].try_into().unwrap();
+        let tiles = tile_map.map(|tile_index|{
+            let bg_tile_data_addr = if self.lcd_control & BIT_4_MASK == 0 && tile_index & BIT_7_MASK == 0 {0x1000} else {0};
+            let tile_addr = bg_tile_data_addr + tile_index as usize * 16;
+            let tile_data:&[u8;16] = vram_bank[tile_addr .. tile_addr + 16].try_into().unwrap();
+            tile_data.clone()
+        });
+        let mut buffer = [Pixel::default();0x100*0x100];
+        for i in 0 .. (32 * 32){
+            let tile_data = &tiles[i];
+            for j in 0..8{
+                let upper_byte = tile_data[j * 2];
+                let lower_byte = tile_data[(j * 2) + 1];
+                let y = ((i / 32) * 8) + (j * 0x100);
+                for k in 0..8{
+                    let x = ((i % 32) * 8) + k;
+                    let mask = 1 << k;
+                    let pixel = (upper_byte & mask) | (lower_byte & mask);
+                    buffer[y + x] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes:  GbcBackgroundAttributes::new(0)}).into();
+                }
+            }
+        }
+        return buffer;
     }
 
     pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
@@ -421,7 +453,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
     }
 
-    fn get_bg_pixel(&mut self, bg_pixel:BackgroundPixel) -> Color {
+    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel) -> Color {
         return if self.mode == Mode::CGB{
             Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)
         }            

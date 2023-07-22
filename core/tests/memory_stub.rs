@@ -1,4 +1,4 @@
-use magenboy_core::mmu::memory::Memory;
+use magenboy_core::mmu::Memory;
 
 pub struct MemoryStub{
     pub data:[u8;0xFFFF],

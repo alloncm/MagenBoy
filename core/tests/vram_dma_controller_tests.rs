@@ -28,7 +28,7 @@ fn vram_dma_transfer_test(){
     let mut memory = ExternalMemoryBus::new(&mut mbc, Bootrom::None);
     let dma_len_reg = 100;
 
-    ppu.vram.set_bank(1);
+    ppu.vram.set_bank_reg(1);
     controller.set_mode_length(dma_len_reg);
     controller.cycle(1000, &mut memory, &mut ppu);
 
@@ -49,7 +49,7 @@ fn vram_hblank_dma_transfer_test<'a>(){
     let mut memory = ExternalMemoryBus::new(&mut mbc, Bootrom::None);
     let dma_len_reg = 100;
 
-    ppu.vram.set_bank(1);
+    ppu.vram.set_bank_reg(1);
     ppu.state = PpuState::Hblank;
     ppu.ly_register = 0;
     controller.set_mode_length(dma_len_reg);

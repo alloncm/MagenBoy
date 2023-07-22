@@ -10,14 +10,14 @@ use super::opcodes_utils::{
 pub fn add_hl_rr(cpu:&mut GbCpu, opcode:u8)->u8{
     let reg = opcode >> 4;
     let reg = *get_arithmetic_16reg(cpu, reg);
-    let hl_value = *cpu.hl.value();
+    let hl_value = cpu.hl.value();
 
     let (value,overflow) = hl_value.overflowing_add(reg);
     cpu.set_by_value(Flag::Carry, overflow);
     cpu.set_by_value(Flag::HalfCarry, check_for_half_carry_third_nible_add(hl_value, reg));
     cpu.unset_flag(Flag::Subtraction);
 
-    *cpu.hl.value() = value;
+    *cpu.hl.value_mut() = value;
 
     // 2 cycles - 1 reading opcode, 1 internal operation
     return 1;

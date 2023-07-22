@@ -1,10 +1,5 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::cpu::flag::Flag;
-use crate::mmu::memory::Memory;
-use super::opcodes_utils::{
-    pop,
-    push
-};
+use crate::{cpu::{gb_cpu::GbCpu, flag::Flag}, mmu::Memory};
+use super::opcodes_utils::{pop,push};
 
 fn push_pc(cpu:&mut GbCpu, memory: &mut impl Memory){
     push(cpu, memory, cpu.program_counter);
@@ -134,7 +129,7 @@ pub fn jump_cc(cpu:&mut GbCpu, opcode:u32)->u8{
 }
 
 pub fn jump_hl(cpu:&mut GbCpu)->u8{
-    cpu.program_counter = *cpu.hl.value();
+    cpu.program_counter = cpu.hl.value();
     
     // 1 cycles - 1 reading opcode
     return 0;
