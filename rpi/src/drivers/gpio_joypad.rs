@@ -43,7 +43,6 @@ impl JoypadProvider for GpioJoypadProvider{
     }
 }
 
-#[cfg(feature = "os")]
 impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
     fn poll(&mut self, joypad:&mut Joypad) {
         let gpio = unsafe{PERIPHERALS.get_gpio()};
