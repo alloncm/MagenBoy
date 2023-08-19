@@ -8,14 +8,18 @@ mod dma;
 mod timer;
 #[cfg(feature = "os")]
 mod bcm_host;
+cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
+    mod emmc;
+    pub(crate) use utils::compile_time_size_assert;
+    pub use utils::PERIPHERALS_BASE_ADDRESS;
+    pub use emmc::Emmc;
+}}
 
 pub use gpio::*;
 pub use mini_uart::MiniUart;
 pub use mailbox::*;
 pub use timer::*;
 pub use spi::Spi0;
-#[cfg(not(feature = "os"))]
-pub use utils::PERIPHERALS_BASE_ADDRESS;
 
 use utils::Peripheral;
 use crate::configuration::peripherals::*;
@@ -26,6 +30,8 @@ pub struct Peripherals{
     mailbox: Peripheral<mailbox::Mailbox>,
     timer: Peripheral<Timer>,
     spi0: Peripheral<Spi0>,
+    #[cfg(not(feature = "os"))]
+    emmc: Peripheral<emmc::Emmc>,
 }
 
 impl Peripherals{
@@ -54,6 +60,10 @@ impl Peripherals{
     pub fn take_spi0(&mut self)->Spi0{
         self.spi0.take(||spi::Spi0::new(SPI0_DC_BCM_PIN))
     }
+    #[cfg(not(feature = "os"))]
+    pub fn take_emmc(&mut self)->emmc::Emmc{
+        self.emmc.take(||emmc::Emmc::new())
+    }
 }
 
 pub static mut PERIPHERALS: Peripherals = Peripherals{
@@ -61,5 +71,7 @@ pub static mut PERIPHERALS: Peripherals = Peripherals{
     mini_uart: Peripheral::Uninit,
     mailbox: Peripheral::Uninit,
     timer: Peripheral::Uninit,
-    spi0: Peripheral::Uninit
+    spi0: Peripheral::Uninit,
+    #[cfg(not(feature = "os"))]
+    emmc: Peripheral::Uninit,
 };

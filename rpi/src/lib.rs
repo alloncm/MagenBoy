@@ -6,7 +6,10 @@ core::compile_error!("rpiX features cant be combined with the os feature");
 pub mod configuration;
 pub mod peripherals;
 pub mod drivers;
-pub mod syncronization;
+cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
+    pub mod syncronization;
+    mod delay;
+}}
 
 use magenboy_core::apu::audio_device::*;
 
