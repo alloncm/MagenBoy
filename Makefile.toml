@@ -48,7 +48,13 @@ toolchain = "nightly"
 cwd = "./rpi/"
 command = "cargo"
 args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core", "--no-default-features", "--features", "rpi4"]
+dependencies = ["install_rust_src"]
 
 [tasks.install_llvm_tools]
 toolchain = "nightly"
 install_crate = {rustup_component_name = "llvm-tools-preview"}
+
+[tasks.install_rust_src]
+toolchain = "nightly"
+command = "rustup"
+args = ["component", "add", "rust-src"]
