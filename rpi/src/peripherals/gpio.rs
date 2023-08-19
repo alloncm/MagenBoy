@@ -7,10 +7,11 @@ pub use std_impl::*;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
-    Input = 0,
-    Output = 1,
-    Alt0 = 4,
-    Alt5 = 2
+    Input   = 0b000,
+    Output  = 0b001,
+    Alt0    = 0b100,
+    Alt3    = 0b111,
+    Alt5    = 0b010,
 }
 
 pub enum GpioPull{
@@ -70,33 +71,38 @@ pub mod no_std_impl{
             core::panic!("Pin {} is already taken", bcm_pin_number);
         }
 
-        // This func is not tested
-    //     pub fn poll_interrupts(pins:&[InputGpioPin], reset_before_poll:bool){
-    //         let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
-    //         let pins_mask = pins
-    //             .iter()
-    //             .map(|p|p.inner.bcm_pin_number)
-    //             .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
+        // This function is busy waiting for edge cases and not really polling interrupts.
+        // when the interrupt controller will be implemented it could work
+        pub fn poll_interrupts(&mut self,pins:&[InputGpioPin], reset_before_poll:bool){
+            let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
+            let pins_mask = pins
+                .iter()
+                .map(|p|p.inner.bcm_pin_number)
+                .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
         
-    //         memory_barrier();
-    //         if reset_before_poll{
-    //             gpio_registers.lock(|r|{
-    //                 // reset the event detection
-    //                 r.gpeds[0].write(0);
-    //                 r.gpeds[1].write(0);
-    //             });
-    //         }
-    //         log::info!("polling gpio joypad input...");
-    //         loop{
-    //             let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
-    //             log::info!("regs value: {:#X}", registers_value);
-    //             let detected_pins = registers_value & pins_mask;
-    //             if detected_pins != 0{
-    //                 log::info!("Detected gpio input interrupt");
-    //                 return;
-    //             }
-    //         }
-    //     }
+            memory_barrier();
+            if reset_before_poll{
+                gpio_registers.lock(|r|{
+                    // reset the event detection
+                    r.gpeds[0].write(0);
+                    r.gpeds[1].write(0);
+                });
+            }
+            log::info!("polling gpio joypad input...");
+            loop{
+                let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
+                let detected_pins = registers_value & pins_mask;
+                if detected_pins != 0{
+                    log::info!("Detected gpio input interrupt");
+                    // reset the state of the registers
+                    gpio_registers.lock(|r|{
+                        r.gpeds[0].write(0xFFFF_FFFF);
+                        r.gpeds[1].write(0xFFFF_FFFF);
+                    });
+                    return;
+                }
+            }
+        }
     }
 
     pub struct GpioPin{
@@ -124,6 +130,7 @@ pub mod no_std_impl{
         pub fn into_io(mut self, io_mode:Mode)->IoGpioPin{
             match io_mode{
                 Mode::Alt0 |
+                Mode::Alt3 |
                 Mode::Alt5 => self.set_mode(io_mode),
                 Mode::Input |
                 Mode::Output => core::panic!("set mode param must be alt: {}", io_mode as u8)
@@ -279,6 +286,7 @@ pub mod std_impl{
             let pin = self.gpio.get(self.bcm_bumber).unwrap();
             let pin = match mode{
                 Mode::Alt0 => pin.into_io(rppal::gpio::Mode::Alt0),
+                Mode::Alt3 => pin.into_io(rppal::gpio::Mode::Alt3),
                 Mode::Alt5 => pin.into_io(rppal::gpio::Mode::Alt5),
                 Mode::Input |
                 Mode::Output => std::panic!("Cant set io pin to input or output")

@@ -3,7 +3,7 @@ macro_rules! compile_time_size_assert {
         const _:[u8;$size] = [0;core::mem::size_of::<$t>()];
     };
 }
-pub(super) use compile_time_size_assert;
+pub(crate) use compile_time_size_assert;
 
 #[repr(transparent)]
 pub(super) struct MmioReg32(u32);
