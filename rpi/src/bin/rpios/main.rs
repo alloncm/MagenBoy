@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use magenboy_common::{emulation_menu::{MagenBoyMenu, MagenBoyState}, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
+use magenboy_common::{emulation_menu::*, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
 use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}, machine::{Mode, gameboy::GameBoy}, keypad::joypad_provider::JoypadProvider};
 use log::info;
 use magenboy_rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS};

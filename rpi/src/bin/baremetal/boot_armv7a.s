@@ -198,7 +198,7 @@ init_mmu_map_section:
 .global hang_led
 hang_led:
     ldr     r3, =PERIPHERALS_BASE_ADDRESS_PTR
-    ldr     r0, [r3]                // Deref the ptr to get the pperipherals address
+    ldr     r0, [r3]                // Deref the ptr to get the peripherals address
     ldr     r2, =0x200008           // GPFSEL2 MMIO register offset from base address
     add     r2, r2, r0              // add both to create GPFSEL2 address
     mov     r1, #1<<3               // Pin 21 as output mode

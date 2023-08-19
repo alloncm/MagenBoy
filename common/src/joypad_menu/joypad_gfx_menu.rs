@@ -23,7 +23,7 @@ impl<'a, GFX: GfxDevice, T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRe
         // Calculate the range of the visible menu
         let mut start_index = 0;
         let screen_max_options = (SCREEN_HEIGHT / GLYPH_HEIGHT) - 1; // -1 for the header
-        let mut end_index = std::cmp::min(menu.len(), screen_max_options);
+        let mut end_index = core::cmp::min(menu.len(), screen_max_options);
         if selection >= end_index{
             end_index = selection + 1;
             start_index = end_index - screen_max_options;
