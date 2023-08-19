@@ -54,7 +54,7 @@ cargo build --release --package magenboy_sdl --features [optional_features]
 
 ### (WIP) Raspberry Pi Baremetal (with ili9341 display and gpio buttons)
 
-Edit the relevant settings in `configuration.rs` and then run:
+Edit the relevant settings in `configuration.rs` install [`arm-none-eabi-gcc`](https://developer.arm.com/downloads/-/gnu-rm) and then run:
 
 ```sh
 cargo make rpibm
@@ -62,9 +62,8 @@ cargo make rpibm
 
 This command will do the folowing:
 
-1. Install the rust nightly toolchain for `armv7a-none-eabihf`:
+1. Install the rust source to compile for toolchain `armv7a-none-eabihf`:
 ```shell
-rustup target add armv7a-none-eabihf --toolchain nightly
 rustup +nightly component add rust-src
 ```
 
@@ -189,7 +188,7 @@ I think that not all the peripherals I use are implemented in QEMU so I used thi
 
 ### RaspberryPi
 - [Raspberry Pi docs](https://www.raspberrypi.com/documentation/computers/processors.html)
-- [juj/fbcp-ili9341 as a refference](https://github.com/juj/fbcp-ili9341)
+- [juj/fbcp-ili9341 as a reference](https://github.com/juj/fbcp-ili9341)
 - [Raspberry Pi DMA programming in C](https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/)
 - [Ili9341 docs](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf)
 #### BareMetal RaspberryPi
@@ -203,3 +202,7 @@ I think that not all the peripherals I use are implemented in QEMU so I used thi
     - [ARMv8-A Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ia/?lang=en)
     - [ARMv8-A Registers](https://developer.arm.com/documentation/ddi0595/2021-12/AArch32-Registers/CCSIDR--Current-Cache-Size-ID-Register?lang=en)
     - [ARMv7-A programmer Guide](https://developer.arm.com/documentation/den0013/latest/)
+- [LLD BareMetal tutorial](https://github.com/rockytriton/LLD)
+- [Circle baremetal framework as a reference](https://github.com/rsta2/circle)
+- [FAT32 specs](https://academy.cba.mit.edu/classes/networking_communications/SD/FAT.pdf)
+- [Baremetal SD card on the RPI4 blog post](https://forums.raspberrypi.com/viewtopic.php?t=308089)
