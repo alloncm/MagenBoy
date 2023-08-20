@@ -14,6 +14,19 @@ pub use std_impl::Mailbox;
 #[cfg(not(feature = "os"))]
 pub use no_std_impl::Mailbox;
 
+#[derive(Clone, Copy)]
+#[repr(u32)]
+pub enum Tag{
+    SetPowerState   = 0x28001,
+    GetClockRate    = 0x30002,
+    AllocateMemory  = 0x3000C,
+    LockMemory      = 0x3000D,
+    UnlockMemory    = 0x3000E,
+    ReleaseMemory   = 0x3000F,
+    SetClockRate    = 0x38002,
+    SetGpioState    = 0x38041,
+}
+
 #[repr(C, align(4))]
 struct PropertyTagHeader{
     tag:u32,
@@ -47,12 +60,12 @@ struct Message<const DATA_LEN:usize>{
 impl<const DATA_LEN:usize> Message<DATA_LEN>{
     const MBOX_PROPERTY_END:u32 = 0;
 
-    fn new(tag:u32, data:[u32;DATA_LEN])->Self{
+    fn new(tag:Tag, data:[u32;DATA_LEN])->Self{
         Self{
             size: size_of::<Self>() as u32,
             status: PropertyStatus::Request,
             tag_header: PropertyTagHeader {
-                tag,
+                tag: tag as u32,
                 buffer_size: (size_of::<u32>() * DATA_LEN) as u32,
                 request_response_size: 0    // zero since unused by the firmare
             },
@@ -103,7 +116,7 @@ mod no_std_impl{
             return Mailbox { registers, uncached_buffer };
         }
 
-        pub fn call<const DATA_LEN:usize>(&mut self, tag:u32, data:[u32;DATA_LEN])->[u32;DATA_LEN]{
+        pub fn call<const DATA_LEN:usize>(&mut self, tag:Tag, data:[u32;DATA_LEN])->[u32;DATA_LEN]{
             if size_of::<Message<DATA_LEN>>()> self.uncached_buffer.len() {
                 core::panic!("Error, Message with data len of {} bytes is too large ({}) and cant fit a {} bytes buffer", 
                     DATA_LEN, size_of::<Message<DATA_LEN>>(), self.uncached_buffer.len());
@@ -132,7 +145,7 @@ mod no_std_impl{
                         return uncached_message.data;
                     }
                     core::panic!("Error in mbox call! tag: {:#X}, req_data: {:?}, status: {:#X}, res_data: {:?}", 
-                        tag, data, uncached_message.status as u32, uncached_message.data);
+                        tag as u32, data, uncached_message.status as u32, uncached_message.data);
                 }
             }
         }
@@ -163,7 +176,7 @@ mod std_impl{
             Self { mbox_fd: fd }
         }
 
-        pub fn call<const SIZE:usize>(&mut self, tag:u32, data:[u32;SIZE])->[u32;SIZE]{
+        pub fn call<const SIZE:usize>(&mut self, tag:Tag, data:[u32;SIZE])->[u32;SIZE]{
             let mut message = Message::<SIZE>::new(tag, data);
             return self.send_message(&mut message);
         }

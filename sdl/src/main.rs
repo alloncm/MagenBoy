@@ -28,7 +28,7 @@ cfg_if::cfg_if!{
 }
 
 use crate::audio::*;
-use magenboy_common::{emulation_menu::*, joypad_menu::*, mbc_handler::*, mpmc_gfx_device::*};
+use magenboy_common::{joypad_menu::*, mbc_handler::*, mpmc_gfx_device::*, menu::*};
 use magenboy_core::{keypad::button::Button, apu::audio_device::*, machine::{gameboy::GameBoy, Mode}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}};
 use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
 use log::info;

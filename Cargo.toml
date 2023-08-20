@@ -7,6 +7,6 @@ members = [
 ]
 
 [workspace.package]
-version = "3.0.2"
+version = "4.0.0"
 authors = ["alloncm <alloncm@gmail.com>"]
-rust-version = "1.65"   # cause of let else feature
+rust-version = "1.70"   # cause of once cell

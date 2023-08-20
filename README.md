@@ -57,7 +57,7 @@ cargo build --release --package magenboy_sdl --features [optional_features]
 Edit the relevant settings in `configuration.rs` install [`arm-none-eabi-gcc`](https://developer.arm.com/downloads/-/gnu-rm) and then run:
 
 ```sh
-cargo make rpibm
+cargo make -e [rpi_revision] rpibm 
 ```
 
 This command will do the folowing:

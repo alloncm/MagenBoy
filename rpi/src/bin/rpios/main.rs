@@ -1,11 +1,9 @@
 use std::{env, fs};
 
-use magenboy_common::{emulation_menu::*, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
+use magenboy_common::{menu::*, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
 use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}, machine::{Mode, gameboy::GameBoy}, keypad::joypad_provider::JoypadProvider};
 use log::info;
-use magenboy_rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS};
-
-const MENU_PIN_BCM:u8 = 3; // This pin is the turn on pin on thr RPI
+use magenboy_rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, MENU_PIN_BCM};
 
 // This is static and not local for the unix signal handler to access it
 static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();

@@ -10,9 +10,11 @@ mod timer;
 mod bcm_host;
 cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
     mod emmc;
+    mod power;
     pub(crate) use utils::compile_time_size_assert;
     pub use utils::PERIPHERALS_BASE_ADDRESS;
     pub use emmc::Emmc;
+    pub use power::*;
 }}
 
 pub use gpio::*;
@@ -32,15 +34,15 @@ pub struct Peripherals{
     spi0: Peripheral<Spi0>,
     #[cfg(not(feature = "os"))]
     emmc: Peripheral<emmc::Emmc>,
+    #[cfg(not(feature = "os"))]
+    power: Peripheral<Power>
 }
 
 impl Peripherals{
-    const SET_CLOCK_RATE_TAG: u32 = 0x38002;
-
     pub fn set_core_clock(&mut self){
         const CORE_CLOCK_ID:u32 = 4;
         let mbox = self.get_mailbox();
-        let result = mbox.call(Self::SET_CLOCK_RATE_TAG, [CORE_CLOCK_ID, CORE_FREQ, 0]);
+        let result = mbox.call(Tag::SetClockRate, [CORE_CLOCK_ID, CORE_FREQ, 0]);
         if result[0] != CORE_CLOCK_ID || result[1] != CORE_FREQ{
             core::panic!("Error, set core clock failed, \nfreq: {}, clock id: {}", result[1], result[0]);
         }
@@ -64,6 +66,10 @@ impl Peripherals{
     pub fn take_emmc(&mut self)->emmc::Emmc{
         self.emmc.take(||emmc::Emmc::new())
     }
+    #[cfg(not(feature = "os"))]
+    pub fn take_power(&mut self)->Power{
+        self.power.take(||Power::new())
+    }
 }
 
 pub static mut PERIPHERALS: Peripherals = Peripherals{
@@ -74,4 +80,6 @@ pub static mut PERIPHERALS: Peripherals = Peripherals{
     spi0: Peripheral::Uninit,
     #[cfg(not(feature = "os"))]
     emmc: Peripheral::Uninit,
+    #[cfg(not(feature = "os"))]
+    power: Peripheral::Uninit
 };

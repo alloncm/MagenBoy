@@ -1,4 +1,4 @@
-use core::{convert::From, fmt::Write};
+use core::{convert::From, fmt::{Write, Arguments}};
 
 #[derive(Clone, Copy)]
 pub struct StackString<const MAX_SIZE:usize>{
@@ -25,6 +25,12 @@ impl<const SIZE:usize> From<&str> for StackString<SIZE>{
 }
 
 impl<const SIZE:usize> StackString<SIZE>{
+    pub fn from_args(args:Arguments)->Self{
+        let mut str = Self::default();
+        str.write_fmt(args).unwrap();
+        return str;
+    }
+    
     pub fn append(&mut self, data_to_append:&[u8]){
         if self.size + data_to_append.len() > SIZE{
             core::panic!("Error!, trying to append to stack string with too much data");
@@ -116,5 +122,18 @@ mod tests{
 
         let res: Result<(), core::fmt::Error> = ss.write_str(" fucker djakdjaslkdjskl");
         assert_eq!(res, Result::Err(core::fmt::Error));
+    }
+
+    #[test]
+    fn test_from_args(){
+        let str: StackString<10> = StackString::from_args(format_args!("{},{}", "test", "test1"));
+        assert_eq!(str.as_str(), "test,test1");
+    }
+    
+    #[test]
+    #[should_panic]
+    fn test_from_args_too_small_size(){
+        let str: StackString<5> = StackString::from_args(format_args!("{},{}", "test", "test1"));
+        assert_eq!(str.as_str(), "test,test1");
     }
 }
