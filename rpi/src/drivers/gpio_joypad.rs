@@ -4,6 +4,7 @@ use crate::peripherals::{PERIPHERALS, GpioPull, Trigger, InputGpioPin};
 
 const READ_THRESHOLD:u32 = 0x1000;
 
+#[derive(Clone)]
 pub struct GpioJoypadProvider{
     input_pins: [InputGpioPin; NUM_OF_KEYS],
     read_threshold_counter: u32
@@ -51,11 +52,5 @@ impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
         for i in 0..joypad.buttons.len(){
             joypad.buttons[i] = self.input_pins[i].read_state();
         }
-    }
-}
-
-impl Clone for GpioJoypadProvider{
-    fn clone(&self) -> Self {
-        Self { input_pins: self.input_pins.clone(), read_threshold_counter: self.read_threshold_counter.clone() }
     }
 }

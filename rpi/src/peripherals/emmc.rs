@@ -5,11 +5,11 @@ use core::mem::size_of;
 
 use bitfield_struct::bitfield;
 
-use crate::{delay, peripherals::{InputGpioPin, IoGpioPin}};
+use crate::{delay, peripherals::{InputGpioPin, IoGpioPin, Tag}};
 use super::{utils::{MmioReg32, compile_time_size_assert, self, memory_barrier}, PERIPHERALS, Mailbox};
 
 // 0x30_0000 - EMMC1 for other RPI's, 0x34_0000 - EMMC2 for RPI4
-const EMMC_BASE_OFFSET:usize = if cfg!(feature = "rpi4"){0x34_0000} else {0x30_0000};
+const EMMC_BASE_OFFSET:usize = if cfg!(rpi = "4") {0x34_0000}else{0x30_0000};
 
 const SD_INIT_CLOCK:u32     = 400000;
 const SD_NORMAL_CLOCK:u32   = 25000000;
@@ -158,18 +158,15 @@ struct Scr{
     version:u32,
 }
 
-// Mailbox Tags
-const SET_GPIO_STATE_TAG:u32        = 0x38041;
+// Mailbox params
 const GPIO_TAG_PIN_1_8V_CONTROL:u32 = 132;
-const SET_POWER_STATE_TAG:u32       = 0x28001;
 const SD_CARD_DEVICE_ID:u32         = 0;
 const POWER_SET_TAG_ON:u32          = 1;
 const POWER_SET_TAG_WAIT:u32        = 1 << 1;
 const POWER_SET_TAG_NO_DEVICE:u32   = 1 << 1;
 
-const GET_CLOCK_RATE_TAG:u32        = 0x30002;
 // In RPI4 take the EMMC2 clock
-const EMMC_CLOCK_ID:u32             = if cfg!(feature = "rpi4") {0xC} else {0x1};
+const EMMC_CLOCK_ID:u32 = if cfg!(rpi = "4") {0xC} else {0x1};
 
 pub struct Emmc{
     registers: &'static mut EmmcRegisters,
@@ -226,9 +223,8 @@ impl Emmc{
 
         let mbox = unsafe{PERIPHERALS.get_mailbox()};
         // this code is only for the RPI4
-        #[cfg(feature = "rpi4")]
-        {
-            let res = mbox.call(SET_GPIO_STATE_TAG, [GPIO_TAG_PIN_1_8V_CONTROL/* Pin to operate on */, 0/* requested state */]);
+        if cfg!(rpi = "4"){
+            let res = mbox.call(Tag::SetGpioState, [GPIO_TAG_PIN_1_8V_CONTROL/* Pin to operate on */, 0/* requested state */]);
             // Test for the GPIO pin state set
             if res[1] != 0{
                 core::panic!("Failed to disable RPI4 GPIO 1.8v supply");
@@ -245,8 +241,7 @@ impl Emmc{
             .expect("Could not reset the SD card");
 
         // this block is only for RPI4
-        #[cfg(feature = "rpi4")]
-        {
+        if cfg!(rpi = "4"){
             let mut control0 = self.registers.control[0].read();
             control0 |= 0xF00;      // Those bits are not documented in bcm2835 docs, it is copied from Circle
             self.registers.control[0].write(control0);
@@ -544,7 +539,7 @@ impl Emmc{
     }
 
     fn power_on(&mut self, mbox: &mut Mailbox){
-        let res = mbox.call(SET_POWER_STATE_TAG, [SD_CARD_DEVICE_ID, POWER_SET_TAG_ON | POWER_SET_TAG_WAIT]);
+        let res = mbox.call(Tag::SetPowerState, [SD_CARD_DEVICE_ID, POWER_SET_TAG_ON | POWER_SET_TAG_WAIT]);
         if res[1] & POWER_SET_TAG_ON == 0 || res[1] & POWER_SET_TAG_NO_DEVICE != 0{
             core::panic!("Could not power on the SD card device from the mbox interface");
         }
@@ -590,7 +585,7 @@ impl Emmc{
     }
 
     fn get_base_clock(&mut self, mbox:&mut Mailbox)->u32{
-        let res = mbox.call(GET_CLOCK_RATE_TAG, [EMMC_CLOCK_ID, 0]);
+        let res = mbox.call(Tag::GetClockRate, [EMMC_CLOCK_ID, 0]);
         let clock_rate = res[1];
         return clock_rate;
     }

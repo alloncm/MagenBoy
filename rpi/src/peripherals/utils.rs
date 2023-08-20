@@ -18,6 +18,18 @@ impl MmioReg32 {
     }
 }
 
+pub trait BulkWrite{
+    fn write(&mut self, value: u32);
+}
+
+impl<const SIZE:usize> BulkWrite for [MmioReg32; SIZE]{
+    fn write(&mut self, value: u32){
+        for reg in self{
+            reg.write(value);
+        }
+    }
+}
+
 // According to the docs the raspberrypi requires memory barrier between reads and writes to differnet peripherals 
 #[inline] 
 pub(super) fn memory_barrier(){
@@ -52,11 +64,10 @@ impl<T> Peripheral<T>{
     }
 }
 
-
-#[cfg(feature = "rpi4")]
-pub const PERIPHERALS_BASE_ADDRESS:usize = 0xFE00_0000;
-#[cfg(feature = "rpi2")]
-pub const PERIPHERALS_BASE_ADDRESS:usize = 0x3F00_0000;
+#[cfg(not(feature = "os"))]
+pub const PERIPHERALS_BASE_ADDRESS:usize = if cfg!(rpi = "4") {0xFE00_0000} 
+    else if cfg!(rpi = "2"){0x3F00_0000} 
+    else{unimplemented!()};
 
 pub(super) fn get_static_peripheral<T>(offset:usize)->&'static mut T{
     #[cfg(feature = "os")]

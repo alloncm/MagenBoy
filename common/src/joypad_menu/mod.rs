@@ -3,11 +3,7 @@ pub mod joypad_gfx_menu;
 
 use magenboy_core::keypad::{button::Button, joypad::Joypad, joypad_provider::JoypadProvider};
 
-#[derive(Default, Clone, Copy)]
-pub struct MenuOption<T, S:AsRef<str>>{
-    pub value:T,
-    pub prompt:S
-}
+use crate::menu::MenuOption;
 
 pub trait MenuRenderer<T, S:AsRef<str>>{
     fn render_menu(&mut self,header:&S, menu:&[MenuOption<T, S>], selection:usize);

@@ -25,7 +25,7 @@ pub enum Trigger{
 
 #[cfg(not(feature = "os"))]
 pub mod no_std_impl{
-    use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier}};
+    use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier, BulkWrite}};
     use super::*;
     
     #[repr(C,align(4))]
@@ -46,10 +46,7 @@ pub mod no_std_impl{
     }
     compile_time_size_assert!(GpioRegisters, 0xF4);
 
-    #[cfg(feature = "rpi4")]
-    const GPIO_PINS_COUNT:usize = 58;
-    #[cfg(feature = "rpi2")]
-    const GPIO_PINS_COUNT:usize = 54;
+    const GPIO_PINS_COUNT:usize = if cfg!(rpi = "4") {58} else {54};
     const BASE_GPIO_OFFSET: usize = 0x20_0000;
     static mut GPIO_REGISTERS:Option<Mutex<&'static mut GpioRegisters>> = None;
 
@@ -99,14 +96,28 @@ pub mod no_std_impl{
                         r.gpeds[0].write(0xFFFF_FFFF);
                         r.gpeds[1].write(0xFFFF_FFFF);
                     });
+                    memory_barrier();
                     return;
                 }
             }
         }
+
+        pub fn power_off(&mut self){
+            memory_barrier();
+            let registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
+            registers.lock(|r|{
+                r.gpfsel.write(0);
+                cfg_if::cfg_if!{ if #[cfg(rpi = "4")]{
+                    r.gpio_pup_pdn_cntrl.write(0);  
+                }
+                else{compile_error!("Power off only support rpi4")}}
+            });
+            memory_barrier();
+        }
     }
 
     pub struct GpioPin{
-        registers:&'static mut Mutex<&'static mut GpioRegisters>,
+        registers:&'static Mutex<&'static mut GpioRegisters>,
         bcm_pin_number:u8,
     }
 
@@ -143,9 +154,13 @@ pub mod no_std_impl{
             let offset = (self.bcm_pin_number % 16) * 2;
             let mask:u32 = 0b11 << offset;
             memory_barrier();
-            let register_value = self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].read());
-            let new_value = (register_value & !mask) | ((pull_mode as u32) << offset as u32);
-            self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].write(new_value));
+            cfg_if::cfg_if!{ if #[cfg(rpi = "4")]{       
+                let register_value = self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].read());
+                let new_value = (register_value & !mask) | ((pull_mode as u32) << offset as u32);
+                self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].write(new_value));
+            }
+            else{compile_error!("rpi's other than 4 needs proper support in order for set_pull to work")}}
+
             memory_barrier();
         }
 
