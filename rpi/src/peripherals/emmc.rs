@@ -280,21 +280,26 @@ impl Emmc{
     }
 
     pub fn read(&mut self, buffer:&mut [u8])->bool{
-        if self.offset % BLOCK_SIZE as u64 != 0{
-            return false;
-        }
-        
-        let block = self.offset / BLOCK_SIZE as u64;
-
         memory_barrier();
-        let result = self.execute_data_transfer_command(false, buffer, block as u32).is_ok();
+        let result = self.execute_data_transfer_command(false, buffer).is_ok();
+        memory_barrier();
+        return result;
+    }
+
+    pub fn write(&mut self, buffer: &mut [u8])->bool{
+        memory_barrier();
+        let result = self.execute_data_transfer_command(true, buffer).is_ok();
         memory_barrier();
         return result;
     }
 
     pub fn get_block_size(&self)->u32{self.block_size}
 
-    fn execute_data_transfer_command(&mut self, write: bool, buffer: &mut [u8], mut block_index:u32)->Result<(), SdError>{
+    fn execute_data_transfer_command(&mut self, write: bool, buffer: &mut [u8])->Result<(), SdError>{
+        if self.offset % BLOCK_SIZE as u64 != 0{
+            return Err(SdError::Error);
+        }
+        let mut block_index = (self.offset / BLOCK_SIZE as u64) as u32;
         if !self.sdhc_support{
             block_index *= BLOCK_SIZE;
         }
@@ -564,7 +569,6 @@ impl Emmc{
         self.registers.control[1].write(control1 | CONTROL1_CLK_EN);
         self::delay::wait_ms(3);
     }
-
 
     fn setup_peripheral_clock(&mut self, mbox:&mut Mailbox){
         self.registers.control2.write(0);   // clear according to Circle and LLD

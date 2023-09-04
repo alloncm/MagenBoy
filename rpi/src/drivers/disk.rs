@@ -57,16 +57,20 @@ impl Disk{
     /// Returns the number of blocks the read operation fetched
     /// The user knows how much of the buffer is filled
     pub fn read(&mut self, block_index:u32, buffer:&mut [u8]) -> u32 {
-        let block_size = self.emmc.get_block_size();
-        let buffer_size = buffer.len();
-        if buffer_size  % block_size as usize != 0{
-            core::panic!("buffer size must be a division of block size: {}", block_size);
-        }
-        self.emmc.seek((block_index * block_size) as u64);
+        self.prepare_for_disk_operation(block_index, buffer);
         if !self.emmc.read(buffer){
-            core::panic!("Error while reading object of size: {}", buffer_size);
+            core::panic!("Error while reading object of size: {}", buffer.len());
         }
-        return  buffer_size as u32 / block_size;
+        return  buffer.len() as u32 / self.get_block_size();
+    }
+
+    /// Returns the number of blocks the write operation modified
+    pub fn write(&mut self, block_index:u32, buffer:&mut [u8])->u32{
+        self.prepare_for_disk_operation(block_index, buffer);
+        if !self.emmc.write(buffer){
+            core::panic!("Error while writing object of size: {}", buffer.len());
+        }
+        return buffer.len() as u32 / self.get_block_size();
     }
 
     pub fn get_partition_first_sector_index(&self, partition_index:u8)->u32{
@@ -74,4 +78,12 @@ impl Disk{
     }
 
     pub fn get_block_size(&self)->u32{self.emmc.get_block_size()}
+
+    fn prepare_for_disk_operation(&mut self, block_index:u32, buffer:&[u8]){
+        let block_size = self.get_block_size();
+        if buffer.len()  % block_size as usize != 0{
+            core::panic!("buffer size must be a division of block size: {}", block_size);
+        }
+        self.emmc.seek((block_index * block_size) as u64);
+    }
 }
