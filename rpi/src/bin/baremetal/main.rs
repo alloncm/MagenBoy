@@ -80,16 +80,18 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
     let mut menu_options_size = 0;
     let mut root_dir_offset = 0;
     const FILES_PER_LIST:usize = 20;
-    'search_dir_loop: loop{
+    loop{
         let dir_entries = fs.root_dir_list::<FILES_PER_LIST>(root_dir_offset);
-        for entry in dir_entries{
-            let Some(entry) = entry else {break 'search_dir_loop};
+        for entry in &dir_entries{
             let extension = entry.get_extension();
             if extension.eq_ignore_ascii_case("gb") || extension.eq_ignore_ascii_case("gbc"){
                 menu_options[menu_options_size] = MenuOption{ value: entry.clone(), prompt: StackString::from(entry.get_name()) };
                 menu_options_size += 1;
                 log::debug!("Detected ROM: {}", entry.get_name());
             }
+        }
+        if dir_entries.remaining_capacity() != 0{
+            break;
         }
         root_dir_offset += FILES_PER_LIST;
     }

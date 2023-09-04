@@ -12,7 +12,7 @@ magenboy_common = {path = "../common"}
 log = "0.4"
 cfg-if = "1"
 bitfield-struct = "0.5"
-arrayvec = "0.7"
+arrayvec = {version = "0.7", default-features = false}
 libc = {version = "0.2", optional = true}
 nix = {version = "0.24", optional = true}
 crossbeam-channel = {version = "0.5", optional = true}

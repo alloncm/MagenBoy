@@ -1,7 +1,7 @@
 /* Place _start procedure at the entry address for RPI */
 __rpi_32_phys_binary_load_addr = 0x8000;
 __isr_table_addr = 0;
-__stack_size = 0x100000; /* 1MB stack */
+__stack_size = 0x200000; /* 2MB stack */
 ENTRY(__rpi_32_phys_binary_load_addr)   /* enry point */
 
 SECTIONS
