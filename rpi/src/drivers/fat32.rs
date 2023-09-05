@@ -310,6 +310,7 @@ impl Fat32{
         }
     }
 
+    // Optimization  : Perhaps I can read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free??
     fn init_fat_table_cache(&mut self){
         let mut fat_buffer = FatBuffer::new(self.get_fat_start_sector() as usize, 0, None, &mut self.disk);
 
