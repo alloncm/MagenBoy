@@ -74,12 +74,29 @@ struct FatShortDirEntry{
     last_write_time:u16,
     last_write_date:u16,
     first_cluster_index_low:u16,
-    file_size:u32,
+    size:u32,
 }
+compile_time_size_assert!(FatShortDirEntry, 32);
 
 impl FatShortDirEntry{
-    pub fn get_first_cluster_index(&self)->u32{
+    fn new(name:[u8;8], extension:[u8;3], size:u32)->Self{
+        return Self { 
+            file_name: name, file_extension: extension, attributes: 0, nt_reserve: 0, creation_time_tenth_secs: 0, creation_time: 0, 
+            creation_date: 0, last_access_date: 0, first_cluster_index_high:0, last_write_time: 0, last_write_date: 0, first_cluster_index_low:0, size
+        };
+    }
+    fn get_first_cluster_index(&self)->u32{
         self.first_cluster_index_low as u32 | ((self.first_cluster_index_high as u32) << 16)
+    }
+    fn set_first_cluster_index(&mut self, first_cluster_index:u32){
+        self.first_cluster_index_low = (first_cluster_index & 0xFFFF) as u16;
+        self.first_cluster_index_high = (first_cluster_index << 16) as u16;
+    }
+    fn get_filename(&self)->[u8;11]{
+        let mut filename:[u8;11] = [0;11];
+        filename[..8].copy_from_slice(&self.file_name);
+        filename[8..11].copy_from_slice(&self.file_extension);
+        return filename;
     }
 }
 
@@ -99,7 +116,7 @@ struct FatLongDirEntry{
 }
 
 const DISK_PARTITION_INDEX:u8       = 0;
-const SECTOR_SIZE:u32               = 512; 
+const SECTOR_SIZE:usize             = 512; 
 const FAT_ENTRY_SIZE:usize          = size_of::<u32>(); // each fat entry in fat32 is 4 the size of u32
 const FAT_ENTRY_EOF_INDEX:u32       = 0x0FFF_FFFF;
 const FAT_ENTRY_MASK:u32            = 0x0FFF_FFFF;
@@ -123,26 +140,29 @@ pub struct FileEntry{
 
 impl FileEntry{
     pub const FILENAME_SIZE:usize = 11;
-
     pub fn get_name<'a>(&'a self)->&'a str{
         core::str::from_utf8(&self.name).unwrap().trim()
     }
-
     pub fn get_extension<'a>(&'a self)->&'a str{
         core::str::from_utf8(&self.name[8..]).unwrap().trim()
     }
 }
 
+#[derive(Clone)]
 struct FatIndex{
     sector_number:u32,
     sector_offset:usize,
 }
 
 impl FatIndex{
-    fn get_fat_entry(&mut self, buffer:&[u8;FAT_BUFFER_SIZE])->u32{
+    fn get_fat_entry(&mut self, buffer:&[u8;SECTOR_SIZE as usize])->u32{
        let result = u32::from_ne_bytes(buffer[self.sector_offset .. self.sector_offset + FAT_ENTRY_SIZE].try_into().unwrap()) & FAT_ENTRY_MASK;
        self.sector_offset += FAT_ENTRY_SIZE;
        return result;
+    }
+    fn set_fat_entry(&mut self, entry:u32, buffer:&[u8;FAT_BUFFER_SIZE]){
+        let entry = u32::to_ne_bytes(entry);
+
     }
 }
 
@@ -176,14 +196,51 @@ struct FatSegment{
 
 impl FatSegment{
     fn new(value:u32, start_index:u32)->Self{
-        Self { state: value.into(), len: 1, start_index }
+        Self { state: value.into(), len: 1, start_index}
+    }
+}
+
+struct FatBuffer{
+    buffer:[u8;FAT_BUFFER_SIZE],
+    buffer_len: usize,
+    fat_start_index:FatIndex,
+    entries_count:usize,
+    fat_internal_index:FatIndex,
+}
+
+impl FatBuffer{
+    fn new(fat_start_sector:usize, first_cluster_index:usize, entries_count: Option<usize>, disk: &mut Disk)->Self{
+        let entries_count = entries_count.unwrap_or(FAT_BUFFER_SIZE/FAT_ENTRY_SIZE);
+        let mut buffer = [0; FAT_BUFFER_SIZE];
+        let fat_offset = first_cluster_index * FAT_ENTRY_SIZE;
+        let fat_index = FatIndex{ sector_number: (fat_start_sector + fat_offset / SECTOR_SIZE) as u32, sector_offset: fat_offset % SECTOR_SIZE };
+        
+        // Align the end read to SECTOR_SIZE
+        let fat_end_read = SECTOR_SIZE as usize + entries_count + (SECTOR_SIZE as usize - (entries_count % SECTOR_SIZE as usize));
+        let _ = disk.read(fat_index.sector_number, &mut buffer[..fat_end_read]);
+        return Self { buffer, fat_start_index: fat_index.clone(), entries_count, fat_internal_index: fat_index, buffer_len: fat_end_read };
+    }
+
+    /// On sucess returns the FAT entry, on error returns the last valid fat index
+    fn read(&mut self, disk: &mut Disk)->Result<u32, FatIndex>{
+        let interal_sector_offset = (self.fat_internal_index.sector_number - self.fat_start_index.sector_number) as usize;
+        if interal_sector_offset * SECTOR_SIZE >= self.buffer_len{
+            return Err(self.fat_internal_index.clone());
+        }
+        let start_index = interal_sector_offset * SECTOR_SIZE;
+        let end_index = start_index + SECTOR_SIZE;
+        let entry = self.fat_internal_index.get_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
+        if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
+            self.fat_internal_index.sector_number += 1;
+            self.fat_internal_index.sector_offset = 0;
+        }
+        return Ok(entry);
     }
 }
 
 // Currently the driver support only 0x100 files in the root directory
 const MAX_FILES: usize = 0x100;
-// Assuming each files is 0x100 clusters in average
-const MAX_FAT_SEGMENTS_COUNT: usize = MAX_FILES * 0x100;
+const MAX_FAT_SEGMENTS_COUNT: usize = MAX_FILES * 10;
 
 const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
@@ -215,7 +272,7 @@ impl Fat32{
             core::panic!("Detected FAT16 and not FAT32 file system");
         }
         let bytes_per_sector = boot_sector.fat32_bpb.bytes_per_sector as u32;
-        if bytes_per_sector != disk.get_block_size() || bytes_per_sector != SECTOR_SIZE{
+        if bytes_per_sector != disk.get_block_size() || bytes_per_sector != SECTOR_SIZE as u32{
             core::panic!("Currently dont support fat32 disks with sectors size other than {}", SECTOR_SIZE);
         }
         let fat_count = boot_sector.fat32_bpb.fats_count;
@@ -251,6 +308,7 @@ impl Fat32{
     }
 
     fn init_fat_table_cache(&mut self){
+        // let fat_buffer = FatBuffer::new(self.get_fat_start_sector() as usize, 0, None, &mut self.disk);
         let mut fat_index = FatIndex{sector_number: self.get_fat_start_sector(), sector_offset: 0};
         let mut fat_buffer = [0; FAT_BUFFER_SIZE];
         let _ = self.disk.read(fat_index.sector_number, &mut fat_buffer);
@@ -287,13 +345,10 @@ impl Fat32{
                 discard -= 1;
                 continue;
             }
-
-            let mut filename:[u8;11] = [0;11];
-            filename[..8].copy_from_slice(&dir.file_name);
-            filename[8..11].copy_from_slice(&dir.file_extension);
+            let filename = dir.get_filename();
             let first_cluster_index = dir.get_first_cluster_index();
             
-            output_dir.push(FileEntry{ name: filename, first_cluster_index, size: dir.file_size });
+            output_dir.push(FileEntry{ name: filename, first_cluster_index, size: dir.size });
             if output_dir.remaining_capacity() == 0{
                 break;
             }
@@ -309,21 +364,17 @@ impl Fat32{
         log::debug!("Reading file {}, size {}, cluster: {}", file_entry.get_name(), file_entry.size, file_entry.first_cluster_index);
 
         let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster;
-        let mut cluster_counter:usize = 0;
-        let fat_first_entry = &self.fat_table_cache.as_slice().into_iter().find(|t|t.start_index == file_entry.first_cluster_index).unwrap();
+        let fat_first_entry = self.fat_table_cache.as_slice().into_iter().find(|t|t.start_index == file_entry.first_cluster_index).unwrap().clone();
         if fat_first_entry.state != FatSegmentState::Allocated{
             core::panic!("Error recevied not allocated segment");
         }
         let mut fat_buffer = [0;FAT_BUFFER_SIZE];
-        let mut fat_index = self.get_fat_index(file_entry.first_cluster_index);
-        let fat_sequence_size = fat_first_entry.len as usize * FAT_ENTRY_SIZE;
-        let fat_end_read = SECTOR_SIZE as usize + fat_sequence_size + (SECTOR_SIZE as usize - (fat_sequence_size % SECTOR_SIZE as usize));
-        log::debug!("Fat end read: {:#X}", fat_end_read);
-        let _ = self.disk.read(fat_index.sector_number, &mut fat_buffer[..fat_end_read]);
+        let mut fat_index = self.read_fat(file_entry.first_cluster_index, fat_first_entry.len, &mut fat_buffer);
 
         let mut current_cluster = file_entry.first_cluster_index;
         let mut next_read_cluster = current_cluster;
         let mut clusters_sequence = 1;
+        let mut cluster_counter:usize = 0;
         while cluster_counter < fat_first_entry.len as usize{
             let fat_entry = fat_index.get_fat_entry(&mut fat_buffer);
             if current_cluster + 1 == fat_entry{
@@ -344,10 +395,95 @@ impl Fat32{
         // TODO: verify all the file has been read
     }
 
+    fn read_fat(&mut self, first_cluster_index:u32, fat_segment_len: u32, fat_buffer: &mut [u8; FAT_BUFFER_SIZE]) -> FatIndex {
+        let fat_index = self.get_fat_index(first_cluster_index);
+        let fat_sequence_size = fat_segment_len as usize * FAT_ENTRY_SIZE;
+        // Align the end read to SECTOR_SIZE
+        let fat_end_read = SECTOR_SIZE as usize + fat_sequence_size + (SECTOR_SIZE as usize - (fat_sequence_size % SECTOR_SIZE as usize));
+        let _ = self.disk.read(fat_index.sector_number, &mut fat_buffer[..fat_end_read]);
+        return fat_index;
+    }
+
     /// Write a file to the root dir
     pub fn write_file(&mut self, filename:&str, content:&mut [u8]){
-        let free_fat_entry = self.get_free_fat_entry(1000).expect("Filesystem is too large, cant find free entry");
-        
+        let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster as u32;
+        let cluster_size = sectors_per_cluster * SECTOR_SIZE as u32;
+        let (name, extension) = self.create_filename(filename).unwrap_or_else(|_|core::panic!("File name format is bad: {}", filename));
+        // check if file exists, if exists try to overwrite it, if cant mark it as deleted
+        if let Some(existing_entry) = self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name == name && d.file_extension == extension){
+            if (existing_entry.size as usize) < content.len(){
+                existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
+                // TODO: mark the fat entries as free
+            }
+            else{
+                let existing_entry = existing_entry.clone();        // Shadow the original in order to statisify the borrow checker
+                let segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == existing_entry.get_first_cluster_index()).unwrap().clone();
+                let mut fat_buffer = [0; FAT_BUFFER_SIZE];
+                let mut fat_index = self.read_fat(existing_entry.get_first_cluster_index(), segment.len, &mut fat_buffer);
+                let mut current_cluster = existing_entry.get_first_cluster_index();
+                let mut cluster_count = 0;
+                while cluster_count < segment.len{
+                    let start_sector = self.get_cluster_start_sector_index(current_cluster);
+                    let start_index = (sectors_per_cluster * cluster_count) as usize * SECTOR_SIZE;
+                    let end_index = start_index + (sectors_per_cluster * SECTOR_SIZE as u32) as usize;
+                    let _ = self.disk.write(start_sector, &mut content[start_index..end_index]);
+
+                    current_cluster = fat_index.get_fat_entry(&mut fat_buffer);
+                    cluster_count += 1;
+                }
+                return;
+            }
+        }
+
+        // create a new file by allocating place in the root dir and then picking some free fat segment and use it's clusters
+        let new_dir_entry = match self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name[0] == DELETED_DIR_ENTRY_PREFIX){
+            Some(dir) => dir,
+            None => {
+                // Check the root dir allocation size to check it needs to be reallocated
+                let root_dir_entry = self.root_dir_cache.as_slice().into_iter().find(|d|d.attributes == ATTR_VOLUME_ID).unwrap();
+                if root_dir_entry.size as usize >= self.root_dir_cache.len() * size_of::<FatShortDirEntry>() {
+                    core::panic!("driver do not support resizing of the root dir");
+                }
+                // Allocate new entry in the root dir
+                self.root_dir_cache.push(FatShortDirEntry::new(name, extension, content.len() as u32));
+                self.root_dir_cache.last_mut().unwrap()
+            },
+        };
+        let free_fat_seqment = self.fat_table_cache.as_slice().into_iter().find(|t|t.state == FatSegmentState::Free && t.len  >= content.len() as u32 / cluster_size).unwrap();
+        let first_cluster_index = free_fat_seqment.start_index;
+        new_dir_entry.set_first_cluster_index(first_cluster_index);
+        let mut fat_buffer = [0;FAT_BUFFER_SIZE];
+        self.read_fat(first_cluster_index, free_fat_seqment.len, &mut fat_buffer);
+        let fat_index = self.get_fat_index(first_cluster_index);
+
+        // write the data to the clusters, since the cluster index is the initial index in the fat I can know which one is free or allocated
+
+        // sync the root dir modifications
+        self.write_root_dir_cache();
+    }
+
+    fn create_filename(&self, filename:&str)->Result<([u8;8],[u8;3]), ()>{
+        const ILLEGAL_CHARS:[u8;16] = [b'"', b'*', b'+', b',', b'.', b'/', b':', b';', b'<', b'=', b'>', b'?', b'[',b'\\', b']', b'|' ];
+        if filename.len() != 11 || !filename.is_ascii() || filename.as_bytes().into_iter().any(|b|ILLEGAL_CHARS.contains(b) && *b > 0x20){
+            return Err(());
+        }
+        let filename:[u8;11] = filename.to_uppercase().as_bytes().try_into().unwrap();
+        let name:[u8;8] = filename[..8].try_into().unwrap();
+        let extension:[u8;3] = filename[8..].try_into().unwrap();
+        return Ok((name, extension));
+    }
+
+    fn write_root_dir_cache(&mut self){
+        let chunks = self.root_dir_cache.chunks_exact(FAT_DIR_ENTRIES_PER_SECTOR);
+        let mut root_sector_index = self.get_cluster_start_sector_index(self.boot_sector.fat32_bpb.root_dir_first_cluster);
+        let reminder = chunks.remainder();
+        let mut buffer = [FatShortDirEntry::default(); FAT_DIR_ENTRIES_PER_SECTOR];
+        for chunk in chunks{
+            buffer.copy_from_slice(chunk);
+            let mut buffer = unsafe{as_mut_buffer(&mut buffer)};
+            root_sector_index += self.disk.write(root_sector_index, &mut buffer);
+        }
+        buffer[..reminder.len()].copy_from_slice(reminder);
     }
 
     fn get_fat_entry(&mut self, fat_index:&mut FatIndex, fat_buffer:&mut [u8; FAT_BUFFER_SIZE])->u32{
@@ -363,49 +499,13 @@ impl Fat32{
     fn get_fat_index(&self, first_cluster_index:u32)->FatIndex{
         let fat_offset = first_cluster_index * FAT_ENTRY_SIZE as u32;
         return FatIndex { 
-            sector_number:self.get_fat_start_sector() + (fat_offset / SECTOR_SIZE),
-            sector_offset: (fat_offset % SECTOR_SIZE) as usize
+            sector_number: self.get_fat_start_sector() + (fat_offset / SECTOR_SIZE as u32),
+            sector_offset: fat_offset as usize % SECTOR_SIZE
         };
     }
 
     fn get_fat_start_sector(&self) -> u32 {
         self.partition_start_sector_index + self.boot_sector.fat32_bpb.reserved_sectors_count as u32
-    }
-
-    fn get_free_fat_entry(&mut self, max_iterations:u32) -> Option<u32> {
-        let root_start_sector_index = self.get_cluster_start_sector_index(self.boot_sector.fat32_bpb.root_dir_first_cluster);
-        let mut sector_offset = 0;
-        let mut iteration_counter = 0;
-        let mut result = None;
-        'search_loop: loop{    
-            let mut root_dir = [FatShortDirEntry::default();FAT_DIR_ENTRIES_PER_SECTOR];
-            let buffer = unsafe{as_mut_buffer(&mut root_dir)};
-            sector_offset += self.disk.read(root_start_sector_index + sector_offset, buffer);
-            for dir in root_dir{
-                let dir_prefix = dir.file_name[0];
-                if dir_prefix == DELETED_DIR_ENTRY_PREFIX {
-                    result = result.or(Some(iteration_counter));
-                }
-                else if dir_prefix == DIR_EOF_PREFIX {
-                    return result.or(Some(iteration_counter));
-                }
-                else{
-                    let mut fat_index = self.get_fat_index(dir.get_first_cluster_index());
-                    let mut fat_buffer = [0;FAT_BUFFER_SIZE];
-                    let _ = self.disk.read(fat_index.sector_number, &mut fat_buffer);
-                    let mut fat_entry = self.get_fat_entry(&mut fat_index, &mut fat_buffer);
-                    while fat_entry != FAT_ENTRY_EOF_INDEX{
-                        // self.set_occupied_cluser(fat_entry);
-                        fat_entry = self.get_fat_entry(&mut fat_index, &mut fat_buffer);
-                    }
-                }
-                iteration_counter += 1;
-                if iteration_counter == max_iterations{
-                    break 'search_loop;
-                }
-            }
-        }
-        return result;
     }
 
     fn get_cluster_start_sector_index(&self, cluster:u32)->u32{
