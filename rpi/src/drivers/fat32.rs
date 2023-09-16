@@ -164,21 +164,19 @@ impl FatIndex{
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 enum FatSegmentState{
     Free,
     Allocated,
     Reserved,
     Bad,
-    Eof,
 }
 
 impl From<u32> for FatSegmentState{
     fn from(value: u32) -> Self {
         match value{
             0=>Self::Free,
-            2..=0xFFF_FFF5 => Self::Allocated,
-            0xFFF_FFFF=>Self::Eof,
+            2..=0xFFF_FFF5 | 0xFFF_FFFF=>Self::Allocated,
             0xFFF_FFF7=>Self::Bad,
             _=>Self::Reserved
         }
@@ -214,11 +212,11 @@ impl FatBuffer{
         let fat_index = FatIndex{ sector_number: (fat_start_sector + fat_offset / SECTOR_SIZE) as u32, sector_offset: fat_offset % SECTOR_SIZE };
         
         // Align the end read to SECTOR_SIZE
-        let fat_end_read = (entries_count * FAT_ENTRY_SIZE) + (SECTOR_SIZE - ((entries_count * FAT_ENTRY_SIZE) % SECTOR_SIZE)) + ((fat_index.sector_offset != 0) as usize * SECTOR_SIZE);
+        let fat_end_read = (entries_count * FAT_ENTRY_SIZE) + (SECTOR_SIZE - ((entries_count * FAT_ENTRY_SIZE) % SECTOR_SIZE));
         if fat_end_read > FAT_BUFFER_SIZE{
             core::panic!("Error fat entries count is too much: expected:{}, actual: {}", FAT_BUFFER_SIZE / FAT_ENTRY_SIZE, entries_count);
         }
-        log::warn!("offset: {}, end read: {}", fat_index.sector_offset, fat_end_read);
+        // log::warn!("offset: {}, end read: {}", fat_index.sector_offset, fat_end_read);
         let _ = disk.read(fat_index.sector_number, &mut buffer[..fat_end_read]);
         return Self { buffer, fat_start_index: fat_index.clone(), fat_internal_index: fat_index, buffer_len: fat_end_read };
     }
@@ -302,36 +300,49 @@ impl Fat32{
             let buffer = unsafe{as_mut_buffer(&mut root_dir)};
             sector_offset += self.disk.read(root_start_sector_index + sector_offset, buffer);
             for dir in root_dir{
+                if dir.file_name[0] == DELETED_DIR_ENTRY_PREFIX {
+                    continue;
+                }
                 if dir.file_name[0] == DIR_EOF_PREFIX {
                     break 'search;
                 }
+                log::info!("dir: {} attrib: {:#X}", core::str::from_utf8(&dir.file_name).unwrap().trim(), dir.attributes);
                 self.root_dir_cache.push(dir);
             }
         }
     }
 
-    // Optimization  : Perhaps I can read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free??
+    // Optimization: Perhaps I can read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free??
     fn init_fat_table_cache(&mut self){
         let mut fat_buffer = FatBuffer::new(self.get_fat_start_sector() as usize, 0, None, &mut self.disk);
 
         // The fat has entry per cluster in the volume, were adding 2 for the first 2 reserved entries (0,1)
         // This way the array is larger by 2 (fat entry at position clusters_count + 1 is the last valid entry)
         let fat_entries_count = self.clusters_count + 1;
-        log::debug!("fat entries count {}", fat_entries_count);
+        log::debug!("fat entries count {}, root_dir len: {}", fat_entries_count, self.root_dir_cache.len());
         let fat_entry = fat_buffer.read().ok().unwrap();
         let mut current_segment = FatSegment::new(fat_entry, 0);
-        for i in 1..=fat_entries_count{
+
+        // Since indices [0,1] are resereved ignore and skip them
+        // the loop starting from 2 is probably a bug / mistake
+        for i in 2..=fat_entries_count{
             let fat_entry = fat_buffer.read().unwrap_or_else(|_|{ 
                 fat_buffer = FatBuffer::new(self.get_fat_start_sector(), i as usize, None, &mut self.disk);
                 fat_buffer.read().ok().unwrap()
             });
-            if FatSegmentState::from(fat_entry) == current_segment.state{
+            if FatSegmentState::from(fat_entry) == current_segment.state {
                 current_segment.len += 1;
-                continue;
+                if fat_entry != FAT_ENTRY_EOF_INDEX{
+                    continue;
+                }
             }
             self.fat_table_cache.push(current_segment.clone());
             current_segment = FatSegment::new(fat_entry, i);
-            log::info!("found new segment, start index: {}", current_segment.start_index);
+            log::info!("found new segment: {:#?}, start index: {}", current_segment.state, current_segment.start_index);
+            if self.fat_table_cache.iter().filter(|f|f.state == FatSegmentState::Allocated).count() == self.root_dir_cache.len(){
+                current_segment.len = fat_entries_count - i;
+                break;
+            }
         }
         self.fat_table_cache.push(current_segment);
         log::debug!("Fat segments count {}", self.fat_table_cache.len());
