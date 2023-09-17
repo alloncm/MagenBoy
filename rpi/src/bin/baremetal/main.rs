@@ -102,7 +102,7 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
 
 #[panic_handler]
 fn panic(info:&PanicInfo)->!{
-    log::error!("An error has occoured!: \n{}", info);
+    log::error!("An error has occoured!: \r\n{}", info);
 
     unsafe{boot::hang_led()};
 }
