@@ -29,6 +29,8 @@ pub extern "C" fn main()->!{
     let mut power_manager = unsafe{PERIPHERALS.take_power()};
 
     let mut fs = Fat32::new();
+    let mut content = b"alon hagever".clone();
+    fs.write_file("TEST    TXT", &mut content);
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
@@ -100,8 +102,7 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
 
 #[panic_handler]
 fn panic(info:&PanicInfo)->!{
-    log::error!("An error has occoured!");
-    log::error!("{}", info);
+    log::error!("An error has occoured!: \n{}", info);
 
     unsafe{boot::hang_led()};
 }

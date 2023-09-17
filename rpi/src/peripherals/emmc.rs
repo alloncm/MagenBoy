@@ -100,6 +100,7 @@ struct SdCommand{
 
 impl SdCommand{
     fn get_command(self)->u32{
+        // Reverting the app_command bit in case it will distrrupt with the emmc device
         self.with_app_command(false).0
     }
 }
@@ -116,6 +117,9 @@ const fn resolve_command(command_type:SdCommandType)->SdCommand{
         SdCommandType::SetBlockLen      => command.with_response_type(CommandResponseType::B48).with_crc_enable(true),
         SdCommandType::ReadBlock        => command.with_direction(true).with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true),
         SdCommandType::ReadMultiple     => command.with_block_count(true).with_auto_command(1).with_direction(true).with_multiblock(true)
+                                            .with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true),
+        SdCommandType::WriteBlock       => command.with_direction(false).with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true),
+        SdCommandType::WriteMultiple    => command.with_block_count(true).with_auto_command(1).with_direction(false).with_multiblock(true)
                                             .with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true),
         SdCommandType::OcrCheck         => command.with_response_type(CommandResponseType::B48).with_app_command(true),
         SdCommandType::SendScr          => command.with_direction(true).with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true).with_app_command(true),

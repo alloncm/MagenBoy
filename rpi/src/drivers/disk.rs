@@ -81,8 +81,8 @@ impl Disk{
 
     fn prepare_for_disk_operation(&mut self, block_index:u32, buffer:&[u8]){
         let block_size = self.get_block_size();
-        if buffer.len()  % block_size as usize != 0{
-            core::panic!("buffer size must be a division of block size: {}", block_size);
+        if buffer.len() % block_size as usize != 0{
+            core::panic!("buffer size must be a division of block size: {}, actual buffer_size: {}", block_size, buffer.len());
         }
         self.emmc.seek((block_index * block_size) as u64);
     }
