@@ -31,6 +31,12 @@ pub extern "C" fn main()->!{
     let mut fs = Fat32::new();
     let mut content = b"alon hagever".clone();
     fs.write_file("TEST    TXT", &mut content);
+    // let file_entry = fs.root_dir_list::<20>(0).into_iter().find(|f|f.get_name() == "TEST    TXT").unwrap();
+    // let mut buffer = [0;512];
+    // fs.read_file(&file_entry, &mut buffer);
+    // for i in buffer{
+    //     log::warn!("{:#X}", i);
+    // }
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);

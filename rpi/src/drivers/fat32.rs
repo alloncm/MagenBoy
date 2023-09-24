@@ -90,7 +90,7 @@ impl FatShortDirEntry{
     }
     fn set_first_cluster_index(&mut self, first_cluster_index:u32){
         self.first_cluster_index_low = (first_cluster_index & 0xFFFF) as u16;
-        self.first_cluster_index_high = (first_cluster_index << 16) as u16;
+        self.first_cluster_index_high = (first_cluster_index >> 16) as u16;
     }
     fn get_filename(&self)->[u8;11]{
         let mut filename:[u8;11] = [0;11];
