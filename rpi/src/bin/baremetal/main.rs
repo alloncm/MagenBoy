@@ -35,7 +35,7 @@ pub extern "C" fn main()->!{
     // let mut buffer = [0;512];
     // fs.read_file(&file_entry, &mut buffer);
     // for i in buffer{
-    //     log::warn!("{:#X}", i);
+    //     log::warn!("{}", i as char);
     // }
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut pause_menu_gfx = gfx.clone();

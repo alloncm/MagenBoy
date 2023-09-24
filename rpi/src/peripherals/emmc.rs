@@ -123,8 +123,7 @@ const fn resolve_command(command_type:SdCommandType)->SdCommand{
                                             .with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true),
         SdCommandType::OcrCheck         => command.with_response_type(CommandResponseType::B48).with_app_command(true),
         SdCommandType::SendScr          => command.with_direction(true).with_response_type(CommandResponseType::B48).with_crc_enable(true).with_is_data(true).with_app_command(true),
-        SdCommandType::App              => command.with_response_type(CommandResponseType::B48).with_crc_enable(true),
-        _=> unreachable!()
+        SdCommandType::App              => command.with_response_type(CommandResponseType::B48).with_crc_enable(true)
     };
 }
 

@@ -306,6 +306,7 @@ pub struct Fat32{
     fat_info:FatInfo,
     fat_table_cache: ArrayVec<FatSegment, MAX_FAT_SEGMENTS_COUNT>,
     root_dir_cache: ArrayVec<FatShortDirEntry, MAX_FILES>,
+    root_dir_allocated_clusters_count: u32,
 }
 
 impl Fat32{
@@ -339,7 +340,8 @@ impl Fat32{
             fat_info:FatInfo { first_fat_start_sector: fat_start_sector, sectors_per_fat: boot_sector.fat32_bpb.sectors_per_fat_32 as usize, fats_count: boot_sector.fat32_bpb.fats_count as usize },
             disk, boot_sector, partition_start_sector_index:bpb_sector_index, clusters_count,
             fat_table_cache: ArrayVec::<FatSegment, MAX_FAT_SEGMENTS_COUNT>::new(),
-            root_dir_cache: ArrayVec::<FatShortDirEntry, MAX_FILES>::new()
+            root_dir_cache: ArrayVec::<FatShortDirEntry, MAX_FILES>::new(),
+            root_dir_allocated_clusters_count: 0
         };
         fat32.init_root_directory_cache();
         fat32.init_fat_table_cache();
@@ -362,6 +364,9 @@ impl Fat32{
                 }
             }
         }
+        let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster as u32;
+        self.root_dir_allocated_clusters_count = sector_offset / sectors_per_cluster + ((sector_offset % sectors_per_cluster) != 0) as u32;
+        log::debug!("Root dir allocated clusters count: {}", self.root_dir_allocated_clusters_count);
     }
 
     // Optimization: Perhaps I can read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free
@@ -458,7 +463,7 @@ impl Fat32{
             }
             let start_sector = self.get_cluster_start_sector_index(next_read_cluster);
             let start_index = sectors_per_cluster as usize * cluster_counter * SECTOR_SIZE as usize;
-            let end_index = start_index + (sectors_per_cluster as usize * SECTOR_SIZE as usize * clusters_sequence);
+            let end_index = core::cmp::min(output.len(), start_index + (sectors_per_cluster as usize * SECTOR_SIZE as usize * clusters_sequence));
             let _ = self.disk.read(start_sector, &mut output[start_index..end_index]);
 
             next_read_cluster = fat_entry;
@@ -472,9 +477,6 @@ impl Fat32{
     /// Write a file to the root dir
     pub fn write_file(&mut self, filename:&str, content:&mut [u8]){
         log::debug!("Writing file: {}, size: {}", filename, content.len());
-        for fat in &self.fat_table_cache{
-            log::warn!("fat cache entry: {:?}", fat);
-        }
         let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster as u32;
         let cluster_size = sectors_per_cluster * SECTOR_SIZE as u32;
         let (name, extension) = self.create_filename(filename).unwrap_or_else(|_|core::panic!("File name format is bad: {}", filename));
@@ -486,7 +488,6 @@ impl Fat32{
             }
             else{
                 let existing_entry = existing_entry.clone();        // Shadow the original in order to statisify the borrow checker
-                log::warn!("Looking for cluster index: {}", existing_entry.get_first_cluster_index());
                 let mut segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == existing_entry.get_first_cluster_index()).unwrap().clone();
                 match segment.state {
                     FatSegmentState::Allocated => segment.len += 1,
@@ -497,10 +498,7 @@ impl Fat32{
                 let mut current_cluster = existing_entry.get_first_cluster_index();
                 let mut cluster_count = 0;
                 while cluster_count < segment.len{
-                    let start_sector = self.get_cluster_start_sector_index(current_cluster);
-                    let start_index = (sectors_per_cluster * cluster_count) as usize * SECTOR_SIZE;
-                    let end_index = start_index + (sectors_per_cluster * SECTOR_SIZE as u32) as usize;
-                    let _ = self.disk.write(start_sector, &mut content[start_index..end_index]);
+                    self.write_to_data_section(content, cluster_size, current_cluster);
 
                     current_cluster = fat_buffer.read().ok().unwrap();
                     cluster_count += 1;
@@ -518,13 +516,18 @@ impl Fat32{
             }
             None => {
                 // Check the root dir allocation size to check it needs to be reallocated
-                let root_dir_entry = self.root_dir_cache.as_slice().into_iter().find(|d|d.attributes == ATTR_VOLUME_ID).unwrap();
-                if root_dir_entry.size as usize >= self.root_dir_cache.len() * size_of::<FatShortDirEntry>() {
-                    core::panic!("driver do not support resizing of the root dir");
+                let root_dir_allocation_size = (self.root_dir_allocated_clusters_count * self.boot_sector.fat32_bpb.sectors_per_cluster as u32) as usize * SECTOR_SIZE;
+                let expected_root_dir_size_after_allocation = (self.root_dir_cache.len() + 1) * size_of::<FatShortDirEntry>();
+                if root_dir_allocation_size <= expected_root_dir_size_after_allocation {
+                    core::panic!("root dir is too small: {:#X} and driver do not support resizing of the root dir", root_dir_allocation_size);
                 }
                 // Allocate new entry in the root dir
                 self.root_dir_cache.insert(self.root_dir_cache.len() - 1, FatShortDirEntry::new(name, extension, content.len() as u32));    // write to the last place pusing the last item to index len(), in order to keep the DIR_EOF last
-                self.root_dir_cache.last_mut().unwrap()
+                let root_dir_cache_updated_len = self.root_dir_cache.len();
+
+                // Root dir cache len must be atleast 2 (entry for the root dir itself and a EOF) and not the one I inserted (so actually 3)
+                // This retuns the last non EOF entry
+                &mut self.root_dir_cache[root_dir_cache_updated_len - 2]
             },
         };
         let required_clusters_count = (content.len() as u32 / cluster_size) + (content.len() as u32 % cluster_size != 0) as u32;
