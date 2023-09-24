@@ -10,11 +10,20 @@ use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRendere
 use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::external_memory_bus::Bootrom, utils::stack_string::StackString};
 use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
+#[panic_handler]
+fn panic(info:&PanicInfo)->!{
+    log::error!("An error has occoured!: \r\n{}", info);
+
+    unsafe{boot::hang_led()};
+}
+
 const MAX_ROM_SIZE:usize = 0x80_0000;       // 8 MiB, Max size of MBC5 rom
+const MAX_RAM_SIZE:usize = 0x2_0000;        // 128 KiB
 
 // Allocating as static buffer (on the .bss) because it is a very large buffer and 
 // I dont want to cause problems in stack making it overflow and shit (I can increase it when needed but I afraid Id forget)
 static mut ROM_BUFFER:[u8; MAX_ROM_SIZE] = [0;MAX_ROM_SIZE];
+static mut RAM_BUFFER:[u8; MAX_RAM_SIZE] = [0;MAX_RAM_SIZE];
 
 // This function is no regular main.
 // It will not return and will be jumped to from the _start proc in the boot code
@@ -29,14 +38,6 @@ pub extern "C" fn main()->!{
     let mut power_manager = unsafe{PERIPHERALS.take_power()};
 
     let mut fs = Fat32::new();
-    let mut content = b"alon hagever".clone();
-    fs.write_file("TEST    TXT", &mut content);
-    // let file_entry = fs.root_dir_list::<20>(0).into_iter().find(|f|f.get_name() == "TEST    TXT").unwrap();
-    // let mut buffer = [0;512];
-    // fs.read_file(&file_entry, &mut buffer);
-    // for i in buffer{
-    //     log::warn!("{}", i as char);
-    // }
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
@@ -54,7 +55,8 @@ pub extern "C" fn main()->!{
     
     let rom = unsafe{&mut ROM_BUFFER};
     fs.read_file(selected_rom, rom);
-    let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], None, None);
+    let save_data = try_read_save_file(selected_rom, fs);
+    let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], save_data, None);
 
     let mut gameboy = GameBoy::new(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, Bootrom::None, None);
     log::info!("Initialized gameboy!");
@@ -84,6 +86,15 @@ pub extern "C" fn main()->!{
     }
 }
 
+fn try_read_save_file(selected_rom: &FileEntry, mut fs: Fat32) -> Option<&[u8]> {
+    let save_filename: StackString<11> = StackString::from_args(format_args!("{}SAV",&selected_rom.get_name()[..8]));
+    let file = search_file(&mut fs, save_filename.as_str())?;
+    let ram = unsafe{&mut RAM_BUFFER};
+    fs.read_file(&file, ram);
+    log::info!("Found save file for selected rom: {}", file.get_name());
+    return Some(ram);
+}
+
 fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, StackString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
     let mut menu_options_size = 0;
     let mut root_dir_offset = 0;
@@ -98,6 +109,7 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
                 log::debug!("Detected ROM: {}", entry.get_name());
             }
         }
+        // The fact that its not completely full indicatets that there are no more unread entries left
         if dir_entries.remaining_capacity() != 0{
             break;
         }
@@ -106,9 +118,20 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
     return menu_options_size;
 }
 
-#[panic_handler]
-fn panic(info:&PanicInfo)->!{
-    log::error!("An error has occoured!: \r\n{}", info);
-
-    unsafe{boot::hang_led()};
+fn search_file(fs:&mut Fat32, filename: &str)->Option<FileEntry>{
+    let mut menu_options_size = 0;
+    let mut root_dir_offset = 0;
+    const FILES_PER_LIST:usize = 20;
+    loop{
+        let dir_entries = fs.root_dir_list::<FILES_PER_LIST>(root_dir_offset);
+        for entry in &dir_entries{
+            if entry.get_name() == filename{
+                return Some(entry.clone());
+            }
+        }
+        if dir_entries.remaining_capacity() != 0{
+            return None;
+        }
+        root_dir_offset += FILES_PER_LIST;
+    }
 }

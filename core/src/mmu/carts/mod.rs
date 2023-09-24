@@ -17,11 +17,11 @@ pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 pub fn get_ram_size(ram_size_register:u8)->usize{
     match ram_size_register{
         0x0=>0,
-        0x1=>0x800,
+        0x1=>0x800,     // Unofficial - Undefined according to official docs
         0x2=>0x4000,
         0x3=>0x8000,
-        0x4=>0x20000,
-        0x5=>0x10000,
+        0x4=>0x2_0000,
+        0x5=>0x1_0000,
         _=>core::panic!("invalid ram size register {:#X}", ram_size_register)
     }
 }

@@ -100,7 +100,7 @@ struct SdCommand{
 
 impl SdCommand{
     fn get_command(self)->u32{
-        // Reverting the app_command bit in case it will distrrupt with the emmc device
+        // Reverting the app_command bit in case it will disrupt with the emmc device
         self.with_app_command(false).0
     }
 }
