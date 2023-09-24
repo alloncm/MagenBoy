@@ -276,10 +276,11 @@ impl<const FBS:usize> FatBuffer<FBS>{
     /// Sync the fat buffer to the disk
     fn flush(&mut self, disk:&mut Disk){
         // Sync all the fat sectors to disk
-        // for i in 0..self.fat_info.fats_count{
+        for i in 0..self.fat_info.fats_count{
             // let fat_start_sector = self.fat_info.first_fat_start_sector + self.get_interal_sector_index().ok().unwrap() /*+ (self.fat_info.sectors_per_fat * i)*/;
-            let _ = disk.write(self.fat_start_index.sector_number, &mut self.buffer[..self.buffer_len]);
-        // }
+            let start_sector = self.fat_start_index.sector_number + (self.fat_info.sectors_per_fat * i) as u32;
+            let _ = disk.write(start_sector, &mut self.buffer[..self.buffer_len]);
+        }
     }
 
     fn get_interal_sector_index(&self)->Result<usize, FatIndex>{
