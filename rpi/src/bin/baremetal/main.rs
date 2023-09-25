@@ -7,8 +7,8 @@ mod logging;
 use core::panic::PanicInfo;
 
 use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRenderer}, JoypadMenu, }, menu::*, VERSION};
-use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::external_memory_bus::Bootrom, utils::stack_string::StackString};
-use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
+use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::{external_memory_bus::Bootrom, carts::Mbc}, utils::stack_string::StackString};
+use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull, ResetMode, Power}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
 #[panic_handler]
 fn panic(info:&PanicInfo)->!{
@@ -35,9 +35,9 @@ pub extern "C" fn main()->!{
     log::info!("Initialized logger");
     log::info!("running at exec mode: {:#X}", boot::get_cpu_execution_mode());
 
-    let mut power_manager = unsafe{PERIPHERALS.take_power()};
+    let power_manager = unsafe{PERIPHERALS.take_power()};
 
-    let mut fs = Fat32::new();
+    let mut fs = Fat32Fs::new();
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
@@ -55,7 +55,7 @@ pub extern "C" fn main()->!{
     
     let rom = unsafe{&mut ROM_BUFFER};
     fs.read_file(selected_rom, rom);
-    let save_data = try_read_save_file(selected_rom, fs);
+    let save_data = try_read_save_file(selected_rom, &mut fs);
     let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], save_data, None);
 
     let mut gameboy = GameBoy::new(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, Bootrom::None, None);
@@ -72,13 +72,11 @@ pub extern "C" fn main()->!{
                 EmulatorMenuOption::Resume => {},
                 EmulatorMenuOption::Restart => {
                     log::info!("Reseting system");
-                    delay::wait_ms(100);
-                    power_manager.reset(magenboy_rpi::peripherals::ResetMode::Partition0)
+                    reset_system(mbc, fs, power_manager, ResetMode::Partition0, selected_rom);
                 }
                 EmulatorMenuOption::Shutdown => {
                     log::info!("Shuting down system");
-                    delay::wait_ms(100);
-                    power_manager.reset(magenboy_rpi::peripherals::ResetMode::Halt)
+                    reset_system(mbc, fs, power_manager, ResetMode::Halt, selected_rom);
                 }
             }
         }
@@ -86,16 +84,28 @@ pub extern "C" fn main()->!{
     }
 }
 
-fn try_read_save_file(selected_rom: &FileEntry, mut fs: Fat32) -> Option<&[u8]> {
-    let save_filename: StackString<11> = StackString::from_args(format_args!("{}SAV",&selected_rom.get_name()[..8]));
+fn reset_system<'a>(mbc: &'a dyn Mbc, mut fs: Fat32Fs, mut power_manager: Power, mode: ResetMode, selected_rom: &FileEntry)->!{
+    let filename = get_save_filename(selected_rom);
+    fs.write_file(filename.as_str(), mbc.get_ram());
+
+    delay::wait_ms(100);
+    power_manager.reset(mode);
+}
+
+fn try_read_save_file(selected_rom: &FileEntry, mut fs: &mut Fat32Fs) -> Option<&'static [u8]> {
+    let save_filename = get_save_filename(selected_rom);
     let file = search_file(&mut fs, save_filename.as_str())?;
-    let ram = unsafe{&mut RAM_BUFFER};
+    let ram = unsafe{&mut RAM_BUFFER[0..file.size as usize]};
     fs.read_file(&file, ram);
     log::info!("Found save file for selected rom: {}", file.get_name());
     return Some(ram);
 }
 
-fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, StackString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
+fn get_save_filename(selected_rom: &FileEntry) -> StackString<11> {
+    StackString::from_args(format_args!("{}SAV",&selected_rom.get_name()[..8]))
+}
+
+fn read_menu_options(fs: &mut Fat32Fs, menu_options: &mut [MenuOption<FileEntry, StackString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
     let mut menu_options_size = 0;
     let mut root_dir_offset = 0;
     const FILES_PER_LIST:usize = 20;
@@ -118,8 +128,7 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
     return menu_options_size;
 }
 
-fn search_file(fs:&mut Fat32, filename: &str)->Option<FileEntry>{
-    let mut menu_options_size = 0;
+fn search_file(fs:&mut Fat32Fs, filename: &str)->Option<FileEntry>{
     let mut root_dir_offset = 0;
     const FILES_PER_LIST:usize = 20;
     loop{

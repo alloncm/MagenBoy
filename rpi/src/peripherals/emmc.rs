@@ -161,6 +161,20 @@ struct Scr{
     version:u32,
 }
 
+enum InternalBuffer<'a>{
+    Mutable(&'a mut [u8]),
+    Immutable(&'a [u8]),
+}
+
+impl<'a> InternalBuffer<'a>{
+    fn len(&self)->usize{
+        match self{
+            Self::Mutable(b) => b.len(),
+            Self::Immutable(b) => b.len(),
+        }
+    }
+}
+
 // Mailbox params
 const GPIO_TAG_PIN_1_8V_CONTROL:u32 = 132;
 const SD_CARD_DEVICE_ID:u32         = 0;
@@ -284,21 +298,21 @@ impl Emmc{
 
     pub fn read(&mut self, buffer:&mut [u8])->bool{
         memory_barrier();
-        let result = self.execute_data_transfer_command(false, buffer).is_ok();
+        let result = self.execute_data_transfer_command(false, InternalBuffer::Mutable(buffer)).is_ok();
         memory_barrier();
         return result;
     }
 
-    pub fn write(&mut self, buffer: &mut [u8])->bool{
+    pub fn write(&mut self, buffer: &[u8])->bool{
         memory_barrier();
-        let result = self.execute_data_transfer_command(true, buffer).is_ok();
+        let result = self.execute_data_transfer_command(true, InternalBuffer::Immutable(buffer)).is_ok();
         memory_barrier();
         return result;
     }
 
     pub fn get_block_size(&self)->u32{self.block_size}
 
-    fn execute_data_transfer_command(&mut self, write: bool, buffer: &mut [u8])->Result<(), SdError>{
+    fn execute_data_transfer_command(&mut self, write: bool, mut buffer: InternalBuffer)->Result<(), SdError>{
         if self.offset % BLOCK_SIZE as u64 != 0{
             return Err(SdError::Error);
         }
@@ -324,7 +338,7 @@ impl Emmc{
             else{SdCommandType::ReadBlock};
         
         for _ in 0..3{
-            if self.send_command(command_type, block_index, 5000, Some(buffer)).is_ok(){
+            if self.send_command(command_type, block_index, 5000, Some(&mut buffer)).is_ok(){
                 return Ok(());
             }
         }
@@ -405,7 +419,7 @@ impl Emmc{
         let mut scr_buffer = [0;8];
         self.block_size = 8;
         self.transfer_blocks = 1;
-        self.send_command(SdCommandType::SendScr, 0, 30000, Some(&mut scr_buffer)).unwrap();
+        self.send_command(SdCommandType::SendScr, 0, 30000, Some(&mut InternalBuffer::Mutable(&mut scr_buffer))).unwrap();
         // continue later
         self.block_size = BLOCK_SIZE;
         self.scr.register[0] = u32::from_ne_bytes(scr_buffer[0..4].try_into().unwrap());
@@ -436,7 +450,7 @@ impl Emmc{
         log::debug!("SD Spec version: {}", self.scr.version);
     }
 
-    fn transfer_data(&mut self, command:SdCommand, buffer:&mut [u8]){
+    fn transfer_data(&mut self, command:SdCommand, buffer:&mut InternalBuffer){
         let (wr_irpt, write) = if command.direction(){(INTERRUPT_READ_RDY, false)} else{(INTERRUPT_WRITE_RDY, true)};
 
         for i in 0..self.transfer_blocks{
@@ -452,12 +466,14 @@ impl Emmc{
             let iteration_len = self.block_size as usize / DATA_REG_SIZE;
             let block_index = i as usize * self.block_size as usize;   
             if write{
+                let InternalBuffer::Immutable(buffer) = buffer else {core::unreachable!("Internal Emmc Error!, Received Mutable buffer on emmc write operation")};
                 for j in 0..iteration_len{
                     let data:[u8; DATA_REG_SIZE as usize] = buffer[block_index + (j * DATA_REG_SIZE) .. block_index + ((j + 1) * DATA_REG_SIZE)].try_into().unwrap();
                     self.registers.data.write(u32::from_ne_bytes(data));
                 }
             }
             else{
+                let InternalBuffer::Mutable(buffer) = buffer else {core::unreachable!("Internal Emmc Error!, Received Immutable buffer on emmc read operation")};
                 for j in 0..iteration_len{
                     let data = u32::to_ne_bytes(self.registers.data.read());
                     buffer[block_index + (j * DATA_REG_SIZE) .. block_index + ((j + 1) * DATA_REG_SIZE)].copy_from_slice(&data);
@@ -472,7 +488,7 @@ impl Emmc{
         return Self::wait_timeout(&self.registers.control[1], CONTROL1_SRST_CMD, true, 1, 10000).is_ok();
     }
 
-    fn send_command(&mut self, command_type:SdCommandType, arg:u32, timeout_ms:u32, buffer:Option<&mut [u8]>)->Result<(), SdError>{
+    fn send_command(&mut self, command_type:SdCommandType, arg:u32, timeout_ms:u32, buffer:Option<&mut InternalBuffer>)->Result<(), SdError>{
         log::trace!("Received command type: {:#?}", command_type);
         let command = resolve_command(command_type);
 
@@ -486,7 +502,7 @@ impl Emmc{
         return self.send_raw_command(command, arg, timeout_ms, buffer);
     }
     
-    fn send_raw_command(&mut self, command:SdCommand, arg:u32, timeout_ms:u32, buffer:Option<&mut [u8]>)->Result<(), SdError>{
+    fn send_raw_command(&mut self, command:SdCommand, arg:u32, timeout_ms:u32, buffer:Option<&mut InternalBuffer>)->Result<(), SdError>{
         log::trace!("Command {:#X} is being processed", command.0);
 
         let block_size_count_value = self.block_size | (self.transfer_blocks << 16);

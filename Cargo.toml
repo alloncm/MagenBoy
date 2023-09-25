@@ -10,3 +10,6 @@ members = [
 version = "4.0.0"
 authors = ["alloncm <alloncm@gmail.com>"]
 rust-version = "1.70"   # cause of once cell
+
+[profile.release]
+lto = true  # Samller binaries and faster code

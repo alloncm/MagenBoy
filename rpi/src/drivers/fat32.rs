@@ -255,7 +255,7 @@ impl<const FBS:usize> FatBuffer<FBS>{
         return Ok(entry & FAT_ENTRY_MASK);
     }
 
-    /// On error retusns the last valid fat index
+    /// On error returns the last valid fat index
     fn write(&mut self, mut value:u32)->Result<(), FatIndex>{
         let interal_sector_index = self.get_interal_sector_index()?;
         let start_index = (interal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
@@ -269,7 +269,6 @@ impl<const FBS:usize> FatBuffer<FBS>{
             self.fat_internal_index.sector_number += 1;
             self.fat_internal_index.sector_offset = 0;
         }
-        log::debug!("FAT buffer write, start_index: {:?}, buffer_start: {}, value: {}", self.fat_start_index, start_index, value);
         return Ok(());
     }
 
@@ -298,7 +297,7 @@ const MAX_FAT_SEGMENTS_COUNT: usize = MAX_FILES * 100;
 
 const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
-pub struct Fat32{
+pub struct Fat32Fs{
     disk: Disk,
     boot_sector:Fat32BootSector,
     partition_start_sector_index:u32,
@@ -310,7 +309,7 @@ pub struct Fat32{
     root_dir_allocated_clusters_count: u32,
 }
 
-impl Fat32{
+impl Fat32Fs{
     pub fn new()->Self{
         let mut disk = Disk::new();
         // This driver currently support only a single partition (some has more than one for backup or stuff I dont know)
@@ -476,7 +475,7 @@ impl Fat32{
     }
 
     /// Write a file to the root dir
-    pub fn write_file(&mut self, filename:&str, content:&mut [u8]){
+    pub fn write_file(&mut self, filename:&str, content:&[u8]){
         log::debug!("Writing file: {}, size: {}", filename, content.len());
         let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster as u32;
         let cluster_size = sectors_per_cluster * SECTOR_SIZE as u32;
@@ -555,22 +554,22 @@ impl Fat32{
         self.write_root_dir_cache();
     }
 
-    fn write_to_data_section(&mut self, content: &mut [u8], cluster_size: u32, first_cluster_index: u32) {
-        let mut chunks = content.chunks_exact_mut(cluster_size as usize);
+    fn write_to_data_section(&mut self, content: &[u8], cluster_size: u32, first_cluster_index: u32) {
+        let chunks = content.chunks_exact(cluster_size as usize);
+        let reminder_chunks = chunks.remainder().chunks_exact(SECTOR_SIZE);
         let mut cluster_index = first_cluster_index;
-        while let Some(chunk) = chunks.next() {
+       for chunk in chunks {
             let start_sector = self.get_cluster_start_sector_index(cluster_index);
             let _ = self.disk.write(start_sector, chunk);
             cluster_index += 1;
         }
-        let mut reminder_chunks = chunks.into_remainder().chunks_exact_mut(SECTOR_SIZE);
         let mut sector_index = self.get_cluster_start_sector_index(cluster_index);
-        while let Some(chunk) = reminder_chunks.next() {
+        let last_reminder_chunk = reminder_chunks.remainder();
+        for chunk in reminder_chunks {
             sector_index += self.disk.write(sector_index, chunk);
         }
-        let reminder_chunk = reminder_chunks.into_remainder();
         let mut buffer = [0;SECTOR_SIZE];
-        buffer[..reminder_chunk.len()].copy_from_slice(reminder_chunk);
+        buffer[..last_reminder_chunk.len()].copy_from_slice(last_reminder_chunk);
         let _ = self.disk.write(sector_index, &mut buffer);
     }
 

@@ -65,7 +65,7 @@ impl Disk{
     }
 
     /// Returns the number of blocks the write operation modified
-    pub fn write(&mut self, block_index:u32, buffer:&mut [u8])->u32{
+    pub fn write(&mut self, block_index:u32, buffer:&[u8])->u32{
         self.prepare_for_disk_operation(block_index, buffer);
         if !self.emmc.write(buffer){
             core::panic!("Error while writing object of size: {}", buffer.len());
