@@ -88,6 +88,7 @@ fn reset_system<'a>(mbc: &'a dyn Mbc, mut fs: Fat32Fs, mut power_manager: Power,
     let filename = get_save_filename(selected_rom);
     fs.write_file(filename.as_str(), mbc.get_ram());
 
+    // delaying the reset operation so other low level tasks will have enough time to finish (like uart transmision)
     delay::wait_ms(100);
     power_manager.reset(mode);
 }

@@ -62,8 +62,8 @@ impl Default for Fat32BootSector{
 #[derive(Clone, Copy, Default)]
 #[repr(C, packed)]
 struct FatShortDirEntry{
-    file_name:[u8;8],
-    file_extension:[u8;3],
+    file_name:[u8;Self::FILE_NAME_SIZE],
+    file_extension:[u8;Self::FILE_EXTENSION_SIZE],
     attributes:u8,
     nt_reserve:u8,
     creation_time_tenth_secs:u8,
@@ -79,7 +79,11 @@ struct FatShortDirEntry{
 compile_time_size_assert!(FatShortDirEntry, 32);
 
 impl FatShortDirEntry{
-    fn new(name:[u8;8], extension:[u8;3], size:u32)->Self{
+    const FILE_NAME_SIZE:usize = 8;
+    const FILE_EXTENSION_SIZE:usize = 3;
+    const FULL_FILENAME_SIZE:usize = Self::FILE_NAME_SIZE + Self::FILE_EXTENSION_SIZE;
+
+    fn new(name:[u8;Self::FILE_NAME_SIZE], extension:[u8;Self::FILE_EXTENSION_SIZE], size:u32)->Self{
         Self { 
             file_name: name, file_extension: extension, attributes: 0, nt_reserve: 0, creation_time_tenth_secs: 0, creation_time: 0, 
             creation_date: 0, last_access_date: 0, first_cluster_index_high:0, last_write_time: 0, last_write_date: 0, first_cluster_index_low:0, size
@@ -92,10 +96,10 @@ impl FatShortDirEntry{
         self.first_cluster_index_low = (first_cluster_index & 0xFFFF) as u16;
         self.first_cluster_index_high = (first_cluster_index >> 16) as u16;
     }
-    fn get_filename(&self)->[u8;11]{
-        let mut filename:[u8;11] = [0;11];
-        filename[..8].copy_from_slice(&self.file_name);
-        filename[8..11].copy_from_slice(&self.file_extension);
+    fn get_filename(&self)->[u8;Self::FULL_FILENAME_SIZE]{
+        let mut filename = [0;Self::FULL_FILENAME_SIZE];
+        filename[.. Self::FILE_NAME_SIZE].copy_from_slice(&self.file_name);
+        filename[Self::FILE_NAME_SIZE ..].copy_from_slice(&self.file_extension);
         return filename;
     }
 }
@@ -154,15 +158,6 @@ struct FatIndex{
     sector_offset:usize,
 }
 
-impl FatIndex{
-    fn get_fat_entry(&mut self, buffer:&[u8;FAT_ENTRY_SIZE])->u32{
-       u32::from_ne_bytes(*buffer)
-    }
-    fn get_raw_fat_entry(&mut self, entry:u32)->[u8;FAT_ENTRY_SIZE]{
-        u32::to_ne_bytes(entry)
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum FatSegmentState{
     Free,
@@ -189,7 +184,7 @@ impl FatSegmentState{
     fn should_continue_segment(&self, other: &Self)->bool{
         // AllocatedEof is should never continue segment 
         // otherwise fallback to check raw values of the enum
-        if *self as isize == Self::AllocatedEof as isize || *other as isize == Self::AllocatedEof as isize{
+        if *self == Self::AllocatedEof || *other == Self::AllocatedEof{
             return false;
         }
         return self == other;
@@ -215,6 +210,10 @@ struct FatInfo{
     sectors_per_fat:usize,
     fats_count:usize
 }
+
+// This is the default size of a fat buffer
+// the actual size is just twicking between fewer read operation and smaller buffer
+const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
 struct FatBuffer<const FBS:usize = FAT_BUFFER_SIZE>{
     buffer:[u8;FBS],
@@ -245,7 +244,7 @@ impl<const FBS:usize> FatBuffer<FBS>{
         let interal_sector_index = self.get_interal_sector_index()?;
         let start_index = (interal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
         let end_index = start_index + FAT_ENTRY_SIZE;
-        let entry = self.fat_internal_index.get_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
+        let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
         self.fat_internal_index.sector_offset += FAT_ENTRY_SIZE;
         if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
             self.fat_internal_index.sector_number += 1;
@@ -260,10 +259,10 @@ impl<const FBS:usize> FatBuffer<FBS>{
         let interal_sector_index = self.get_interal_sector_index()?;
         let start_index = (interal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
         let end_index = start_index + FAT_ENTRY_SIZE;
-        let entry = self.fat_internal_index.get_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
+        let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
         let reserved_bits = entry & (!FAT_ENTRY_MASK);
         value = (value & FAT_ENTRY_MASK) | reserved_bits;
-        self.buffer[start_index ..  end_index].copy_from_slice(&self.fat_internal_index.get_raw_fat_entry(value));
+        self.buffer[start_index ..  end_index].copy_from_slice(&Self::fat_entry_to_bytes(value));
         self.fat_internal_index.sector_offset += FAT_ENTRY_SIZE;
         if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
             self.fat_internal_index.sector_number += 1;
@@ -289,13 +288,14 @@ impl<const FBS:usize> FatBuffer<FBS>{
         }
         return Ok(interal_sector_index);
     }
+
+    fn bytes_to_fat_entry(buffer:&[u8;FAT_ENTRY_SIZE])->u32 {u32::from_ne_bytes(*buffer)}
+    fn fat_entry_to_bytes(entry:u32)->[u8;FAT_ENTRY_SIZE] {u32::to_ne_bytes(entry)}
 }
 
 // Currently the driver support only 0x100 files in the root directory
 const MAX_FILES: usize = 0x100;
 const MAX_FAT_SEGMENTS_COUNT: usize = MAX_FILES * 100;
-
-const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
 pub struct Fat32Fs{
     disk: Disk,
@@ -369,9 +369,12 @@ impl Fat32Fs{
         log::debug!("Root dir allocated clusters count: {}", self.root_dir_allocated_clusters_count);
     }
 
-    // Optimization: Perhaps I can read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free
-    // Tried that, for some reason there were allcoated entries on the FAT that I couldnt understand what allocated them so Ill live it like that for now
+    // Failed Optimization Attempt: I treid to read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free
+    // for some reason there were allcoated entries on the FAT that I couldnt understand what allocated them and couldnt predict and calculate the expected entries count
+    // Ill live it like that for now
     fn init_fat_table_cache(&mut self){
+        // This buffer is buigger then the default in order to minimize the number of read operations
+        // The value is twicked for faster reads
         const INIT_FAT_BUFFER_SIZE:usize = FAT_BUFFER_SIZE * 10;
         let mut fat_buffer:FatBuffer<INIT_FAT_BUFFER_SIZE> = FatBuffer::new(self.fat_info, 0, None, &mut self.disk);
 
@@ -446,7 +449,7 @@ impl Fat32Fs{
         match fat_first_entry.state {
             FatSegmentState::Allocated => fat_first_entry.len += 1,
             FatSegmentState::AllocatedEof => {},
-            _ => core::panic!("Error recevied not allocated segment"),
+            _ => core::panic!("FAT32 Driver Error! - tried to read file: {} but the fat segment was not allocated: {}", file_entry.get_name(), file_entry.first_cluster_index),
         }
         let mut fat_buffer:FatBuffer = FatBuffer::new(self.fat_info, file_entry.first_cluster_index as usize, Some(fat_first_entry.len as usize), &mut self.disk);
 
@@ -574,16 +577,16 @@ impl Fat32Fs{
     }
 
     fn create_filename(&self, filename:&str)->Result<([u8;8],[u8;3]), ()>{
-        const ILLEGAL_CHARS:[u8;16] = [b'"', b'*', b'+', b',', b'.', b'/', b':', b';', b'<', b'=', b'>', b'?', b'[',b'\\', b']', b'|' ];
-        if filename.len() != 11 || 
+        const FAT32_ILLEGAL_CHARS:[u8;16] = [b'"', b'*', b'+', b',', b'.', b'/', b':', b';', b'<', b'=', b'>', b'?', b'[',b'\\', b']', b'|' ];
+        if filename.len() != FatShortDirEntry::FULL_FILENAME_SIZE || 
             !filename.is_ascii() || 
-            filename.as_bytes().into_iter().any(|b|ILLEGAL_CHARS.contains(b) && *b > 0x20) || 
+            filename.as_bytes().into_iter().any(|b|FAT32_ILLEGAL_CHARS.contains(b) && *b > 0x20) || 
             filename.as_bytes().into_iter().any(|c| *c >= b'a' && *c <= b'z'){
             return Err(());
         }
-        let filename:[u8;11] = filename.as_bytes().try_into().unwrap();
-        let name:[u8;8] = filename[..8].try_into().unwrap();
-        let extension:[u8;3] = filename[8..].try_into().unwrap();
+        let raw_filename:[u8;FatShortDirEntry::FULL_FILENAME_SIZE] = filename.as_bytes().try_into().unwrap();
+        let name:[u8;FatShortDirEntry::FILE_NAME_SIZE] = raw_filename[.. FatShortDirEntry::FILE_NAME_SIZE].try_into().unwrap();
+        let extension:[u8;FatShortDirEntry::FILE_EXTENSION_SIZE] = raw_filename[FatShortDirEntry::FILE_NAME_SIZE ..].try_into().unwrap();
         return Ok((name, extension));
     }
 
