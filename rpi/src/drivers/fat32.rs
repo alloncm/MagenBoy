@@ -120,7 +120,7 @@ struct FatLongDirEntry{
 }
 
 const DISK_PARTITION_INDEX:u8       = 0;
-const SECTOR_SIZE:usize             = 512; 
+const SECTOR_SIZE:usize             = Disk::get_block_size() as usize;
 const FAT_ENTRY_SIZE:usize          = size_of::<u32>(); // each fat entry in fat32 is 4 the size of u32
 const FAT_ENTRY_EOF_INDEX:u32       = 0x0FFF_FFFF;
 const FAT_ENTRY_MASK:u32            = 0x0FFF_FFFF;
@@ -327,7 +327,7 @@ impl Fat32Fs{
             core::panic!("Detected FAT16 and not FAT32 file system");
         }
         let bytes_per_sector = boot_sector.fat32_bpb.bytes_per_sector as u32;
-        if bytes_per_sector != disk.get_block_size() || bytes_per_sector != SECTOR_SIZE as u32{
+        if bytes_per_sector != SECTOR_SIZE as u32{
             core::panic!("Currently dont support fat32 disks with sectors size other than {}", SECTOR_SIZE);
         }
         let fat_count = boot_sector.fat32_bpb.fats_count;

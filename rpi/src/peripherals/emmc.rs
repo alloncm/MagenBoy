@@ -310,7 +310,7 @@ impl Emmc{
         return result;
     }
 
-    pub fn get_block_size(&self)->u32{self.block_size}
+    pub const fn get_block_size()->u32{BLOCK_SIZE}
 
     fn execute_data_transfer_command(&mut self, write: bool, mut buffer: InternalBuffer)->Result<(), SdError>{
         if self.offset % BLOCK_SIZE as u64 != 0{
