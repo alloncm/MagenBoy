@@ -12,7 +12,7 @@ use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull, ResetMode, P
 
 #[panic_handler]
 fn panic(info:&PanicInfo)->!{
-    log::error!("An error has occoured!: \r\n{}", info);
+    log::error!("An error has occurred!: \r\n{}", info);
 
     unsafe{boot::hang_led()};
 }
@@ -21,7 +21,7 @@ const MAX_ROM_SIZE:usize = 0x80_0000;       // 8 MiB, Max size of MBC5 rom
 const MAX_RAM_SIZE:usize = 0x2_0000;        // 128 KiB
 
 // Allocating as static buffer (on the .bss) because it is a very large buffer and 
-// I dont want to cause problems in stack making it overflow and shit (I can increase it when needed but I afraid Id forget)
+// I don't want to cause problems in stack making it overflow and shit (I can increase it when needed but I afraid Id forget)
 static mut ROM_BUFFER:[u8; MAX_ROM_SIZE] = [0;MAX_ROM_SIZE];
 static mut RAM_BUFFER:[u8; MAX_RAM_SIZE] = [0;MAX_RAM_SIZE];
 
@@ -42,7 +42,7 @@ pub extern "C" fn main()->!{
     let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
     let mut pause_menu_joypad_provider = joypad_provider.clone();
-    log::info!("Initialize all drivers succesfully");
+    log::info!("Initialize all drivers successfully");
 
     let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
 
@@ -71,7 +71,7 @@ pub extern "C" fn main()->!{
             match pause_menu.get_menu_selection(&mut pause_menu_joypad_provider){
                 EmulatorMenuOption::Resume => {},
                 EmulatorMenuOption::Restart => {
-                    log::info!("Reseting system");
+                    log::info!("Resetting system");
                     reset_system(mbc, fs, power_manager, ResetMode::Partition0, selected_rom);
                 }
                 EmulatorMenuOption::Shutdown => {
@@ -88,7 +88,7 @@ fn reset_system<'a>(mbc: &'a dyn Mbc, mut fs: Fat32Fs, mut power_manager: Power,
     let filename = get_save_filename(selected_rom);
     fs.write_file(filename.as_str(), mbc.get_ram());
 
-    // delaying the reset operation so other low level tasks will have enough time to finish (like uart transmision)
+    // delaying the reset operation so other low level tasks will have enough time to finish (like uart transmission)
     delay::wait_ms(100);
     power_manager.reset(mode);
 }
@@ -120,7 +120,7 @@ fn read_menu_options(fs: &mut Fat32Fs, menu_options: &mut [MenuOption<FileEntry,
                 log::debug!("Detected ROM: {}", entry.get_name());
             }
         }
-        // The fact that its not completely full indicatets that there are no more unread entries left
+        // The fact that its not completely full indicates that there are no more unread entries left
         if dir_entries.remaining_capacity() != 0{
             break;
         }
