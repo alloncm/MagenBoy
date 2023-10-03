@@ -224,14 +224,16 @@ struct FatBuffer<const FBS:usize = FAT_BUFFER_SIZE>{
 }
 
 impl<const FBS:usize> FatBuffer<FBS>{
+    // The buffer Im reading will be the same buffer that Im writing back
+    // so it must be aligned in order to not corrupt the fat table
     fn new(fat_info:FatInfo, first_cluster_index:usize, entries_count: Option<usize>, disk: &mut Disk)->Self{
-        let entries_count = entries_count.unwrap_or(FBS / FAT_ENTRY_SIZE);
+        let entries_count = entries_count.unwrap_or((FBS - SECTOR_SIZE) / FAT_ENTRY_SIZE);      // The max size is smaller cause I need some padding space for alignment
         let mut buffer = [0; FBS];
         let fat_offset = first_cluster_index * FAT_ENTRY_SIZE;
         let fat_index = FatIndex{ sector_number: (fat_info.first_fat_start_sector + (fat_offset / SECTOR_SIZE)) as u32, sector_offset: fat_offset % SECTOR_SIZE };
         
-        // The emmc can't read between sectors so align the start of the read to a sector 
-        let fat_end_read = fat_index.sector_offset + (entries_count * FAT_ENTRY_SIZE);
+        // Align the end read to SECTOR_SIZE, since the FAT table is not aligned we need to read exactly X sectors in order to be able to write them back later
+        let fat_end_read = (entries_count * FAT_ENTRY_SIZE) + (SECTOR_SIZE - ((entries_count * FAT_ENTRY_SIZE) % SECTOR_SIZE));
         if fat_end_read > FBS{
             core::panic!("Error fat entries count is too much: expected:{}, actual: {}", FBS / FAT_ENTRY_SIZE, entries_count);
         }

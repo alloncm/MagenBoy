@@ -68,6 +68,7 @@ impl Disk{
             // early return if the buffer is aligned
             if buffer_len_reminder == 0 {return};
         }
+        log::warn!("Triggered unaligned read");
         // handle the case buffer length is not aligned for block size
         let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
         self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
@@ -92,9 +93,10 @@ impl Disk{
             // early return since the buffer is aligned
             if buffer_len_reminder == 0 {return};
         }
+        log::warn!("Triggered unaligned write: len: {}", buffer.len());
         // handle the case buffer length is not aligned for block size
         let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
-        temp_buffer[max_aligned_buffer_len..].copy_from_slice(&buffer[..buffer_len_reminder]);
+        temp_buffer[..buffer_len_reminder].copy_from_slice(&buffer[max_aligned_buffer_len..]);
         self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
         self.emmc_write(&temp_buffer);
     }
