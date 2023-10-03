@@ -317,7 +317,7 @@ impl Fat32Fs{
         let bpb_sector_index = disk.get_partition_first_sector_index(DISK_PARTITION_INDEX);
 
         let mut boot_sector:Fat32BootSector = Default::default();
-        let buffer = unsafe{as_mut_buffer(&mut boot_sector)};
+        let buffer = as_mut_buffer(&mut boot_sector);
         disk.read(bpb_sector_index, buffer);
 
         let fs_type_label = boot_sector.fs_type_label.clone();
@@ -355,7 +355,7 @@ impl Fat32Fs{
         let mut sector_offset = 0;
         'search: loop{
             let mut root_dir = [FatShortDirEntry::default();FAT_DIR_ENTRIES_PER_SECTOR];
-            let buffer = unsafe{as_mut_buffer(&mut root_dir)};
+            let buffer = as_mut_buffer(&mut root_dir);
             self.disk.read(root_start_sector_index + sector_offset, buffer);
             sector_offset += 1;     // Since root_dir buffer contains enough entries for exactly 1 sector
             for dir in root_dir{
@@ -579,18 +579,8 @@ impl Fat32Fs{
     }
 
     fn write_root_dir_cache(&mut self){
-        let mut root_sector_index = self.get_cluster_start_sector_index(self.boot_sector.fat32_bpb.root_dir_first_cluster);
-        let mut chunks = self.root_dir_cache.chunks_exact_mut(FAT_DIR_ENTRIES_PER_SECTOR);
-        let mut buffer = [FatShortDirEntry::default(); FAT_DIR_ENTRIES_PER_SECTOR];
-        while let Some(chunk) = chunks.next(){
-            buffer.copy_from_slice(chunk);
-            let mut buffer = unsafe{as_mut_buffer(&mut buffer)};
-            self.disk.write(root_sector_index, &mut buffer);
-            root_sector_index += 1;     // Since the buffer contains exactly single sector
-        }
-        let reminder = chunks.into_remainder();
-        buffer[..reminder.len()].copy_from_slice(reminder);
-        let buffer = unsafe{as_mut_buffer(&mut buffer)};
+        let root_sector_index = self.get_cluster_start_sector_index(self.boot_sector.fat32_bpb.root_dir_first_cluster);
+        let buffer = Self::arrayvec_as_buffer(&self.root_dir_cache);
         self.disk.write(root_sector_index, buffer);
     }
 
@@ -600,5 +590,9 @@ impl Fat32Fs{
         self.partition_start_sector_index + self.boot_sector.fat32_bpb.reserved_sectors_count as u32 + 
         ((cluster - FIRST_DATA_CLUSTER) * self.boot_sector.fat32_bpb.sectors_per_cluster as u32) + 
         (self.boot_sector.fat32_bpb.sectors_per_fat_32 * self.boot_sector.fat32_bpb.fats_count as u32)
+    }
+    
+    fn arrayvec_as_buffer<'a, T, const CAP:usize>(vec:&'a ArrayVec<T, CAP>)->&'a [u8]{
+        unsafe{core::slice::from_raw_parts(vec.as_ptr() as *const u8, vec.len() * core::mem::size_of::<T>())}
     }
 }

@@ -11,7 +11,6 @@ pub use ili9341_gfx_device::*;
 
 
 #[cfg(not(feature = "os"))]
-pub(crate) unsafe fn as_mut_buffer<'a, T>(t:&'a mut T)->&'a mut [u8]{
-    let buffer = &mut *core::ptr::slice_from_raw_parts_mut(t as *mut T as *mut _, core::mem::size_of::<T>());
-    return buffer;
+pub(crate) fn as_mut_buffer<'a, T>(t:&'a mut T)->&'a mut [u8]{
+    unsafe{&mut *core::ptr::slice_from_raw_parts_mut(t as *mut T as *mut _, core::mem::size_of::<T>())}
 }

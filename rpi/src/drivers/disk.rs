@@ -44,7 +44,7 @@ impl Disk{
         emmc.init();
 
         let mut mbr = MasterBootRecord::default();
-        let buffer = unsafe{as_mut_buffer(&mut mbr)};
+        let buffer = as_mut_buffer(&mut mbr);
         
         if !emmc.read(buffer){
             core::panic!("Cant read MBR from disk");
@@ -68,7 +68,6 @@ impl Disk{
             // early return if the buffer is aligned
             if buffer_len_reminder == 0 {return};
         }
-        log::warn!("Triggered unaligned read");
         // handle the case buffer length is not aligned for block size
         let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
         self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
@@ -93,7 +92,6 @@ impl Disk{
             // early return since the buffer is aligned
             if buffer_len_reminder == 0 {return};
         }
-        log::warn!("Triggered unaligned write: len: {}", buffer.len());
         // handle the case buffer length is not aligned for block size
         let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
         temp_buffer[..buffer_len_reminder].copy_from_slice(&buffer[max_aligned_buffer_len..]);
