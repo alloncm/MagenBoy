@@ -354,13 +354,11 @@ impl Fat32Fs{
         // create a new file by allocating place in the root dir and then picking some free fat segment to use it's clusters
         let new_dir_entry = match self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name[0] == DELETED_DIR_ENTRY_PREFIX){
             Some(dir) => {
-                log::warn!("Using the space of another deleted dir entry");
                 dir.file_name = name;
                 dir.file_extension = extension;
                 dir
             }
             None => {
-                log::warn!("Adding another dir entry");
                 // Check the root dir allocation size to check it needs to be reallocated
                 let root_dir_allocation_size = (self.root_dir_allocated_clusters_count * self.boot_sector.fat32_bpb.sectors_per_cluster as u32) as usize * SECTOR_SIZE;
                 let expected_root_dir_size_after_allocation = (self.root_dir_cache.len() + 1) * size_of::<FatShortDirEntry>();
