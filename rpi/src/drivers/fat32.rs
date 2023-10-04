@@ -1,4 +1,4 @@
-use core::mem::size_of;
+use core::{mem::size_of, ops::ControlFlow};
 
 use arrayvec::ArrayVec;
 
@@ -124,6 +124,7 @@ const SECTOR_SIZE:usize             = Disk::get_block_size() as usize;
 const FAT_ENTRY_SIZE:usize          = size_of::<u32>(); // each fat entry in fat32 is 4 the size of u32
 const FAT_ENTRY_EOF_INDEX:u32       = 0x0FFF_FFFF;
 const FAT_ENTRY_MASK:u32            = 0x0FFF_FFFF;
+const FAT_ENTRY_FREE_INDEX:u32      = 0;
 const DELETED_DIR_ENTRY_PREFIX:u8   = 0xE5;
 const DIR_EOF_PREFIX:u8             = 0;
 
@@ -445,6 +446,7 @@ impl Fat32Fs{
     /// Reads a file from the first FAT
     pub fn read_file(&mut self, file_entry:&FileEntry, output:&mut [u8]){
         log::debug!("Reading file {}, size {}, cluster: {}", file_entry.get_name(), file_entry.size, file_entry.first_cluster_index);
+        if file_entry.size == 0 {return}
 
         let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster;
         let mut fat_first_entry = self.fat_table_cache.as_slice().into_iter().find(|t|t.start_index == file_entry.first_cluster_index).unwrap().clone();
@@ -476,7 +478,6 @@ impl Fat32Fs{
             cluster_counter += clusters_sequence;
             clusters_sequence = 1;
         }
-        // TODO: verify all the file has been read
     }
 
     /// Write a file to the root dir
@@ -485,41 +486,20 @@ impl Fat32Fs{
         let sectors_per_cluster = self.boot_sector.fat32_bpb.sectors_per_cluster as u32;
         let cluster_size = sectors_per_cluster * SECTOR_SIZE as u32;
         let (name, extension) = self.create_filename(filename).unwrap_or_else(|_|core::panic!("File name format is bad: {}", filename));
-        // check if file exists, if exists try to overwrite it, if cant mark it as deleted
-        if let Some(existing_entry) = self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name == name && d.file_extension == extension){
-            if (existing_entry.size as usize) < content.len(){
-                existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
-                // TODO: mark the fat entries as free
-            }
-            else{
-                let existing_entry = existing_entry.clone();        // Shadow the original in order to satisfy the borrow checker
-                let mut segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == existing_entry.get_first_cluster_index()).unwrap().clone();
-                match segment.state {
-                    FatSegmentState::Allocated => segment.len += 1,
-                    FatSegmentState::AllocatedEof => {},
-                    _ => core::panic!("Error received not allocated segment"),
-                }
-                let mut fat_buffer:FatBuffer = FatBuffer::new(self.fat_info, existing_entry.get_first_cluster_index() as usize, Some(segment.len as usize), &mut self.disk);
-                let mut current_cluster = existing_entry.get_first_cluster_index();
-                let mut cluster_count = 0;
-                while cluster_count < segment.len{
-                    self.write_to_data_section(content, current_cluster);
 
-                    current_cluster = fat_buffer.read().ok().unwrap();
-                    cluster_count += 1;
-                }
-                return;
-            }
-        }
+        // check if file exists, if exists try to overwrite it, if cant mark it as deleted
+        if let ControlFlow::Break(()) = self.handle_existing_filename(name, extension, content) {return}
 
         // create a new file by allocating place in the root dir and then picking some free fat segment to use it's clusters
         let new_dir_entry = match self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name[0] == DELETED_DIR_ENTRY_PREFIX){
             Some(dir) => {
+                log::warn!("Using the space of another deleted dir entry");
                 dir.file_name = name;
                 dir.file_extension = extension;
                 dir
             }
             None => {
+                log::warn!("Adding another dir entry");
                 // Check the root dir allocation size to check it needs to be reallocated
                 let root_dir_allocation_size = (self.root_dir_allocated_clusters_count * self.boot_sector.fat32_bpb.sectors_per_cluster as u32) as usize * SECTOR_SIZE;
                 let expected_root_dir_size_after_allocation = (self.root_dir_cache.len() + 1) * size_of::<FatShortDirEntry>();
@@ -533,7 +513,7 @@ impl Fat32Fs{
                 // Root dir cache len must be at least 2 (entry for the root dir itself and a EOF) and not the one I inserted (so actually 3)
                 // This returns the last non EOF entry
                 &mut self.root_dir_cache[root_dir_cache_updated_len - 2]
-            },
+            }
         };
         let required_clusters_count = (content.len() as u32 / cluster_size) + (content.len() as u32 % cluster_size != 0) as u32;
         let free_fat_segment = self.fat_table_cache.as_slice().into_iter().find(|t|t.state == FatSegmentState::Free && t.len >= required_clusters_count).unwrap();
@@ -557,6 +537,51 @@ impl Fat32Fs{
         // sync the modifications
         fat_buffer.flush(&mut self.disk);
         self.write_root_dir_cache();
+    }
+
+    fn handle_existing_filename(&mut self, name: [u8; 8], extension: [u8; 3], content: &[u8]) -> ControlFlow<()> {
+        if let Some(existing_entry) = self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name == name && d.file_extension == extension){
+            log::debug!("File already exists, overwriting it");
+            if existing_entry.size == 0 {
+                existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
+                return ControlFlow::Continue(())
+            };
+
+            let segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == existing_entry.get_first_cluster_index()).unwrap().clone();
+            let segment_len = match segment.state {
+                FatSegmentState::Allocated => segment.len + 1,
+                FatSegmentState::AllocatedEof => 1,
+                _ => core::panic!("FAT32 FS Error: received not allocated segment"),
+            };
+            let mut fat_buffer:FatBuffer = FatBuffer::new(self.fat_info, existing_entry.get_first_cluster_index() as usize, Some(segment_len as usize), &mut self.disk);
+
+            // Possible Optimization: Allow more cases to reuse the allocation
+            // 1. if its in the range of the cluster alignment
+            // 2. If its smaller than the required size (can use some of the allocation)
+            if (existing_entry.size as usize) == content.len(){
+                log::debug!("Using existing allocation");
+                let existing_entry = existing_entry.clone();        // Shadow the original in order to satisfy the borrow checker
+                let mut current_cluster = existing_entry.get_first_cluster_index();
+                let mut cluster_count = 0;
+                while cluster_count < segment_len{
+                    self.write_to_data_section(content, current_cluster);
+                    current_cluster = fat_buffer.read().ok().unwrap();
+                    cluster_count += 1;
+                }
+                return ControlFlow::Break(());
+            }
+            else{
+                existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
+                // Mark the fat entries as free
+                for _ in 0..segment_len{
+                    fat_buffer.write(FAT_ENTRY_FREE_INDEX).ok().unwrap();
+                }
+                // while fat_buffer.write(FAT_ENTRY_FREE_INDEX).is_ok() {}
+                fat_buffer.flush(&mut self.disk);
+                // The root dir cache is flushed at the end of the function
+            }
+        }
+        return ControlFlow::Continue(());
     }
 
     fn write_to_data_section(&mut self, content: &[u8], first_cluster_index: u32) {

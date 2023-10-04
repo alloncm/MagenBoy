@@ -32,7 +32,7 @@ pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut
     match external_ram{
         Some(ram)=>{
             if ram.len() != ram_size{
-                core::panic!("external rom is not in the correct size for the cartridge");
+                core::panic!("External ram is not in the correct size for the cartridge, the save seems corrupted, either fix or delete it and try again");
             }
 
             return ram;
