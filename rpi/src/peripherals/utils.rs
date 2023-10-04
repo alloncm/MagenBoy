@@ -30,7 +30,7 @@ impl<const SIZE:usize> BulkWrite for [MmioReg32; SIZE]{
     }
 }
 
-// According to the docs the raspberrypi requires memory barrier between reads and writes to differnet peripherals 
+// According to the docs the raspberrypi requires memory barrier between reads and writes to different peripherals 
 #[inline] 
 pub(super) fn memory_barrier(){
     core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
@@ -49,7 +49,7 @@ impl<T> Peripheral<T>{
         }
         return match self{
             Self::Init(t) => t,
-            Self::Taken => core::panic!("Peripheral is unavaliable, its been taken "),
+            Self::Taken => core::panic!("Peripheral is unavailable, its been taken "),
             Self::Uninit => core::unreachable!("At this point the peripheral must be initialized"),
         };
     }
@@ -59,7 +59,7 @@ impl<T> Peripheral<T>{
         return match s{
             Self::Uninit => init_callback(),
             Self::Init(t) => t,
-            Self::Taken => core::panic!("Peripheral is unavaliable, its been taken"),
+            Self::Taken => core::panic!("Peripheral is unavailable, its been taken"),
         };
     }
 }
