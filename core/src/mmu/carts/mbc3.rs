@@ -16,7 +16,7 @@ pub struct Mbc3<'a>{
 
 impl<'a> Mbc for Mbc3<'a>{
 
-    fn get_ram(&self) ->&[u8] {
+    fn get_ram(&mut self) ->&mut [u8] {
         self.ram
     }
 

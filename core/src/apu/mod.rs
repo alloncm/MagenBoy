@@ -11,8 +11,8 @@ pub mod freq_sweep;
 pub mod volume_envelop;
 pub mod noise_sample_producer;
 
-mod sound_utils;
 mod apu_registers_updater;
 
 pub use apu_registers_updater::*;
 
+pub(self) const NUMBER_OF_CHANNELS:usize = 4;

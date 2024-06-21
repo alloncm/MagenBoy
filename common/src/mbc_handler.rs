@@ -20,7 +20,7 @@ fn try_get_save_data(name:&String)->Option<Vec<u8>>{
     }
 }
 
-pub fn release_mbc<'a>(program_name:&String, mbc: &'a dyn Mbc){
+pub fn release_mbc<'a>(program_name:&String, mbc: &'a mut dyn Mbc){
     if mbc.has_battery(){
         while fs::write(format!("{}{}", program_name, ".sav"), mbc.get_ram()).is_err() {}       
         info!("saved succesfully");

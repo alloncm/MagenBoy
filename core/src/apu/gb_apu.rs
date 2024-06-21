@@ -7,7 +7,7 @@ use super::{
     sound_terminal::SoundTerminal,
     square_sample_producer::SquareSampleProducer, 
     wave_sample_producer::WaveSampleProducer,
-    sound_utils::NUMBER_OF_CHANNELS
+    NUMBER_OF_CHANNELS
 };
 
 pub struct GbApu<Device: AudioDevice>{

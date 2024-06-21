@@ -79,6 +79,10 @@ rustup component add llvm-tools-preview
 
 3. Builds the image
 
+### Libretro
+
+See - [LibretroDocs](docs/Libretro.md)
+
 ## Running
 
 ### Desktop

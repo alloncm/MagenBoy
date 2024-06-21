@@ -8,7 +8,7 @@ pub struct Rom<'a>{
 
 impl<'a> Mbc for Rom<'a>{
     
-    fn get_ram(&self) ->&[u8] {
+    fn get_ram(&mut self) ->&mut [u8] {
         self.external_ram
     }
 

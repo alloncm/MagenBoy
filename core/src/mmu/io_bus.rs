@@ -101,7 +101,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBPI_REGISTER_INDEX=>get_obpi(&self.ppu),
             OBPD_REGISTER_INDEX=>get_obpd(&self.ppu),
             //Joypad
-            JOYP_REGISTER_INDEX => self.joypad_handler.register,
+            JOYP_REGISTER_INDEX => self.joypad_handler.get_register(),
             _=>0xFF
         };
     }

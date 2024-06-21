@@ -42,7 +42,7 @@ pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut
 }
 
 pub trait Mbc{
-    fn get_ram(&self)->&[u8];
+    fn get_ram(&mut self)->&mut [u8];
     fn has_battery(&self)->bool;
 
     fn read_bank0(&self, address:u16)->u8;

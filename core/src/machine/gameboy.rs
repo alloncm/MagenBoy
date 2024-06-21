@@ -53,9 +53,9 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
     }
 
     pub fn cycle_frame(&mut self){
-        while self.mmu.m_cycle_counter < CYCLES_PER_FRAME{
-            self.mmu.poll_joypad_state();
-
+        self.mmu.poll_joypad_state();
+        
+        while !self.mmu.consume_vblank_event(){
             //CPU
             let mut cpu_cycles_passed = 1;
             if !self.cpu.halt && !self.mmu.dma_block_cpu(){
@@ -72,8 +72,6 @@ impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, G
                 self.mmu.cycle(interrupt_cycles);
             }
         }
-
-        self.mmu.m_cycle_counter = 0;
     }
 
     fn execute_opcode(&mut self)->u8{
