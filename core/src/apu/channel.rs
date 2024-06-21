@@ -1,6 +1,4 @@
-use super::audio_device::{DEFAULT_SAPMPLE, Sample};
-use super::sample_producer::SampleProducer;
-use super::timer::Timer;
+use super::{audio_device::{Sample, DEFAULT_SAPMPLE, SAMPLE_MAX}, sample_producer::*, timer::Timer};
 
 pub struct Channel<Procuder: SampleProducer>{
     pub enabled:bool,
@@ -50,20 +48,24 @@ impl<Procuder: SampleProducer> Channel<Procuder>{
 
     pub fn get_audio_sample(&mut self)->Sample{
         if self.enabled{
-
-            let sample = if self.timer.cycle(){
+            if self.timer.cycle(){
                 self.timer.update_cycles_to_tick(self.sample_producer.get_updated_frequency_ticks(self.frequency));
-                self.sample_producer.produce() as Sample
+                let digital_sample = self.sample_producer.produce();
+                self.last_sample = Self::convert_digital_to_analog(digital_sample);
             }
-            else{
-                self.last_sample
-            };
-
-            self.last_sample = sample;
-    
-            return self.last_sample;
+        }
+        else{
+            self.last_sample = DEFAULT_SAPMPLE;
         }
         
-        return DEFAULT_SAPMPLE;
+        return self.last_sample;
+    }
+
+    fn convert_digital_to_analog(digital_sample:u8)->Sample{
+        const RATIO:Sample = SAMPLE_MAX / MAX_DIGITAL_SAMPLE as Sample;
+        
+        // Expandibg the sample to the full range of the Sample type while still 
+        // allowing furhter calculations without overflowing
+        return (digital_sample as Sample - (MAX_DIGITAL_SAMPLE as Sample / 2)) * RATIO;
     }
 }

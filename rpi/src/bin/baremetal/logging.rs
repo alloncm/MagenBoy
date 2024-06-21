@@ -12,6 +12,7 @@ impl Write for UartDevice{
     }
 }
 
+// TODO: Fix this logger according to the libretro one
 pub struct UartLogger{
     uart_mutex:Mutex<UartDevice>
 }

@@ -747,6 +747,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
+name = "libretro-sys"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "207b060b02cecbcee6df3d0f5ed38691d5c4df1379dd1acd5c49c9b25d20b439"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -795,6 +804,16 @@ dependencies = [
  "log",
  "reqwest",
  "zip",
+]
+
+[[package]]
+name = "magenboy_libretro"
+version = "4.0.0"
+dependencies = [
+ "libretro-sys",
+ "log",
+ "magenboy_common",
+ "magenboy_core",
 ]
 
 [[package]]

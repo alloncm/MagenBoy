@@ -12,7 +12,6 @@ const HRAM_SIZE:usize = 0x7F;
 const BAD_READ_VALUE:u8 = 0xFF;
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
-    pub m_cycle_counter:u32,
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
     oucupied_access_bus:Option<AccessBus>,
@@ -133,7 +132,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         let bootrom_missing = boot_rom == Bootrom::None;
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
-            m_cycle_counter:0,
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
             oucupied_access_bus:None,
             hram:[0;HRAM_SIZE],
@@ -151,7 +149,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
         self.oucupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
-        self.m_cycle_counter += m_cycles as u32;
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -168,6 +165,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             Mode::CGB => self.io_bus.vram_dma_controller.should_block_cpu(),
         };
     }
+
+    pub fn consume_vblank_event(&mut self)->bool{self.io_bus.ppu.consume_vblank_event()}
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer

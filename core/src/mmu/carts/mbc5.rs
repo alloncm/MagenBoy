@@ -12,8 +12,8 @@ pub struct Mbc5<'a>{
 }
 
 impl<'a> Mbc for Mbc5<'a> {
-    fn get_ram(&self)->&[u8] {
-        &self.ram
+    fn get_ram(&mut self)->&mut [u8] {
+        self.ram
     }
 
     fn has_battery(&self)->bool {

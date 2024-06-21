@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [tasks.all]
-dependencies = ["test", "sdl", "rpios", "rpibm"]
+dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
 
 [tasks.test]
 command = "cargo"
@@ -58,3 +58,13 @@ install_crate = {rustup_component_name = "llvm-tools-preview"}
 toolchain = "nightly"
 command = "rustup"
 args = ["component", "add", "rust-src"]
+
+[tasks.libretro]
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_libretro"]
+dependencies = ["libretro_android"]
+
+[tasks.libretro_android]
+install_crate = {crate_name = "cargo-ndk", binary = "cargo", test_arg = "ndk"}
+command = "cargo"
+args = ["ndk", "--target=aarch64-linux-android", "build", "--release", "--package", "magenboy_libretro"]
