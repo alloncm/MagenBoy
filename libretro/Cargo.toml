@@ -1,0 +1,17 @@
+[package]
+name = "magenboy_libretro"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+magenboy_core = {path = "../core", features = ["u16pixel", "apu"]}
+magenboy_common = {path = "../common/", features = ["std"]}
+libretro-sys = "0.1.1"
+log = "0.4"

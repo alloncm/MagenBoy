@@ -7,10 +7,11 @@ pub use std_impl::*;
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Mode{
-    Input = 0,
-    Output = 1,
-    Alt0 = 4,
-    Alt5 = 2
+    Input   = 0b000,
+    Output  = 0b001,
+    Alt0    = 0b100,
+    Alt3    = 0b111,
+    Alt5    = 0b010,
 }
 
 pub enum GpioPull{
@@ -24,7 +25,7 @@ pub enum Trigger{
 
 #[cfg(not(feature = "os"))]
 pub mod no_std_impl{
-    use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier}};
+    use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier, BulkWrite}};
     use super::*;
     
     #[repr(C,align(4))]
@@ -45,10 +46,7 @@ pub mod no_std_impl{
     }
     compile_time_size_assert!(GpioRegisters, 0xF4);
 
-    #[cfg(feature = "rpi4")]
-    const GPIO_PINS_COUNT:usize = 58;
-    #[cfg(feature = "rpi2")]
-    const GPIO_PINS_COUNT:usize = 54;
+    const GPIO_PINS_COUNT:usize = if cfg!(rpi = "4") {58} else {54};
     const BASE_GPIO_OFFSET: usize = 0x20_0000;
     static mut GPIO_REGISTERS:Option<Mutex<&'static mut GpioRegisters>> = None;
 
@@ -70,37 +68,56 @@ pub mod no_std_impl{
             core::panic!("Pin {} is already taken", bcm_pin_number);
         }
 
-        // This func is not tested
-    //     pub fn poll_interrupts(pins:&[InputGpioPin], reset_before_poll:bool){
-    //         let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
-    //         let pins_mask = pins
-    //             .iter()
-    //             .map(|p|p.inner.bcm_pin_number)
-    //             .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
+        // This function is busy waiting for edge cases and not really polling interrupts.
+        // when the interrupt controller will be implemented it could work
+        pub fn poll_interrupts(&mut self,pins:&[InputGpioPin], reset_before_poll:bool){
+            let gpio_registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
+            let pins_mask = pins
+                .iter()
+                .map(|p|p.inner.bcm_pin_number)
+                .fold(0_u64, |value, bcm_number| {value | (1 << bcm_number)});
         
-    //         memory_barrier();
-    //         if reset_before_poll{
-    //             gpio_registers.lock(|r|{
-    //                 // reset the event detection
-    //                 r.gpeds[0].write(0);
-    //                 r.gpeds[1].write(0);
-    //             });
-    //         }
-    //         log::info!("polling gpio joypad input...");
-    //         loop{
-    //             let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
-    //             log::info!("regs value: {:#X}", registers_value);
-    //             let detected_pins = registers_value & pins_mask;
-    //             if detected_pins != 0{
-    //                 log::info!("Detected gpio input interrupt");
-    //                 return;
-    //             }
-    //         }
-    //     }
+            memory_barrier();
+            if reset_before_poll{
+                gpio_registers.lock(|r|{
+                    // reset the event detection
+                    r.gpeds[0].write(0);
+                    r.gpeds[1].write(0);
+                });
+            }
+            log::info!("polling gpio joypad input...");
+            loop{
+                let registers_value:u64 = gpio_registers.lock(|r|r.gpeds[0].read() as u64 | (r.gpeds[1].read() as u64) << 32);
+                let detected_pins = registers_value & pins_mask;
+                if detected_pins != 0{
+                    log::info!("Detected gpio input interrupt");
+                    // reset the state of the registers
+                    gpio_registers.lock(|r|{
+                        r.gpeds[0].write(0xFFFF_FFFF);
+                        r.gpeds[1].write(0xFFFF_FFFF);
+                    });
+                    memory_barrier();
+                    return;
+                }
+            }
+        }
+
+        pub fn power_off(&mut self){
+            memory_barrier();
+            let registers = unsafe{GPIO_REGISTERS.as_mut().unwrap()};
+            registers.lock(|r|{
+                r.gpfsel.write(0);
+                cfg_if::cfg_if!{ if #[cfg(rpi = "4")]{
+                    r.gpio_pup_pdn_cntrl.write(0);  
+                }
+                else{compile_error!("Power off only support rpi4")}}
+            });
+            memory_barrier();
+        }
     }
 
     pub struct GpioPin{
-        registers:&'static mut Mutex<&'static mut GpioRegisters>,
+        registers:&'static Mutex<&'static mut GpioRegisters>,
         bcm_pin_number:u8,
     }
 
@@ -124,6 +141,7 @@ pub mod no_std_impl{
         pub fn into_io(mut self, io_mode:Mode)->IoGpioPin{
             match io_mode{
                 Mode::Alt0 |
+                Mode::Alt3 |
                 Mode::Alt5 => self.set_mode(io_mode),
                 Mode::Input |
                 Mode::Output => core::panic!("set mode param must be alt: {}", io_mode as u8)
@@ -136,9 +154,13 @@ pub mod no_std_impl{
             let offset = (self.bcm_pin_number % 16) * 2;
             let mask:u32 = 0b11 << offset;
             memory_barrier();
-            let register_value = self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].read());
-            let new_value = (register_value & !mask) | ((pull_mode as u32) << offset as u32);
-            self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].write(new_value));
+            cfg_if::cfg_if!{ if #[cfg(rpi = "4")]{       
+                let register_value = self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].read());
+                let new_value = (register_value & !mask) | ((pull_mode as u32) << offset as u32);
+                self.registers.lock(|r|r.gpio_pup_pdn_cntrl[register_index as usize].write(new_value));
+            }
+            else{compile_error!("rpi's other than 4 needs proper support in order for set_pull to work")}}
+
             memory_barrier();
         }
 
@@ -279,6 +301,7 @@ pub mod std_impl{
             let pin = self.gpio.get(self.bcm_bumber).unwrap();
             let pin = match mode{
                 Mode::Alt0 => pin.into_io(rppal::gpio::Mode::Alt0),
+                Mode::Alt3 => pin.into_io(rppal::gpio::Mode::Alt3),
                 Mode::Alt5 => pin.into_io(rppal::gpio::Mode::Alt5),
                 Mode::Input |
                 Mode::Output => std::panic!("Cant set io pin to input or output")

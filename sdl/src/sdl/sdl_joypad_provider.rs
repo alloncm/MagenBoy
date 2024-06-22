@@ -3,10 +3,8 @@ use magenboy_core::{keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::Joy
 use magenboy_common::joypad_menu::MenuJoypadProvider;
 use super::utils::get_sdl_error_message;
 
-const PUMP_THRESHOLD:u32 = 500;
 
 pub struct SdlJoypadProvider{
-    pump_counter:u32,
     keyborad_state: [*const u8;NUM_OF_KEYS],
 }
 
@@ -21,20 +19,15 @@ impl SdlJoypadProvider{
             return result;
         };
         let state:[*const u8; NUM_OF_KEYS] = create_array(init_lambda);
-        SdlJoypadProvider{
-            pump_counter:PUMP_THRESHOLD,
-            keyborad_state: state
-        }
+        
+        return Self{keyborad_state: state}
     }
 }
 
 impl JoypadProvider for SdlJoypadProvider{
     fn provide(&mut self, joypad:&mut Joypad) {
         unsafe{
-            self.pump_counter = (self.pump_counter + 1) % PUMP_THRESHOLD;
-            if self.pump_counter == 0{
-                SDL_PumpEvents();
-            }
+            SDL_PumpEvents();
 
             for i in 0..NUM_OF_KEYS{
                 joypad.buttons[i] = *self.keyborad_state[i] != 0;

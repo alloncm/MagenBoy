@@ -6,9 +6,8 @@ pub mod bit_masks;
 pub mod fixed_size_queue;
 pub mod static_allocator;
 pub mod global_static_alloctor;
+pub mod stack_string;
 cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    pub mod stack_string;
-
     mod fixed_size_set;
     pub use fixed_size_set::FixedSizeSet;
 }}

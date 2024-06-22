@@ -1,4 +1,4 @@
-use magenboy_core::apu::audio_device::{BUFFER_SIZE, DEFAULT_SAPMPLE, Sample, StereoSample};
+use magenboy_core::apu::audio_device::{BUFFER_SIZE, StereoSample};
 use super::audio_resampler::AudioResampler;
 
 
@@ -10,15 +10,6 @@ pub struct ManualAudioResampler{
     reminder_counter:f32,
     alternate_to_skip:u32,
     skip_to_use:u32,
-}
-
-impl ManualAudioResampler{
-    fn interpolate_sample(samples:&[StereoSample])->StereoSample{
-        let interpulated_left_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.left_sample) / samples.len() as Sample;
-        let interpulated_right_sample = samples.iter().fold(DEFAULT_SAPMPLE, |acc, x| acc + x.right_sample) / samples.len() as Sample;
-
-        return StereoSample{left_sample: interpulated_left_sample, right_sample: interpulated_right_sample};
-    }
 }
 
 impl AudioResampler for ManualAudioResampler{
@@ -59,7 +50,7 @@ impl AudioResampler for ManualAudioResampler{
             self.sampling_counter += 1;
     
             if self.sampling_counter == self.skip_to_use {
-                let interpolated_sample = Self::interpolate_sample(&self.sampling_buffer);
+                let interpolated_sample = StereoSample::interpolate(&self.sampling_buffer);
                 self.sampling_counter = 0;
                 self.sampling_buffer.clear();
 

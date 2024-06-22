@@ -47,6 +47,8 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub oam_search_interrupt_request:bool,
     pub coincidence_interrupt_request:bool,
 
+    vblank_occurred:bool, // a way to signal the rest of the system a vblank occurred
+
     gfx_device: GFX,
     m_cycles_passed:u16,
     screen_buffers: [[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
@@ -93,6 +95,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             h_blank_interrupt_request:false,
             oam_search_interrupt_request:false, 
             coincidence_interrupt_request:false,
+            vblank_occurred:false,
             screen_buffer_index:0, 
             m_cycles_passed:0,
             stat_triggered:false,
@@ -170,6 +173,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         let cycles = cmp::min(fethcer_m_cycles_to_next_event, stat_m_cycles_to_next_event);
 
         return Some(cycles);
+    }
+
+    pub fn consume_vblank_event(&mut self)->bool{
+        let last_vblank_state:bool = self.vblank_occurred;
+        self.vblank_occurred = false;
+        return last_vblank_state;
     }
 
     fn swap_buffer(&mut self){
@@ -254,6 +263,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                             if self.v_blank_interrupt_request{
                                 self.trigger_stat_interrupt = true;
                             }
+                            self.vblank_occurred = true;
+                            self.swap_buffer();
                         }
                         else{
                             self.next_state = PpuState::OamSearch;
@@ -352,7 +363,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 let mut vis_start = 0;
                 let mut vis_end = SPRITE_WIDTH;
                 for i in 0..self.sprite_fetcher.oam_entries_len{
-                    let mut entry = &mut self.sprite_fetcher.oam_entries[i as usize];
+                    let entry = &mut self.sprite_fetcher.oam_entries[i as usize];
                     // check collision
                     if entry.x < end_x + SPRITE_WIDTH && entry.x + SPRITE_WIDTH > end_x {
                         // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
@@ -465,9 +476,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     fn push_pixel(&mut self, pixel: Pixel) {
         self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = pixel;
         self.screen_buffer_index += 1;
-        if self.screen_buffer_index == SCREEN_WIDTH * SCREEN_HEIGHT{
-           self.swap_buffer();
-        }
     }
 
     fn get_color_from_color_ram(color_ram:&[u8;64], pallete: u8, pixel: u8) -> Color {

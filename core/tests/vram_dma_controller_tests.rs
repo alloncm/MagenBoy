@@ -11,7 +11,7 @@ struct EmptyMbc{
     memory:[u8;MEMORY_SIZE]
 }
 impl Mbc for EmptyMbc{
-    fn get_ram(&self)->&[u8] {unreachable!()}
+    fn get_ram(&mut self)->&mut [u8] {unreachable!()}
     fn has_battery(&self)->bool {false}
     fn read_bank0(&self, address:u16)->u8 {self.memory[address as usize]}
     fn read_current_bank(&self, address:u16)->u8 {self.read_bank0(address)}

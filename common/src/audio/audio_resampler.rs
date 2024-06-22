@@ -6,14 +6,12 @@ pub trait AudioResampler{
 }
 
 pub trait ResampledAudioDevice<AR:AudioResampler> : AudioDevice{
-    const VOLUME:Sample = 10 as Sample;
-
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]){
         let resample = self.get_resampler().resample(buffer);
         for sample in resample{
             let(buffer, index) = self.get_audio_buffer();
-            buffer[*index] = sample.left_sample * Self::VOLUME;
-            buffer[*index + 1] = sample.left_sample * Self::VOLUME;
+            buffer[*index] = sample.left_sample;
+            buffer[*index + 1] = sample.right_sample;
             *index += 2;
             if *index == BUFFER_SIZE{
                 *index = 0;

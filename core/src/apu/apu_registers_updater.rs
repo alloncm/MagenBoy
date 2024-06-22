@@ -10,7 +10,7 @@ use super::{
     square_sample_producer::SquareSampleProducer, 
     volume_envelop::VolumeEnvlope, 
     wave_sample_producer::WaveSampleProducer,
-    sound_utils::NUMBER_OF_CHANNELS
+    NUMBER_OF_CHANNELS
 };
 
 

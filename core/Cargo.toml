@@ -3,7 +3,7 @@ name = "magenboy_core"
 version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
-edition = "2018"
+edition.workspace = true
 
 [dependencies]
 log = "0.4"
@@ -17,8 +17,8 @@ dbg = []
 
 [dev-dependencies]
 criterion = "0.3"
-reqwest = { version = "0.11", features = ["blocking"] }
-zip = "0.5"
+reqwest = { version = "0.12", features = ["blocking"] }
+zip = "2"
 image = "0.24"
 
 [[bench]]

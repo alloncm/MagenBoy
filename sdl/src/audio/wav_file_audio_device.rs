@@ -1,6 +1,5 @@
+use magenboy_common::audio::AudioResampler;
 use magenboy_core::apu::audio_device::*;
-
-use super::audio_resampler::AudioResampler;
 
 pub struct WavfileAudioDevice<AR:AudioResampler>{
     target_frequency:u32,

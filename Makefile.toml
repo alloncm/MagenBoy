@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [tasks.all]
-dependencies = ["test", "sdl", "rpios", "rpibm"]
+dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
 
 [tasks.test]
 command = "cargo"
@@ -47,8 +47,24 @@ dependencies = ["build_rpi_baremetal","install_llvm_tools"]
 toolchain = "nightly"
 cwd = "./rpi/"
 command = "cargo"
-args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core", "--no-default-features", "--features", "rpi4"]
+args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core"]
+dependencies = ["install_rust_src"]
 
 [tasks.install_llvm_tools]
 toolchain = "nightly"
 install_crate = {rustup_component_name = "llvm-tools-preview"}
+
+[tasks.install_rust_src]
+toolchain = "nightly"
+command = "rustup"
+args = ["component", "add", "rust-src"]
+
+[tasks.libretro]
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_libretro"]
+dependencies = ["libretro_android"]
+
+[tasks.libretro_android]
+install_crate = {crate_name = "cargo-ndk", binary = "cargo", test_arg = "ndk"}
+command = "cargo"
+args = ["ndk", "--target=aarch64-linux-android", "build", "--release", "--package", "magenboy_libretro"]

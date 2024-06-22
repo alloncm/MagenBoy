@@ -31,7 +31,6 @@ pub mod peripherals{
 }
 
 pub mod emulation{
-    pub const ROM:&'static [u8] = include_bytes!("../../Dependencies/TetrisDX.gbc"); // Path is relative to the build
     pub const TURBO:u8 = 1;             // Will speed up the emulation * X
     pub const FRAME_LIMITER:u32 = 0;    // Will filter every frame X frames
 }

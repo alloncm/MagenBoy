@@ -3,7 +3,7 @@ macro_rules! compile_time_size_assert {
         const _:[u8;$size] = [0;core::mem::size_of::<$t>()];
     };
 }
-pub(super) use compile_time_size_assert;
+pub(crate) use compile_time_size_assert;
 
 #[repr(transparent)]
 pub(super) struct MmioReg32(u32);
@@ -15,6 +15,18 @@ impl MmioReg32 {
     #[inline] 
     pub fn write(&mut self, value:u32){
         unsafe{core::ptr::write_volatile(&mut self.0, value)}
+    }
+}
+
+pub trait BulkWrite{
+    fn write(&mut self, value: u32);
+}
+
+impl<const SIZE:usize> BulkWrite for [MmioReg32; SIZE]{
+    fn write(&mut self, value: u32){
+        for reg in self{
+            reg.write(value);
+        }
     }
 }
 
@@ -52,11 +64,10 @@ impl<T> Peripheral<T>{
     }
 }
 
-
-#[cfg(feature = "rpi4")]
-pub const PERIPHERALS_BASE_ADDRESS:usize = 0xFE00_0000;
-#[cfg(feature = "rpi2")]
-pub const PERIPHERALS_BASE_ADDRESS:usize = 0x3F00_0000;
+#[cfg(not(feature = "os"))]
+pub const PERIPHERALS_BASE_ADDRESS:usize = if cfg!(rpi = "4") {0xFE00_0000} 
+    else if cfg!(rpi = "2"){0x3F00_0000} 
+    else{unimplemented!()};
 
 pub(super) fn get_static_peripheral<T>(offset:usize)->&'static mut T{
     #[cfg(feature = "os")]

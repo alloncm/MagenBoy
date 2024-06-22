@@ -40,7 +40,7 @@ extern void scale_buffer(const uint16_t* input_buffer, int input_buffer_width, i
             const uint16_t pixel = ((uint16_t)blue) | (((uint16_t)green) << 5) | (((uint16_t)red) << 11);
 
             output_buffer[output_offset_counter * 2] = (uint8_t)(pixel >> 8);
-            output_buffer[(output_offset_counter * 2) + 1] = (uint8_t)(pixel && 0xFF);
+            output_buffer[(output_offset_counter * 2) + 1] = (uint8_t)(pixel & 0xFF);
             output_offset_counter++;
         }
     }

@@ -1,5 +1,7 @@
-
 [target.armv7-unknown-linux-gnueabihf]
+# Using the main image cause I had problems with the image if version 0.2.5, when 0.3.0 will be released this should sort out
+# see - https://github.com/cross-rs/cross/issues/1320
+image = "ghcr.io/cross-rs/armv7-unknown-linux-gnueabihf:main"
 pre-build = [
     "echo deb http://raspbian.raspberrypi.org/raspbian/ buster main contrib non-free rpi >> /etc/apt/sources.list",
     "touch /etc/apt/sources.list.d/raspi.list",

@@ -1,3 +1,5 @@
+use core::cell::OnceCell;
+
 use magenboy_core::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}};
 
 use crate::peripherals::{Timer, Spi0, PERIPHERALS, OutputGpioPin};
@@ -41,7 +43,6 @@ enum Ili9341Command{
 
 struct Ili9341Contoller{
     spi:Spi0,
-    timer: Timer,
     led_pin: OutputGpioPin,
     reset_pin: OutputGpioPin
 }
@@ -57,7 +58,7 @@ impl Ili9341Contoller{
         let led_pin = gpio.take_pin(led_pin_bcm).into_output();
         let spi = unsafe{PERIPHERALS.take_spi0()};
 
-        let mut controller = Ili9341Contoller { spi, led_pin, reset_pin, timer: unsafe{PERIPHERALS.take_timer()}};
+        let mut controller = Ili9341Contoller { spi, led_pin, reset_pin};
 
         // toggling the reset pin to initalize the lcd
         controller.reset_pin.set_high();
@@ -156,8 +157,12 @@ impl Ili9341Contoller{
     }
 
     fn sleep_ms(&mut self, milliseconds_to_sleep:u64){
-        let target_wait_time = core::time::Duration::from_millis(milliseconds_to_sleep);
-        self.timer.wait(target_wait_time);
+        cfg_if::cfg_if!{ if #[cfg(feature = "os")]{
+            std::thread::sleep(std::time::Duration::from_millis(milliseconds_to_sleep));
+        }
+        else{
+            crate::delay::wait_ms(milliseconds_to_sleep as u32);
+        }}
     }
 }
 
@@ -171,32 +176,42 @@ impl Drop for Ili9341Contoller{
     }
 }
 
+#[derive(Clone)]
 pub struct Ili9341GfxDevice{
-    ili9341_controller:Ili9341Contoller,
     turbo_mul:u8,
     turbo_frame_counter:u8,
 
     frame_limiter:u32,
     frames_counter: u32,
     time_counter:core::time::Duration,
+
+    // This type is here to mark this type as not Send and not Sync
+    _unsend_unsync_marker: core::marker::PhantomData<*const ()>
 }
+
+static mut ILI9341_CONTROLLER:OnceCell<Ili9341Contoller> = OnceCell::new();
+static mut BCM_TIMER:OnceCell<Timer> = OnceCell::new();
 
 impl Ili9341GfxDevice{
     pub fn new(reset_pin_bcm:u8, led_pin_bcm:u8, turbo_mul:u8, frame_limiter:u32)->Self{
-        let mut ili9341_controller = Ili9341Contoller::new(reset_pin_bcm, led_pin_bcm);
-        // reset the timer
-        let _ = ili9341_controller.timer.tick();
+        unsafe{
+            ILI9341_CONTROLLER.set(Ili9341Contoller::new(reset_pin_bcm, led_pin_bcm)).ok().unwrap();
+            BCM_TIMER.set(PERIPHERALS.take_timer()).ok().unwrap();
+            
+            // reset the timer
+            let _ = BCM_TIMER.get_mut().unwrap().tick();
+        }
 
         Ili9341GfxDevice {
-            ili9341_controller,frames_counter:0,
             time_counter: core::time::Duration::ZERO,
-            turbo_mul, turbo_frame_counter:0, frame_limiter
+            frames_counter:0, turbo_mul, turbo_frame_counter:0, frame_limiter,
+            _unsend_unsync_marker: core::marker::PhantomData,
         }
     }
+    
+    const EXPECTED_FRAME_DURATION: f64 = 1.0f64/60.0f64;
 }
 
-
-const EXPECTED_FRAME_DURATION: f64 = 1.0f64/60.0f64;
 impl GfxDevice for Ili9341GfxDevice{
     fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.turbo_frame_counter = (self.turbo_frame_counter + 1) % self.turbo_mul;
@@ -205,17 +220,20 @@ impl GfxDevice for Ili9341GfxDevice{
         }
 
         if self.frames_counter & self.frame_limiter == 0{
-            self.ili9341_controller.write_frame_buffer(&buffer);
+            unsafe{ILI9341_CONTROLLER.get_mut().unwrap().write_frame_buffer(&buffer)};
         }
 
         // measure fps
         self.frames_counter += 1;
-        let mut duration = self.ili9341_controller.timer.tick().as_secs_f64();
-
-        // block for the frame duration
-        while duration < EXPECTED_FRAME_DURATION{
-            duration += self.ili9341_controller.timer.tick().as_secs_f64();
-        }
+        let duration = unsafe{
+            let timer = BCM_TIMER.get_mut().unwrap();
+            let mut duration = timer.tick().as_secs_f64();
+            // block for the frame duration
+            while duration < Self::EXPECTED_FRAME_DURATION{
+                duration += timer.tick().as_secs_f64();
+            }
+            duration
+        };
         
         self.time_counter += core::time::Duration::from_secs_f64(duration);
         if self.time_counter.as_millis() > 1000{

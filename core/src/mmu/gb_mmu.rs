@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 
-    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS, CYCLES_PER_FRAME}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
+    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
 };
 
 const HRAM_SIZE:usize = 0x7F;
@@ -24,7 +24,6 @@ cfg_if::cfg_if!{if #[cfg(feature = "dbg")]{
 }}
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
-    m_cycle_counter:u32,
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
     oucupied_access_bus:Option<AccessBus>,
@@ -157,7 +156,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         let bootrom_missing = boot_rom == Bootrom::None;
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
-            m_cycle_counter:0,
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
             oucupied_access_bus:None,
             hram:[0;HRAM_SIZE],
@@ -177,7 +175,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
         self.oucupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
-        self.m_cycle_counter += m_cycles as u32;
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -195,13 +192,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         };
     }
 
-    pub fn is_frame_finished(&mut self) -> bool{
-        if self.m_cycle_counter < CYCLES_PER_FRAME{
-            return false;
-        }
-        self.m_cycle_counter = 0;
-        return true;
-    }
+    pub fn consume_vblank_event(&mut self)->bool{self.io_bus.ppu.consume_vblank_event()}
 
     #[cfg(feature = "dbg")]
     pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}

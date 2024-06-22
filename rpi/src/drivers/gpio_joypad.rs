@@ -2,11 +2,9 @@ use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::Joypa
 
 use crate::peripherals::{PERIPHERALS, GpioPull, Trigger, InputGpioPin};
 
-const READ_THRESHOLD:u32 = 0x1000;
-
+#[derive(Clone)]
 pub struct GpioJoypadProvider{
-    input_pins: [InputGpioPin; NUM_OF_KEYS],
-    read_threshold_counter: u32
+    input_pins: [InputGpioPin; NUM_OF_KEYS]
 }
 
 impl GpioJoypadProvider{
@@ -27,23 +25,18 @@ impl GpioJoypadProvider{
             let mut p = p.into_input(GpioPull::None);
             p.set_interrupt(Trigger::RisingEdge);
             return p;
-        }), read_threshold_counter: 0 };
+        })};
     }
 }
 
 impl JoypadProvider for GpioJoypadProvider{
     fn provide(&mut self, joypad:&mut Joypad){
-        self.read_threshold_counter = (self.read_threshold_counter + 1) % READ_THRESHOLD;
-        if self.read_threshold_counter != 0 {
-            return;
-        }
         for i in 0..joypad.buttons.len(){
             joypad.buttons[i] = self.input_pins[i].read_state();
         }
     }
 }
 
-#[cfg(feature = "os")]
 impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
     fn poll(&mut self, joypad:&mut Joypad) {
         let gpio = unsafe{PERIPHERALS.get_gpio()};
@@ -52,11 +45,5 @@ impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
         for i in 0..joypad.buttons.len(){
             joypad.buttons[i] = self.input_pins[i].read_state();
         }
-    }
-}
-
-impl Clone for GpioJoypadProvider{
-    fn clone(&self) -> Self {
-        Self { input_pins: self.input_pins.clone(), read_threshold_counter: self.read_threshold_counter.clone() }
     }
 }

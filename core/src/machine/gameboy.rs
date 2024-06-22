@@ -70,7 +70,9 @@ impl_gameboy! {{
     }
 
     pub fn cycle_frame(&mut self){
-        while !self.mmu.is_frame_finished(){
+        self.mmu.poll_joypad_state();
+
+        while !self.mmu.consume_vblank_event() {
             #[cfg(feature = "dbg")]
             self.run_debugger();
             self.step();
@@ -78,8 +80,6 @@ impl_gameboy! {{
     }
 
     pub(crate) fn step(&mut self) {
-        self.mmu.poll_joypad_state();
-
         //CPU
         let mut cpu_cycles_passed = 1;
         if !self.cpu.halt && !self.mmu.dma_block_cpu(){
