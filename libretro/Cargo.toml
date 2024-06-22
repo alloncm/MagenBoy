@@ -1,6 +1,6 @@
 [package]
 name = "magenboy_libretro"
-edition = "2021"
+edition.workspace = true
 version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
