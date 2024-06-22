@@ -5,20 +5,19 @@ use magenboy_core::debugger::{DebuggerInterface, DebuggerCommand, DebuggerResult
 
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
-const HELP_MESSAGE:&'static str = r#"
-    Debugger commands:
-    - halt(h) - start the debugging session
-    - contine(c) - continue execution
-    - step(s) - step 1 instruction
-    - break(b) [address] - set a break point
-    - delete_break(db) [address] - delete a breakpoint 
-    - registers(r) - print the cpu registers state
-    - disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
-    - dump [number of bytes] - print next the memory addresses values
-    - watch(w) [address] - set a watchpoint
-    - delete_watch(dw) [address] - delete a watchpoint
-    - ppu_info - print info about the ppu execution state
-"#;
+const HELP_MESSAGE:&'static str = r"Debugger commands:
+- halt(h) - start the debugging session
+- contine(c) - continue execution
+- step(s) - step 1 instruction
+- break(b) [address] - set a break point
+- delete_break(db) [address] - delete a breakpoint 
+- registers(r) - print the cpu registers state
+- disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
+- dump [number of bytes] - print next the memory addresses values
+- watch(w) [address] - set a watchpoint
+- delete_watch(dw) [address] - delete a watchpoint
+- ppu_info - print info about the ppu execution state
+";
 
 pub struct TerminalDebugger{
     command_receiver:Receiver<DebuggerCommand>,
@@ -36,7 +35,7 @@ impl TerminalDebugger{
             .unwrap();
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
-            .stack_size(0x40_0000)
+            .stack_size(0x100_0000)
             .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver))
             .unwrap();
         Self{command_receiver, result_sender}
@@ -104,7 +103,6 @@ impl TerminalDebugger{
             DebuggerResult::PpuLayer(buffer) => {
                 let mut window = crate::sdl::sdl_gfx_device::PpuLayerWidnow::new(magenboy_core::debugger::PpuLayer::Background);
                 window.render(buffer);
-                loop{}
             },
         }
     }

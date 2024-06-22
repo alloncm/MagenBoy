@@ -131,7 +131,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
     #[cfg(feature = "dbg")]
     pub fn get_bg_layer(&self)->[Pixel; 0x100*0x100]{
-        use core::convert::TryInto;
         use super::attributes::GbcBackgroundAttributes;
 
         let bg_tile_map_addr = if self.lcd_control & BIT_3_MASK == 0 {0x1800} else {0x1C00};
@@ -144,17 +143,17 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             tile_data.clone()
         });
         let mut buffer = [Pixel::default();0x100*0x100];
-        for i in 0 .. (32 * 32){
+        for i in 0 .. (32 * 32){    // just use another for loop 
             let tile_data = &tiles[i];
             for j in 0..8{
                 let upper_byte = tile_data[j * 2];
                 let lower_byte = tile_data[(j * 2) + 1];
-                let y = ((i / 32) * 8) + (j * 0x100);
+                let y = (i * 8 * 0x100) + (j * 0x100);
                 for k in 0..8{
                     let x = ((i % 32) * 8) + k;
                     let mask = 1 << k;
-                    let pixel = (upper_byte & mask) | (lower_byte & mask);
-                    buffer[y + x] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes:  GbcBackgroundAttributes::new(0)}).into();
+                    let pixel = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
+                    buffer[y + k] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes:  GbcBackgroundAttributes::new(0)}).into();
                 }
             }
         }
