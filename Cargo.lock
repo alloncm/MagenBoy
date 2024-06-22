@@ -1023,6 +1023,7 @@ dependencies = [
 name = "magenboy_core"
 version = "4.0.0"
 dependencies = [
+ "cfg-if",
  "criterion",
  "image",
  "log",

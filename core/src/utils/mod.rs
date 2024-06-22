@@ -7,9 +7,16 @@ pub mod fixed_size_queue;
 pub mod static_allocator;
 pub mod global_static_alloctor;
 pub mod stack_string;
+cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
+    mod fixed_size_set;
+    pub use fixed_size_set::FixedSizeSet;
+}}
 
 // Frequency in m_cycles (m_cycle = 4 t_cycles)
 pub const GB_FREQUENCY:u32 = 4_194_304 / 4;
+
+//CPU frequrncy: 4,194,304 / 59.727~ / 4 == 70224 / 4
+pub const CYCLES_PER_FRAME:u32 = 17556;
 
 pub fn create_default_array<T:Default,const SIZE:usize>()->[T;SIZE]{
     create_array(||T::default())

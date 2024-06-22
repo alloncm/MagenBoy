@@ -1,4 +1,6 @@
 mod audio;
+#[cfg(feature = "dbg")]
+mod terminal_debugger;
 mod sdl{
     pub mod utils;
     pub mod sdl_gfx_device;
@@ -34,6 +36,8 @@ use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
 use log::info;
 use magenboy_core::GB_FREQUENCY;
 use sdl2::sys::*;
+#[cfg(feature = "dbg")]
+use crate::terminal_debugger::TerminalDebugger;
 
 const TURBO_MUL:u8 = 1;
 
@@ -96,9 +100,12 @@ fn main() {
         let mpmc_device = MpmcGfxDevice::new(s);
 
         let args_clone = args.clone();
-        let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-            move || emulation_thread_main(args_clone, program_name, mpmc_device)
-        ).unwrap();
+        let emualation_thread = std::thread::Builder::new()
+            .name("Emualtion Thread".to_string())
+            .stack_size(0x100_0000)
+            .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device))
+            .unwrap();
+
 
         unsafe{
             let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
@@ -188,7 +195,11 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     };
 
     let mbc = initialize_mbc(&program_name, mode);
-    let mut gameboy = GameBoy::new(mbc, joypad_provider, audio_devices, spsc_gfx_device, bootrom, mode);
+    let mut gameboy = GameBoy::new(
+        mbc, joypad_provider, audio_devices, spsc_gfx_device, 
+        #[cfg(feature = "dbg")]
+        TerminalDebugger::new(),
+        bootrom, mode);
 
     info!("initialized gameboy successfully!");
 

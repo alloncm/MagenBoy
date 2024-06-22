@@ -1,5 +1,4 @@
-use crate::mmu::interrupts_handler::InterruptRequest;
-use crate::mmu::memory::Memory;
+use crate::mmu::{interrupts_handler::InterruptRequest, Memory};
 
 use super::register::Reg;
 use super::flag::Flag;
@@ -84,10 +83,10 @@ impl GbCpu {
     }
 
     pub fn inc_hl(&mut self){
-        *self.hl.value() = (*self.hl.value()).wrapping_add(1);
+        *self.hl.value_mut() = self.hl.value().wrapping_add(1);
     }
 
     pub fn dec_hl(&mut self){
-        *self.hl.value() = (*self.hl.value()).wrapping_sub(1);
+        *self.hl.value_mut() = self.hl.value().wrapping_sub(1);
     }
 }

@@ -90,7 +90,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBP1_REGISTER_INDEX=> self.ppu.obj_pallete_1_register,
             WY_REGISTER_INDEX => self.ppu.window_pos.y,
             WX_REGISTER_INDEX=> get_wx_register(&self.ppu),
-            VBK_REGISTER_INDEX=>self.ppu.vram.get_bank(),
+            VBK_REGISTER_INDEX=>self.ppu.vram.get_bank_reg(),
             //GBC speed switch
             KEY1_REGISTER_INDEX=>self.speed_switch_register | 0b0111_1110,
             // VRAM DMA
@@ -157,7 +157,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1, &mut self.ppu.obj_pallete_1_register),
             WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
             WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
-            VBK_REGISTER_INDEX=>self.ppu.vram.set_bank(value),
+            VBK_REGISTER_INDEX=>self.ppu.vram.set_bank_reg(value),
             KEY1_REGISTER_INDEX=>{
                 self.speed_switch_register &= 0b1111_1110;    // clear bit 0
                 self.speed_switch_register |= value & 1;      // change state for bit 0
