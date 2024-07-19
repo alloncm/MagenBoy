@@ -133,27 +133,35 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     pub fn get_bg_layer(&self)->[Pixel; 0x100*0x100]{
         use super::attributes::GbcBackgroundAttributes;
 
+        const BUFFER_WIDTH:usize = 0x100;
+        const BUFFER_HEIGHT:usize = 0x100;
+
         let bg_tile_map_addr = if self.lcd_control & BIT_3_MASK == 0 {0x1800} else {0x1C00};
-        let vram_bank = self.vram.get_current_bank();
-        let tile_map:&[u8; 32*32] = vram_bank[bg_tile_map_addr .. bg_tile_map_addr + (32 * 32)].try_into().unwrap();
+        let bank0 = self.vram.get_bank(0);
+        let bank1 = self.vram.get_bank(1);
+        let tile_map:&[u8; 32*32] = bank0[bg_tile_map_addr .. bg_tile_map_addr + (32 * 32)].try_into().unwrap();
+        let attribures_map:&[u8; 32*32] = bank1[bg_tile_map_addr .. bg_tile_map_addr + (32 * 32)].try_into().unwrap();
         let tiles = tile_map.map(|tile_index|{
             let bg_tile_data_addr = if self.lcd_control & BIT_4_MASK == 0 && tile_index & BIT_7_MASK == 0 {0x1000} else {0};
             let tile_addr = bg_tile_data_addr + tile_index as usize * 16;
-            let tile_data:&[u8;16] = vram_bank[tile_addr .. tile_addr + 16].try_into().unwrap();
+            let tile_data:&[u8;16] = bank0[tile_addr .. tile_addr + 16].try_into().unwrap();
             tile_data.clone()
         });
-        let mut buffer = [Pixel::default();0x100*0x100];
-        for i in 0 .. (32 * 32){    // just use another for loop 
-            let tile_data = &tiles[i];
-            for j in 0..8{
-                let upper_byte = tile_data[j * 2];
-                let lower_byte = tile_data[(j * 2) + 1];
-                let y = (i * 8 * 0x100) + (j * 0x100);
-                for k in 0..8{
-                    let x = ((i % 32) * 8) + k;
-                    let mask = 1 << k;
-                    let pixel = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
-                    buffer[y + k] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes:  GbcBackgroundAttributes::new(0)}).into();
+        let mut buffer = [Pixel::default(); BUFFER_WIDTH * BUFFER_HEIGHT];
+        for y in 0..32{
+            for x in 0..32{
+                let tile_data = &tiles[y * 32 + x];
+                let index_prefix = (y * BUFFER_WIDTH * 8) + (x * 8);
+                for j in 0..8{
+                    let upper_byte = tile_data[j * 2];
+                    let lower_byte = tile_data[(j * 2) + 1];
+                    let index_prefix = index_prefix + (j * BUFFER_WIDTH);
+                    for k in 0..8{
+                        let mask = 1 << k;
+                        let pixel = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
+                        let attributes = if self.mode == Mode::CGB {attribures_map[y * 32 + x]} else {0};
+                        buffer[index_prefix + (8 - k - 1)] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes: GbcBackgroundAttributes::new(attributes)}).into();
+                    }
                 }
             }
         }

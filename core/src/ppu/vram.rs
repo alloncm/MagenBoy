@@ -25,8 +25,9 @@ impl VRam{
         self.memory[self.get_valid_address(address)] = value;
     }
 
-    pub fn get_current_bank(&self)->&[u8; VRAM_BANK_SIZE]{
-        let bank_start_offset = self.current_bank_register as usize * VRAM_BANK_SIZE;
+    #[cfg(feature = "dbg")]
+    pub fn get_bank(&self, bank:u8)->&[u8; VRAM_BANK_SIZE]{
+        let bank_start_offset = bank as usize * VRAM_BANK_SIZE;
         return self.memory[bank_start_offset .. (bank_start_offset + VRAM_BANK_SIZE)].try_into().unwrap();
     }
 
