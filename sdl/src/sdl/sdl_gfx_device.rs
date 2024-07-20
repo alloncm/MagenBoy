@@ -110,7 +110,7 @@ pub struct PpuLayerWindow{
 #[cfg(feature = "dbg")]
 impl PpuLayerWindow{
     pub fn new(layer:magenboy_core::debugger::PpuLayer)->Self{
-        use magenboy_core::debugger::PpuLayer;
+        use magenboy_core::debugger::{PpuLayer, PPU_BUFFER_HEIGHT, PPU_BUFFER_WIDTH};
 
         let layer_name = match layer{
             PpuLayer::Background => "Background",
@@ -123,10 +123,16 @@ impl PpuLayerWindow{
             let window:*mut SDL_Window = SDL_CreateWindow(
                 c_name.as_ptr(),
                 SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-                0x100, 0x100, 0);
+                0x100, 0x100, SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32);
             let renderer: *mut SDL_Renderer = SDL_CreateRenderer(window, -1, 0);
             let texture: *mut SDL_Texture = SDL_CreateTexture(renderer, SDL_PIXEL_FORMAT,
                 SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32, 0x100, 0x100);
+
+            if SDL_RenderSetLogicalSize(renderer, (PPU_BUFFER_WIDTH as u32) as i32, (PPU_BUFFER_HEIGHT as u32) as i32) != 0{
+                std::panic!("Error while setting logical rendering\nError:{}", get_sdl_error_message());
+            }
+
+            SDL_SetWindowMinimumSize(window, PPU_BUFFER_WIDTH as i32, PPU_BUFFER_HEIGHT as i32);
 
             return PpuLayerWindow { _window_name: c_name, window, renderer, texture};
         }

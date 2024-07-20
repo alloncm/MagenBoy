@@ -182,7 +182,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
     #[cfg(feature = "dbg")]
     fn get_sprite_layer(&self)->[Pixel; crate::debugger::PPU_BUFFER_SIZE]{
-        use crate::{debugger::PPU_BUFFER_WIDTH, ppu::color};
+        use crate::{debugger::{PPU_BUFFER_SIZE, PPU_BUFFER_WIDTH}, ppu::color};
 
         let oam_table = self.oam
             .chunks_exact(OAM_ENTRY_SIZE as usize)
@@ -211,7 +211,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         Mode::DMG => self.get_dmg_sprite_pixel(&sprite, sprite_pixel),
                         Mode::CGB => Self::get_color_from_color_ram(&self.obj_color_ram, sprite.gbc_palette_number, sprite_pixel.color_index),
                     };
-                    buffer[index_prefix + (8 - k - 1)] = color.into();
+                    let index = index_prefix + (8 - k - 1);
+                    // Some could be placed at x/y = 247 -- 255 and it could crash the program, not sure how to fix it
+                    if index < PPU_BUFFER_SIZE{
+                        buffer[index] = color.into();
+                    }
                 }
             }
             oam_entry += 1;
