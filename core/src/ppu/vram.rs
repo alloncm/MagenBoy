@@ -1,5 +1,3 @@
-use core::convert::TryInto;
-
 const VRAM_SIZE:usize = 0x4000;
 const VRAM_BANK_SIZE:usize = 0x2000;
 

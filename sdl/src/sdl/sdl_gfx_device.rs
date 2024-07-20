@@ -1,6 +1,6 @@
 use std::ffi::{CString, c_void};
 use sdl2::sys::*;
-use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, {Pixel, GfxDevice}, debugger::PpuLayer};
+use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GfxDevice, Pixel};
 use crate::sdl::utils::get_sdl_error_message;
 
 pub struct SdlGfxDevice{
@@ -63,6 +63,18 @@ impl SdlGfxDevice{
             turbo_mul
         }
     }
+
+    pub fn poll_event(&self)->Option<SDL_Event>{
+        unsafe{
+            let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+            // updating the events for the whole app
+            SDL_PumpEvents();
+            if SDL_PollEvent(event.as_mut_ptr()) != 0{
+                return Option::Some(event.assume_init());
+            }
+            return Option::None;
+        }
+    }
 }
 
 impl GfxDevice for SdlGfxDevice{
@@ -87,46 +99,78 @@ impl GfxDevice for SdlGfxDevice{
     }
 }
 
-cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    pub struct PpuLayerWindow{
-        _window_name: CString,
-        renderer: *mut SDL_Renderer,
-        texture: *mut SDL_Texture,
-    }
+#[cfg(feature = "dbg")]
+pub struct PpuLayerWindow{
+    _window_name: CString,
+    window: *mut SDL_Window,
+    renderer: *mut SDL_Renderer,
+    texture: *mut SDL_Texture,
+}
 
-    impl PpuLayerWindow{
-        pub fn new(layer:PpuLayer)->Self{
-            let layer_name = match layer{
-                PpuLayer::Background => "Background",
-                PpuLayer::Window => "Window",
-                PpuLayer::Sprites => "Sprites"
-            };
-            let name = std::format!("Ppu {} debugger", layer_name);
-            let c_name = CString::new(name).unwrap();
-            unsafe{
-                let window:*mut SDL_Window = SDL_CreateWindow(
-                    c_name.as_ptr(),
-                    SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-                    0x100, 0x100, 0);
-                let renderer: *mut SDL_Renderer = SDL_CreateRenderer(window, -1, 0);
-                let texture: *mut SDL_Texture = SDL_CreateTexture(renderer, SDL_PIXEL_FORMAT,
-                    SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32, 0x100, 0x100);
+#[cfg(feature = "dbg")]
+impl PpuLayerWindow{
+    pub fn new(layer:magenboy_core::debugger::PpuLayer)->Self{
+        use magenboy_core::debugger::PpuLayer;
 
-                return PpuLayerWindow { _window_name: c_name, renderer, texture};
-            }
-        }
+        let layer_name = match layer{
+            PpuLayer::Background => "Background",
+            PpuLayer::Window => "Window",
+            PpuLayer::Sprites => "Sprites"
+        };
+        let name = std::format!("Ppu {} debugger", layer_name);
+        let c_name = CString::new(name).unwrap();
+        unsafe{
+            let window:*mut SDL_Window = SDL_CreateWindow(
+                c_name.as_ptr(),
+                SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
+                0x100, 0x100, 0);
+            let renderer: *mut SDL_Renderer = SDL_CreateRenderer(window, -1, 0);
+            let texture: *mut SDL_Texture = SDL_CreateTexture(renderer, SDL_PIXEL_FORMAT,
+                SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32, 0x100, 0x100);
 
-        pub fn render(&mut self, buffer:[Pixel;0x100*0x100]){
-            unsafe{
-                let mut pixels: *mut c_void = std::ptr::null_mut();
-                let mut length: std::os::raw::c_int = 0;
-                SDL_LockTexture(self.texture, std::ptr::null(), &mut pixels, &mut length);
-                std::ptr::copy_nonoverlapping(buffer.as_ptr(),pixels as *mut Pixel,  buffer.len());
-                SDL_UnlockTexture(self.texture);
-
-                SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
-                SDL_RenderPresent(self.renderer);
-            }
+            return PpuLayerWindow { _window_name: c_name, window, renderer, texture};
         }
     }
-}}
+
+    
+
+    pub fn run(&mut self, buffer:[Pixel;magenboy_core::debugger::PPU_BUFFER_SIZE]){
+        unsafe{
+            let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+            self.render(buffer);
+            loop{
+                SDL_PumpEvents();
+                if SDL_PollEvent(event.as_mut_ptr()) != 0{
+                    let event: SDL_Event = event.assume_init();
+                    if event.type_ == SDL_EventType::SDL_WINDOWEVENT as u32 && event.window.event == SDL_WindowEventID::SDL_WINDOWEVENT_CLOSE as u8{
+                        break;
+                    }
+                }
+            }   
+        }
+    }
+
+    fn render(&mut self, buffer:[Pixel;magenboy_core::debugger::PPU_BUFFER_SIZE]){
+        unsafe{
+            let mut pixels: *mut c_void = std::ptr::null_mut();
+            let mut length: std::os::raw::c_int = 0;
+            SDL_LockTexture(self.texture, std::ptr::null(), &mut pixels, &mut length);
+            std::ptr::copy_nonoverlapping(buffer.as_ptr(),pixels as *mut Pixel,  buffer.len());
+            SDL_UnlockTexture(self.texture);
+
+            SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
+            SDL_RenderPresent(self.renderer);
+        }
+    }
+}
+
+#[cfg(feature = "dbg")]
+impl Drop for PpuLayerWindow{
+    fn drop(&mut self) {
+        unsafe{
+            SDL_DestroyTexture(self.texture);
+            SDL_DestroyRenderer(self.renderer);
+            SDL_DestroyWindow(self.window);
+        }
+    }
+}

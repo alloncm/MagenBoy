@@ -1,7 +1,7 @@
 use std::{sync::atomic::{AtomicBool, Ordering}, io::stdin, thread};
 
 use crossbeam_channel::{bounded, Sender, Receiver};
-use magenboy_core::debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer};
+use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer, PPU_BUFFER_SIZE}, Pixel};
 
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
@@ -17,7 +17,10 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - watch(w) [address] - set a watchpoint
 - delete_watch(dw) [address] - delete a watchpoint
 - ppu_info - print info about the ppu execution state
+- ppu_layer(pl) - a debug window with one ppu layer (win, bg, spr)
 ";
+
+pub struct PpuLayerResult(pub [Pixel; PPU_BUFFER_SIZE], pub PpuLayer);
 
 pub struct TerminalDebugger{
     command_receiver:Receiver<DebuggerCommand>,
@@ -25,7 +28,7 @@ pub struct TerminalDebugger{
 }
 
 impl TerminalDebugger{
-    pub fn new()->Self{
+    pub fn new(s: Sender<PpuLayerResult>)->Self{
         let (command_sender, command_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
         let (ternimal_input_sender, terminal_input_receiver) = bounded(0);
@@ -36,9 +39,10 @@ impl TerminalDebugger{
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
             .stack_size(0x100_0000)
-            .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver))
+            .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver, s))
             .unwrap();
-        Self{command_receiver, result_sender}
+
+        return Self{command_receiver, result_sender};
     }
 
     fn get_string_loop(sender:Sender<String>){
@@ -51,7 +55,7 @@ impl TerminalDebugger{
         }
     }
 
-    fn io_loop(sender:Sender<DebuggerCommand>, receiver:Receiver<DebuggerResult>, input_receiver:Receiver<String>){
+    fn io_loop(sender:Sender<DebuggerCommand>, receiver:Receiver<DebuggerResult>, input_receiver:Receiver<String>, ppu_layer_sender:Sender<PpuLayerResult>){
         loop{
             crossbeam_channel::select! {
                 recv(input_receiver)-> msg => {
@@ -60,14 +64,14 @@ impl TerminalDebugger{
                 },
                 recv(receiver)-> res =>{ 
                     let Ok(result) = res else {break};
-                    Self::handle_debugger_result(result);
+                    Self::handle_debugger_result(result, ppu_layer_sender.clone());
                 },
             }
         }
         log::info!("Closing the debugger IO loop thread");
     }
     
-    fn handle_debugger_result(result:DebuggerResult){
+    fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>){
         match result{
             DebuggerResult::Stopped(addr) => println!("Stopped -> {:#X}", addr),
             DebuggerResult::Registers(regs) => println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
@@ -100,10 +104,7 @@ impl TerminalDebugger{
             DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
-            DebuggerResult::PpuLayer(layer, buffer) => {
-                let mut window = crate::sdl::sdl_gfx_device::PpuLayerWindow::new(layer);
-                window.render(buffer);
-            },
+            DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
         }
     }
     
@@ -147,7 +148,7 @@ impl TerminalDebugger{
                         Err(msg) => println!("Error deleting watchpoint: {}", msg),
                     },
                     "ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
-                    "pl"|"ppu_later"=> match parse_ppu_layer(&buffer){
+                    "pl"|"ppu_layer"=> match parse_ppu_layer(&buffer){
                         Ok(layer) => sender.send(DebuggerCommand::GetPpuLayer(layer)).unwrap(),
                         Err(msg) => println!("Error getting ppu layer: {}", msg),
                     }
