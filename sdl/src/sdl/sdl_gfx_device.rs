@@ -88,16 +88,18 @@ impl GfxDevice for SdlGfxDevice{
 }
 
 cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    pub struct PpuLayerWidnow{
+    pub struct PpuLayerWindow{
         _window_name: CString,
         renderer: *mut SDL_Renderer,
         texture: *mut SDL_Texture,
     }
 
-    impl PpuLayerWidnow{
+    impl PpuLayerWindow{
         pub fn new(layer:PpuLayer)->Self{
             let layer_name = match layer{
-                PpuLayer::Background=> "Background"
+                PpuLayer::Background => "Background",
+                PpuLayer::Window => "Window",
+                PpuLayer::Sprites => "Sprites"
             };
             let name = std::format!("Ppu {} debugger", layer_name);
             let c_name = CString::new(name).unwrap();
@@ -110,7 +112,7 @@ cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
                 let texture: *mut SDL_Texture = SDL_CreateTexture(renderer, SDL_PIXEL_FORMAT,
                     SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32, 0x100, 0x100);
 
-                return PpuLayerWidnow { _window_name: c_name, renderer, texture};
+                return PpuLayerWindow { _window_name: c_name, renderer, texture};
             }
         }
 

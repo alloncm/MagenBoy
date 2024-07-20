@@ -18,6 +18,11 @@ pub enum DebuggerCommand{
     GetPpuLayer(PpuLayer)
 }
 
+
+pub const PPU_BUFFER_WIDTH:usize = 0x100;
+pub const PPU_BUFFER_HEIGHT:usize = 0x100;
+pub const PPU_BUFFER_SIZE:usize = PPU_BUFFER_HEIGHT * PPU_BUFFER_WIDTH;
+
 pub enum DebuggerResult{
     Registers(Registers),
     HitBreak(u16),
@@ -34,11 +39,14 @@ pub enum DebuggerResult{
     RemovedWatch(u16),
     WatchDonotExist(u16),
     PpuInfo(PpuInfo),
-    PpuLayer([Pixel;0x100*0x100])
+    PpuLayer(PpuLayer, [Pixel;PPU_BUFFER_SIZE])
 }
 
+#[derive(Clone, Copy)]
 pub enum PpuLayer{
     Background,
+    Window,
+    Sprites
 }
 
 #[derive(Clone, Copy)]
@@ -174,10 +182,8 @@ impl_gameboy!{{
                 },
                 DebuggerCommand::PpuInfo=>self.debugger.send(DebuggerResult::PpuInfo(PpuInfo::new(self.mmu.get_ppu()))),
                 DebuggerCommand::GetPpuLayer(layer)=>{
-                    let buffer = match layer{
-                        PpuLayer::Background=>self.mmu.get_ppu().get_bg_layer()
-                    };
-                    self.debugger.send(DebuggerResult::PpuLayer(buffer));
+                    let buffer = self.mmu.get_ppu().get_layer(layer);
+                    self.debugger.send(DebuggerResult::PpuLayer(layer, buffer));
                 }
             }
         }

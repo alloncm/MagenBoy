@@ -1,7 +1,7 @@
 use std::{sync::atomic::{AtomicBool, Ordering}, io::stdin, thread};
 
 use crossbeam_channel::{bounded, Sender, Receiver};
-use magenboy_core::debugger::{DebuggerInterface, DebuggerCommand, DebuggerResult};
+use magenboy_core::debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer};
 
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
@@ -100,8 +100,8 @@ impl TerminalDebugger{
             DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
-            DebuggerResult::PpuLayer(buffer) => {
-                let mut window = crate::sdl::sdl_gfx_device::PpuLayerWidnow::new(magenboy_core::debugger::PpuLayer::Background);
+            DebuggerResult::PpuLayer(layer, buffer) => {
+                let mut window = crate::sdl::sdl_gfx_device::PpuLayerWindow::new(layer);
                 window.render(buffer);
             },
         }
@@ -147,7 +147,10 @@ impl TerminalDebugger{
                         Err(msg) => println!("Error deleting watchpoint: {}", msg),
                     },
                     "ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
-                    "ppu"=>sender.send(DebuggerCommand::GetPpuLayer(magenboy_core::debugger::PpuLayer::Background)).unwrap(),
+                    "pl"|"ppu_later"=> match parse_ppu_layer(&buffer){
+                        Ok(layer) => sender.send(DebuggerCommand::GetPpuLayer(layer)).unwrap(),
+                        Err(msg) => println!("Error getting ppu layer: {}", msg),
+                    }
                     "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }
@@ -179,6 +182,19 @@ fn parse_number_string(buffer: &Vec<&str>)->Result<u8, String>{
     };
     return u8::from_str_radix(param, 10)
         .map_err(|err|format!("Error parsing string: {}", err));
+}
+
+fn parse_ppu_layer(buffer: &Vec<&str>)->Result<PpuLayer, String>{
+    let Some(param) = buffer.get(1) else{
+        return Result::Err(String::from("No param"))
+    };
+
+    return match *param{
+        "win"=>Ok(PpuLayer::Window),
+        "spr"=>Ok(PpuLayer::Sprites),
+        "bg"=>Ok(PpuLayer::Background),
+        _=>Err(String::from("No matching layer"))
+    };
 }
 
 impl DebuggerInterface for TerminalDebugger{
