@@ -1,9 +1,8 @@
-use std::{sync::atomic::{AtomicBool, Ordering}, io::stdin, thread};
+use std::{io::stdin, sync::{atomic::{AtomicBool, Ordering}, Arc}, thread};
 
 use crossbeam_channel::{bounded, Sender, Receiver};
-use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer, PPU_BUFFER_SIZE}, Pixel};
 
-static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
+use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer, PPU_BUFFER_SIZE}, Pixel};
 
 const HELP_MESSAGE:&'static str = r"Debugger commands:
 - halt(h) - start the debugging session (halt the program execution)
@@ -25,10 +24,13 @@ pub struct PpuLayerResult(pub [Pixel; PPU_BUFFER_SIZE], pub PpuLayer);
 pub struct TerminalDebugger{
     command_receiver:Receiver<DebuggerCommand>,
     result_sender:Sender<DebuggerResult>,
+    enabled_flag:Arc<AtomicBool>,
 }
 
 impl TerminalDebugger{
     pub fn new(s: Sender<PpuLayerResult>)->Self{
+        let enabled = Arc::new(AtomicBool::new(false));
+
         let (command_sender, command_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
         let (terminal_input_sender, terminal_input_receiver) = bounded(0);
@@ -36,13 +38,14 @@ impl TerminalDebugger{
             .name("Debugger input loop".to_string())
             .spawn(move || Self::get_string_loop(terminal_input_sender))
             .unwrap();
+        let enabled_flag_clone = enabled.clone();
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
             .stack_size(0x100_0000)
-            .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver, s))
+            .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver, s, enabled_flag_clone))
             .unwrap();
 
-        return Self{command_receiver, result_sender};
+        return Self{command_receiver, result_sender, enabled_flag: enabled};
     }
 
     fn get_string_loop(sender:Sender<String>){
@@ -55,29 +58,29 @@ impl TerminalDebugger{
         }
     }
 
-    fn io_loop(sender:Sender<DebuggerCommand>, receiver:Receiver<DebuggerResult>, input_receiver:Receiver<String>, ppu_layer_sender:Sender<PpuLayerResult>){
+    fn io_loop(sender:Sender<DebuggerCommand>, receiver:Receiver<DebuggerResult>, input_receiver:Receiver<String>, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         loop{
             crossbeam_channel::select! {
                 recv(input_receiver)-> msg => {
                     let Ok(message) = msg else {break};
-                    Self::handle_buffer(&sender, message);
+                    Self::handle_buffer(&sender, message, enabled.clone());
                 },
                 recv(receiver)-> res =>{ 
                     let Ok(result) = res else {break};
-                    Self::handle_debugger_result(result, ppu_layer_sender.clone());
+                    Self::handle_debugger_result(result, ppu_layer_sender.clone(), enabled.clone());
                 },
             }
         }
         log::info!("Closing the debugger IO loop thread");
     }
     
-    fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>){
+    fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         match result{
             DebuggerResult::Stopped(addr) => println!("Stopped -> {:#X}", addr),
             DebuggerResult::Registers(regs) => println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
                                                             regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc),
             DebuggerResult::HitBreak(addr) =>{
-                ENABLE_FLAG.store(true, Ordering::SeqCst);
+                enabled.store(true, Ordering::SeqCst);
                 println!("Hit break: {:#X}", addr);
             }
             DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
@@ -98,7 +101,7 @@ impl TerminalDebugger{
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
             DebuggerResult::HitWatch(address, pc) => {
                 println!("Hit watch point: {:#X} at address: {:#X}", address, pc);
-                ENABLE_FLAG.store(true, Ordering::SeqCst);
+                enabled.store(true, Ordering::SeqCst);
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
             DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
@@ -108,17 +111,17 @@ impl TerminalDebugger{
         }
     }
     
-    fn handle_buffer(sender:&Sender<DebuggerCommand>, buffer: String) {
+    fn handle_buffer(sender:&Sender<DebuggerCommand>, buffer: String, enabled:Arc<AtomicBool>) {
         let buffer:Vec<&str> = buffer.trim().split(' ').collect();
         match buffer[0]{
             "h"|"halt"=>{
-                ENABLE_FLAG.store(true, Ordering::SeqCst);
+                enabled.store(true, Ordering::SeqCst);
                 sender.send(DebuggerCommand::Stop).unwrap();
             }
-            _ if Self::enabled()=>{
+            _ if enabled.load(Ordering::SeqCst)=>{
                 match buffer[0]{
                     "c"|"continue"=>{
-                        ENABLE_FLAG.store(false, Ordering::SeqCst);
+                        enabled.store(false, Ordering::SeqCst);
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
@@ -159,8 +162,6 @@ impl TerminalDebugger{
             _=>println!("invalid input: {}", buffer[0])
         }
     }
-
-    fn enabled()->bool{ENABLE_FLAG.load(Ordering::SeqCst)}
 }
 
 fn parse_address_string(buffer: &Vec<&str>) -> Result<u16, String> {
@@ -199,7 +200,7 @@ fn parse_ppu_layer(buffer: &Vec<&str>)->Result<PpuLayer, String>{
 }
 
 impl DebuggerInterface for TerminalDebugger{
-    fn should_stop(&self)->bool {Self::enabled()}
+    fn should_stop(&self)->bool {self.enabled_flag.load(Ordering::SeqCst)}
 
     fn recv_command(&self)->DebuggerCommand {
         self.command_receiver.recv().unwrap()
