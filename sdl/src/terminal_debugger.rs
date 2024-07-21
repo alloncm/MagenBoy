@@ -6,18 +6,18 @@ use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResul
 static ENABLE_FLAG: AtomicBool = AtomicBool::new(false);
 
 const HELP_MESSAGE:&'static str = r"Debugger commands:
-- halt(h) - start the debugging session
-- contine(c) - continue execution
+- halt(h) - start the debugging session (halt the program execution)
+- continue(c) - continue program execution
 - step(s) - step 1 instruction
 - break(b) [address] - set a break point
-- delete_break(db) [address] - delete a breakpoint 
-- registers(r) - print the cpu registers state
+- remove_break(rb) [address] - delete a breakpoint 
+- registers(reg) - print the cpu registers state
 - disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
-- dump [number of bytes] - print next the memory addresses values
-- watch(w) [address] - set a watchpoint
-- delete_watch(dw) [address] - delete a watchpoint
-- ppu_info - print info about the ppu execution state
-- ppu_layer(pl) - a debug window with one ppu layer (win, bg, spr)
+- dump(du) [number of bytes] - print next the memory addresses values
+- watch(w) [address] - set a watch point
+- remove_watch(rw) [address] - delete a watch point
+- ppu_info(pi) - print info about the ppu execution state
+- ppu_layer(pl) [layer] - a debug window with one ppu layer (win, bg, spr)
 ";
 
 pub struct PpuLayerResult(pub [Pixel; PPU_BUFFER_SIZE], pub PpuLayer);
@@ -31,10 +31,10 @@ impl TerminalDebugger{
     pub fn new(s: Sender<PpuLayerResult>)->Self{
         let (command_sender, command_receiver) = bounded(0);
         let (result_sender, result_receiver) = bounded(0);
-        let (ternimal_input_sender, terminal_input_receiver) = bounded(0);
+        let (terminal_input_sender, terminal_input_receiver) = bounded(0);
         let _ = thread::Builder::new()
             .name("Debugger input loop".to_string())
-            .spawn(move || Self::get_string_loop(ternimal_input_sender))
+            .spawn(move || Self::get_string_loop(terminal_input_sender))
             .unwrap();
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
@@ -80,10 +80,10 @@ impl TerminalDebugger{
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
                 println!("Hit break: {:#X}", addr);
             }
-            DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint succesfully at {:#X}", addr),
-            DebuggerResult::Continuing=>println!("Contuning execution"),
+            DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
+            DebuggerResult::Continuing=>println!("Continuing execution"),
             DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
-            DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint succesfully at {:#X}", addr),
+            DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
             DebuggerResult::MemoryDump(size, buffer) => {
                 for i in 0..size as usize{
@@ -95,13 +95,13 @@ impl TerminalDebugger{
                     println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
                 }
             },
-            DebuggerResult::AddedWatch(addr)=>println!("Set Watchpoint at: {:#X} succesfully", addr),
+            DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
             DebuggerResult::HitWatch(address, pc) => {
-                println!("Hit watchpoint: {:#X} at address: {:#X}", address, pc);
+                println!("Hit watch point: {:#X} at address: {:#X}", address, pc);
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
             },
-            DebuggerResult::RemovedWatch(addr) => println!("Removed watchpoint {:#X}", addr),
-            DebuggerResult::WatchDoNotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
+            DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
+            DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
@@ -126,8 +126,8 @@ impl TerminalDebugger{
                         Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
                         Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
-                    "r"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "db"|"delete_break"=>match parse_address_string(&buffer) {
+                    "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
+                    "rb"|"remove_break"=>match parse_address_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
@@ -135,19 +135,19 @@ impl TerminalDebugger{
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
                         Err(msg) => println!("Error disassembling: {}", msg),
                     },
-                    "dump"=>match parse_number_string(&buffer){
+                    "du"|"dump"=>match parse_number_string(&buffer){
                         Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
                         Err(msg) => println!("Error dumping memory: {}", msg),
                     },
                     "w"|"watch"=> match parse_address_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
-                        Err(msg) => println!("Error setting watchpoint {}", msg),
+                        Err(msg) => println!("Error setting watch point {}", msg),
                     }
-                    "dw"|"delete_watch"=>match parse_address_string(&buffer){
+                    "rw"|"remove_watch"=>match parse_address_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
-                        Err(msg) => println!("Error deleting watchpoint: {}", msg),
+                        Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
-                    "ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
+                    "pi"|"ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
                     "pl"|"ppu_layer"=> match parse_ppu_layer(&buffer){
                         Ok(layer) => sender.send(DebuggerCommand::GetPpuLayer(layer)).unwrap(),
                         Err(msg) => println!("Error getting ppu layer: {}", msg),
@@ -191,10 +191,10 @@ fn parse_ppu_layer(buffer: &Vec<&str>)->Result<PpuLayer, String>{
     };
 
     return match *param{
-        "win"=>Ok(PpuLayer::Window),
-        "spr"=>Ok(PpuLayer::Sprites),
-        "bg"=>Ok(PpuLayer::Background),
-        _=>Err(String::from("No matching layer"))
+        "win" => Ok(PpuLayer::Window),
+        "spr" => Ok(PpuLayer::Sprites),
+        "bg" => Ok(PpuLayer::Background),
+        _=> Err(String::from("No matching layer"))
     };
 }
 
