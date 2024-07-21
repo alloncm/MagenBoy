@@ -33,5 +33,30 @@ impl<T:Default + Copy + PartialEq, const SIZE:usize> FixedSizeSet<T, SIZE>{
         return true;
     }
 
-    pub fn as_slice(&self)->&[T]{&self.data[0..self.size]}
+    pub fn as_slice(&self)->&[T]{&self.data[..self.size]}
+}
+
+mod tests{
+    use super::*;
+
+    #[test]
+    fn test_fixed_size_set_add(){
+        let mut set: FixedSizeSet<u32, 10> = FixedSizeSet::new();
+        for i in 0..10{
+            set.add(i);
+            set.add(i);
+        }
+
+        assert!(set.data.into_iter().eq((0..10).into_iter()));
+    }
+    
+    #[test]
+    fn test_fixed_size_set_try_remove(){
+        let mut set: FixedSizeSet<u32, 10> = FixedSizeSet::new();
+        set.add(1);
+        
+        assert_eq!(set.try_remove(2), false);
+        assert_eq!(set.try_remove(1), true);
+        assert_eq!(set.size, 0);
+    }
 }

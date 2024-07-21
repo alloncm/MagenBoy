@@ -7,10 +7,10 @@ pub mod fixed_size_queue;
 pub mod static_allocator;
 pub mod global_static_alloctor;
 pub mod stack_string;
-cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    mod fixed_size_set;
-    pub use fixed_size_set::FixedSizeSet;
-}}
+#[cfg(feature = "dbg")]
+mod fixed_size_set;
+#[cfg(feature = "dbg")]
+pub use fixed_size_set::FixedSizeSet;
 
 // Frequency in m_cycles (m_cycle = 4 t_cycles)
 pub const GB_FREQUENCY:u32 = 4_194_304 / 4;
