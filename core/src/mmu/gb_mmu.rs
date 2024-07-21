@@ -7,20 +7,20 @@ const BAD_READ_VALUE:u8 = 0xFF;
 
 #[cfg(feature = "dbg")]
 pub struct MemoryWatcher{
-    watching_addrs:crate::utils::FixedSizeSet<u16, {crate::debugger::INTERNAL_ARRAY_MAX_SIZE}>,
+    watching_addresses:crate::utils::FixedSizeSet<u16, {crate::debugger::INTERNAL_ARRAY_MAX_SIZE}>,
     pub hit_addr:Option<u16>,
 }
 
 #[cfg(feature = "dbg")]
 impl MemoryWatcher{
-    pub fn add_address(&mut self, address:u16){self.watching_addrs.add(address)}
-    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addrs.try_remove(address)}
+    pub fn add_address(&mut self, address:u16){self.watching_addresses.add(address)}
+    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.try_remove(address)}
 }
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
-    oucupied_access_bus:Option<AccessBus>,
+    occupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
     mode:Mode,
@@ -33,12 +33,12 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addrs.as_slice().contains(&address){
+        if self.mem_watch.watching_addresses.as_slice().contains(&address){
             self.mem_watch.hit_addr = Some(address);
         }
 
         self.cycle(m_cycles);
-        if let Some (bus) = &self.oucupied_access_bus{
+        if let Some (bus) = &self.occupied_access_bus{
             return match address{
                 0xFEA0..=0xFEFF | 0xFF00..=0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
@@ -71,12 +71,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addrs.as_slice().contains(&address){
+        if self.mem_watch.watching_addresses.as_slice().contains(&address){
             self.mem_watch.hit_addr = Some(address);
         }
 
         self.cycle(m_cycles);
-        if let Some(bus) = &self.oucupied_access_bus{
+        if let Some(bus) = &self.occupied_access_bus{
             match address{
                 0xFF00..=0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
@@ -151,12 +151,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
-            oucupied_access_bus:None,
+            occupied_access_bus:None,
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
             mode,
             #[cfg(feature = "dbg")]
-            mem_watch: MemoryWatcher { watching_addrs: crate::utils::FixedSizeSet::new(), hit_addr: None, } 
+            mem_watch: MemoryWatcher { watching_addresses: crate::utils::FixedSizeSet::new(), hit_addr: None, } 
         };
         if bootrom_missing{
             //Setting the bootrom register to be set (the boot sequence has over)
@@ -168,7 +168,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
-        self.oucupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
+        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{

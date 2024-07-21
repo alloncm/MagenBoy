@@ -34,7 +34,6 @@ impl JoypadProvider for SdlJoypadProvider{
 
 impl MenuJoypadProvider for SdlJoypadProvider{
     fn poll(&mut self, joypad:&mut Joypad) {
-        joypad.buttons.fill(false);
         unsafe{
             loop{
                 let mut event = std::mem::MaybeUninit::<SDL_Event>::uninit();

@@ -97,13 +97,13 @@ fn main() {
         let mpmc_device = MpmcGfxDevice::new(s);
 
         #[cfg(feature = "dbg")]
-        let (debugger_s, debugger_r) = crossbeam_channel::bounded::<terminal_debugger::PpuLayerResult>(0);
+        let (debugger_ppu_layer_sender, debugger_ppu_layer_receiver) = crossbeam_channel::bounded::<terminal_debugger::PpuLayerResult>(0);
 
         let args_clone = args.clone();
         let emualation_thread = std::thread::Builder::new()
             .name("Emualtion Thread".to_string())
             .stack_size(0x100_0000)
-            .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device, #[cfg(feature = "dbg")]debugger_s))
+            .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device, #[cfg(feature = "dbg")]debugger_ppu_layer_sender))
             .unwrap();
 
         unsafe{
@@ -124,10 +124,10 @@ fn main() {
                             let Ok(buffer) = msg else {break};
                             gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
                         },
-                        recv(debugger_r)-> msg => {
+                        recv(debugger_ppu_layer_receiver)-> msg => {
                             let Ok(result) = msg else {break};
                             let mut window = sdl::sdl_gfx_device::PpuLayerWindow::new(result.1);
-                            window.run(result.0);
+                            window.run(&result.0);
                         }
                     }
                 }else{
