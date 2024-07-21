@@ -1,26 +1,16 @@
-use crate::{*,
-    apu::gb_apu::GbApu, cpu::gb_cpu::GbCpu,
-    mmu::{Memory, carts::Mbc, gb_mmu::GbMmu, external_memory_bus::Bootrom},
-};
+use crate::{*, apu::gb_apu::GbApu, cpu::gb_cpu::GbCpu, mmu::{Memory, carts::Mbc, gb_mmu::GbMmu, external_memory_bus::Bootrom}};
 use super::Mode;
 #[cfg(feature = "dbg")]
 use crate::debugger::*;
 
-cfg_if::cfg_if!{ if #[cfg(feature = "dbg")]{
-    pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DI:DebuggerInterface>{
-        pub(crate) cpu: GbCpu,       
-        pub(crate) mmu:GbMmu<'a, AD, GFX, JP>,
-        pub(crate) debugger:Debugger<DI>
-    }
-}else{
-    pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice>{
-        cpu: GbCpu,
-        mmu: GbMmu::<'a, AD, GFX, JP>,
-    }
-}}
+pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, #[cfg(feature = "dbg")] DI:DebuggerInterface>{
+    pub(crate) cpu: GbCpu,       
+    pub(crate) mmu:GbMmu<'a, AD, GFX, JP>,
+    #[cfg(feature = "dbg")] pub(crate) debugger:Debugger<DI>
+}
 
 // https://stackoverflow.com/questions/72955038/varying-number-of-generic-parameters-based-on-a-feature
-// In order to conditionaly add the debugger based on the dbg feature Im having this macro
+// In order to conditionally add the debugger based on the dbg feature Im having this macro
 macro_rules! impl_gameboy {
     ($implementations:tt) => {
         #[cfg(feature = "dbg")]
@@ -30,6 +20,7 @@ macro_rules! impl_gameboy {
     };
 }
 pub(crate) use impl_gameboy;
+
 impl_gameboy! {{
     pub fn new(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->Self{
         let mode = mode.unwrap_or(mbc.get_compatibility_mode().into());
@@ -88,7 +79,7 @@ impl_gameboy! {{
         if cpu_cycles_passed != 0{
             self.mmu.cycle(cpu_cycles_passed);
         }
-            
+
         //interrupts
         let interrupt_request = self.mmu.handle_interrupts(self.cpu.mie);
         let interrupt_cycles = self.cpu.execute_interrupt_request(&mut self.mmu, interrupt_request);

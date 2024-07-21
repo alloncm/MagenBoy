@@ -1,27 +1,21 @@
-use super::{
-    Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, 
-    interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus
-};
-use crate::{
-    ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 
-    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
-};
+use super::{Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}};
 
 const HRAM_SIZE:usize = 0x7F;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-cfg_if::cfg_if!{if #[cfg(feature = "dbg")]{
-    pub struct MemoryWatcher{
-        watching_addrs:crate::utils::FixedSizeSet<u16, 0xFF>,
-        pub hit_addr:Option<u16>,
-    }
-    
-    impl MemoryWatcher{
-        pub fn add_address(&mut self, address:u16){self.watching_addrs.add(address)}
-        pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addrs.try_remove(address)}
-    }
-}}
+#[cfg(feature = "dbg")]
+pub struct MemoryWatcher{
+    watching_addrs:crate::utils::FixedSizeSet<u16, {crate::debugger::INTERNAL_ARRAY_MAX_SIZE}>,
+    pub hit_addr:Option<u16>,
+}
+
+#[cfg(feature = "dbg")]
+impl MemoryWatcher{
+    pub fn add_address(&mut self, address:u16){self.watching_addrs.add(address)}
+    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addrs.try_remove(address)}
+}
 
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     io_bus: IoBus<D, G, J>,

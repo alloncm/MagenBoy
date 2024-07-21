@@ -95,13 +95,13 @@ impl TerminalDebugger{
                     println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
                 }
             },
-            DebuggerResult::SetWatchPoint(addr)=>println!("Set Watchpoint at: {:#X} succesfully", addr),
-            DebuggerResult::HitWatchPoint(address, pc) => {
+            DebuggerResult::AddedWatch(addr)=>println!("Set Watchpoint at: {:#X} succesfully", addr),
+            DebuggerResult::HitWatch(address, pc) => {
                 println!("Hit watchpoint: {:#X} at address: {:#X}", address, pc);
                 ENABLE_FLAG.store(true, Ordering::SeqCst);
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watchpoint {:#X}", addr),
-            DebuggerResult::WatchDonotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
+            DebuggerResult::WatchDoNotExist(addr) => println!("Watchpoint {:#X} do not exist", addr),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
@@ -128,7 +128,7 @@ impl TerminalDebugger{
                     },
                     "r"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
                     "db"|"delete_break"=>match parse_address_string(&buffer) {
-                        Ok(address) => sender.send(DebuggerCommand::DeleteBreak(address)).unwrap(),
+                        Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
                     "di"|"disassemble"=>match parse_number_string(&buffer){
@@ -140,7 +140,7 @@ impl TerminalDebugger{
                         Err(msg) => println!("Error dumping memory: {}", msg),
                     },
                     "w"|"watch"=> match parse_address_string(&buffer){
-                        Ok(addr) => sender.send(DebuggerCommand::AddWatchPoint(addr)).unwrap(),
+                        Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
                         Err(msg) => println!("Error setting watchpoint {}", msg),
                     }
                     "dw"|"delete_watch"=>match parse_address_string(&buffer){

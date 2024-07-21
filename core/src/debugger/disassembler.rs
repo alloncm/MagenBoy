@@ -1,5 +1,7 @@
 use crate::{utils::stack_string::StackString, mmu::Memory, cpu::gb_cpu::GbCpu};
 
+use super::INTERNAL_ARRAY_MAX_SIZE;
+
 macro_rules! define_single_opcode_instr {
     ($name:ident) => {
         fn $name(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from(stringify!($name))}
@@ -17,8 +19,8 @@ pub struct OpcodeEntry{
     pub string:OpcodeStr
 }
 
-pub fn disassemble<M:Memory>(cpu:&GbCpu, memory:&mut M, opcodes_number:u8)->[OpcodeEntry;0xFF]{
-    let mut disassembled_opcodes = [OpcodeEntry{ address: 0, string: OpcodeStr::default() };0xFF];
+pub fn disassemble<M:Memory>(cpu:&GbCpu, memory:&mut M, opcodes_number:u8)->[OpcodeEntry;INTERNAL_ARRAY_MAX_SIZE]{
+    let mut disassembled_opcodes = [OpcodeEntry{ address: 0, string: OpcodeStr::default() };INTERNAL_ARRAY_MAX_SIZE];
     let mut pc = cpu.program_counter;
     for i in 0..opcodes_number{
         let opcode = memory.read(pc, 0);
