@@ -6,8 +6,6 @@ Currently only the SDL frontend supports it and offers a command line based UI f
 
 ## SDL frontend terminal commands
 
-> Note: Parameters are marked with `[]` in the table for readability, in the terminal please omit the `[]`
-
 command | shortcut | description |  example
 --------| -------- | ----------- | ----------
 halt    | h        | Halts the program execution in order to interact with the debugger | `halt`
