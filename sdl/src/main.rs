@@ -29,16 +29,14 @@ cfg_if::cfg_if!{
     }
 }
 
-use crate::audio::*;
 use magenboy_common::{audio::ResampledAudioDevice, joypad_menu::*, mbc_handler::*, menu::*, mpmc_gfx_device::*};
-use magenboy_core::{apu::audio_device::*, keypad::{joypad::NUM_OF_KEYS}, machine::{gameboy::GameBoy, Mode}, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
+use magenboy_core::{GB_FREQUENCY, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, machine::{gameboy::GameBoy, Mode}, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
 use log::info;
-use magenboy_core::GB_FREQUENCY;
 use sdl2::sys::*;
 #[cfg(feature = "dbg")]
 use crate::terminal_debugger::TerminalDebugger;
-use crate::sdl::sdl_gfx_device::SdlGfxDevice;
+use crate::{sdl::sdl_gfx_device::SdlGfxDevice, audio::*};
 
 const TURBO_MUL:u8 = 1;
 
@@ -82,7 +80,7 @@ fn main() {
     check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
 
     while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
-        let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING);
+        let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, true);
 
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
@@ -109,11 +107,11 @@ fn main() {
             .unwrap();
 
         unsafe{
-            loop{
-                if let Some(event) = gfx_device.poll_event(){
+            'main:loop{
+                while let Some(event) = gfx_device.poll_event(){
                     if event.type_ == SDL_EventType::SDL_QUIT as u32{
                         EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
-                        break;
+                        break 'main;
                     }
                     else if event.type_ == SDL_EventType::SDL_KEYDOWN as u32 && event.key.keysym.scancode == SDL_Scancode::SDL_SCANCODE_ESCAPE{
                         emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut gfx_device, r.clone());
@@ -162,7 +160,7 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     }
         
     let audio_devices = MultiAudioDevice::new(devices);
-    let joypad_provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING);
+    let joypad_provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
     
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter")

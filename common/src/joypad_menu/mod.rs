@@ -53,7 +53,10 @@ impl<'a, T, S: AsRef<str>, MR:MenuRenderer<T, S>> JoypadMenu<'a, T, S, MR>{
             }
         }
         
-        // TODO: used to busy wait, now SDL knows how to not to leak the confirm press, verify on RPI.
+        // Busy wait until A is released in order to not leak the button press to the emulation
+        while joypad.buttons[Button::A as usize]{
+            provider.provide(&mut joypad);
+        }
 
         return &self.options[self.selection].value;
     }
