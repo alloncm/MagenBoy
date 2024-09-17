@@ -1,26 +1,21 @@
-use crate::{utils::stack_string::StackString, mmu::Memory, cpu::gb_cpu::GbCpu};
-
-use super::INTERNAL_ARRAY_MAX_SIZE;
+use crate::{mmu::Memory, cpu::gb_cpu::GbCpu};
 
 macro_rules! define_single_opcode_instr {
     ($name:ident) => {
-        fn $name(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from(stringify!($name))}
+        fn $name(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from(stringify!($name))}
     };
 }
 
-const MAX_OPCODE_CHARS:usize = 12;
+type Opcode<Memory> = fn(u8, &mut Memory, &mut u16)->String;
 
-type Opcode<Memory> = fn(u8, &mut Memory, &mut u16)->StackString<MAX_OPCODE_CHARS>;
-type OpcodeStr = StackString<MAX_OPCODE_CHARS>;
-
-#[derive(Clone, Copy)]
+#[derive(Default, Clone)]
 pub struct OpcodeEntry{
     pub address:u16,
-    pub string:OpcodeStr
+    pub string:String
 }
 
-pub fn disassemble<M:Memory>(cpu:&GbCpu, memory:&mut M, opcodes_number:u8)->[OpcodeEntry;INTERNAL_ARRAY_MAX_SIZE]{
-    let mut disassembled_opcodes = [OpcodeEntry{ address: 0, string: OpcodeStr::default() };INTERNAL_ARRAY_MAX_SIZE];
+pub fn disassemble<M:Memory>(cpu:&GbCpu, memory:&mut M, opcodes_number:u16)->Vec<OpcodeEntry>{
+    let mut disassembled_opcodes = vec![OpcodeEntry::default();opcodes_number as usize];
     let mut pc = cpu.program_counter;
     for i in 0..opcodes_number{
         let opcode = memory.read(pc, 0);
@@ -103,7 +98,7 @@ pub fn disassemble<M:Memory>(cpu:&GbCpu, memory:&mut M, opcodes_number:u8)->[Opc
     return disassembled_opcodes;
 }
 
-fn unknown(opcode:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("unknown-{:#X}", opcode))}
+fn unknown(opcode:u8, _:&mut impl Memory, _:&mut u16)->String{format!("unknown-{:#X}", opcode)}
 
 define_single_opcode_instr!(nop);
 define_single_opcode_instr!(stop);
@@ -121,140 +116,140 @@ define_single_opcode_instr!(ei);
 define_single_opcode_instr!(ret);
 define_single_opcode_instr!(reti);
 
-fn add_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("add a,{}", get_src_register(opcode)))}
+fn add_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("add a,{}", get_src_register(opcode))}
 
-fn adc_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("adc a,{}", get_src_register(opcode)))}
+fn adc_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("adc a,{}", get_src_register(opcode))}
 
-fn sub_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("sub a,{}", get_src_register(opcode)))}
+fn sub_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("sub a,{}", get_src_register(opcode))}
 
-fn sbc_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("sbc a,{}", get_src_register(opcode)))}
+fn sbc_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("sbc a,{}", get_src_register(opcode))}
 
-fn and_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("and a,{}", get_src_register(opcode)))}
+fn and_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("and a,{}", get_src_register(opcode))}
 
-fn xor_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("xor a,{}", get_src_register(opcode)))}
+fn xor_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("xor a,{}", get_src_register(opcode))}
 
-fn or_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("or a,{}", get_src_register(opcode)))}
+fn or_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("or a,{}", get_src_register(opcode))}
 
-fn cp_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("cp a,{}", get_src_register(opcode)))}
+fn cp_a_r(opcode:u8, _memory:&mut impl Memory, _pc:&mut u16)->String{format!("cp a,{}", get_src_register(opcode))}
 
-fn ld_r_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ld {},{}", get_dest_register(opcode), get_src_register(opcode)))}
+fn ld_r_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("ld {},{}", get_dest_register(opcode), get_src_register(opcode))}
 
-fn add_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("add a,{:#x}", read_memory(memory, pc)))}
-fn sub_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("sub a,{:#x}", read_memory(memory, pc)))}
-fn and_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("and a,{:#x}", read_memory(memory, pc)))}
-fn or_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("or a,{:#x}", read_memory(memory, pc)))}
-fn adc_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("adc a,{:#x}", read_memory(memory, pc)))}
-fn sbc_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("sbc a,{:#x}", read_memory(memory, pc)))}
-fn xor_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("xor a,{:#x}", read_memory(memory, pc)))}
-fn cp_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("cp a,{:#x}", read_memory(memory, pc)))}
-fn ld_nn_a(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ld {:#X},a", read_memory_u16(memory, pc)))}
-fn ld_a_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ld a,{:#X}", read_memory_u16(memory, pc)))}
+fn add_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("add a,{:#x}", read_memory(memory, pc))}
+fn sub_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("sub a,{:#x}", read_memory(memory, pc))}
+fn and_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("and a,{:#x}", read_memory(memory, pc))}
+fn or_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("or a,{:#x}", read_memory(memory, pc))}
+fn adc_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("adc a,{:#x}", read_memory(memory, pc))}
+fn sbc_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("sbc a,{:#x}", read_memory(memory, pc))}
+fn xor_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("xor a,{:#x}", read_memory(memory, pc))}
+fn cp_a_n(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("cp a,{:#x}", read_memory(memory, pc))}
+fn ld_nn_a(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("ld {:#X},a", read_memory_u16(memory, pc))}
+fn ld_a_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("ld a,{:#X}", read_memory_u16(memory, pc))}
 
-fn rst(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{
+fn rst(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{
     let mut address = ((opcode & 0b11_0000) >> 4) * 0x10;
     if (opcode & 0b1000) != 0{
         address += 0x8;
     }
-    return OpcodeStr::from_args(format_args!("rst {:#X}", address));
+    return format!("rst {:#X}", address);
 }
 
-fn add_sp_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn add_sp_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let value = read_memory(memory, pc) as i8;
-    return OpcodeStr::from_args(format_args!("add sp,{}", value));
+    return format!("add sp,{}", value);
 }
 
-fn ld_hl_sp_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn ld_hl_sp_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let value = read_memory(memory, pc) as i8;
-    return OpcodeStr::from_args(format_args!("ld hl,sp+{}", value));
+    return format!("ld hl,sp+{}", value);
 }
 
-fn jp_hl(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("jp hl")}
-fn ld_sp_hl(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("ld sp,hl")}
+fn jp_hl(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("jp hl")}
+fn ld_sp_hl(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("ld sp,hl")}
 
-fn jr_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn jr_d(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let value = read_memory(memory, pc) as i8;
-    OpcodeStr::from_args(format_args!("jr {}", value))
+    format!("jr {}", value)
 }
 
-fn jr_cc_d(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn jr_cc_d(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let cc = get_cc(opcode);
     let value = read_memory(memory, pc) as i8;
-    return OpcodeStr::from_args(format_args!("jr {},{}", cc, value));
+    return format!("jr {},{}", cc, value);
 }
 
-fn ld_rr_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn ld_rr_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let reg = get_rr_register(opcode, true);
     let value = read_memory_u16(memory, pc);
-    return OpcodeStr::from_args(format_args!("ld {},{:#X}", reg, value));
+    return format!("ld {},{:#X}", reg, value);
 }
 
-fn ld_rr_a(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ld {},a", get_rr_register(opcode, true)))}
+fn ld_rr_a(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("ld {},a", get_rr_register(opcode, true))}
 
-fn ldi_hl_a(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("ldi hl,a")}
-fn ldi_a_hl(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("ldi a,hl")}
-fn ldd_hl_a(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("ldd hl,a")}
-fn ldd_a_hl(_:u8, _:&mut impl Memory, _:&mut u16)->OpcodeStr{OpcodeStr::from("ldd a,hl")}
+fn ldi_hl_a(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("ldi hl,a")}
+fn ldi_a_hl(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("ldi a,hl")}
+fn ldd_hl_a(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("ldd hl,a")}
+fn ldd_a_hl(_:u8, _:&mut impl Memory, _:&mut u16)->String{String::from("ldd a,hl")}
 
-fn inc_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("inc {}", get_rr_register(opcode, true)))}
+fn inc_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("inc {}", get_rr_register(opcode, true))}
 
-fn inc_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("inc {}", get_dest_register(opcode)))}
-fn dec_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("dec {}", get_dest_register(opcode)))}
+fn inc_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("inc {}", get_dest_register(opcode))}
+fn dec_r(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("dec {}", get_dest_register(opcode))}
 
-fn ld_r_n(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn ld_r_n(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let reg = get_dest_register(opcode);
     let value = read_memory(memory, pc);
-    return OpcodeStr::from_args(format_args!("ld {},{:#X}", reg, value));
+    return format!("ld {},{:#X}", reg, value);
 }
 
-fn add_hl_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("add hl,{}", get_rr_register(opcode, true)))}
-fn ld_nn_sp(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn add_hl_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("add hl,{}", get_rr_register(opcode, true))}
+fn ld_nn_sp(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let value = read_memory_u16(memory, pc);
-    return OpcodeStr::from_args(format_args!("ld {},sp", value));
+    return format!("ld {},sp", value);
 }
 
-fn ld_a_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ld a,{}", get_rr_register(opcode, true)))}
-fn dec_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("dec {}", get_rr_register(opcode, true)))}
+fn ld_a_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("ld a,{}", get_rr_register(opcode, true))}
+fn dec_rr(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{format!("dec {}", get_rr_register(opcode, true))}
 
-fn ret_cc(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{
+fn ret_cc(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{
     let cc = get_cc(opcode);
-    return OpcodeStr::from_args(format_args!("ret {}", cc));
+    return format!("ret {}", cc);
 }
 
-fn pop(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{
+fn pop(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{
     let reg = get_rr_register(opcode, false);
-    return OpcodeStr::from_args(format_args!("pop {}", reg));
+    return format!("pop {}", reg);
 }
 
-fn push(opcode:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{
+fn push(opcode:u8, _:&mut impl Memory, _: &mut u16)->String{
     let reg = get_rr_register(opcode, false);
-    return OpcodeStr::from_args(format_args!("push {}", reg));
+    return format!("push {}", reg);
 }
 
-fn jp_cc_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn jp_cc_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let cc = get_cc(opcode);
     let value = read_memory_u16(memory, pc);
-    return OpcodeStr::from_args(format_args!("jp {},{:#X}", cc, value));
+    return format!("jp {},{:#X}", cc, value);
 }
 
-fn jp_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn jp_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let value = read_memory_u16(memory, pc);
-    return OpcodeStr::from_args(format_args!("jp {:#X}", value));
+    return format!("jp {:#X}", value);
 }
 
-fn ldio_nn_a(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ldio {:#X},a", read_memory(memory, pc)))}
-fn ldio_a_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ldio a,{:#X}", read_memory(memory, pc)))}
-fn ldio_a_c(_:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ldio a,c"))}
-fn ldio_c_a(_:u8, _:&mut impl Memory, _: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("ldio c,a"))}
+fn ldio_nn_a(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("ldio {:#X},a", read_memory(memory, pc))}
+fn ldio_a_nn(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("ldio a,{:#X}", read_memory(memory, pc))}
+fn ldio_a_c(_:u8, _:&mut impl Memory, _: &mut u16)->String{format!("ldio a,c")}
+fn ldio_c_a(_:u8, _:&mut impl Memory, _: &mut u16)->String{format!("ldio c,a")}
 
-fn call_cc_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn call_cc_nn(opcode:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let cc = get_cc(opcode);
     let value = read_memory_u16(memory, pc);
-    return OpcodeStr::from_args(format_args!("call {},{:#X}", cc, value));
+    return format!("call {},{:#X}", cc, value);
 }
 
-fn call(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{OpcodeStr::from_args(format_args!("call {:#X}",read_memory_u16(memory, pc)))}
+fn call(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{format!("call {:#X}",read_memory_u16(memory, pc))}
 
-fn cb_prefix(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
+fn cb_prefix(_:u8, memory:&mut impl Memory, pc: &mut u16)->String{
     let opcode = read_memory(memory, pc);
     let func = match opcode{
         0x0..=0x7=>rlc_r,
@@ -272,18 +267,18 @@ fn cb_prefix(_:u8, memory:&mut impl Memory, pc: &mut u16)->OpcodeStr{
     return func(opcode);
 }
 
-fn rlc_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("rlc {}", get_src_register(opcode)))}
-fn rrc_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("rrc {}", get_src_register(opcode)))}
-fn rr_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("rr {}", get_src_register(opcode)))}
-fn rl_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("rl {}", get_src_register(opcode)))}
-fn sla_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("sla {}", get_src_register(opcode)))}
-fn sra_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("sra {}", get_src_register(opcode)))}
-fn swap_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("swap {}", get_src_register(opcode)))}
-fn srl_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("srl {}", get_src_register(opcode)))}
+fn rlc_r(opcode:u8)->String{format!("rlc {}", get_src_register(opcode))}
+fn rrc_r(opcode:u8)->String{format!("rrc {}", get_src_register(opcode))}
+fn rr_r(opcode:u8)->String{format!("rr {}", get_src_register(opcode))}
+fn rl_r(opcode:u8)->String{format!("rl {}", get_src_register(opcode))}
+fn sla_r(opcode:u8)->String{format!("sla {}", get_src_register(opcode))}
+fn sra_r(opcode:u8)->String{format!("sra {}", get_src_register(opcode))}
+fn swap_r(opcode:u8)->String{format!("swap {}", get_src_register(opcode))}
+fn srl_r(opcode:u8)->String{format!("srl {}", get_src_register(opcode))}
 
-fn bit_n_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("bit {},{}", cb_bit_index(opcode), get_src_register(opcode)))}
-fn res_n_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("res {},{}", cb_bit_index(opcode), get_src_register(opcode)))}
-fn set_n_r(opcode:u8)->OpcodeStr{OpcodeStr::from_args(format_args!("set {},{}", cb_bit_index(opcode), get_src_register(opcode)))}
+fn bit_n_r(opcode:u8)->String{format!("bit {},{}", cb_bit_index(opcode), get_src_register(opcode))}
+fn res_n_r(opcode:u8)->String{format!("res {},{}", cb_bit_index(opcode), get_src_register(opcode))}
+fn set_n_r(opcode:u8)->String{format!("set {},{}", cb_bit_index(opcode), get_src_register(opcode))}
 
 fn cb_bit_index(opcode: u8) -> u8 {
     (opcode & 0b11_1000) >> 3

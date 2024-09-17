@@ -1,6 +1,6 @@
 use core::cmp;
 
-use crate::{machine::Mode, utils::{vec2::Vec2, bit_masks::*}};
+use crate::{machine::Mode, ppu::color, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -458,19 +458,20 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 
 #[cfg(feature = "dbg")]
 impl<GFX:GfxDevice> GbPpu<GFX>{
-    #[cfg(feature = "dbg")]
-    pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->[Pixel; crate::debugger::PPU_BUFFER_SIZE]{
+    pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->Box<[Pixel; crate::debugger::PPU_BUFFER_SIZE]>{
         use crate::debugger::PpuLayer;
+        let mut buffer: Vec<Pixel> = vec![color::WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
 
-        return match layer{
-            PpuLayer::Background => self.get_bg_or_window_layer(true),
-            PpuLayer::Window => self.get_bg_or_window_layer(false),
-            PpuLayer::Sprites => self.get_sprite_layer()
+        match layer{
+            PpuLayer::Background => self.get_bg_or_window_layer(&mut buffer, true),
+            PpuLayer::Window => self.get_bg_or_window_layer(&mut buffer, false),
+            PpuLayer::Sprites => self.get_sprite_layer(&mut buffer)
         };
+
+        return buffer.try_into().unwrap();
     }
 
-    #[cfg(feature = "dbg")]
-    fn get_bg_or_window_layer(&self, bg_layer: bool)->[Pixel; crate::debugger::PPU_BUFFER_SIZE]{
+    fn get_bg_or_window_layer(&self, buffer: &mut Vec<Pixel>, bg_layer: bool){
         use super::attributes::GbcBackgroundAttributes;
         use crate::debugger::*;
 
@@ -490,7 +491,6 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             tile_data.clone()
         });
 
-        let mut buffer = [Pixel::default(); crate::debugger::PPU_BUFFER_SIZE];
         for y in 0..32{
             for x in 0..32{
                 let tile_data = &tiles[y * 32 + x];
@@ -508,19 +508,16 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 }
             }
         }
-        return buffer;
     }
 
-    #[cfg(feature = "dbg")]
-    fn get_sprite_layer(&self)->[Pixel; crate::debugger::PPU_BUFFER_SIZE]{
-        use crate::{debugger::{PPU_BUFFER_SIZE, PPU_BUFFER_WIDTH}, ppu::color};
+    fn get_sprite_layer(&self, buffer: &mut Vec<Pixel>){
+        use crate::debugger::{PPU_BUFFER_SIZE, PPU_BUFFER_WIDTH};
 
         let oam_table = self.oam
             .chunks_exact(OAM_ENTRY_SIZE as usize)
             .map(|chunk|SpriteAttributes::new(chunk[0], chunk[1], chunk[2], chunk[3], 0, 0));
 
         let size = if self.lcd_control & BIT_2_MASK != 0 {32} else {16};
-        let mut buffer = [color::WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
         let mut oam_entry = 0;
         for sprite in oam_table{
             let tile_address = sprite.tile_number as usize * size;
@@ -551,6 +548,5 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             }
             oam_entry += 1;
         }
-        return buffer;
     }
 }

@@ -1,6 +1,8 @@
 mod disassembler;
 
-use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::{FixedSizeSet, vec2::Vec2}, ppu::{ppu_state::PpuState, gb_ppu::GbPpu}};
+use std::collections::HashSet;
+
+use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::vec2::Vec2, ppu::{ppu_state::PpuState, gb_ppu::GbPpu}};
 use self::disassembler::{OpcodeEntry, disassemble};
 
 #[derive(Clone, Copy)]
@@ -17,8 +19,8 @@ pub enum DebuggerCommand{
     Registers,
     Break(u16),
     RemoveBreak(u16),
-    DumpMemory(u8),
-    Disassemble(u8),
+    DumpMemory(u16),
+    Disassemble(u16),
     Watch(u16),
     RemoveWatch(u16),
     PpuInfo,
@@ -28,7 +30,6 @@ pub enum DebuggerCommand{
 pub const PPU_BUFFER_WIDTH:usize = 0x100;
 pub const PPU_BUFFER_HEIGHT:usize = 0x100;
 pub const PPU_BUFFER_SIZE:usize = PPU_BUFFER_HEIGHT * PPU_BUFFER_WIDTH;
-pub const INTERNAL_ARRAY_MAX_SIZE:usize = 0xFF;
 
 pub enum DebuggerResult{
     Registers(Registers),
@@ -39,14 +40,14 @@ pub enum DebuggerResult{
     Continuing,
     Stepped(u16),
     Stopped(u16),
-    MemoryDump(u8, [MemoryEntry;INTERNAL_ARRAY_MAX_SIZE]),
-    Disassembly(u8, [OpcodeEntry;INTERNAL_ARRAY_MAX_SIZE]),
+    MemoryDump(u16, Vec<MemoryEntry>),
+    Disassembly(u16, Vec<OpcodeEntry>),
     AddedWatch(u16),
     HitWatch(u16, u16),
     RemovedWatch(u16),
     WatchDoNotExist(u16),
     PpuInfo(PpuInfo),
-    PpuLayer(PpuLayer, [Pixel;PPU_BUFFER_SIZE])
+    PpuLayer(PpuLayer, Box<[Pixel;PPU_BUFFER_SIZE]>)
 }
 
 #[derive(Clone, Copy)]
@@ -65,7 +66,7 @@ impl Registers{
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub struct MemoryEntry{
     pub address:u16,
     pub value:u8
@@ -97,12 +98,12 @@ pub trait DebuggerInterface{
 
 pub struct Debugger<UI:DebuggerInterface>{
     ui:UI,
-    breakpoints:FixedSizeSet<u16, INTERNAL_ARRAY_MAX_SIZE>
+    breakpoints:HashSet<u16>
 }
 
 impl<UI:DebuggerInterface> Debugger<UI>{
     pub fn new(ui:UI)->Self{
-        Self { ui, breakpoints: FixedSizeSet::new() }
+        Self { ui, breakpoints: HashSet::new() }
     }
 
     fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
@@ -112,15 +113,11 @@ impl<UI:DebuggerInterface> Debugger<UI>{
         self.check_for_break(pc) || self.ui.should_stop() || hit_watch
     }
 
-    fn check_for_break(&self, pc:u16)->bool{
-        self.get_breakpoints().contains(&pc)
-    }
+    fn check_for_break(&self, pc:u16)->bool{self.breakpoints.contains(&pc)}
 
-    fn add_breakpoint(&mut self, address:u16){self.breakpoints.add(address)}
+    fn add_breakpoint(&mut self, address:u16){_ = self.breakpoints.insert(address)}
 
-    fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.try_remove(address)}
-
-    fn get_breakpoints(&self)->&[u16]{self.breakpoints.as_slice()}
+    fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.remove(&address)}
 }
 
 impl_gameboy!{{
@@ -156,7 +153,7 @@ impl_gameboy!{{
                     self.debugger.send(result);
                 },
                 DebuggerCommand::DumpMemory(len)=>{
-                    let mut buffer = [MemoryEntry{address:0, value:0}; INTERNAL_ARRAY_MAX_SIZE];
+                    let mut buffer = vec![MemoryEntry::default(); len as usize];
                     for i in 0..len as usize{
                         let address = self.cpu.program_counter + i as u16;
                         buffer[i] = MemoryEntry {
@@ -189,3 +186,14 @@ impl_gameboy!{{
         }
     }
 }}
+
+pub struct MemoryWatcher{
+    pub watching_addresses: HashSet<u16>,
+    pub hit_addr:Option<u16>,
+}
+
+impl MemoryWatcher{
+    pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None }}
+    pub fn add_address(&mut self, address:u16){_ = self.watching_addresses.insert(address)}
+    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.remove(&address)}
+}

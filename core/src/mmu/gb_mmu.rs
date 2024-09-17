@@ -5,18 +5,6 @@ const HRAM_SIZE:usize = 0x7F;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-#[cfg(feature = "dbg")]
-pub struct MemoryWatcher{
-    watching_addresses:crate::utils::FixedSizeSet<u16, {crate::debugger::INTERNAL_ARRAY_MAX_SIZE}>,
-    pub hit_addr:Option<u16>,
-}
-
-#[cfg(feature = "dbg")]
-impl MemoryWatcher{
-    pub fn add_address(&mut self, address:u16){self.watching_addresses.add(address)}
-    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.try_remove(address)}
-}
-
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
@@ -25,7 +13,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     double_speed_mode:bool,
     mode:Mode,
     #[cfg(feature = "dbg")]
-    pub mem_watch:MemoryWatcher,
+    pub mem_watch: crate::debugger::MemoryWatcher,
 }
 
 
@@ -33,7 +21,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.as_slice().contains(&address){
+        if self.mem_watch.watching_addresses.contains(&address){
             self.mem_watch.hit_addr = Some(address);
         }
 
@@ -71,7 +59,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.as_slice().contains(&address){
+        if self.mem_watch.watching_addresses.contains(&address){
             self.mem_watch.hit_addr = Some(address);
         }
 
@@ -156,7 +144,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             double_speed_mode:false,
             mode,
             #[cfg(feature = "dbg")]
-            mem_watch: MemoryWatcher { watching_addresses: crate::utils::FixedSizeSet::new(), hit_addr: None, } 
+            mem_watch: crate::debugger::MemoryWatcher::new()
         };
         if bootrom_missing{
             //Setting the bootrom register to be set (the boot sequence has over)

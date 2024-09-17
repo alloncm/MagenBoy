@@ -19,7 +19,7 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - ppu_layer(pl) [layer] - a debug window with one ppu layer (win, bg, spr)
 ";
 
-pub struct PpuLayerResult(pub [Pixel; PPU_BUFFER_SIZE], pub PpuLayer);
+pub struct PpuLayerResult(pub Box<[Pixel; PPU_BUFFER_SIZE]>, pub PpuLayer);
 
 pub struct TerminalDebugger{
     command_receiver:Receiver<DebuggerCommand>,
@@ -125,12 +125,12 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match parse_address_string(&buffer) {
+                    "b"|"break"=>match parse_number_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
                         Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
                     "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match parse_address_string(&buffer) {
+                    "rb"|"remove_break"=>match parse_number_string(&buffer) {
                         Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
@@ -142,11 +142,11 @@ impl TerminalDebugger{
                         Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
                         Err(msg) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"|"watch"=> match parse_address_string(&buffer){
+                    "w"|"watch"=> match parse_number_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
                         Err(msg) => println!("Error setting watch point {}", msg),
                     }
-                    "rw"|"remove_watch"=>match parse_address_string(&buffer){
+                    "rw"|"remove_watch"=>match parse_number_string(&buffer){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
@@ -164,7 +164,7 @@ impl TerminalDebugger{
     }
 }
 
-fn parse_address_string(buffer: &Vec<&str>) -> Result<u16, String> {
+fn parse_number_string(buffer: &Vec<&str>) -> Result<u16, String> {
     let Some(param) = buffer.get(1) else {
         return Result::Err(String::from("No parameter"))
     };
@@ -172,17 +172,7 @@ fn parse_address_string(buffer: &Vec<&str>) -> Result<u16, String> {
         Some(hex_str) => (hex_str, 16),
         None => (*param, 10),
     };
-    let Ok(address) = u16::from_str_radix(str, base) else {
-        return Result::Err(format!("param: {} is not a valid address", str));
-    };
-    return Result::Ok(address);
-}
-
-fn parse_number_string(buffer: &Vec<&str>)->Result<u8, String>{
-    let Some(param) = buffer.get(1) else{
-        return Result::Err(String::from("No param"))
-    };
-    return u8::from_str_radix(param, 10)
+    return u16::from_str_radix(str, base)
         .map_err(|err|format!("Error parsing string: {}", err));
 }
 

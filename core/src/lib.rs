@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(feature = "dbg"), no_std)]
 
 pub mod cpu;
 pub mod machine;
