@@ -1,7 +1,7 @@
 use std::ffi::{CString, c_void};
 use sdl2::sys::*;
 use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, utils::vec2::Vec2, GfxDevice, Pixel};
-use crate::sdl::utils::get_sdl_error_message;
+use super::utils::get_sdl_error_message;
 
 const SDL_PIXEL_FORMAT:u32 = SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGB565 as u32;
 

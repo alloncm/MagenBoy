@@ -1,42 +1,20 @@
 mod audio;
+mod utils;
+mod sdl_gfx_device;
+mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
-mod sdl{
-    pub mod utils;
-    pub mod sdl_gfx_device;
-    #[cfg(feature = "sdl-resample")]
-    pub mod sdl_audio_resampler;
 
-    cfg_if::cfg_if!{
-        if #[cfg(feature = "push-audio")]{
-            pub mod sdl_push_audio_device;
-            pub type ChosenAudioDevice<AR> = sdl_push_audio_device::SdlPushAudioDevice<AR>;
-        }
-        else{
-            pub mod sdl_pull_audio_device;
-            pub type ChosenAudioDevice<AR> = sdl_pull_audio_device::SdlPullAudioDevice<AR>;
-        }
-    }
-    pub mod sdl_joypad_provider;
-}
-
-cfg_if::cfg_if!{
-    if #[cfg(feature = "sdl-resample")]{
-        pub type ChosenResampler  = sdl::sdl_audio_resampler::SdlAudioResampler;
-    }
-    else{
-        pub type ChosenResampler  = magenboy_common::audio::ManualAudioResampler;
-    }
-}
-
-use magenboy_common::{audio::ResampledAudioDevice, joypad_menu::*, mbc_handler::*, menu::*, mpmc_gfx_device::*};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, joypad_menu::*, mbc_handler::*, menu::*, mpmc_gfx_device::*};
 use magenboy_core::{GB_FREQUENCY, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, machine::{gameboy::GameBoy, Mode}, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
+
 use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
 use log::info;
 use sdl2::sys::*;
+
 #[cfg(feature = "dbg")]
 use crate::terminal_debugger::TerminalDebugger;
-use crate::{sdl::sdl_gfx_device::SdlGfxDevice, audio::*};
+use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlPullAudioDevice};
 
 const TURBO_MUL:u8 = 1;
 
@@ -80,7 +58,7 @@ fn main() {
     check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
 
     while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
-        let mut provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, true);
+        let mut provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, true);
 
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
@@ -150,17 +128,17 @@ fn main() {
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, #[cfg(feature = "dbg")] debugger_sender: crossbeam_channel::Sender<terminal_debugger::PpuLayerResult>) {
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    let audio_device = sdl::ChosenAudioDevice::<ChosenResampler>::new(44100, TURBO_MUL);
+    let audio_device = SdlPullAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
     devices.push(Box::new(audio_device));
     
     if check_for_terminal_feature_flag(&args, "--file-audio"){
-        let wav_ad = WavfileAudioDevice::<ChosenResampler>::new(44100, GB_FREQUENCY, "output.wav");
+        let wav_ad = WavfileAudioDevice::<ManualAudioResampler>::new(44100, GB_FREQUENCY, "output.wav");
         devices.push(Box::new(wav_ad));
         log::info!("Writing audio to file: output.wav");
     }
         
     let audio_devices = MultiAudioDevice::new(devices);
-    let joypad_provider = sdl::sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
+    let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
     
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter")

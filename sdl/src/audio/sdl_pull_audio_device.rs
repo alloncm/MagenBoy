@@ -4,7 +4,7 @@ use magenboy_core::{GB_FREQUENCY, apu::audio_device::*};
 use sdl2::sys::*;
 use crossbeam_channel::{Receiver, Sender, bounded};
 use magenboy_common::audio::{AudioResampler, ResampledAudioDevice};
-use super::utils::init_sdl_audio_device;
+use crate::utils::init_sdl_audio_device;
 
 const BUFFERS_NUMBER:usize = 3;
 
