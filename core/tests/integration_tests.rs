@@ -207,13 +207,6 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
             unsafe{
                 if LAST_HASH == hash{
                     println!("{}", hash);
-                    let mut vec_buffer = Vec::<u8>::new();
-                    for i in 0..buffer.len(){
-                        vec_buffer.push((buffer[i] & 0xFF) as u8);
-                        vec_buffer.push((buffer[i] >> 8 & 0xFF) as u8);
-                        vec_buffer.push((buffer[i] >> 16 & 0xFF) as u8);
-                    }
-                    image::save_buffer("output.bmp", &vec_buffer, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, image::ColorType::Rgb8).unwrap();
                     std::process::exit(0);
                 }
                 LAST_HASH = hash;
@@ -221,8 +214,7 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
         }
     }
 
-    let program = std::fs::read(rom_path)
-        .expect("Error could not find file");
+    let program = std::fs::read(rom_path).expect("Error could not find file");
     
     let program = Vec::from(program);
 
