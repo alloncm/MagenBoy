@@ -1,11 +1,7 @@
 use core::cmp;
 
-use crate::machine::Mode;
-use crate::mmu::vram::VRam;
-use crate::utils::{vec2::Vec2, bit_masks::*};
-
-use super::fifo::{SPRITE_WIDTH, background_fetcher::{BackgroundPixel, BackgroundFetcher}, FIFO_SIZE, sprite_fetcher::*};
-use super::{gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
+use crate::{machine::Mode, ppu::color, utils::{bit_masks::*, vec2::Vec2}};
+use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
@@ -421,24 +417,28 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 return self.bg_color_mapping[bg_pixel.color_index as usize];
             }
             else{
-                let sprite_pixel = if pixel_oam_attribute.gb_palette_number{
-                    self.obj_color_mapping1[sprite_pixel.color_index as usize]
-                }
-                else{
-                    self.obj_color_mapping0[sprite_pixel.color_index as usize]
-                };
-                return sprite_pixel.expect("Corruption in the object color pallete");
+                return self.get_dmg_sprite_pixel(pixel_oam_attribute, sprite_pixel);
             }
         }
     }
 
-    fn get_bg_pixel(&mut self, bg_pixel:BackgroundPixel) -> Color {
+    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel) -> Color {
         return if self.mode == Mode::CGB{
             Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)
         }            
         else{
             self.bg_color_mapping[bg_pixel.color_index as usize]
         };
+    }
+
+    fn get_dmg_sprite_pixel(&self, pixel_oam_attribute: &SpriteAttributes, sprite_pixel: SpritePixel) -> Color {
+        let sprite_pixel = if pixel_oam_attribute.gb_palette_number{
+            self.obj_color_mapping1[sprite_pixel.color_index as usize]
+        }
+        else{
+            self.obj_color_mapping0[sprite_pixel.color_index as usize]
+        };
+        return sprite_pixel.expect("Corruption in the object color pallete");
     }
 
     fn push_pixel(&mut self, pixel: Pixel) {
@@ -453,5 +453,100 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         color |= (color_ram[pixel_color_index as usize + 1] as u16) << 8;
         
         return Color::from(color);
+    }
+}
+
+#[cfg(feature = "dbg")]
+impl<GFX:GfxDevice> GbPpu<GFX>{
+    pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->Box<[Pixel; crate::debugger::PPU_BUFFER_SIZE]>{
+        use crate::debugger::PpuLayer;
+        let mut buffer: Vec<Pixel> = vec![color::WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
+
+        match layer{
+            PpuLayer::Background => self.get_bg_or_window_layer(&mut buffer, true),
+            PpuLayer::Window => self.get_bg_or_window_layer(&mut buffer, false),
+            PpuLayer::Sprites => self.get_sprite_layer(&mut buffer)
+        };
+
+        return buffer.try_into().unwrap();
+    }
+
+    fn get_bg_or_window_layer(&self, buffer: &mut Vec<Pixel>, bg_layer: bool){
+        use super::attributes::GbcBackgroundAttributes;
+        use crate::debugger::*;
+
+        const NUM_OF_TILES_IN_MEMORY:usize = 32 * 32;
+
+        let layer_mask = if bg_layer {BIT_3_MASK} else {BIT_6_MASK};
+
+        let bg_tile_map_addr = if self.lcd_control & layer_mask == 0 {0x1800} else {0x1C00};
+        let bank0 = self.vram.get_bank(0);
+        let bank1 = self.vram.get_bank(1);
+        let tile_map:&[u8; NUM_OF_TILES_IN_MEMORY] = bank0[bg_tile_map_addr .. bg_tile_map_addr + NUM_OF_TILES_IN_MEMORY].try_into().unwrap();
+        let attributes_map:&[u8; NUM_OF_TILES_IN_MEMORY] = bank1[bg_tile_map_addr .. bg_tile_map_addr + NUM_OF_TILES_IN_MEMORY].try_into().unwrap();
+        let tiles = tile_map.map(|tile_index|{
+            let bg_tile_data_addr = if self.lcd_control & BIT_4_MASK == 0 && tile_index & BIT_7_MASK == 0 {0x1000} else {0};
+            let tile_addr = bg_tile_data_addr + tile_index as usize * 16;
+            let tile_data:&[u8;16] = bank0[tile_addr .. tile_addr + 16].try_into().unwrap();
+            tile_data.clone()
+        });
+
+        for y in 0..32{
+            for x in 0..32{
+                let tile_data = &tiles[y * 32 + x];
+                let index_prefix = (y * PPU_BUFFER_WIDTH * 8) + (x * 8);
+                for j in 0..8{
+                    let upper_byte = tile_data[j * 2];
+                    let lower_byte = tile_data[(j * 2) + 1];
+                    let index_prefix = index_prefix + (j * PPU_BUFFER_WIDTH);
+                    for k in 0..8{
+                        let mask = 1 << k;
+                        let pixel = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
+                        let attributes = if self.mode == Mode::CGB {attributes_map[y * 32 + x]} else {0};
+                        buffer[index_prefix + (8 - k - 1)] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes: GbcBackgroundAttributes::new(attributes)}).into();
+                    }
+                }
+            }
+        }
+    }
+
+    fn get_sprite_layer(&self, buffer: &mut Vec<Pixel>){
+        use crate::debugger::{PPU_BUFFER_SIZE, PPU_BUFFER_WIDTH};
+
+        let oam_table = self.oam
+            .chunks_exact(OAM_ENTRY_SIZE as usize)
+            .map(|chunk|SpriteAttributes::new(chunk[0], chunk[1], chunk[2], chunk[3], 0, 0));
+
+        let size = if self.lcd_control & BIT_2_MASK != 0 {32} else {16};
+        let mut oam_entry = 0;
+        for sprite in oam_table{
+            let tile_address = sprite.tile_number as usize * size;
+            let bank = if self.mode == Mode::CGB && sprite.attributes.gbc_bank {1} else {0};
+            let data = &self.vram.get_bank(bank)[tile_address ..  tile_address + size];
+            let y = sprite.y as usize;
+            let x = sprite.x as usize;
+            let index_prefix = (y * PPU_BUFFER_WIDTH) + x;
+            for j in 0..(size / 2){
+                let upper_byte = data[j * 2];
+                let lower_byte = data[(j * 2) + 1];
+                let index_prefix = index_prefix + (j * PPU_BUFFER_WIDTH);
+                for k in 0..8{
+                    let mask = 1 << k;
+                    let color_index = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
+                    if color_index == 0 {continue}
+                    let sprite_pixel = SpritePixel{ color_index, oam_entry};
+                    let color = match self.mode{
+                        Mode::DMG => self.get_dmg_sprite_pixel(&sprite, sprite_pixel),
+                        Mode::CGB => Self::get_color_from_color_ram(&self.obj_color_ram, sprite.gbc_palette_number, sprite_pixel.color_index),
+                    };
+                    let index = index_prefix + (8 - k - 1);
+                    // Some could be placed at x/y = 247 -- 255 and it could crash the program, not sure how to fix it
+                    if index < PPU_BUFFER_SIZE{
+                        buffer[index] = color.into();
+                    }
+                }
+            }
+            oam_entry += 1;
+        }
     }
 }

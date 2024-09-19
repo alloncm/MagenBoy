@@ -34,6 +34,19 @@ impl JoypadProvider for StubJoypadProvider{
     fn provide(&mut self, _joypad:&mut Joypad) {}
 }
 
+#[cfg(feature = "dbg")]
+struct StubDebuggerUi;
+#[cfg(feature = "dbg")]
+impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
+    fn should_stop(&self)->bool {false}
+
+    fn recv_command(&self)->magenboy_core::debugger::DebuggerCommand {
+        magenboy_core::debugger::DebuggerCommand::Continue
+    }
+
+    fn send_result(&self, _:magenboy_core::debugger::DebuggerResult) {}
+}
+
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
@@ -140,6 +153,8 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32
         StubJoypadProvider{},
         StubAudioDevice{}, 
         CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found},
+        #[cfg(feature = "dbg")]
+        StubDebuggerUi,
         boot_rom,
         mode
     );
@@ -215,10 +230,14 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
 
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{},
+            #[cfg(feature = "dbg")]StubDebuggerUi,
+            Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
     }
     else{
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{}, Bootrom::None, mode)
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{},
+            #[cfg(feature = "dbg")]StubDebuggerUi,
+             Bootrom::None, mode)
     };
 
     loop {gameboy.cycle_frame();}

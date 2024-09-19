@@ -52,10 +52,12 @@ impl<'a, T, S: AsRef<str>, MR:MenuRenderer<T, S>> JoypadMenu<'a, T, S, MR>{
                 }
             }
         }
-        // Busy wait untill A is released in order to not leak the button press to the emulation
+        
+        // Busy wait until A is released in order to not leak the button press to the emulation
         while joypad.buttons[Button::A as usize]{
             provider.provide(&mut joypad);
         }
+
         return &self.options[self.selection].value;
     }
 }

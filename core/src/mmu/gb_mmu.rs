@@ -1,11 +1,5 @@
-use super::{
-    carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, 
-    interrupts_handler::InterruptRequest, io_bus::IoBus, memory::*, access_bus::AccessBus
-};
-use crate::{
-    ppu::{ppu_state::PpuState, gfx_device::GfxDevice}, keypad::joypad_provider::JoypadProvider, 
-    utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}, apu::{audio_device::AudioDevice, gb_apu::GbApu}, machine::Mode
-};
+use super::{Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -14,18 +8,25 @@ const BAD_READ_VALUE:u8 = 0xFF;
 pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     io_bus: IoBus<D, G, J>,
     external_memory_bus:ExternalMemoryBus<'a>,
-    oucupied_access_bus:Option<AccessBus>,
+    occupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
-    mode:Mode
+    mode:Mode,
+    #[cfg(feature = "dbg")]
+    pub mem_watch: crate::debugger::MemoryWatcher,
 }
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
+        #[cfg(feature = "dbg")]
+        if self.mem_watch.watching_addresses.contains(&address){
+            self.mem_watch.hit_addr = Some(address);
+        }
+
         self.cycle(m_cycles);
-        if let Some (bus) = &self.oucupied_access_bus{
+        if let Some (bus) = &self.occupied_access_bus{
             return match address{
                 0xFEA0..=0xFEFF | 0xFF00..=0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
@@ -57,8 +58,13 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
+        #[cfg(feature = "dbg")]
+        if self.mem_watch.watching_addresses.contains(&address){
+            self.mem_watch.hit_addr = Some(address);
+        }
+
         self.cycle(m_cycles);
-        if let Some(bus) = &self.oucupied_access_bus{
+        if let Some(bus) = &self.occupied_access_bus{
             match address{
                 0xFF00..=0xFFFF=>self.write_unprotected(address, value),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.write_unprotected(address, value)} else{Self::bad_dma_write(address)},
@@ -73,7 +79,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
                         self.io_bus.ppu.vram.write_current_bank(address-0x8000, value);
                     }
                     else{
-                        log::warn!("bad vram write: address - {:#X}, value - {:#X}, bank - {}", address, value, self.io_bus.ppu.vram.get_bank());
+                        log::warn!("bad vram write: address - {:#X}, value - {:#X}, bank - {}", address, value, self.io_bus.ppu.vram.get_bank_reg());
                     }
                 },
                 0xFE00..=0xFE9F=>{
@@ -133,10 +139,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
-            oucupied_access_bus:None,
+            occupied_access_bus:None,
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
-            mode
+            mode,
+            #[cfg(feature = "dbg")]
+            mem_watch: crate::debugger::MemoryWatcher::new()
         };
         if bootrom_missing{
             //Setting the bootrom register to be set (the boot sequence has over)
@@ -148,7 +156,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
-        self.oucupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
+        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -167,6 +175,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn consume_vblank_event(&mut self)->bool{self.io_bus.ppu.consume_vblank_event()}
+
+    #[cfg(feature = "dbg")]
+    pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer

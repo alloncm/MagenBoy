@@ -1,6 +1,4 @@
-use crate::cpu::gb_cpu::GbCpu;
-use crate::cpu::flag::Flag;
-use crate::mmu::memory::Memory;
+use crate::{cpu::{gb_cpu::GbCpu, flag::Flag}, mmu::Memory};
 use super::opcodes_utils::{
     get_arithmetic_16reg,
     opcode_to_u16_value,
@@ -24,7 +22,7 @@ pub fn load_rr_nn(cpu:&mut GbCpu, opcode:u32)->u8{
 
 //loads register HL into the SP
 pub fn load_sp_hl(cpu:&mut GbCpu)->u8{
-    cpu.stack_pointer = *cpu.hl.value();
+    cpu.stack_pointer = cpu.hl.value();
     
     // 2 cycles - 1 reading opcode, 1 internal operation
     return 1;
@@ -42,7 +40,7 @@ pub fn pop(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
         _=>panic!("no register")
     };
 
-    *reg.value() = poped_value;
+    *reg.value_mut() = poped_value;
     
     // 3 cycles - 1 reading opcode, 2 reading sp address and sp+1 address
     return 0;
@@ -52,10 +50,10 @@ pub fn pop(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
 pub fn push(cpu:&mut GbCpu, memory:&mut impl Memory, opcode:u8)->u8{
     let reg = (opcode&0xF0)>>4;
     let value = match reg{
-        0xC=>*cpu.bc.value(),
-        0xD=>*cpu.de.value(),
-        0xE=>*cpu.hl.value(),
-        0xF=>*cpu.af.value(),
+        0xC=>cpu.bc.value(),
+        0xD=>cpu.de.value(),
+        0xE=>cpu.hl.value(),
+        0xF=>cpu.af.value(),
         _=>panic!("no register")
     };
 
@@ -71,7 +69,7 @@ pub fn ld_hl_spdd(cpu:&mut GbCpu, opcode:u16)->u8{
     let temp:i32 = cpu.stack_pointer as i32;
     let value = temp.wrapping_add(dd as i32);
 
-    *cpu.hl.value() = value as u16;
+    *cpu.hl.value_mut() = value as u16;
 
     //check for carry
     cpu.set_by_value(Flag::Carry, signed_check_for_carry_first_nible_add(temp as i16, dd));

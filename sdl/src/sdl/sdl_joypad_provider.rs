@@ -1,43 +1,39 @@
 use sdl2::sys::*;
-use magenboy_core::{keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider, button::Button}, utils::create_array};
+use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider};
 use magenboy_common::joypad_menu::MenuJoypadProvider;
 use super::utils::get_sdl_error_message;
 
 
 pub struct SdlJoypadProvider{
-    keyborad_state: [*const u8;NUM_OF_KEYS],
+    mapping: [SDL_Scancode; NUM_OF_KEYS],
+
+    // According to the docs events should be pumped from the main thread (the thread that initializes SDL) and its unsound to pump them from other threads
+    // Since this struct is used from various threads Im allowing it to use both 
+    poll_events:bool
 }
 
 impl SdlJoypadProvider{
-    pub fn new<F:Fn(&Button)->SDL_Scancode>(mapper:F)->Self{
-        let keyboard_ptr = unsafe{SDL_GetKeyboardState(std::ptr::null_mut())};
-        let mut counter:u8 = 0;
-        let init_lambda = ||{
-            let button:Button = unsafe{std::mem::transmute(counter)};
-            let result = unsafe{keyboard_ptr.offset(mapper(&button) as isize)};
-            counter += 1;
-            return result;
-        };
-        let state:[*const u8; NUM_OF_KEYS] = create_array(init_lambda);
-        
-        return Self{keyborad_state: state}
+    pub fn new(mapping: [SDL_Scancode; NUM_OF_KEYS], poll_events: bool)->Self{
+        Self{mapping, poll_events}
     }
 }
 
 impl JoypadProvider for SdlJoypadProvider{
     fn provide(&mut self, joypad:&mut Joypad) {
         unsafe{
-            SDL_PumpEvents();
-
+            if self.poll_events {
+                SDL_PumpEvents();
+            }
+            let state = SDL_GetKeyboardState(std::ptr::null_mut());
             for i in 0..NUM_OF_KEYS{
-                joypad.buttons[i] = *self.keyborad_state[i] != 0;
+                joypad.buttons[i] = *state.add(self.mapping[i] as usize) != 0;
             }
         }
     }
 }
 
 impl MenuJoypadProvider for SdlJoypadProvider{
-    fn poll(&mut self, mut joypad:&mut Joypad) {
+    fn poll(&mut self, joypad:&mut Joypad) {
         unsafe{
             loop{
                 let mut event = std::mem::MaybeUninit::<SDL_Event>::uninit();
@@ -50,6 +46,6 @@ impl MenuJoypadProvider for SdlJoypadProvider{
                 }
             }
         }
-        self.provide(&mut joypad);
+        self.provide(joypad);
     }
 }

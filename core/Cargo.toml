@@ -7,10 +7,12 @@ edition.workspace = true
 
 [dependencies]
 log = "0.4"
+cfg-if = "1"
 
 [features]
 u16pixel = []
 apu = []
+dbg = []
 
 [dev-dependencies]
 criterion = "0.3"

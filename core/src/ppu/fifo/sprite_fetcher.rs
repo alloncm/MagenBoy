@@ -1,4 +1,4 @@
-use crate::{mmu::vram::VRam, ppu::attributes::SpriteAttributes, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}, machine::Mode};
+use crate::{ppu::{attributes::SpriteAttributes, VRam}, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}, machine::Mode};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*, get_decoded_pixel};
 
 pub const NORMAL_SPRITE_HIGHT:u8 = 8;
