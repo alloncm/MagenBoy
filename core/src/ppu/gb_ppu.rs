@@ -1,6 +1,6 @@
 use core::cmp;
 
-use crate::{machine::Mode, ppu::color, utils::{bit_masks::*, vec2::Vec2}};
+use crate::{machine::Mode, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 pub const SCREEN_HEIGHT: usize = 144;

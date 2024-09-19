@@ -36,7 +36,6 @@ cargo build --release --package magenboy_sdl --features [optional_features]
 * `static-sdl` - will link statically to sdl2, On by default 
 * `sdl-resample` - Use the audio resampler from sdl2 library and a manual one I wrote
 * `push-audio` - Use a push methododlogy instead of pull for the delivery of the sound samples to sdl2
-* `u16pixel` - pixels are represented by 16 bits and not 32 bits
 
 > **Note** to turn off on by default features pass `--no-default-features` when building
 

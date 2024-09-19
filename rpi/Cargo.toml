@@ -7,7 +7,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-magenboy_core = {path = "../core", features = ["u16pixel"]}
+magenboy_core = {path = "../core"}
 magenboy_common = {path = "../common"}
 log = "0.4"
 cfg-if = "1"

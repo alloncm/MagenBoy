@@ -14,16 +14,7 @@ pub struct Color{
 
 impl From<Color> for Pixel{
     #[inline]
-    fn from(color: Color) -> Self {
-        #[cfg(not(feature = "u16pixel"))]
-        {
-            ((color.r as u32) << 16) | ((color.g as u32) << 8) | (color.b as u32)
-        }
-        #[cfg(feature = "u16pixel")]
-        {
-            (((color.r >> 3) as u16) << 11) | (((color.g >> 2) as u16) << 5) | ((color.b >> 3) as u16)
-        }
-    }
+    fn from(color: Color) -> Self {(((color.r >> 3) as u16) << 11) | (((color.g >> 2) as u16) << 5) | ((color.b >> 3) as u16)}
 }
 
 impl From<u16> for Color{
