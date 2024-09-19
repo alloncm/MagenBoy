@@ -1008,7 +1008,6 @@ dependencies = [
 name = "magenboy_common"
 version = "4.0.0"
 dependencies = [
- "cc",
  "cfg-if",
  "chrono",
  "criterion",
