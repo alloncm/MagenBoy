@@ -1,10 +1,12 @@
-use std::{mem::ManuallyDrop, ffi::c_void};
+use std::{ffi::c_void, mem::{ManuallyDrop, MaybeUninit}};
+
+use crossbeam_channel::{bounded, Receiver, Sender};
+use sdl2::sys::*;
 
 use magenboy_core::{GB_FREQUENCY, apu::audio_device::*};
-use sdl2::sys::*;
-use crossbeam_channel::{Receiver, Sender, bounded};
 use magenboy_common::audio::{AudioResampler, ResampledAudioDevice};
-use crate::utils::init_sdl_audio_device;
+
+use crate::utils::get_sdl_error_message;
 
 const BUFFERS_NUMBER:usize = 3;
 
@@ -14,7 +16,7 @@ struct UserData{
     current_buf_byte_index:usize,
 }
 
-pub struct SdlPullAudioDevice<AR:AudioResampler>{
+pub struct SdlAudioDevice<AR:AudioResampler>{
     resampler: AR,
     buffers: [[Sample;BUFFER_SIZE];BUFFERS_NUMBER],
     buffer_number_index:usize,
@@ -29,9 +31,8 @@ pub struct SdlPullAudioDevice<AR:AudioResampler>{
     tarnsmiter: ManuallyDrop<Sender<usize>>,
 }
 
-impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
+impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlAudioDevice<AR>{
     fn new(frequency:i32, turbo_mul:u8)->Self{
-
         // cap of less than 2 hurts the fps
         let(s,r) = bounded(BUFFERS_NUMBER - 1);
         let data = Box::new(UserData{
@@ -40,7 +41,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             rx:r
         });
 
-        let mut device = SdlPullAudioDevice{
+        let mut device = SdlAudioDevice{
             buffers:[[DEFAULT_SAPMPLE;BUFFER_SIZE];BUFFERS_NUMBER],
             buffer_index:0,
             buffer_number_index:0,
@@ -52,7 +53,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
         
         let desired_audio_spec = SDL_AudioSpec{
             freq: frequency,
-            format: AUDIO_S16SYS as u16,
+            format: AUDIO_S16SYS as u16,    // assumes Sample type is i16
             channels: 2,
             silence: 0,
             samples: BUFFER_SIZE as u16,
@@ -62,8 +63,26 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
             userdata: device.userdata_ptr as *mut c_void
         };
 
-        // Ignore device id
-        device.device_id = init_sdl_audio_device(&desired_audio_spec);
+        unsafe{
+            SDL_Init(SDL_INIT_AUDIO);
+            SDL_ClearError();
+            let mut uninit_audio_spec:MaybeUninit<SDL_AudioSpec> = MaybeUninit::uninit();
+            let id = SDL_OpenAudioDevice(std::ptr::null(), 0, &desired_audio_spec, uninit_audio_spec.as_mut_ptr() , 0);
+
+            if id == 0{
+                std::panic!("{}", get_sdl_error_message());
+            }
+
+            let init_audio_spec:SDL_AudioSpec = uninit_audio_spec.assume_init();
+
+            if init_audio_spec.freq != desired_audio_spec.freq {
+                std::panic!("Error initializing audio could not use the frequency: {}", desired_audio_spec.freq);
+            }
+
+            //This will start the audio processing
+            SDL_PauseAudioDevice(id, 0);
+            device.device_id = id;
+        }
 
         return device;
     }
@@ -84,13 +103,13 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlPullAudioDevice<AR>{
     }
 }
 
-impl<AR:AudioResampler> AudioDevice for SdlPullAudioDevice<AR>{
+impl<AR:AudioResampler> AudioDevice for SdlAudioDevice<AR>{
     fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
         ResampledAudioDevice::push_buffer(self, buffer);
     }
 }
 
-impl<AR:AudioResampler> Drop for SdlPullAudioDevice<AR>{
+impl<AR:AudioResampler> Drop for SdlAudioDevice<AR>{
     fn drop(&mut self) {
         unsafe{
             // Drops the trasmitter manully since we need it to close the channel before we can close the device
@@ -108,27 +127,28 @@ unsafe extern "C" fn audio_callback(userdata:*mut c_void, buffer:*mut u8, length
     let length = length as usize;
     let safe_userdata = &mut *(userdata as *mut UserData);
 
-    if safe_userdata.current_buf.is_none(){
-        let Ok(rx_data) = safe_userdata.rx.recv() else {return};
-        safe_userdata.current_buf = Some(rx_data);
-    }
+    let Ok(rx_data) = safe_userdata.rx.recv() else {return};
+    safe_userdata.current_buf = Some(rx_data);
+    safe_userdata.current_buf_byte_index = 0;
+    let mut samples_size = copy_buffer_and_update_state(safe_userdata, buffer, length);
 
+    if length > samples_size {
+        while let Ok(rx_data) = safe_userdata.rx.try_recv(){
+            safe_userdata.current_buf = Some(rx_data);
+            safe_userdata.current_buf_byte_index = 0;
+            samples_size += copy_buffer_and_update_state(safe_userdata, buffer.add(samples_size), length - samples_size);
+            if length <= samples_size{
+                return;
+            }
+        }
+        std::ptr::write_bytes(buffer.add(samples_size), 0, length  - samples_size);
+    }
+}
+
+unsafe fn copy_buffer_and_update_state(safe_userdata: &mut UserData, buffer: *mut u8, length: usize) -> usize {
     let samples = &*((safe_userdata.current_buf.unwrap()) as *const [Sample;BUFFER_SIZE]);
     let samples_size = (samples.len() * std::mem::size_of::<Sample>()) - safe_userdata.current_buf_byte_index;
     let samples_ptr = (samples.as_ptr() as *mut u8).add(safe_userdata.current_buf_byte_index);
     std::ptr::copy_nonoverlapping(samples_ptr, buffer, std::cmp::min(length, samples_size));
-
-    if length > samples_size && safe_userdata.rx.is_empty(){
-        safe_userdata.current_buf = Option::None;
-        safe_userdata.current_buf_byte_index = 0;
-        std::ptr::write_bytes(buffer.add(samples_size), 0, length  - samples_size);
-    }
-    else if length > samples_size{
-        safe_userdata.current_buf = Option::None;
-        safe_userdata.current_buf_byte_index = 0;
-        audio_callback(userdata, buffer.add(samples_size), (length - samples_size) as i32);
-    }
-    else{
-        safe_userdata.current_buf_byte_index = length;
-    }
+    return samples_size;
 }

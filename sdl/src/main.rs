@@ -14,7 +14,7 @@ use sdl2::sys::*;
 
 #[cfg(feature = "dbg")]
 use crate::terminal_debugger::TerminalDebugger;
-use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlPullAudioDevice};
+use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlAudioDevice};
 
 const TURBO_MUL:u8 = 1;
 
@@ -128,7 +128,7 @@ fn main() {
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, #[cfg(feature = "dbg")] debugger_sender: crossbeam_channel::Sender<terminal_debugger::PpuLayerResult>) {
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    let audio_device = SdlPullAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
+    let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
     devices.push(Box::new(audio_device));
     
     if check_for_terminal_feature_flag(&args, "--file-audio"){
