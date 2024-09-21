@@ -3,7 +3,8 @@ use sdl2::sys::*;
 use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, utils::vec2::Vec2, GfxDevice, Pixel};
 use super::utils::get_sdl_error_message;
 
-const SDL_PIXEL_FORMAT:u32 = SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGB565 as u32;
+// The bit order is high -> low bit as opposed to RGB555 in the gbdev docs which is low -> high bit
+const SDL_PIXEL_FORMAT:u32 = SDL_PixelFormatEnum::SDL_PIXELFORMAT_BGR555 as u32;
 
 struct SdlWindow{
     _window_name: CString,
