@@ -460,7 +460,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 impl<GFX:GfxDevice> GbPpu<GFX>{
     pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->Box<[Pixel; crate::debugger::PPU_BUFFER_SIZE]>{
         use crate::debugger::PpuLayer;
-        let mut buffer: Vec<Pixel> = vec![color::WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
+        use super::color::*;
+        let mut buffer: Vec<Pixel> = vec![WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
 
         match layer{
             PpuLayer::Background => self.get_bg_or_window_layer(&mut buffer, true),

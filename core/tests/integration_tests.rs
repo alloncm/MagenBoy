@@ -192,22 +192,23 @@ fn generate_hash(){
 }
 
 fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
-    static mut FRAMES_COUNTER:u32 = 0;
-    static mut LAST_HASH:u64 = 0;
-    struct GetHashGfxDevice;
+    struct GetHashGfxDevice{
+        last_hash:u64,
+        last_hash_counter:u32,
+        frames_counter:u32
+    }
     impl GfxDevice for GetHashGfxDevice{
         fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-            unsafe{
-                if FRAMES_COUNTER < 700{
-                    FRAMES_COUNTER += 1;
-                    return;
-                }
+            if self.frames_counter < 700{
+                self.frames_counter += 1;
+                return;
             }
             let mut s = DefaultHasher::new();
             buffer.hash(&mut s);
             let hash = s.finish();
-            unsafe{
-                if LAST_HASH == hash{
+            if self.last_hash == hash{
+                self.last_hash_counter += 1;
+                if self.last_hash_counter > 1001{
                     std::fs::write("calc_hash_output.txt", hash.to_string().as_bytes()).unwrap();
                     let buf = buffer
                         .map(Color::from)
@@ -216,7 +217,10 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
                     image::save_buffer("calc_hash_output.bmp", &buf, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, image::ColorType::Rgb8).unwrap();
                     std::process::exit(0);
                 }
-                LAST_HASH = hash;
+            }
+            else{
+                self.last_hash_counter = 0;
+                self.last_hash = hash;
             }
         }
     }
@@ -227,14 +231,15 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
 
     let mbc = initialize_mbc(&program, None, mode);
 
+    let test_gfx_device = GetHashGfxDevice{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{},
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
             #[cfg(feature = "dbg")]StubDebuggerUi,
             Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
     }
     else{
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, GetHashGfxDevice{},
+        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
             #[cfg(feature = "dbg")]StubDebuggerUi,
              Bootrom::None, mode)
     };

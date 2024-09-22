@@ -104,7 +104,7 @@ fn main() {
                         },
                         recv(debugger_ppu_layer_receiver)-> msg => {
                             let Ok(result) = msg else {break};
-                            let mut window = sdl::sdl_gfx_device::PpuLayerWindow::new(result.1);
+                            let mut window = sdl_gfx_device::PpuLayerWindow::new(result.1);
                             window.run(&result.0);
                         }
                     }
