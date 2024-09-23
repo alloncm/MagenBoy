@@ -52,7 +52,7 @@ impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
-    run_integration_test_from_url(file_url, 800, 12973593370159279282, Some(Mode::DMG));
+    run_integration_test_from_url(file_url, 1800, 8045249190936210527, None);
 }
 
 #[test]
@@ -187,7 +187,7 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32
 fn generate_hash(){
     let path = "path to rom";
     let boot_rom_path = None;
-    let mode = Some(Mode::DMG);
+    let mode = None;
     calc_hash(path, boot_rom_path, mode);
 }
 
@@ -208,7 +208,7 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
             let hash = s.finish();
             if self.last_hash == hash{
                 self.last_hash_counter += 1;
-                if self.last_hash_counter > 1001{
+                if self.last_hash_counter > 600{
                     std::fs::write("calc_hash_output.txt", hash.to_string().as_bytes()).unwrap();
                     let buf = buffer
                         .map(Color::from)
