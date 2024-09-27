@@ -1,28 +1,21 @@
-use std::collections::hash_map::DefaultHasher;
-use std::convert::TryInto;
-use std::hash::{Hash, Hasher};
-use std::io::Read;
+use std::{collections::hash_map::DefaultHasher, convert::TryInto, hash::{Hash, Hasher}, io::Read, sync::atomic::AtomicBool};
 
-use magenboy_core::ppu::color::Color;
-use magenboy_core::{keypad::{joypad::Joypad, joypad_provider::JoypadProvider}, machine::{Mode, gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::{external_memory_bus::Bootrom, carts::Mbc}, ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::*}, apu::audio_device::*};
+use magenboy_core::{keypad::{joypad::Joypad, joypad_provider::JoypadProvider}, machine::{Mode, gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::{external_memory_bus::Bootrom, carts::Mbc}, ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH},color::*, gfx_device::*}, apu::audio_device::*};
 
-struct CheckHashGfxDevice{
-    hash:u64,
-    last_hash_p:*mut u64,
-    found_p:*mut bool,
+struct CheckHashGfxDevice<'a>{
+    hash: u64,
+    last_hash: u64,
+    found: &'a AtomicBool,
 }
-impl GfxDevice for CheckHashGfxDevice{
+impl<'a> GfxDevice for CheckHashGfxDevice<'a>{
     fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         let mut s = DefaultHasher::new();
         buffer.hash(&mut s);
         let hash = s.finish();
-        unsafe{
-            if *self.last_hash_p == hash && hash == self.hash{
-                println!("{}", hash);
-                *self.found_p = true;
-            }
-            *self.last_hash_p = hash;
+        if self.last_hash == hash && hash == self.hash{
+            self.found.store(true, std::sync::atomic::Ordering::Relaxed);
         }
+        self.last_hash = hash;
     }
 }
 
@@ -148,13 +141,12 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
 
 fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
     let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None, mode);
-    let mut last_hash:u64 = 0;
-    let mut found = false;
+    let found = AtomicBool::new(false);
     let mut gameboy = GameBoy::new(
         mbc,
         StubJoypadProvider{},
         StubAudioDevice{}, 
-        CheckHashGfxDevice{hash:expected_hash,last_hash_p:&mut last_hash, found_p:&mut found},
+        CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
         #[cfg(feature = "dbg")]
         StubDebuggerUi,
         boot_rom,
@@ -163,7 +155,7 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32
 
     for _ in 0..frames_to_execute {
         gameboy.cycle_frame();
-        if found{
+        if found.load(std::sync::atomic::Ordering::Relaxed){
             return;
         }
     }
