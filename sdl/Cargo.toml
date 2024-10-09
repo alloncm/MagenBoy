@@ -21,8 +21,5 @@ wav = "1.0"
 
 [features]
 default = ["static-sdl"]
-sdl-resample = []
-push-audio = []
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
-u16pixel = ["magenboy_core/u16pixel"]
 dbg = ["magenboy_core/dbg"]

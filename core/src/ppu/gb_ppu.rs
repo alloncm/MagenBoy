@@ -1,6 +1,6 @@
 use core::cmp;
 
-use crate::{machine::Mode, ppu::color, utils::{bit_masks::*, vec2::Vec2}};
+use crate::{machine::Mode, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 pub const SCREEN_HEIGHT: usize = 144;
@@ -460,7 +460,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 impl<GFX:GfxDevice> GbPpu<GFX>{
     pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->Box<[Pixel; crate::debugger::PPU_BUFFER_SIZE]>{
         use crate::debugger::PpuLayer;
-        let mut buffer: Vec<Pixel> = vec![color::WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
+        use super::color::*;
+        let mut buffer: Vec<Pixel> = vec![WHITE.into(); crate::debugger::PPU_BUFFER_SIZE];
 
         match layer{
             PpuLayer::Background => self.get_bg_or_window_layer(&mut buffer, true),

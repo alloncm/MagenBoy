@@ -1,17 +1,3 @@
-use core::ffi::c_int;
-
-extern "C" {
-    fn scale_buffer(
-        input_buffer:*const u16,
-        input_buffer_width:c_int, 
-        input_buffer_height:c_int, 
-        
-        output_buffer: *mut u8, 
-        output_buffer_width:c_int, 
-        output_buffer_height:c_int
-    );
-}
-
 // This function implements bilinear interpolation scaling according to this article - http://tech-algorithm.com/articles/bilinear-image-scaling/
 pub unsafe fn scale_bilinear<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
     // not sure why the -1.0
@@ -78,15 +64,4 @@ pub unsafe fn scale_nearest<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, co
 fn round_f32(mut f:f32)->u32{
     f += 0.5;
     return f as u32;
-}
-
-pub unsafe fn scale_biliniear_c<const INPUT_WIDTH:usize,const INPUT_HEIGHT:usize, const OUTPUT_WIDTH:usize, const OUTPUT_HEIGHT:usize>(input_buffer: *const u16, output_buffer: *mut u8){
-    scale_buffer(
-        input_buffer, 
-        INPUT_WIDTH as c_int, 
-        INPUT_HEIGHT as c_int, 
-        output_buffer, 
-        OUTPUT_WIDTH as c_int, 
-        OUTPUT_HEIGHT as c_int
-    );
 }
