@@ -132,8 +132,15 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF4F | 
-            0xFF51..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
-            0xFF50=>self.external_memory_bus.write(address, value),
+            0xFF51..=0xFF6F |
+            0xFF71..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
+            0xFF50 | 0xFF70=>{
+                self.external_memory_bus.write(address, value);
+                #[cfg(feature = "dbg")]
+                {
+                    self.mem_watch.current_ram_bank_number = self.external_memory_bus.get_current_ram_bank();
+                }
+            },
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag = value
         }
@@ -162,6 +169,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn cycle(&mut self, m_cycles:u8){
+        #[cfg(feature = "dbg")] 
+        if m_cycles == 0 { return } // so the debugger wont cause any un wanted behavior
+
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
         self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
     }

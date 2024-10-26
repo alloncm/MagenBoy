@@ -77,4 +77,7 @@ impl<'a> ExternalMemoryBus<'a> {
 
     #[cfg(feature = "dbg")]
     pub fn get_current_rom_bank(&self)->u16{ self.mbc.get_bank_number() }
+
+    #[cfg(feature = "dbg")]
+    pub fn get_current_ram_bank(&self)->u8 { self.ram.get_bank() }
 }

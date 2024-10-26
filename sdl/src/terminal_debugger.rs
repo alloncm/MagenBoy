@@ -76,16 +76,16 @@ impl TerminalDebugger{
     
     fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         match result{
-            DebuggerResult::Stopped(addr) => println!("Stopped -> {:#X}", addr),
+            DebuggerResult::Stopped(addr, bank) => println!("Stopped -> {:#X}:{}", addr, bank),
             DebuggerResult::Registers(regs) => println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
                                                             regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc),
-            DebuggerResult::HitBreak(addr) =>{
+            DebuggerResult::HitBreak(addr, bank) =>{
                 enabled.store(true, Ordering::SeqCst);
-                println!("Hit break: {:#X}", addr);
+                println!("Hit break: {:#X}:{}", addr, bank);
             }
             DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
             DebuggerResult::Continuing=>println!("Continuing execution"),
-            DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
+            DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
             DebuggerResult::MemoryDump(size, bank, buffer) => {
@@ -105,8 +105,8 @@ impl TerminalDebugger{
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
             DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
-            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
-                info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
+            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], bank: {}",
+                info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y, info.vram_bank),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
         }
     }
@@ -125,14 +125,16 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match parse_number_string(&buffer, 1) {
-                        Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
-                        Err(msg) => println!("Error setting BreakPoint {}", msg),
+                    "b"|"break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
+                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::Break(address, bank)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error setting BreakPoint {}", msg),
                     },
                     "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match parse_number_string(&buffer, 1) {
-                        Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
-                        Err(msg) => println!("Error deleting BreakPoint {}", msg),
+                    "rb"|"remove_break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
+                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::RemoveBreak(address, bank)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error deleting BreakPoint {}", msg),
                     },
                     "di"|"disassemble"=>match parse_number_string(&buffer, 1){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),

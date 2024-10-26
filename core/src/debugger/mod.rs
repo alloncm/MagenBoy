@@ -17,8 +17,8 @@ pub enum DebuggerCommand{
     Step,
     Continue,
     Registers,
-    Break(u16),
-    RemoveBreak(u16),
+    Break(u16, u16),
+    RemoveBreak(u16, u16),
     DumpMemory(u16, u16),
     Disassemble(u16),
     Watch(u16),
@@ -34,12 +34,12 @@ pub const PPU_BUFFER_SIZE:usize = PPU_BUFFER_HEIGHT * PPU_BUFFER_WIDTH;
 pub enum DebuggerResult{
     Registers(Registers),
     AddedBreak(u16),
-    HitBreak(u16),
+    HitBreak(u16, u16),
     RemovedBreak(u16),
     BreakDoNotExist(u16),
     Continuing,
-    Stepped(u16),
-    Stopped(u16),
+    Stepped(u16, u16),
+    Stopped(u16, u16),
     MemoryDump(u16, u16, Vec<MemoryEntry>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(u16),
@@ -78,14 +78,16 @@ pub struct PpuInfo{
     pub stat:u8,
     pub ly:u8,
     pub window_pos:Vec2<u8>,
-    pub background_pos:Vec2<u8>
+    pub background_pos:Vec2<u8>,
+    pub vram_bank: u8
 }
 
 impl PpuInfo{
     fn new<GFX:GfxDevice>(ppu:&GbPpu<GFX>)->Self{
         Self { 
             ppu_state: ppu.state, lcdc: ppu.lcd_control, stat: ppu.stat_register, 
-            ly: ppu.ly_register, window_pos: ppu.window_pos, background_pos: ppu.bg_pos 
+            ly: ppu.ly_register, window_pos: ppu.window_pos, background_pos: ppu.bg_pos,
+            vram_bank: ppu.vram.get_bank_reg()
         }
     }
 }
@@ -98,7 +100,7 @@ pub trait DebuggerInterface{
 
 pub struct Debugger<UI:DebuggerInterface>{
     ui:UI,
-    breakpoints:HashSet<u16>
+    breakpoints:HashSet<(u16, u16)>
 }
 
 impl<UI:DebuggerInterface> Debugger<UI>{
@@ -109,44 +111,44 @@ impl<UI:DebuggerInterface> Debugger<UI>{
     fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
     fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
 
-    fn should_halt(&self, pc:u16, hit_watch:bool)->bool{
-        self.check_for_break(pc) || self.ui.should_stop() || hit_watch
+    fn should_halt(&self, pc:u16, bank:u16, hit_watch:bool)->bool{
+        self.check_for_break(pc, bank) || self.ui.should_stop() || hit_watch
     }
 
-    fn check_for_break(&self, pc:u16)->bool{self.breakpoints.contains(&pc)}
+    fn check_for_break(&self, pc:u16, bank:u16)->bool{self.breakpoints.contains(&(pc, bank))}
 
-    fn add_breakpoint(&mut self, address:u16){_ = self.breakpoints.insert(address)}
+    fn add_breakpoint(&mut self, address:u16, bank:u16){_ = self.breakpoints.insert((address, bank))}
 
-    fn try_remove_breakpoint(&mut self, address:u16)->bool{self.breakpoints.remove(&address)}
+    fn try_remove_breakpoint(&mut self, address:u16, bank:u16)->bool{self.breakpoints.remove(&(address, bank))}
 }
 
 impl_gameboy!{{
     pub fn run_debugger(&mut self){
-        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.hit_addr.is_some()) {
-            if self.debugger.check_for_break(self.cpu.program_counter){
-                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter));
+        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.current_rom_bank_number, self.mmu.mem_watch.hit_addr.is_some()) {
+            if self.debugger.check_for_break(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)){
+                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
             }
             if let Some(addr) = self.mmu.mem_watch.hit_addr{
                 self.debugger.send(DebuggerResult::HitWatch(addr, self.cpu.program_counter));
                 self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
-                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter)),
+                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter))),
                 DebuggerCommand::Step=>{
                     self.step();
-                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter));
+                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
                 }
                 DebuggerCommand::Continue=>{
                     self.debugger.send(DebuggerResult::Continuing);
                     break;
                 }
                 DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
-                DebuggerCommand::Break(address) => {
-                    self.debugger.add_breakpoint(address);
+                DebuggerCommand::Break(address, bank) => {
+                    self.debugger.add_breakpoint(address, bank);
                     self.debugger.send(DebuggerResult::AddedBreak(address));
                 },
-                DebuggerCommand::RemoveBreak(address)=>{
-                    let result = match self.debugger.try_remove_breakpoint(address) {
+                DebuggerCommand::RemoveBreak(address, bank)=>{
+                    let result = match self.debugger.try_remove_breakpoint(address, bank) {
                         true => DebuggerResult::RemovedBreak(address),
                         false => DebuggerResult::BreakDoNotExist(address)
                     };
@@ -162,17 +164,11 @@ impl_gameboy!{{
                         };
                     }
 
-                    let mut bank = self.mmu.mem_watch.current_rom_bank_number;
-                    if address < 0x4000{ bank = 0 }
-
-                    self.debugger.send(DebuggerResult::MemoryDump(len, bank, buffer));
+                    self.debugger.send(DebuggerResult::MemoryDump(len, self.get_current_bank(address), buffer));
                 }
                 DebuggerCommand::Disassemble(len)=>{
                     let result = disassemble(&self.cpu, &mut self.mmu, len);
-
-                    let mut bank = self.mmu.mem_watch.current_rom_bank_number;
-                    if self.cpu.program_counter < 0x4000{ bank = 0 }
-                    self.debugger.send(DebuggerResult::Disassembly(len, bank, result));
+                    self.debugger.send(DebuggerResult::Disassembly(len, self.get_current_bank(self.cpu.program_counter), result));
                 },
                 DebuggerCommand::Watch(address)=>{
                     self.mmu.mem_watch.add_address(address);
@@ -192,16 +188,26 @@ impl_gameboy!{{
             }
         }
     }
+
+    fn get_current_bank(&self, address:u16)->u16{
+        return match address{
+            0..=0x3FFF => 0,
+            0x4000..=0x7FFF => self.mmu.mem_watch.current_rom_bank_number,
+            0xC000..=0xFDFF => self.mmu.mem_watch.current_ram_bank_number as u16,
+            _=>0
+        };
+    }
 }}
 
 pub struct MemoryWatcher{
     pub watching_addresses: HashSet<u16>,
     pub hit_addr:Option<u16>,
-    pub current_rom_bank_number: u16
+    pub current_rom_bank_number: u16,
+    pub current_ram_bank_number: u8,
 }
 
 impl MemoryWatcher{
-    pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None, current_rom_bank_number: 0 }}
+    pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None, current_rom_bank_number: 0, current_ram_bank_number: 0 }}
     pub fn add_address(&mut self, address:u16){_ = self.watching_addresses.insert(address)}
     pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.remove(&address)}
 }
