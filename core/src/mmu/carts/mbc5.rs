@@ -62,6 +62,9 @@ impl<'a> Mbc for Mbc5<'a> {
             log::warn!("MBC5 write while ram is not enabled. ram_address: {}, value: {}", address, value);
         }
     }
+    
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16 { self.rom_bank_number_register & 0x1FF }
 }
 
 impl<'a> Mbc5<'a>{

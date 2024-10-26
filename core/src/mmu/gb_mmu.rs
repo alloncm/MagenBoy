@@ -119,7 +119,14 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     fn write_unprotected(&mut self, address:u16, value:u8) {
         match address{
-            0x0..=0x7FFF=>self.external_memory_bus.write(address, value),
+            0x0..=0x7FFF=>{
+                self.external_memory_bus.write(address, value);
+                #[cfg(feature = "dbg")]
+                {
+                    // Usually writes to this address range is used to swap rom bank
+                    self.mem_watch.current_rom_bank_number = self.external_memory_bus.get_current_rom_bank();
+                }
+            },
             0x8000..=0x9FFF=>self.io_bus.ppu.vram.write_current_bank(address-0x8000, value),
             0xA000..=0xFDFF=>self.external_memory_bus.write(address, value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,

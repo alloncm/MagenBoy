@@ -88,14 +88,14 @@ impl TerminalDebugger{
             DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
-            DebuggerResult::MemoryDump(size, buffer) => {
+            DebuggerResult::MemoryDump(size, bank, buffer) => {
                 for i in 0..size as usize{
-                    println!("{:#X}: {:#X}", buffer[i].address, buffer[i].value);
+                    println!("{:#X}:{} {:#X}", buffer[i].address, bank, buffer[i].value);
                 }
             },
-            DebuggerResult::Disassembly(size, opcodes)=>{
+            DebuggerResult::Disassembly(size, bank, opcodes)=>{
                 for i in 0..size as usize{
-                    println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
+                    println!("{:#X}:{} {}", opcodes[i].address, bank, opcodes[i].string);
                 }
             },
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
@@ -125,28 +125,29 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match parse_number_string(&buffer) {
+                    "b"|"break"=>match parse_number_string(&buffer, 1) {
                         Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
                         Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
                     "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match parse_number_string(&buffer) {
+                    "rb"|"remove_break"=>match parse_number_string(&buffer, 1) {
                         Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
                         Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
-                    "di"|"disassemble"=>match parse_number_string(&buffer){
+                    "di"|"disassemble"=>match parse_number_string(&buffer, 1){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
                         Err(msg) => println!("Error disassembling: {}", msg),
                     },
-                    "du"|"dump"=>match parse_number_string(&buffer){
-                        Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
-                        Err(msg) => println!("Error dumping memory: {}", msg),
+                    "du"|"dump"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)){
+                        (Ok(address), Ok(num)) => sender.send(DebuggerCommand::DumpMemory(address, num)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"|"watch"=> match parse_number_string(&buffer){
+                    "w"|"watch"=> match parse_number_string(&buffer, 1){
                         Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
                         Err(msg) => println!("Error setting watch point {}", msg),
                     }
-                    "rw"|"remove_watch"=>match parse_number_string(&buffer){
+                    "rw"|"remove_watch"=>match parse_number_string(&buffer, 1){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
@@ -164,8 +165,8 @@ impl TerminalDebugger{
     }
 }
 
-fn parse_number_string(buffer: &Vec<&str>) -> Result<u16, String> {
-    let Some(param) = buffer.get(1) else {
+fn parse_number_string(buffer: &Vec<&str>, index:usize) -> Result<u16, String> {
+    let Some(param) = buffer.get(index) else {
         return Result::Err(String::from("No parameter"))
     };
     let (str, base) = match param.strip_prefix("0x") {

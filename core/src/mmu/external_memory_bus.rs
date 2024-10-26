@@ -74,4 +74,7 @@ impl<'a> ExternalMemoryBus<'a> {
             _=>core::panic!("Error: attemp to write invalid external memory bus address: {:#X}", address)
         }
     }
+
+    #[cfg(feature = "dbg")]
+    pub fn get_current_rom_bank(&self)->u16{ self.mbc.get_bank_number() }
 }

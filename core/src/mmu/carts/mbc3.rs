@@ -73,6 +73,9 @@ impl<'a> Mbc for Mbc3<'a>{
             }
         }
     }
+    
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16 { self.get_current_rom_bank() as u16 }
 }
 
 impl<'a> Mbc3<'a>{

@@ -19,7 +19,7 @@ pub enum DebuggerCommand{
     Registers,
     Break(u16),
     RemoveBreak(u16),
-    DumpMemory(u16),
+    DumpMemory(u16, u16),
     Disassemble(u16),
     Watch(u16),
     RemoveWatch(u16),
@@ -40,8 +40,8 @@ pub enum DebuggerResult{
     Continuing,
     Stepped(u16),
     Stopped(u16),
-    MemoryDump(u16, Vec<MemoryEntry>),
-    Disassembly(u16, Vec<OpcodeEntry>),
+    MemoryDump(u16, u16, Vec<MemoryEntry>),
+    Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(u16),
     HitWatch(u16, u16),
     RemovedWatch(u16),
@@ -152,20 +152,27 @@ impl_gameboy!{{
                     };
                     self.debugger.send(result);
                 },
-                DebuggerCommand::DumpMemory(len)=>{
+                DebuggerCommand::DumpMemory(address, len)=>{
                     let mut buffer = vec![MemoryEntry::default(); len as usize];
                     for i in 0..len as usize{
-                        let address = self.cpu.program_counter + i as u16;
+                        let address = address + i as u16;
                         buffer[i] = MemoryEntry {
                             value: self.mmu.read(address, 0),
                             address,
                         };
                     }
-                    self.debugger.send(DebuggerResult::MemoryDump(len, buffer));
+
+                    let mut bank = self.mmu.mem_watch.current_rom_bank_number;
+                    if address < 0x4000{ bank = 0 }
+
+                    self.debugger.send(DebuggerResult::MemoryDump(len, bank, buffer));
                 }
                 DebuggerCommand::Disassemble(len)=>{
                     let result = disassemble(&self.cpu, &mut self.mmu, len);
-                    self.debugger.send(DebuggerResult::Disassembly(len, result));
+
+                    let mut bank = self.mmu.mem_watch.current_rom_bank_number;
+                    if self.cpu.program_counter < 0x4000{ bank = 0 }
+                    self.debugger.send(DebuggerResult::Disassembly(len, bank, result));
                 },
                 DebuggerCommand::Watch(address)=>{
                     self.mmu.mem_watch.add_address(address);
@@ -190,10 +197,11 @@ impl_gameboy!{{
 pub struct MemoryWatcher{
     pub watching_addresses: HashSet<u16>,
     pub hit_addr:Option<u16>,
+    pub current_rom_bank_number: u16
 }
 
 impl MemoryWatcher{
-    pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None }}
+    pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None, current_rom_bank_number: 0 }}
     pub fn add_address(&mut self, address:u16){_ = self.watching_addresses.insert(address)}
     pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.remove(&address)}
 }
