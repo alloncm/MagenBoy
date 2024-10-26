@@ -40,7 +40,7 @@ pub enum DebuggerResult{
     Continuing,
     Stepped(u16, u16),
     Stopped(u16, u16),
-    MemoryDump(u16, u16, Vec<MemoryEntry>),
+    MemoryDump(u16, u16, Vec<u8>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(u16),
     HitWatch(u16, u16),
@@ -64,12 +64,6 @@ impl Registers{
     fn new(cpu:&GbCpu)->Self{
         Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
     }
-}
-
-#[derive(Default, Clone, Copy)]
-pub struct MemoryEntry{
-    pub address:u16,
-    pub value:u8
 }
 
 pub struct PpuInfo{
@@ -124,7 +118,7 @@ impl<UI:DebuggerInterface> Debugger<UI>{
 
 impl_gameboy!{{
     pub fn run_debugger(&mut self){
-        while self.debugger.should_halt(self.cpu.program_counter, self.mmu.mem_watch.current_rom_bank_number, self.mmu.mem_watch.hit_addr.is_some()) {
+        while self.debugger.should_halt(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) {
             if self.debugger.check_for_break(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)){
                 self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
             }
@@ -155,16 +149,12 @@ impl_gameboy!{{
                     self.debugger.send(result);
                 },
                 DebuggerCommand::DumpMemory(address, len)=>{
-                    let mut buffer = vec![MemoryEntry::default(); len as usize];
-                    for i in 0..len as usize{
-                        let address = address + i as u16;
-                        buffer[i] = MemoryEntry {
-                            value: self.mmu.read(address, 0),
-                            address,
-                        };
+                    let mut buffer = vec![0; len as usize];
+                    for i in 0..len {
+                        buffer[i as usize] = self.mmu.read(address + i, 0);
                     }
 
-                    self.debugger.send(DebuggerResult::MemoryDump(len, self.get_current_bank(address), buffer));
+                    self.debugger.send(DebuggerResult::MemoryDump(address, self.get_current_bank(address), buffer));
                 }
                 DebuggerCommand::Disassemble(len)=>{
                     let result = disassemble(&self.cpu, &mut self.mmu, len);

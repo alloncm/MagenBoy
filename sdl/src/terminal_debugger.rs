@@ -88,10 +88,16 @@ impl TerminalDebugger{
             DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
-            DebuggerResult::MemoryDump(size, bank, buffer) => {
-                for i in 0..size as usize{
-                    println!("{:#X}:{} {:#X}", buffer[i].address, bank, buffer[i].value);
+            DebuggerResult::MemoryDump(address, bank, buffer) => {
+                const SPACING: usize = 16;
+                for i in 0..buffer.len() as usize{
+                    if i % SPACING == 0 { 
+                        println!();
+                        print!("{:#X}:{}| ", address + i as u16 , bank);
+                    }
+                    print!("{:#04x} | ", buffer[i]);
                 }
+                println!();
             },
             DebuggerResult::Disassembly(size, bank, opcodes)=>{
                 for i in 0..size as usize{
