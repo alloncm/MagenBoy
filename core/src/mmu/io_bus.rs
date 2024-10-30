@@ -29,7 +29,7 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     timer_event_cycles:u32,
     apu_event_cycles:u32,
 
-    // Since the PPU is the only that can be completely off and not operate at all Im using an option
+    // PPU can be completely off and not operate at all Im using an option
     // where None indicates the PPU is off
     ppu_event:Option<u32>,
 }
@@ -247,6 +247,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.ppu_cycles = 0;
     }
+
     fn cycle_apu(&mut self){
         #[cfg(feature = "apu")]{
             self.apu_event_cycles = self.apu.cycle(self.apu_cycles_counter);
@@ -254,6 +255,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         
         self.apu_cycles_counter = 0;
     }
+
     fn cycle_timer(&mut self){
         self.timer_event_cycles = self.timer.cycle(self.timer_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.timer_cycles = 0;

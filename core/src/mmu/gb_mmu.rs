@@ -196,6 +196,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     #[cfg(feature = "dbg")]
     pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}
 
+    #[cfg(feature = "dbg")]
+    pub fn dbg_read(&mut self, address:u16)->u8{self.read_unprotected(address)}
+
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer
     }

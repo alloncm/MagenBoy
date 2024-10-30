@@ -1,3 +1,5 @@
+use crate::utils::bit_masks::BIT_7_MASK;
+
 use super::*;
 
 const RAM_TIMER_ENABLE_VALUE:u8 = 0xA;
@@ -95,11 +97,11 @@ impl<'a> Mbc3<'a>{
 
     fn get_current_rom_bank(&self)->u8{
         //discard last bit as this register is 7 bits long
-        let mut value = (self.current_bank << 1) >> 1;
+        let mut value = self.current_bank & !BIT_7_MASK;
         if value == 0{
-            value += 1;
+            value = 1;
         }
 
-        value
+        return value;
     }
 }

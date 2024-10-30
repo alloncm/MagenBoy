@@ -24,18 +24,16 @@ impl Ram{
         self.memory[self.get_valid_address(address)] = value;
     }
 
-    pub fn set_bank(&mut self, mut bank:u8){
-        if bank == 0{
-            bank = 1;
-        }
-        
+    pub fn set_bank(&mut self, bank:u8){
         self.ram_bank_register = bank & 0b111;
     }
 
     pub fn get_bank(&self)->u8{self.ram_bank_register}
 
     fn get_valid_address(&self, address:u16)->usize{
-        return BANK_SIZE*(self.ram_bank_register as usize) + (address as usize);
+        let mut bank = self.ram_bank_register;
+        if bank == 0 { bank = 1 };
+        return BANK_SIZE*(bank as usize) + (address as usize);
     }
 }
 

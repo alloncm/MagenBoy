@@ -41,7 +41,6 @@ impl TerminalDebugger{
         let enabled_flag_clone = enabled.clone();
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
-            .stack_size(0x100_0000)
             .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver, s, enabled_flag_clone))
             .unwrap();
 
@@ -83,6 +82,7 @@ impl TerminalDebugger{
                 enabled.store(true, Ordering::SeqCst);
                 println!("Hit break: {:#X}:{}", addr, bank);
             }
+            DebuggerResult::HaltWakeup => println!("Waked up from halt"),
             DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
             DebuggerResult::Continuing=>println!("Continuing execution"),
             DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
@@ -93,9 +93,9 @@ impl TerminalDebugger{
                 for i in 0..buffer.len() as usize{
                     if i % SPACING == 0 { 
                         println!();
-                        print!("{:#X}:{}| ", address + i as u16 , bank);
+                        print!("{:#X}:{}: ", address + i as u16 , bank);
                     }
-                    print!("{:#04x} | ", buffer[i]);
+                    print!("{:#04x}, ", buffer[i]);
                 }
                 println!();
             },
@@ -111,7 +111,7 @@ impl TerminalDebugger{
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
             DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
-            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], bank: {}",
+            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], \nbank: {}",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y, info.vram_bank),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
         }
@@ -164,6 +164,7 @@ impl TerminalDebugger{
                         Ok(layer) => sender.send(DebuggerCommand::GetPpuLayer(layer)).unwrap(),
                         Err(msg) => println!("Error getting ppu layer: {}", msg),
                     }
+                    "skip_halt"=>sender.send(DebuggerCommand::SkipHalt).unwrap(),
                     "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }

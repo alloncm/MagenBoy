@@ -2,7 +2,7 @@ mod disassembler;
 
 use std::collections::HashSet;
 
-use crate::{*, machine::gameboy::*, mmu::Memory, cpu::gb_cpu::GbCpu, utils::vec2::Vec2, ppu::{ppu_state::PpuState, gb_ppu::GbPpu}};
+use crate::{*, machine::gameboy::*, cpu::gb_cpu::GbCpu, utils::vec2::Vec2, ppu::{ppu_state::PpuState, gb_ppu::GbPpu}};
 use self::disassembler::{OpcodeEntry, disassemble};
 
 #[derive(Clone, Copy)]
@@ -16,6 +16,7 @@ pub enum DebuggerCommand{
     Stop,
     Step,
     Continue,
+    SkipHalt,
     Registers,
     Break(u16, u16),
     RemoveBreak(u16, u16),
@@ -38,6 +39,7 @@ pub enum DebuggerResult{
     RemovedBreak(u16),
     BreakDoNotExist(u16),
     Continuing,
+    HaltWakeup,
     Stepped(u16, u16),
     Stopped(u16, u16),
     MemoryDump(u16, u16, Vec<u8>),
@@ -57,12 +59,13 @@ pub struct Registers{
     pub de: u16,
     pub hl:u16,
     pub pc:u16,
-    pub sp:u16
+    pub sp:u16,
+    pub ime: bool
 }
 
 impl Registers{
     fn new(cpu:&GbCpu)->Self{
-        Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer }
+        Registers { af: cpu.af.value(), bc: cpu.bc.value(), de: cpu.de.value(), hl: cpu.hl.value(), pc: cpu.program_counter, sp: cpu.stack_pointer, ime: cpu.mie }
     }
 }
 
@@ -94,12 +97,13 @@ pub trait DebuggerInterface{
 
 pub struct Debugger<UI:DebuggerInterface>{
     ui:UI,
-    breakpoints:HashSet<(u16, u16)>
+    breakpoints:HashSet<(u16, u16)>,
+    skip_halt: bool
 }
 
 impl<UI:DebuggerInterface> Debugger<UI>{
     pub fn new(ui:UI)->Self{
-        Self { ui, breakpoints: HashSet::new() }
+        Self { ui, breakpoints: HashSet::new(), skip_halt: false }
     }
 
     fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
@@ -118,7 +122,12 @@ impl<UI:DebuggerInterface> Debugger<UI>{
 
 impl_gameboy!{{
     pub fn run_debugger(&mut self){
-        while self.debugger.should_halt(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) {
+        while self.debugger.should_halt(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) && 
+        !(self.cpu.halt && self.debugger.skip_halt) {
+            if !self.cpu.halt && self.debugger.skip_halt{
+                self.debugger.send(DebuggerResult::HaltWakeup);
+                self.debugger.skip_halt = false;
+            }
             if self.debugger.check_for_break(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)){
                 self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
             }
@@ -135,7 +144,8 @@ impl_gameboy!{{
                 DebuggerCommand::Continue=>{
                     self.debugger.send(DebuggerResult::Continuing);
                     break;
-                }
+                },
+                DebuggerCommand::SkipHalt => self.debugger.skip_halt = true,
                 DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
                 DebuggerCommand::Break(address, bank) => {
                     self.debugger.add_breakpoint(address, bank);
@@ -151,7 +161,7 @@ impl_gameboy!{{
                 DebuggerCommand::DumpMemory(address, len)=>{
                     let mut buffer = vec![0; len as usize];
                     for i in 0..len {
-                        buffer[i as usize] = self.mmu.read(address + i, 0);
+                        buffer[i as usize] = self.mmu.dbg_read(address + i);
                     }
 
                     self.debugger.send(DebuggerResult::MemoryDump(address, self.get_current_bank(address), buffer));
@@ -183,6 +193,7 @@ impl_gameboy!{{
         return match address{
             0..=0x3FFF => 0,
             0x4000..=0x7FFF => self.mmu.mem_watch.current_rom_bank_number,
+            0x8000..=0x9FFF => self.mmu.get_ppu().vram.get_bank_reg() as u16,
             0xC000..=0xFDFF => self.mmu.mem_watch.current_ram_bank_number as u16,
             _=>0
         };

@@ -17,7 +17,7 @@ pub struct VramDmaController{
     mode:TransferMode,
     remaining_length:u8,
 
-    last_ly:u8,
+    last_ly:Option<u8>,
     hblank_transfer_burst_counter:u8
 }
 
@@ -25,7 +25,7 @@ impl VramDmaController{
     pub fn new()->Self{
         Self{
             dest_address: 0,
-            last_ly: 0,
+            last_ly: None,
             hblank_transfer_burst_counter: 0,
             mode: TransferMode::Terminated,
             remaining_length: 0,
@@ -57,9 +57,19 @@ impl VramDmaController{
 
     pub fn set_mode_length(&mut self, value:u8){
         match self.mode{
-            TransferMode::Hblank=> if value & BIT_7_MASK == 0 {self.mode = TransferMode::Terminated},
+            TransferMode::Hblank=> if value & BIT_7_MASK == 0 {
+                self.mode = TransferMode::Terminated;
+                self.last_ly = None;
+            },
             TransferMode::Terminated=>{
-                self.mode = if (value & BIT_7_MASK) == 0{TransferMode::GeneralPurpose}else{TransferMode::Hblank};
+                self.mode = 
+                    if (value & BIT_7_MASK) == 0{
+                        log::info!("Set DMA GP");
+                        TransferMode::GeneralPurpose}
+                    else{
+                        log::info!("Set DMA HBlank");
+                        TransferMode::Hblank
+                    };
                 self.remaining_length = (value & !BIT_7_MASK) + 1;
             }
             TransferMode::GeneralPurpose=>core::panic!("Cant pause DMA GP transfer")
@@ -109,23 +119,30 @@ impl VramDmaController{
     }
 
     fn handle_hblank_transfer<G:GfxDevice>(&mut self, ppu: &mut GbPpu<G>, m_cycles: u32, exteranl_memory_bus: &mut ExternalMemoryBus) {
-        if ppu.ly_register == self.last_ly || ppu.state != PpuState::Hblank {
+        if self.last_ly.is_some_and(|v|v == ppu.ly_register) || ppu.state != PpuState::Hblank {
             return;
         }
-        while (self.hblank_transfer_burst_counter as u32) < m_cycles * BYTES_TRASNFERED_PER_M_CYCLE as u32 && self.hblank_transfer_burst_counter < HBLANK_TRANSFER_CHUNK_SIZE {
-            let source_value = exteranl_memory_bus.read(self.source_address);
-            ppu.vram.write_current_bank(self.dest_address, source_value);
 
-            self.source_address += 1;
-            self.dest_address += 1;
-            self.hblank_transfer_burst_counter += 1;
-        }
-        if self.hblank_transfer_burst_counter == HBLANK_TRANSFER_CHUNK_SIZE {
-            self.hblank_transfer_burst_counter = 0;
-            self.last_ly = ppu.ly_register;
-            self.remaining_length -= 1;
-            if self.remaining_length == 0{
-                self.mode = TransferMode::Terminated;
+        for _ in 0..(m_cycles) {
+            for _ in 0..BYTES_TRASNFERED_PER_M_CYCLE{
+                let source_value = exteranl_memory_bus.read(self.source_address);
+                ppu.vram.write_current_bank(self.dest_address, source_value);
+                log::info!("{:#X} -> {:#X}, {:#X}", self.source_address, self.dest_address, source_value);
+                self.source_address += 1;
+                self.dest_address += 1;
+            }
+
+            self.hblank_transfer_burst_counter += BYTES_TRASNFERED_PER_M_CYCLE;
+
+            if self.hblank_transfer_burst_counter == HBLANK_TRANSFER_CHUNK_SIZE {
+                self.hblank_transfer_burst_counter = 0;
+                self.last_ly = Some(ppu.ly_register);
+                self.remaining_length -= 1;
+                if self.remaining_length == 0{
+                    self.mode = TransferMode::Terminated;
+                    self.last_ly = None;
+                }
+                return;
             }
         }
     }
