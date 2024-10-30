@@ -109,8 +109,8 @@ impl<UI:DebuggerInterface> Debugger<UI>{
     fn recv(&self)->DebuggerCommand{self.ui.recv_command()}
     fn send(&self, result: DebuggerResult){self.ui.send_result(result)}
 
-    fn should_halt(&self, pc:u16, bank:u16, hit_watch:bool)->bool{
-        self.check_for_break(pc, bank) || self.ui.should_stop() || hit_watch
+    fn should_halt(&self, cpu:&GbCpu, bank:u16, hit_watch:bool)->bool{
+        (self.check_for_break(cpu.program_counter, bank) || self.ui.should_stop() || hit_watch) && !(cpu.halt && self.skip_halt)
     }
 
     fn check_for_break(&self, pc:u16, bank:u16)->bool{self.breakpoints.contains(&(pc, bank))}
@@ -122,8 +122,7 @@ impl<UI:DebuggerInterface> Debugger<UI>{
 
 impl_gameboy!{{
     pub fn run_debugger(&mut self){
-        while self.debugger.should_halt(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) && 
-        !(self.cpu.halt && self.debugger.skip_halt) {
+        while self.debugger.should_halt(&self.cpu, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) {
             if !self.cpu.halt && self.debugger.skip_halt{
                 self.debugger.send(DebuggerResult::HaltWakeup);
                 self.debugger.skip_halt = false;

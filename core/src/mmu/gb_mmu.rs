@@ -169,9 +169,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn cycle(&mut self, m_cycles:u8){
-        #[cfg(feature = "dbg")] 
-        if m_cycles == 0 { return } // so the debugger wont cause any un wanted behavior
-
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
         self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
     }
