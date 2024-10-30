@@ -62,14 +62,7 @@ impl VramDmaController{
                 self.last_ly = None;
             },
             TransferMode::Terminated=>{
-                self.mode = 
-                    if (value & BIT_7_MASK) == 0{
-                        log::info!("Set DMA GP");
-                        TransferMode::GeneralPurpose}
-                    else{
-                        log::info!("Set DMA HBlank");
-                        TransferMode::Hblank
-                    };
+                self.mode = if (value & BIT_7_MASK) == 0 { TransferMode::GeneralPurpose } else { TransferMode::Hblank };
                 self.remaining_length = (value & !BIT_7_MASK) + 1;
             }
             TransferMode::GeneralPurpose=>core::panic!("Cant pause DMA GP transfer")
@@ -127,7 +120,7 @@ impl VramDmaController{
             for _ in 0..BYTES_TRASNFERED_PER_M_CYCLE{
                 let source_value = exteranl_memory_bus.read(self.source_address);
                 ppu.vram.write_current_bank(self.dest_address, source_value);
-                log::info!("{:#X} -> {:#X}, {:#X}", self.source_address, self.dest_address, source_value);
+                
                 self.source_address += 1;
                 self.dest_address += 1;
             }
