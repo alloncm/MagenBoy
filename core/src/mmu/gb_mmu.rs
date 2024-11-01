@@ -11,6 +11,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     occupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
+    halt: bool,
     mode:Mode,
     #[cfg(feature = "dbg")]
     pub mem_watch: crate::debugger::MemoryWatcher,
@@ -98,6 +99,10 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     fn set_double_speed_mode(&mut self, state:bool) {
         self.double_speed_mode = state;
     }
+
+    fn set_halt(&mut self, state:bool) {
+        self.halt = state;
+    }
 }
 
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
@@ -156,6 +161,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             occupied_access_bus:None,
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
+            halt: false,
             mode,
             #[cfg(feature = "dbg")]
             mem_watch: crate::debugger::MemoryWatcher::new()
@@ -170,7 +176,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
-        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
+        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, self.halt, &mut self.external_memory_bus);
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
