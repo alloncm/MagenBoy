@@ -36,6 +36,8 @@ impl<'a> Mbc for Rom<'a>{
         self.external_ram[address as usize] = value
     }
 
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16 { 1 }
 }
 
 impl<'a> Rom<'a>{

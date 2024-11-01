@@ -41,7 +41,6 @@ impl TerminalDebugger{
         let enabled_flag_clone = enabled.clone();
         let _ = thread::Builder::new()
             .name("Debugger IO loop".to_string())
-            .stack_size(0x100_0000)
             .spawn(move || Self::io_loop(command_sender, result_receiver, terminal_input_receiver, s, enabled_flag_clone))
             .unwrap();
 
@@ -76,26 +75,33 @@ impl TerminalDebugger{
     
     fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         match result{
-            DebuggerResult::Stopped(addr) => println!("Stopped -> {:#X}", addr),
+            DebuggerResult::Stopped(addr, bank) => println!("Stopped -> {:#X}:{}", addr, bank),
             DebuggerResult::Registers(regs) => println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
                                                             regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc),
-            DebuggerResult::HitBreak(addr) =>{
+            DebuggerResult::HitBreak(addr, bank) =>{
                 enabled.store(true, Ordering::SeqCst);
-                println!("Hit break: {:#X}", addr);
+                println!("Hit break: {:#X}:{}", addr, bank);
             }
+            DebuggerResult::HaltWakeup => println!("Waked up from halt"),
             DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
             DebuggerResult::Continuing=>println!("Continuing execution"),
-            DebuggerResult::Stepped(addr)=>println!("-> {:#X}", addr),
+            DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
-            DebuggerResult::MemoryDump(size, buffer) => {
-                for i in 0..size as usize{
-                    println!("{:#X}: {:#X}", buffer[i].address, buffer[i].value);
+            DebuggerResult::MemoryDump(address, bank, buffer) => {
+                const SPACING: usize = 16;
+                for i in 0..buffer.len() as usize{
+                    if i % SPACING == 0 { 
+                        println!();
+                        print!("{:#X}:{}: ", address + i as u16 , bank);
+                    }
+                    print!("{:#04x}, ", buffer[i]);
                 }
+                println!();
             },
-            DebuggerResult::Disassembly(size, opcodes)=>{
+            DebuggerResult::Disassembly(size, bank, opcodes)=>{
                 for i in 0..size as usize{
-                    println!("{:#X}: {}", opcodes[i].address, opcodes[i].string.as_str());
+                    println!("{:#X}:{} {}", opcodes[i].address, bank, opcodes[i].string);
                 }
             },
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
@@ -105,8 +111,8 @@ impl TerminalDebugger{
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
             DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
-            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}]",
-                info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y),
+            DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], \nbank: {}",
+                info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y, info.vram_bank),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
         }
     }
@@ -125,28 +131,31 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match parse_number_string(&buffer) {
-                        Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
-                        Err(msg) => println!("Error setting BreakPoint {}", msg),
+                    "b"|"break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
+                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::Break(address, bank)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error setting BreakPoint {}", msg),
                     },
                     "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match parse_number_string(&buffer) {
-                        Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
-                        Err(msg) => println!("Error deleting BreakPoint {}", msg),
+                    "rb"|"remove_break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
+                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::RemoveBreak(address, bank)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error deleting BreakPoint {}", msg),
                     },
-                    "di"|"disassemble"=>match parse_number_string(&buffer){
+                    "di"|"disassemble"=>match parse_number_string(&buffer, 1){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
                         Err(msg) => println!("Error disassembling: {}", msg),
                     },
-                    "du"|"dump"=>match parse_number_string(&buffer){
-                        Ok(num) => sender.send(DebuggerCommand::DumpMemory(num)).unwrap(),
-                        Err(msg) => println!("Error dumping memory: {}", msg),
+                    "du"|"dump"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)){
+                        (Ok(address), Ok(num)) => sender.send(DebuggerCommand::DumpMemory(address, num)).unwrap(),
+                        (Err(msg), _) | 
+                        (_, Err(msg)) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"|"watch"=> match parse_number_string(&buffer){
+                    "w"|"watch"=> match parse_number_string(&buffer, 1){
                         Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
                         Err(msg) => println!("Error setting watch point {}", msg),
                     }
-                    "rw"|"remove_watch"=>match parse_number_string(&buffer){
+                    "rw"|"remove_watch"=>match parse_number_string(&buffer, 1){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
@@ -155,6 +164,7 @@ impl TerminalDebugger{
                         Ok(layer) => sender.send(DebuggerCommand::GetPpuLayer(layer)).unwrap(),
                         Err(msg) => println!("Error getting ppu layer: {}", msg),
                     }
+                    "skip_halt"=>sender.send(DebuggerCommand::SkipHalt).unwrap(),
                     "help"=>println!("{}", HELP_MESSAGE),
                     _=>println!("invalid input: {}", buffer[0])
                 }
@@ -164,8 +174,8 @@ impl TerminalDebugger{
     }
 }
 
-fn parse_number_string(buffer: &Vec<&str>) -> Result<u16, String> {
-    let Some(param) = buffer.get(1) else {
+fn parse_number_string(buffer: &Vec<&str>, index:usize) -> Result<u16, String> {
+    let Some(param) = buffer.get(index) else {
         return Result::Err(String::from("No parameter"))
     };
     let (str, base) = match param.strip_prefix("0x") {

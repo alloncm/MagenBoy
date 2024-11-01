@@ -29,7 +29,7 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     timer_event_cycles:u32,
     apu_event_cycles:u32,
 
-    // Since the PPU is the only that can be completely off and not operate at all Im using an option
+    // PPU can be completely off and not operate at all Im using an option
     // where None indicates the PPU is off
     ppu_event:Option<u32>,
 }
@@ -201,7 +201,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         }
     }
 
-    pub fn cycle(&mut self, mut cycles:u32, double_speed_mode:bool, external_memory_bus:&mut ExternalMemoryBus)->Option<AccessBus>{
+    pub fn cycle(&mut self, mut cycles:u32, double_speed_mode:bool, halt: bool, external_memory_bus:&mut ExternalMemoryBus)->Option<AccessBus>{
         // Timer is effected by double speed mode so handling it first
         self.timer_cycles += cycles;
         
@@ -218,7 +218,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             cycles >>= 1;                                   // divide by 2 (discard the LSB bit)
         }
 
-        self.vram_dma_controller.cycle(cycles, external_memory_bus, &mut self.ppu);
+        if !halt {
+            // HDMA is disabled during halt mode
+            self.vram_dma_controller.cycle(cycles, external_memory_bus, &mut self.ppu);
+        }
 
         self.apu_cycles_counter += cycles;
         
@@ -247,6 +250,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.ppu_cycles = 0;
     }
+
     fn cycle_apu(&mut self){
         #[cfg(feature = "apu")]{
             self.apu_event_cycles = self.apu.cycle(self.apu_cycles_counter);
@@ -254,6 +258,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         
         self.apu_cycles_counter = 0;
     }
+
     fn cycle_timer(&mut self){
         self.timer_event_cycles = self.timer.cycle(self.timer_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.timer_cycles = 0;

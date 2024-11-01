@@ -38,7 +38,10 @@ impl Default for GbCpu {
 impl GbCpu {
     pub fn execute_interrupt_request(&mut self, memory:&mut impl Memory, ir: InterruptRequest)->u8{
         match ir{
-            InterruptRequest::Unhalt=>self.halt = false,
+            InterruptRequest::Unhalt=>{
+                self.halt = false;
+                memory.set_halt(false);
+            },
             InterruptRequest::Interrupt(address)=>return self.prepare_for_interrupt(memory, address),
             InterruptRequest::None=>{}
         }

@@ -50,4 +50,7 @@ pub trait Mbc{
     fn write_rom(&mut self, address:u16, value:u8);
     fn read_external_ram(&self, address:u16)->u8;
     fn write_external_ram(&mut self, address:u16, value:u8);
+
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16;
 }

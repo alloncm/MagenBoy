@@ -11,6 +11,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
     occupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
     double_speed_mode:bool,
+    halt: bool,
     mode:Mode,
     #[cfg(feature = "dbg")]
     pub mem_watch: crate::debugger::MemoryWatcher,
@@ -98,6 +99,10 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     fn set_double_speed_mode(&mut self, state:bool) {
         self.double_speed_mode = state;
     }
+
+    fn set_halt(&mut self, state:bool) {
+        self.halt = state;
+    }
 }
 
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
@@ -119,14 +124,28 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     fn write_unprotected(&mut self, address:u16, value:u8) {
         match address{
-            0x0..=0x7FFF=>self.external_memory_bus.write(address, value),
+            0x0..=0x7FFF=>{
+                self.external_memory_bus.write(address, value);
+                #[cfg(feature = "dbg")]
+                {
+                    // Usually writes to this address range is used to swap rom bank
+                    self.mem_watch.current_rom_bank_number = self.external_memory_bus.get_current_rom_bank();
+                }
+            },
             0x8000..=0x9FFF=>self.io_bus.ppu.vram.write_current_bank(address-0x8000, value),
             0xA000..=0xFDFF=>self.external_memory_bus.write(address, value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
             0xFF00..=0xFF4F | 
-            0xFF51..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
-            0xFF50=>self.external_memory_bus.write(address, value),
+            0xFF51..=0xFF6F |
+            0xFF71..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
+            0xFF50 | 0xFF70=>{
+                self.external_memory_bus.write(address, value);
+                #[cfg(feature = "dbg")]
+                {
+                    self.mem_watch.current_ram_bank_number = self.external_memory_bus.get_current_ram_bank();
+                }
+            },
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag = value
         }
@@ -142,6 +161,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             occupied_access_bus:None,
             hram:[0;HRAM_SIZE],
             double_speed_mode:false,
+            halt: false,
             mode,
             #[cfg(feature = "dbg")]
             mem_watch: crate::debugger::MemoryWatcher::new()
@@ -156,7 +176,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     pub fn cycle(&mut self, m_cycles:u8){
         flip_bit_u8(&mut self.io_bus.speed_switch_register, 7, self.double_speed_mode);
-        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, &mut self.external_memory_bus);
+        self.occupied_access_bus = self.io_bus.cycle(m_cycles as u32, self.double_speed_mode, self.halt, &mut self.external_memory_bus);
     }
 
     pub fn handle_interrupts(&mut self, master_interrupt_enable:bool)->InterruptRequest{
@@ -178,6 +198,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     #[cfg(feature = "dbg")]
     pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}
+
+    #[cfg(feature = "dbg")]
+    pub fn dbg_read(&mut self, address:u16)->u8{self.read_unprotected(address)}
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer

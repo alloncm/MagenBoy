@@ -2,15 +2,7 @@
 
 A GameBoy emulator developed by me.
 
-The main goal of this project is to be able to play Pokemon on my own emulator.
-
-## Implemented Cartridges Types
-- Rom (No MBC controller)
-- MBC1
-- MBC3
-- MBC5
-
-**More will be added if neccessary (and by neccessary I mean if games I want to play will require them)**
+The main goal of this project is to be able to play Pokemon on my own emulator on various platforms.
 
 ## Building
 
@@ -133,9 +125,15 @@ the UART output will be written to the console.
 
 I think that not all the peripherals I use are implemented in QEMU so I used this mainly to debug boot and CPU initialization problems
 
-## GameBoy
+## Development Status
 
-### Development Status
+### Implemented Cartridges Types
+- Rom (No MBC controller)
+- MBC1
+- MBC3
+- MBC5
+
+### Testing
 
 - CPU - Cycle accurate CPU
 - PPU - Cycle accurate fifo PPU
@@ -153,30 +151,11 @@ I think that not all the peripherals I use are implemented in QEMU so I used thi
         - acceptance/ppu/intr_2_oam_ok_timing 
     - APU passes some of [blargs dmg_sound tests](https://github.com/retrio/gb-test-roms/tree/master/dmg_sound)
     - Timer passes most of [mooneye-test-suite](https://github.com/Gekkio/mooneye-test-suite/tree/main/acceptance/timer)
-
-### Games Tested
-
-- Pokemon Red 
-- Tetris 
-- Super Mario World 
-- The Legend of Zelda: A Link to the Past 
-
-## GameBoy Color
-
-### Developement Status
-
-- CPU - Full support
-- PPU - Kinds of works
-- Tests
     - [cgb-acid2](https://github.com/mattcurrie/cgb-acid2) 
     - [MagenTests](https://github.com/alloncm/MagenTests) 
 
-### Games Tested
-
-- Pokemon Yellow
-- Tetris DX
-
 ## Resources
+
 ### Gameboy
 - [The Pandocs](https://gbdev.io/pandocs/)
 - [gbops](https://izik1.github.io/gbops/index.html)
@@ -193,6 +172,7 @@ I think that not all the peripherals I use are implemented in QEMU so I used thi
 - [juj/fbcp-ili9341 as a reference](https://github.com/juj/fbcp-ili9341)
 - [Raspberry Pi DMA programming in C](https://iosoft.blog/2020/05/25/raspberry-pi-dma-programming/)
 - [Ili9341 docs](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf)
+
 #### BareMetal RaspberryPi
 - [Bare-metal Boot Code for ARMv8-A](http://classweb.ece.umd.edu/enee447.S2021/baremetal_boot_code_for_ARMv8_A_processors.pdf)
 - [Low performance Baremetal code Blog post](https://forums.raspberrypi.com/viewtopic.php?t=219212)

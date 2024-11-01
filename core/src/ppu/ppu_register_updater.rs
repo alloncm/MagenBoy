@@ -124,7 +124,7 @@ fn set_cgb_color_data_register(ppu_state:PpuState, color_ram:&mut[u8;64], pallet
         color_ram[(*pallete_index_register & 0b11_1111) as usize] = value;
     }
     else{
-        log::warn!("Attempt to wrtie to color ram while its locked");
+        log::warn!("bad color ram write: index - {:#X}, value: - {:#X}", pallete_index_register, value);
     }
 
     // if bit 7 is set inderement the dest adderess after write
