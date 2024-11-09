@@ -153,8 +153,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 }
 
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
-    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Bootrom, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
-        let bootrom_missing = boot_rom == Bootrom::None;
+    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Option<Bootrom>, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
+        let bootrom_missing = boot_rom.is_none();
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
