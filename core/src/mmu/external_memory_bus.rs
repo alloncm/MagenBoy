@@ -50,8 +50,6 @@ impl<'a> ExternalMemoryBus<'a> {
             0xC000..=0xCFFF=>self.ram.read_bank0(address - 0xC000),
             0xD000..=0xDFFF=>self.ram.read_current_bank(address - 0xD000),
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
-            BOOT_REGISTER_ADDRESS=>self.bootrom_register,
-            SVBK_REGISTER_ADRRESS=>self.ram.get_bank(),
             _=>core::panic!("Error: attemp to read invalid external memory bus address: {:#X}", address)
         }
     }
@@ -63,16 +61,20 @@ impl<'a> ExternalMemoryBus<'a> {
             0xC000..=0xCFFF=>self.ram.write_bank0(address - 0xC000, value),
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000, value),
             0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000, value),
-            BOOT_REGISTER_ADDRESS=>{
-                self.bootrom_register = value;
-                if self.bootrom.is_some() && value != 0{
-                    self.bootrom = None;
-                }
-            }
-            SVBK_REGISTER_ADRRESS=>self.ram.set_bank(value),
             _=>core::panic!("Error: attemp to write invalid external memory bus address: {:#X}", address)
         }
     }
+
+    pub fn read_boot_reg(&self) -> u8 {self.bootrom_register}
+    pub fn write_boot_reg(&mut self, value:u8) {
+        self.bootrom_register = value;
+        if self.bootrom.is_some() && value != 0{
+            self.bootrom = None;
+        }
+    }
+
+    pub fn read_svbk_reg(&self)->u8 {self.ram.get_bank()}
+    pub fn write_svbk_reg(&mut self, value:u8) {self.ram.set_bank(value)}
 
     #[cfg(feature = "dbg")]
     pub fn get_current_rom_bank(&self)->u16{ self.mbc.get_bank_number() }

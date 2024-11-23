@@ -116,7 +116,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xFF00..=0xFF4F | 
             0xFF51..=0xFF6F |
             0xFF71..=0xFF7F=>self.io_bus.read(address - 0xFF00),
-            0xFF50 | 0xFF70=>self.external_memory_bus.read(address),
+            0xFF50 => self.external_memory_bus.read_boot_reg(),
+            0xFF70=>self.external_memory_bus.read_svbk_reg(),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag
         };
@@ -139,8 +140,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xFF00..=0xFF4F | 
             0xFF51..=0xFF6F |
             0xFF71..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
-            0xFF50 | 0xFF70=>{
-                self.external_memory_bus.write(address, value);
+            0xFF50 => self.external_memory_bus.write_boot_reg(value),
+            0xFF70=>{
+                self.external_memory_bus.write_svbk_reg(value);
                 #[cfg(feature = "dbg")]
                 {
                     self.mem_watch.current_ram_bank_number = self.external_memory_bus.get_current_ram_bank();
