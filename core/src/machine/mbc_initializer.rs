@@ -34,7 +34,7 @@ pub fn initialize_mbc(program:&[u8], save_data:Option<&[u8]>)->&'static mut dyn 
     };
     
     let cart_compatibility = mbc.read_bank0(CGB_FLAG_ADDRESS as u16);
-    log::info!("initialized cartridge of type: {:#X} with compatibility {}", mbc_type, cart_compatibility);
+    log::info!("initialized cartridge of type: {:#X} with compatibility {:#X}", mbc_type, cart_compatibility);
 
     return mbc;
 }

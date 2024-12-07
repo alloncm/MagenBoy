@@ -100,7 +100,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
 
             KEY0_REGISTER_INDEX if self.mode == Mode::CGB => self.key0_register,
             // CGB registers
-            _ if self.cgb_enabled => match address{
+            _ if self.mode == Mode::CGB => match address{
                 VBK_REGISTER_INDEX =>self.ppu.vram.get_bank_reg(),
                 //GBC speed switch
                 KEY1_REGISTER_INDEX =>self.speed_switch_register | 0b0111_1110,
@@ -178,7 +178,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                     self.cgb_enabled = self.key0_register & BIT_2_MASK == 0;
                 }
             }
-            _ if self.cgb_enabled => match address {
+            _ if self.mode == Mode::CGB => match address {
                 VBK_REGISTER_INDEX =>self.ppu.vram.set_bank_reg(value),
                 KEY1_REGISTER_INDEX =>{
                     self.speed_switch_register &= 0b1111_1110;    // clear bit 0
@@ -220,7 +220,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             timer_event_cycles: 0,
             apu_event_cycles: 0,
             boot_finished: false,
-            cgb_enabled:false,
+            cgb_enabled:mode == Mode::CGB,  // default to the mode we have, the bootrom for CGB expects this to be true by default
             key0_register: 0, 
             mode,
         }
