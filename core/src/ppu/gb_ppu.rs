@@ -87,7 +87,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             bg_color_pallete_index:0,
             obj_color_ram:[0;64],
             obj_color_pallete_index:0,
-            cgb_priority_mode: false,
+            cgb_priority_mode: mode == Mode::CGB,    // By default sets to use cgb priority on cgb mode
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -335,7 +335,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
                         // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
                         if end_x < entry.x{
-                            if cgb_enabled {
+                            if cgb_enabled && self.cgb_priority_mode {
                                 vis_end = cmp::min(entry.x - end_x, vis_end);
                             }else{
                                 entry.visibility_start = cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
