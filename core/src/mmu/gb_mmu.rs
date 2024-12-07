@@ -1,5 +1,5 @@
-use super::{Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::{BOOT_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS}}};
+use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_0_MASK, BIT_2_MASK, BIT_7_MASK}, memory_registers::{BGPD_REGISTER_ADDRESS, BGPI_REGISTER_ADDRESS, BOOT_REGISTER_ADDRESS, KEY0_REGISTER_ADDRESS, LCDC_REGISTER_ADDRESS, OBPD_REGISTER_ADDRESS, OBPI_REGISTER_ADDRESS, OPRI_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS}}};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -158,6 +158,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Option<Bootrom>, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
         let bootrom_missing = boot_rom.is_none();
+        let cgb_reg = mbc.read_bank0(CGB_FLAG_ADDRESS as u16);
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
@@ -170,6 +171,59 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             mem_watch: crate::debugger::MemoryWatcher::new()
         };
         if bootrom_missing{
+            mmu.write(LCDC_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Enable PPU
+            if mode == Mode::CGB {
+                // Mimic the CGB bootrom behavior
+                if cgb_reg & BIT_7_MASK != 0{
+                    mmu.write(KEY0_REGISTER_ADDRESS, cgb_reg, 0);
+                }
+                else{
+                    mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatability mode 
+                    mmu.write(OPRI_REGISTER_ADDRESS, 1, 0);     // Set DMG priority mode
+
+                    // Setup the default BG palletes
+                    mmu.write(BGPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
+                    // 0xFFFFFF
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0xFF, 0);
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x7F, 0);
+                    // 0x7BFF31
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0xEF, 0);
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x1B, 0);
+                    // 0x0063C5
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x80, 0);
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x61, 0);
+                    // 0x000000 
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x00, 0);
+                    mmu.write(BGPD_REGISTER_ADDRESS, 0x00, 0);
+
+                    // Setup the default OBJ palletes
+                    mmu.write(OBPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
+                    // 0xFFFFFF
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0xFF, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x7F, 0);
+                    // 0xFF8484
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1F, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x42, 0);
+                    // 0x943A3A
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0xF2, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1C, 0);
+                    // 0x000000
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
+                    // 0xFFFFFF
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0xFF, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x7F, 0);
+                    // 0xFF8484
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1F, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x42, 0);
+                    // 0x943A3A
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0xF2, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1C, 0);
+                    // 0x000000
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
+                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
+                }
+            }
             //Setting the bootrom register to be set (the boot sequence has over)
             mmu.write(BOOT_REGISTER_ADDRESS, 1, 0);
         }

@@ -14,6 +14,7 @@ pub struct ExternalMemoryBus<'a>{
     mbc: &'a mut dyn Mbc,
     bootrom :Option<Bootrom>,
     bootrom_register:u8,
+    finished_boot: bool
 }
 
 impl<'a> ExternalMemoryBus<'a> {
@@ -23,6 +24,7 @@ impl<'a> ExternalMemoryBus<'a> {
             ram:Ram::default(),
             bootrom,
             bootrom_register: 0,
+            finished_boot: false
         }
     }
 
@@ -67,12 +69,13 @@ impl<'a> ExternalMemoryBus<'a> {
     pub fn read_boot_reg(&self) -> u8 {self.bootrom_register}
     pub fn write_boot_reg(&mut self, value:u8) {
         self.bootrom_register = value;
-        if self.bootrom.is_some() && value != 0{
+        if value != 0 && !self.finished_boot{
             self.bootrom = None;
+            self.finished_boot = true;
         }
     }
 
-    pub fn in_boot(&self)->bool {self.bootrom.is_some()}
+    pub fn in_boot(&self)->bool {!self.finished_boot}
 
     pub fn read_svbk_reg(&self)->u8 {self.ram.get_bank()}
     pub fn write_svbk_reg(&mut self, value:u8) {self.ram.set_bank(value)}

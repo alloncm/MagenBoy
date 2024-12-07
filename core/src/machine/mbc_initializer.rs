@@ -1,7 +1,6 @@
 use crate::{mmu::carts::*, utils::global_static_alloctor::*};
 
 const CARTRIDGE_TYPE_ADDRESS:usize = 0x147;
-const CGB_FLAG_ADDRESS:usize = 0x143;
 
 pub fn initialize_mbc(program:&[u8], save_data:Option<&[u8]>)->&'static mut dyn Mbc{
     let program_clone:&mut [u8] = static_alloc_array(program.len());
