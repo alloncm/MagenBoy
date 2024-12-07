@@ -118,6 +118,14 @@ pub fn get_obpd<GFX:GfxDevice>(ppu:&GbPpu<GFX>)->u8{
     ppu.obj_color_ram[(ppu.obj_color_pallete_index & 0b11_1111) as usize]
 }
 
+pub fn set_orpi<GFX:GfxDevice>(ppu: &mut GbPpu<GFX>, value:u8){
+    ppu.cgb_priority_mode = value & BIT_0_MASK == 0;
+}
+
+pub fn get_orpi<GFX:GfxDevice>(ppu: &GbPpu<GFX>) -> u8 {
+    ppu.cgb_priority_mode as u8
+}
+
 fn set_cgb_color_data_register(ppu_state:PpuState, color_ram:&mut[u8;64], pallete_index_register:&mut u8, value:u8){
     // cant wrtite during pixel trasfer, auto increment still takes effect though
     if ppu_state as u8 != PpuState::PixelTransfer as u8{

@@ -4,6 +4,8 @@ version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 edition.workspace = true
+default-run = "magenboy_sdl" # Even though this is not in the workspace it affects the workspace
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]

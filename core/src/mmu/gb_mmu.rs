@@ -1,5 +1,5 @@
 use super::{Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::{BOOT_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS}}};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -113,11 +113,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xA000..=0xFDFF=>self.external_memory_bus.read(address),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF4F | 
-            0xFF51..=0xFF6F |
-            0xFF71..=0xFF7F=>self.io_bus.read(address - 0xFF00),
-            0xFF50 => self.external_memory_bus.read_boot_reg(),
-            0xFF70=>self.external_memory_bus.read_svbk_reg(),
+            BOOT_REGISTER_ADDRESS => self.external_memory_bus.read_boot_reg(),
+            SVBK_REGISTER_ADRRESS => self.external_memory_bus.read_svbk_reg(),
+            0xFF00..=0xFF7F=>self.io_bus.read(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag
         };
@@ -137,17 +135,20 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xA000..=0xFDFF=>self.external_memory_bus.write(address, value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF4F | 
-            0xFF51..=0xFF6F |
-            0xFF71..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
-            0xFF50 => self.external_memory_bus.write_boot_reg(value),
-            0xFF70=>{
+            BOOT_REGISTER_ADDRESS => {
+                self.external_memory_bus.write_boot_reg(value);
+                if !self.external_memory_bus.in_boot(){
+                    self.io_bus.set_boot_finished();
+                }
+            },
+            SVBK_REGISTER_ADRRESS => if self.mode == Mode::CGB && self.io_bus.is_cgb_enabled() {
                 self.external_memory_bus.write_svbk_reg(value);
                 #[cfg(feature = "dbg")]
                 {
                     self.mem_watch.current_ram_bank_number = self.external_memory_bus.get_current_ram_bank();
                 }
             },
+            0xFF00..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag = value
         }

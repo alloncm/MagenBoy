@@ -22,10 +22,7 @@ macro_rules! impl_gameboy {
 pub(crate) use impl_gameboy;
 
 impl_gameboy! {{
-
-    // Currently OPRI(0xFF6C) and KEY0(0xFF4C) are not implemented as I'm not sure what the is correct behavior of those register.
-    // TODO: Use those registers instead of the mode in order to propagete the mahcine mode to the components
-    // I think I can research the info about those and use them to decide the mode myself
+    // TODO: Set KEY0 and ORPI with the correct values
     pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, mode:Mode)->Self{
         let mut cpu = GbCpu::default();
         match mode{

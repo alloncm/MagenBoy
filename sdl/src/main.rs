@@ -6,7 +6,7 @@ mod sdl_joypad_provider;
 mod terminal_debugger;
 
 use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, joypad_menu::*, mbc_handler::*, menu::*, mpmc_gfx_device::*};
-use magenboy_core::{GB_FREQUENCY, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, machine::{gameboy::GameBoy, Mode}, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
+use magenboy_core::{GB_FREQUENCY, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, machine::gameboy::GameBoy, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
 
 use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
 use log::info;
@@ -150,10 +150,10 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         Result::Ok(file)=>{
             info!("found bootrom!");
             if file.len() == GBC_BOOT_ROM_SIZE{
-                Bootrom::Gbc(file.try_into().unwrap())
+                Some(Bootrom::Gbc(file.try_into().unwrap()))
             }
             else if file.len() == GB_BOOT_ROM_SIZE{
-                Bootrom::Gb(file.try_into().unwrap())
+                Some(Bootrom::Gb(file.try_into().unwrap()))
             }
             else{
                 std::panic!("Error! bootrom: \"{}\" length is invalid", bootrom_path);
@@ -161,31 +161,34 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
         }
         Result::Err(_)=>{
             info!("Could not find bootrom... booting directly to rom");
-            Bootrom::None
+            Option::None
         }
     };
 
-    let mode = match bootrom{
-        Bootrom::Gb(_) => Some(Mode::DMG),
-        Bootrom::Gbc(_)=> Some(Mode::CGB),
-        Bootrom::None=>{
-            if check_for_terminal_feature_flag(&args, "--mode"){
+    let mbc = initialize_mbc(&program_name);
+
+    let mut gameboy = match bootrom{
+        Option::Some(b) => GameBoy::new_with_bootrom(
+            mbc, joypad_provider, audio_devices, spsc_gfx_device, 
+            #[cfg(feature = "dbg")]
+            TerminalDebugger::new(debugger_sender),
+            b),
+        Option::None => {
+            let mode = if check_for_terminal_feature_flag(&args, "--mode"){
                 let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
                 let mode = mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode.as_str()).as_str());
-                Some(mode)
+                mode
             }
             else{
-                Option::None
-            }
+                std::panic!("Could not infer --mode flag")
+            };
+            GameBoy::new_with_mode(
+                mbc, joypad_provider, audio_devices, spsc_gfx_device, 
+                #[cfg(feature = "dbg")]
+                TerminalDebugger::new(debugger_sender), 
+                mode)
         }
     };
-
-    let mbc = initialize_mbc(&program_name, mode);
-    let mut gameboy = GameBoy::new(
-        mbc, joypad_provider, audio_devices, spsc_gfx_device, 
-        #[cfg(feature = "dbg")]
-        TerminalDebugger::new(debugger_sender),
-        bootrom, mode);
 
     info!("initialized gameboy successfully!");
 

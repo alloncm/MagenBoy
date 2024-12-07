@@ -1,4 +1,3 @@
-use crate::utils::memory_registers::{BOOT_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS};
 use super::{ram::Ram, carts::Mbc};
 
 pub const GB_BOOT_ROM_SIZE:usize = 0x100;
@@ -72,6 +71,8 @@ impl<'a> ExternalMemoryBus<'a> {
             self.bootrom = None;
         }
     }
+
+    pub fn in_boot(&self)->bool {self.bootrom.is_some()}
 
     pub fn read_svbk_reg(&self)->u8 {self.ram.get_bank()}
     pub fn write_svbk_reg(&mut self, value:u8) {self.ram.set_bank(value)}

@@ -117,7 +117,7 @@ fn test_cgb_acid2(){
 fn run_turtle_integration_test(program_name:&str, hash:u64){
     let zip_url = "https://github.com/Powerlated/TurtleTests/releases/download/v1.0/release.zip";
     let program = get_ziped_program(zip_url, program_name);
-    run_integration_test(program, Bootrom::None, 100, hash, format!("The program: {} has failed", program_name), Some(Mode::DMG));
+    run_integration_test(program, None, 100, hash, format!("The program: {} has failed", program_name), Some(Mode::DMG));
 }
 
 fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
@@ -126,7 +126,7 @@ fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
     let program_zip_path = format!("{}/{program_name}", "mts-20220522-1522-55c535c");
     let program = get_ziped_program(zip_url, program_zip_path.as_str());
     let boot_rom = reqwest::blocking::get(boot_rom_url).unwrap().bytes().unwrap().to_vec();
-    run_integration_test(program, Bootrom::Gb(boot_rom.try_into().unwrap()), 300, hash, format!("The program: {} has failed", program_zip_path), Some(Mode::DMG));
+    run_integration_test(program, Some(Bootrom::Gb(boot_rom.try_into().unwrap())), 300, hash, format!("The program: {} has failed", program_zip_path), Some(Mode::DMG));
 }
 
 fn get_ziped_program(zip_url:&str, program_zip_path:&str)->Vec<u8>{
@@ -142,22 +142,29 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
     let file = reqwest::blocking::get(program_url).unwrap().bytes().unwrap();
     let program = Vec::from(file.as_ref());
     let fail_message = format!("The program {} has failed", program_url);
-    run_integration_test(program, Bootrom::None, frames_to_execute, expected_hash, fail_message, mode);
+    run_integration_test(program, None, frames_to_execute, expected_hash, fail_message, mode);
 }
 
-fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
-    let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None, mode);
+fn run_integration_test(program:Vec<u8>, boot_rom:Option<Bootrom>, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
+    let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None);
     let found = AtomicBool::new(false);
-    let mut gameboy = GameBoy::new(
-        mbc,
-        StubJoypadProvider{},
-        StubAudioDevice{}, 
-        CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
-        #[cfg(feature = "dbg")]
-        StubDebuggerUi,
-        boot_rom,
-        mode
-    );
+    let mut gameboy = match boot_rom {
+        Some(b)=>GameBoy::new_with_bootrom(
+            mbc,
+            StubJoypadProvider{},
+            StubAudioDevice{}, 
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
+            #[cfg(feature = "dbg")]
+            StubDebuggerUi,
+            b),
+        None => GameBoy::new_with_mode(mbc,
+            StubJoypadProvider{},
+            StubAudioDevice{}, 
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
+            #[cfg(feature = "dbg")]
+            StubDebuggerUi,
+            mode.unwrap())
+        };
 
     for _ in 0..frames_to_execute {
         gameboy.cycle_frame();
@@ -227,19 +234,19 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
     
     let program = Vec::from(program);
 
-    let mbc = initialize_mbc(&program, None, mode);
+    let mbc = initialize_mbc(&program, None);
 
     let test_gfx_device = GetHashGfxDevice{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
+        GameBoy::new_with_bootrom(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
             #[cfg(feature = "dbg")]StubDebuggerUi,
-            Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
+            Bootrom::Gb(boot_rom.try_into().unwrap()))
     }
     else{
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
+        GameBoy::new_with_mode(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
             #[cfg(feature = "dbg")]StubDebuggerUi,
-             Bootrom::None, mode)
+            mode.unwrap())
     };
 
     loop {gameboy.cycle_frame();}

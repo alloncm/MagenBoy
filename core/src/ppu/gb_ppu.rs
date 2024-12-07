@@ -36,6 +36,7 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub bg_color_pallete_index:u8,
     pub obj_color_ram:[u8;64],
     pub obj_color_pallete_index:u8,
+    pub cgb_priority_mode: bool,
 
     //interrupts
     pub v_blank_interrupt_request:bool,
@@ -86,6 +87,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             bg_color_pallete_index:0,
             obj_color_ram:[0;64],
             obj_color_pallete_index:0,
+            cgb_priority_mode: false,
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -96,8 +98,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             m_cycles_passed:0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
-            bg_fetcher:BackgroundFetcher::new(mode),
-            sprite_fetcher:SpriteFetcher::new(mode),
+            bg_fetcher:BackgroundFetcher::new(),
+            sprite_fetcher:SpriteFetcher::new(),
             pixel_x_pos:0,
             scanline_started:false,
             next_state:PpuState::OamSearch,
@@ -125,12 +127,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->Option<u32>{
         if self.lcd_control & BIT_7_MASK == 0{
             return None;
         }
 
-        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
+        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register, cgb_enabled) as u32;
 
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
@@ -187,7 +189,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return t_cycles_to_next_stat_change;
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->u16{
         let mut m_cycles_counter = 0;
 
         while m_cycles_counter < m_cycles{
@@ -264,13 +266,13 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     while m_cycles_counter < m_cycles && self.pixel_x_pos < SCREEN_WIDTH as u8{
                         for _ in 0..4{
                             if self.lcd_control & BIT_1_MASK != 0{
-                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
+                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos, cgb_enabled, self.cgb_priority_mode);
                             }
                             if self.sprite_fetcher.rendering{
                                 self.bg_fetcher.pause();
                             }
                             else{
-                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
+                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos, cgb_enabled);
                                 self.try_push_to_lcd();
                                 if self.pixel_x_pos == SCREEN_WIDTH as u8{
                                     self.next_state = PpuState::Hblank;

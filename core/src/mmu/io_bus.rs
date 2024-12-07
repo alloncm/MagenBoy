@@ -1,8 +1,9 @@
 use crate::{
-    apu::{*,audio_device::AudioDevice, gb_apu::GbApu}, 
-    ppu::{gb_ppu::GbPpu, ppu_register_updater::*, gfx_device::GfxDevice},
-    timer::{timer_register_updater::*, gb_timer::GbTimer}, 
-    keypad::{joypad_provider::JoypadProvider, joypad_handler::JoypadHandler}, machine::Mode
+    apu::{audio_device::AudioDevice, gb_apu::GbApu, *}, 
+    keypad::{joypad_handler::JoypadHandler, joypad_provider::JoypadProvider}, 
+    machine::Mode, 
+    ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice, ppu_register_updater::*}, 
+    timer::{gb_timer::GbTimer, timer_register_updater::*}, utils::bit_masks::BIT_2_MASK
 };
 use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController, vram_dma_controller::VramDmaController, external_memory_bus::ExternalMemoryBus, access_bus::AccessBus};
 
@@ -19,6 +20,10 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     pub interrupt_handler:InterruptsHandler,
     pub joypad_handler: JoypadHandler<JP>,
     pub speed_switch_register:u8,
+    mode: Mode,
+    key0_register:u8,
+    cgb_enabled: bool,
+    boot_finished:bool,
 
     speed_cycle_reminder:u8,
 
@@ -90,18 +95,25 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBP1_REGISTER_INDEX=> self.ppu.obj_pallete_1_register,
             WY_REGISTER_INDEX => self.ppu.window_pos.y,
             WX_REGISTER_INDEX=> get_wx_register(&self.ppu),
-            VBK_REGISTER_INDEX=>self.ppu.vram.get_bank_reg(),
-            //GBC speed switch
-            KEY1_REGISTER_INDEX=>self.speed_switch_register | 0b0111_1110,
-            // VRAM DMA
-            HDMA5_REGISTER_INDEX=>self.vram_dma_controller.get_mode_length(),
-            //Color ram
-            BGPI_REGISTER_INDEX=>get_bgpi(&self.ppu),
-            BGPD_REGISTER_INDEX=>get_bgpd(&self.ppu),
-            OBPI_REGISTER_INDEX=>get_obpi(&self.ppu),
-            OBPD_REGISTER_INDEX=>get_obpd(&self.ppu),
             //Joypad
             JOYP_REGISTER_INDEX => self.joypad_handler.get_register(),
+
+            KEY0_REGISTER_INDEX if self.mode == Mode::CGB => self.key0_register,
+            // CGB registers
+            _ if self.cgb_enabled => match address{
+                VBK_REGISTER_INDEX =>self.ppu.vram.get_bank_reg(),
+                //GBC speed switch
+                KEY1_REGISTER_INDEX =>self.speed_switch_register | 0b0111_1110,
+                ORPI_REGISTER_INDEX => get_orpi(&self.ppu),
+                // VRAM DMA
+                HDMA5_REGISTER_INDEX =>self.vram_dma_controller.get_mode_length(),
+                //Color ram
+                BGPI_REGISTER_INDEX =>get_bgpi(&self.ppu),
+                BGPD_REGISTER_INDEX =>get_bgpd(&self.ppu),
+                OBPI_REGISTER_INDEX =>get_obpi(&self.ppu),
+                OBPD_REGISTER_INDEX =>get_obpd(&self.ppu),
+                _=>0xFF
+            }
             _=>0xFF
         };
     }
@@ -157,30 +169,39 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1, &mut self.ppu.obj_pallete_1_register),
             WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
             WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
-            VBK_REGISTER_INDEX=>self.ppu.vram.set_bank_reg(value),
-            KEY1_REGISTER_INDEX=>{
-                self.speed_switch_register &= 0b1111_1110;    // clear bit 0
-                self.speed_switch_register |= value & 1;      // change state for bit 0
-            }
-            // VRAM DMA
-            HDMA1_REGISTER_INDEX=>self.vram_dma_controller.set_source_high(value),
-            HDMA2_REGISTER_INDEX=>self.vram_dma_controller.set_source_low(value),
-            HDMA3_REGISTER_INDEX=>self.vram_dma_controller.set_dest_high(value),
-            HDMA4_REGISTER_INDEX=>self.vram_dma_controller.set_dest_low(value),
-            HDMA5_REGISTER_INDEX=>self.vram_dma_controller.set_mode_length(value),
-            // COLOR Ram
-            BGPI_REGISTER_INDEX=>set_bgpi(&mut self.ppu, value),
-            BGPD_REGISTER_INDEX=>set_bgpd(&mut self.ppu, value),
-            OBPI_REGISTER_INDEX=>set_obpi(&mut self.ppu, value),
-            OBPD_REGISTER_INDEX=>set_obpd(&mut self.ppu, value),
-
             JOYP_REGISTER_INDEX => self.joypad_handler.set_register(value),
+
+            // CGB registers
+            KEY0_REGISTER_INDEX => if self.mode == Mode::CGB {
+                self.key0_register = value;
+                if !self.boot_finished{
+                    self.cgb_enabled = self.key0_register & BIT_2_MASK == 0;
+                }
+            }
+            _ if self.cgb_enabled => match address {
+                VBK_REGISTER_INDEX =>self.ppu.vram.set_bank_reg(value),
+                KEY1_REGISTER_INDEX =>{
+                    self.speed_switch_register &= 0b1111_1110;    // clear bit 0
+                    self.speed_switch_register |= value & 1;      // change state for bit 0
+                }
+                ORPI_REGISTER_INDEX => set_orpi(&mut self.ppu, value),
+                // VRAM DMA
+                HDMA1_REGISTER_INDEX =>self.vram_dma_controller.set_source_high(value),
+                HDMA2_REGISTER_INDEX =>self.vram_dma_controller.set_source_low(value),
+                HDMA3_REGISTER_INDEX =>self.vram_dma_controller.set_dest_high(value),
+                HDMA4_REGISTER_INDEX =>self.vram_dma_controller.set_dest_low(value),
+                HDMA5_REGISTER_INDEX =>self.vram_dma_controller.set_mode_length(value),
+                // COLOR Ram
+                BGPI_REGISTER_INDEX =>set_bgpi(&mut self.ppu, value),
+                BGPD_REGISTER_INDEX =>set_bgpd(&mut self.ppu, value),
+                OBPI_REGISTER_INDEX =>set_obpi(&mut self.ppu, value),
+                OBPD_REGISTER_INDEX =>set_obpd(&mut self.ppu, value),
+                _=>{}
+            }
             _=>{}
         }
     }
-}
-
-impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
+    
     pub fn new(apu:GbApu<AD>, gfx_device:GFX, joypad_provider:JP, mode:Mode)->Self{
         Self{
             apu,
@@ -198,6 +219,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             ppu_event:None,
             timer_event_cycles: 0,
             apu_event_cycles: 0,
+            boot_finished: false,
+            cgb_enabled:false,
+            key0_register: 0, 
+            mode,
         }
     }
 
@@ -246,8 +271,12 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         return access_bus;
     }
 
+    pub fn set_boot_finished(&mut self){self.boot_finished = true}
+
+    pub fn is_cgb_enabled(&self)->bool{self.cgb_enabled}
+
     fn cycle_ppu(&mut self){
-        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag);
+        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag, self.cgb_enabled);
         self.ppu_cycles = 0;
     }
 
