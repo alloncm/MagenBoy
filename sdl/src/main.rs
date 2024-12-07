@@ -5,15 +5,12 @@ mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, joypad_menu::*, mbc_handler::*, menu::*, mpmc_gfx_device::*};
-use magenboy_core::{GB_FREQUENCY, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, machine::gameboy::GameBoy, mmu::{external_memory_bus::Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE}, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run, joypad_menu::*, menu::*, mpmc_gfx_device::*, EMULATOR_STATE};
+use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, GB_FREQUENCY};
 
-use std::{fs, env, result::Result, vec::Vec, convert::TryInto};
-use log::info;
+use std::{env, result::Result, vec::Vec};
 use sdl2::sys::*;
 
-#[cfg(feature = "dbg")]
-use crate::terminal_debugger::TerminalDebugger;
 use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlAudioDevice};
 
 const TURBO_MUL:u8 = 1;
@@ -30,19 +27,6 @@ const KEYBOARD_MAPPING:[SDL_Scancode; NUM_OF_KEYS] = [
     SDL_Scancode::SDL_SCANCODE_RIGHT,
     SDL_Scancode::SDL_SCANCODE_LEFT
 ];
-
-
-fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
-    args.len() >= 3 && args.contains(&String::from(flag))
-}
-
-fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_message:&str)->String{
-    let index = args.iter().position(|v| *v == String::from(flag)).unwrap();
-    return args.get(index + 1).expect(error_message).clone();
-}
-
-// This is static and not local for the unix signal handler to access it
-static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
 fn main() {
     let header = std::format!("MagenBoy v{}", magenboy_common::VERSION);
@@ -140,67 +124,5 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     let audio_devices = MultiAudioDevice::new(devices);
     let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
     
-    let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
-        get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter")
-    }else{
-        String::from("dmg_boot.bin")
-    };
-
-    let bootrom = match fs::read(&bootrom_path){
-        Result::Ok(file)=>{
-            info!("found bootrom!");
-            if file.len() == GBC_BOOT_ROM_SIZE{
-                Some(Bootrom::Gbc(file.try_into().unwrap()))
-            }
-            else if file.len() == GB_BOOT_ROM_SIZE{
-                Some(Bootrom::Gb(file.try_into().unwrap()))
-            }
-            else{
-                std::panic!("Error! bootrom: \"{}\" length is invalid", bootrom_path);
-            }
-        }
-        Result::Err(_)=>{
-            info!("Could not find bootrom... booting directly to rom");
-            Option::None
-        }
-    };
-
-    let mbc = initialize_mbc(&program_name);
-
-    let mut gameboy = match bootrom{
-        Option::Some(b) => GameBoy::new_with_bootrom(
-            mbc, joypad_provider, audio_devices, spsc_gfx_device, 
-            #[cfg(feature = "dbg")]
-            TerminalDebugger::new(debugger_sender),
-            b),
-        Option::None => {
-            let mode = if check_for_terminal_feature_flag(&args, "--mode"){
-                let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
-                let mode = mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode.as_str()).as_str());
-                mode
-            }
-            else{
-                std::panic!("Could not infer --mode flag")
-            };
-            GameBoy::new_with_mode(
-                mbc, joypad_provider, audio_devices, spsc_gfx_device, 
-                #[cfg(feature = "dbg")]
-                TerminalDebugger::new(debugger_sender), 
-                mode)
-        }
-    };
-
-    info!("initialized gameboy successfully!");
-
-    EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
-    while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
-        if !EMULATOR_STATE.pause.load(std::sync::atomic::Ordering::SeqCst){
-            let state = &EMULATOR_STATE;
-            let _mutex_ctx = state.state_mutex.lock().unwrap();
-            gameboy.cycle_frame();
-        }
-    }
-    drop(gameboy);
-    release_mbc(&program_name, mbc);
-    log::info!("released the gameboy succefully");
+    init_and_run(args, program_name, spsc_gfx_device, joypad_provider, audio_devices, #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender));
 }

@@ -24,4 +24,4 @@ wav = "1.0"
 [features]
 default = ["static-sdl"]
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
-dbg = ["magenboy_core/dbg"]
+dbg = ["magenboy_core/dbg", "magenboy_common/dbg"]

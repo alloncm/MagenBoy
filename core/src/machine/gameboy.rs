@@ -23,7 +23,7 @@ pub(crate) use impl_gameboy;
 
 impl_gameboy! {{
     // TODO: Set KEY0 and ORPI with the correct values
-    pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, mode:Mode)->Self{
+    pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, mode:Mode, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mut cpu = GbCpu::default();
         match mode{
             Mode::DMG=>{
@@ -50,7 +50,7 @@ impl_gameboy! {{
         };
     }
 
-    pub fn new_with_bootrom(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, bootrom:Bootrom)->Self{
+    pub fn new_with_bootrom(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, bootrom:Bootrom, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mode = match bootrom{
             Bootrom::Gb(_) => Mode::DMG,
             Bootrom::Gbc(_) => Mode::CGB

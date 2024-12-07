@@ -1,12 +1,8 @@
-use std::{env, fs};
+use std::env;
 
-use magenboy_common::{menu::*, joypad_menu::*, mpmc_gfx_device::MpmcGfxDevice, mbc_handler::{initialize_mbc, release_mbc}};
-use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, mmu::{GBC_BOOT_ROM_SIZE, external_memory_bus::Bootrom, GB_BOOT_ROM_SIZE}, machine::{Mode, gameboy::GameBoy}, keypad::joypad_provider::JoypadProvider};
-use log::info;
-use magenboy_rpi::{configuration::{emulation::*, display::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, MENU_PIN_BCM};
-
-// This is static and not local for the unix signal handler to access it
-static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
+use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run, joypad_menu::*, menu::*, mpmc_gfx_device::MpmcGfxDevice, EMULATOR_STATE};
+use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, keypad::joypad_provider::JoypadProvider};
+use magenboy_rpi::{configuration::{display::*, emulation::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, BlankAudioDevice, MENU_PIN_BCM};
 
 fn main(){
     unsafe{magenboy_rpi::peripherals::PERIPHERALS.set_core_clock()};
@@ -69,72 +65,7 @@ fn main(){
 }
 
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, joypad_provider:impl JoypadProvider) {
-    
-    let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
-        get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter")
-    }else{
-        String::from("dmg_boot.bin")
-    };
-
-    let bootrom = match fs::read(&bootrom_path){
-        Result::Ok(file)=>{
-            info!("found bootrom!");
-            if file.len() == GBC_BOOT_ROM_SIZE{
-                Bootrom::Gbc(file.try_into().unwrap())
-            }
-            else if file.len() == GB_BOOT_ROM_SIZE{
-                Bootrom::Gb(file.try_into().unwrap())
-            }
-            else{
-                std::panic!("Error! bootrom: \"{}\" length is invalid", bootrom_path);
-            }
-        }
-        Result::Err(_)=>{
-            info!("Could not find bootrom... booting directly to rom");
-            Bootrom::None
-        }
-    };
-
-    let mode = match bootrom{
-        Bootrom::Gb(_) => Some(Mode::DMG),
-        Bootrom::Gbc(_)=> Some(Mode::CGB),
-        Bootrom::None=>{
-            if check_for_terminal_feature_flag(&args, "--mode"){
-                let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
-                let mode = mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode.as_str()).as_str());
-                Some(mode)
-            }
-            else{
-                Option::None
-            }
-        }
-    };
-
-    let mbc = initialize_mbc(&program_name, mode);
-    let mut gameboy = GameBoy::new(mbc, joypad_provider , magenboy_rpi::BlankAudioDevice, spsc_gfx_device, bootrom, mode);
-
-    info!("initialized gameboy successfully!");
-
-    EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
-    while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
-        if !EMULATOR_STATE.pause.load(std::sync::atomic::Ordering::SeqCst){
-            let state = &EMULATOR_STATE;
-            let _mutex_ctx = state.state_mutex.lock().unwrap();
-            gameboy.cycle_frame();
-        }
-    }
-    drop(gameboy);
-    release_mbc(&program_name, mbc);
-    log::info!("released the gameboy succefully");
-}
-
-fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
-    args.len() >= 3 && args.contains(&String::from(flag))
-}
-
-fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_message:&str)->String{
-    let index = args.iter().position(|v| *v == String::from(flag)).unwrap();
-    return args.get(index + 1).expect(error_message).clone();
+    init_and_run(args, program_name, spsc_gfx_device, joypad_provider, BlankAudioDevice);
 }
 
 extern "C" fn sigint_handler(_:std::os::raw::c_int){
