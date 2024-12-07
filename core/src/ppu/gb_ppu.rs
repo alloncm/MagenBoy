@@ -198,7 +198,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.state = PpuState::OamSearch;
                     // first iteration
                     if self.m_cycles_passed == 0{
-                        self.read_sprites_from_oam();
+                        self.read_sprites_from_oam(cgb_enabled);
                     }
                     
                     let scope_m_cycles_passed = cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
@@ -316,7 +316,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return m_cycles_for_state - self.m_cycles_passed;
     }
 
-    fn read_sprites_from_oam(&mut self) {
+    fn read_sprites_from_oam(&mut self, cgb_enabled: bool) {
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
         for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
             let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
@@ -335,7 +335,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
                         // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
                         if end_x < entry.x{
-                            if self.mode == Mode::CGB{
+                            if cgb_enabled {
                                 vis_end = cmp::min(entry.x - end_x, vis_end);
                             }else{
                                 entry.visibility_start = cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);

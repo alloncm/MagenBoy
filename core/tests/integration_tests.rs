@@ -45,7 +45,7 @@ impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
-    run_integration_test_from_url(file_url, 1800, 8045249190936210527, None);
+    run_integration_test_from_url(file_url, 3200, 8045249190936210527, Some(Mode::DMG));
 }
 
 #[test]
