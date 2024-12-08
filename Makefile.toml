@@ -59,7 +59,7 @@ toolchain = "nightly"
 command = "rustup"
 args = ["component", "add", "rust-src"]
 
-[tasks.libretro]
+[tasks.libretro_desktop]
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_libretro"]
 

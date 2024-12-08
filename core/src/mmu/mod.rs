@@ -9,8 +9,6 @@ pub mod external_memory_bus;
 pub mod oam_dma_controller;
 pub mod vram_dma_controller;
 
-pub use external_memory_bus::{GB_BOOT_ROM_SIZE, GBC_BOOT_ROM_SIZE};
-
 pub trait Memory{
     fn read(&mut self, address:u16, m_cycles:u8)->u8;
     fn write(&mut self, address:u16, value:u8, m_cycles:u8);

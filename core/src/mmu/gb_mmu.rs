@@ -1,5 +1,5 @@
 use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{color::Color, gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}, Pixel};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -137,11 +137,11 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xFEA0..=0xFEFF=>{},
             BOOT_REGISTER_ADDRESS => {
                 self.external_memory_bus.write_boot_reg(value);
-                if !self.external_memory_bus.in_boot(){
+                if self.external_memory_bus.finished_boot(){
                     self.io_bus.set_boot_finished();
                 }
             },
-            SVBK_REGISTER_ADRRESS => if self.mode == Mode::CGB && self.io_bus.is_cgb_enabled() {
+            SVBK_REGISTER_ADRRESS => if self.io_bus.is_cgb_enabled() {
                 self.external_memory_bus.write_svbk_reg(value);
                 #[cfg(feature = "dbg")]
                 {

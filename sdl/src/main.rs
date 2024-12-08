@@ -5,7 +5,7 @@ mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run, joypad_menu::*, menu::*, mpmc_gfx_device::*, EMULATOR_STATE};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run_gameboy, joypad_menu::*, menu::*, mpmc_gfx_device::*, EMULATOR_STATE};
 use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, GB_FREQUENCY};
 
 use std::{env, result::Result, vec::Vec};
@@ -124,5 +124,5 @@ fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_devic
     let audio_devices = MultiAudioDevice::new(devices);
     let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
     
-    init_and_run(args, program_name, spsc_gfx_device, joypad_provider, audio_devices, #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender));
+    init_and_run_gameboy(args, program_name, spsc_gfx_device, joypad_provider, audio_devices, #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender));
 }

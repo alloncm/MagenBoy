@@ -5,19 +5,22 @@ I imlemented a libretro core for MagenBoy mainly to play MagenBoy on android.
 
 ## How to build
 
-The command is `cargo make libretro`, which you'll need to have `cargo-make` to run (as the readme tells).
+You'll need to have `cargo-make` installed to run (as the readme instruct).
 
-This command will build both the native desktop target and the `aarch64-linux-android` target and output a `.info` file 
+- Desktop (current installed toolchain) - `cargo make libretro_desktop`
+- Android (`aarch64-linux-android`) - `cargo make libretro_android`
+
+    In order to build android you'll also need to install the android SDK and enable the NDK package.
+
+    Make sure to create an environment variable named `ANDROID_NDK_HOME` and set to the NDK install path, 
+    for example - `export ANDROID_NDK_HOME=/home/alloncm/Android/Sdk/ndk`.
+
+Those commands will build the native desktop target and the `aarch64-linux-android` target and output a `.info` file 
 along with a dynamic library at the same directory.
-
-In order to build android you'll also need to install the android SDK and enable the NDK package.
-
-Make sure to have an environment variable named `ANDROID_NDK_HOME` and set to the NDK install path, 
-for example - `export ANDROID_NDK_HOME=/home/alloncm/Android/Sdk/ndk`.
 
 ## How to install
 
-I'll explain how to install on RetroArch, if you are using another frontend - good luck!
+Those instruction are to install on RetroArch, if you are using another frontend - good luck!
 
 First of course youll need to download RetroArch for your platform.
 
@@ -29,7 +32,7 @@ You can always run the rom from the command line using the generated dynamic lib
 retroarch -v -L target/release/libmagenboy_libretro.so path_to_rom
 ```
 
-But in order to install it as a core youll first need to suplly RetroArch with the metadata for the core (otherwise it will install in incorrectly).
+But in order to install it as a core youll first need to suplly RetroArch with the metadata for the core (otherwise it will install incorrectly).
 
 1. Choose: `Settings -> Directory -> Core Info`, this is the path where RetroArch searches for the mathcing `.info` files for the cores, you need to copy the `.info` file to this directory.
 

@@ -17,4 +17,5 @@ pub use {
     apu::audio_device::AudioDevice,
     keypad::joypad_provider::JoypadProvider,
     utils::GB_FREQUENCY, 
+    mmu::external_memory_bus::{Bootrom, GB_BOOT_ROM_SIZE, GBC_BOOT_ROM_SIZE}
 };

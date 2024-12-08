@@ -75,7 +75,7 @@ impl<'a> ExternalMemoryBus<'a> {
         }
     }
 
-    pub fn in_boot(&self)->bool {!self.finished_boot}
+    pub fn finished_boot(&self)->bool {self.finished_boot}
 
     pub fn read_svbk_reg(&self)->u8 {self.ram.get_bank()}
     pub fn write_svbk_reg(&mut self, value:u8) {self.ram.set_bank(value)}

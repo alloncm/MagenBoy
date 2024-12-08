@@ -22,7 +22,6 @@ macro_rules! impl_gameboy {
 pub(crate) use impl_gameboy;
 
 impl_gameboy! {{
-    // TODO: Set KEY0 and ORPI with the correct values
     pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, mode:Mode, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mut cpu = GbCpu::default();
         match mode{

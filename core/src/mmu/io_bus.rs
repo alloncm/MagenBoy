@@ -22,7 +22,6 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     pub speed_switch_register:u8,
     mode: Mode,
     key0_register:u8,
-    cgb_enabled: bool,
     boot_finished:bool,
 
     speed_cycle_reminder:u8,
@@ -98,10 +97,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             //Joypad
             JOYP_REGISTER_INDEX => self.joypad_handler.get_register(),
 
-            KEY0_REGISTER_INDEX if self.mode == Mode::CGB => self.key0_register,
             // CGB registers
             _ if self.mode == Mode::CGB => match address{
                 VBK_REGISTER_INDEX =>self.ppu.vram.get_bank_reg(),
+                KEY0_REGISTER_INDEX => self.key0_register,
                 //GBC speed switch
                 KEY1_REGISTER_INDEX =>self.speed_switch_register | 0b0111_1110,
                 ORPI_REGISTER_INDEX => self.ppu.get_orpi(),
@@ -172,14 +171,14 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             JOYP_REGISTER_INDEX => self.joypad_handler.set_register(value),
 
             // CGB registers
-            KEY0_REGISTER_INDEX => if self.mode == Mode::CGB {
-                self.key0_register = value;
-                if !self.boot_finished{
-                    self.cgb_enabled = self.key0_register & BIT_2_MASK == 0;
-                }
-            }
             _ if self.mode == Mode::CGB => match address {
                 VBK_REGISTER_INDEX =>self.ppu.vram.set_bank_reg(value),
+                KEY0_REGISTER_INDEX => {
+                    self.key0_register = value;
+                    if !self.boot_finished{
+                        self.ppu.cgb_enabled = self.key0_register & BIT_2_MASK == 0;
+                    }
+                }
                 KEY1_REGISTER_INDEX =>{
                     self.speed_switch_register &= 0b1111_1110;    // clear bit 0
                     self.speed_switch_register |= value & 1;      // change state for bit 0
@@ -220,7 +219,6 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             timer_event_cycles: 0,
             apu_event_cycles: 0,
             boot_finished: false,
-            cgb_enabled:mode == Mode::CGB,  // default to the mode we have, the bootrom for CGB expects this to be true by default
             key0_register: 0, 
             mode,
         }
@@ -273,10 +271,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
 
     pub fn set_boot_finished(&mut self){self.boot_finished = true}
 
-    pub fn is_cgb_enabled(&self)->bool{self.cgb_enabled}
+    pub fn is_cgb_enabled(&self)->bool{self.ppu.cgb_enabled}
 
     fn cycle_ppu(&mut self){
-        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag, self.cgb_enabled);
+        self.ppu_event = self.ppu.cycle(self.ppu_cycles, &mut self.interrupt_handler.interrupt_flag);
         self.ppu_cycles = 0;
     }
 

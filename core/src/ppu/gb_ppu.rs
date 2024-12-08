@@ -38,6 +38,7 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub bg_color_pallete_index:u8,
     pub obj_color_ram:[u8;64],
     pub obj_color_pallete_index:u8,
+    pub cgb_enabled: bool,          // This field is here in the PPU since its the main peripheral to use this, in case it changes it will be better to move somewhere else
     pub cgb_priority_mode: bool,
 
     //interrupts
@@ -89,7 +90,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             bg_color_pallete_index:0,
             obj_color_ram:[0;64],
             obj_color_pallete_index:0,
-            cgb_priority_mode: mode == Mode::CGB,    // By default sets to use cgb priority on cgb mode
+            cgb_enabled: mode == Mode::CGB,         // default to the mode we have, the bootrom for CGB expects this to be true by default
+            cgb_priority_mode: mode == Mode::CGB,   // By default sets to use cgb priority on cgb mode
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -129,12 +131,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->Option<u32>{
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
         if self.lcd_control & BIT_7_MASK == 0{
             return None;
         }
 
-        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register, cgb_enabled) as u32;
+        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
 
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
@@ -191,7 +193,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return t_cycles_to_next_stat_change;
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->u16{
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
         let mut m_cycles_counter = 0;
 
         while m_cycles_counter < m_cycles{
@@ -200,7 +202,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.state = PpuState::OamSearch;
                     // first iteration
                     if self.m_cycles_passed == 0{
-                        self.read_sprites_from_oam(cgb_enabled);
+                        self.read_sprites_from_oam();
                     }
                     
                     let scope_m_cycles_passed = cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
@@ -268,14 +270,14 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     while m_cycles_counter < m_cycles && self.pixel_x_pos < SCREEN_WIDTH as u8{
                         for _ in 0..4{
                             if self.lcd_control & BIT_1_MASK != 0{
-                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos, cgb_enabled, self.cgb_priority_mode);
+                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos, self.cgb_enabled, self.cgb_priority_mode);
                             }
                             if self.sprite_fetcher.rendering{
                                 self.bg_fetcher.pause();
                             }
                             else{
-                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos, cgb_enabled);
-                                self.try_push_to_lcd(cgb_enabled);
+                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos, self.cgb_enabled);
+                                self.try_push_to_lcd();
                                 if self.pixel_x_pos == SCREEN_WIDTH as u8{
                                     self.next_state = PpuState::Hblank;
                                     if self.h_blank_interrupt_request{
@@ -318,7 +320,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return m_cycles_for_state - self.m_cycles_passed;
     }
 
-    fn read_sprites_from_oam(&mut self, cgb_enabled: bool) {
+    fn read_sprites_from_oam(&mut self) {
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
         for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
             let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
@@ -337,7 +339,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
                         // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
                         if end_x < entry.x{
-                            if cgb_enabled && self.cgb_priority_mode {
+                            if self.cgb_enabled && self.cgb_priority_mode {
                                 vis_end = cmp::min(entry.x - end_x, vis_end);
                             }else{
                                 entry.visibility_start = cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
@@ -373,7 +375,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             .sort_unstable_by(|s1:&SpriteAttributes, s2:&SpriteAttributes| s1.x.cmp(&s2.x));
     }
 
-    fn try_push_to_lcd(&mut self, cgb_enabled: bool){
+    fn try_push_to_lcd(&mut self){
         if self.bg_fetcher.fifo.len() == 0{
             return;
         }
@@ -391,21 +393,21 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
 
         let bg_pixel = self.bg_fetcher.fifo.remove();
-        let pixel = self.get_pixel_color(bg_pixel, cgb_enabled);
+        let pixel = self.get_pixel_color(bg_pixel);
         self.push_pixel(Color::into(pixel));
         self.pixel_x_pos += 1;
     }
 
-    fn get_pixel_color(&mut self, bg_pixel:BackgroundPixel, cgb_enabled: bool) -> Color {
+    fn get_pixel_color(&mut self, bg_pixel:BackgroundPixel) -> Color {
         if self.sprite_fetcher.fifo.len() == 0{
-            return self.get_bg_pixel(bg_pixel, cgb_enabled);
+            return self.get_bg_pixel(bg_pixel);
         }
         let sprite_pixel = self.sprite_fetcher.fifo.remove();
         if sprite_pixel.color_index == 0{
-            return self.get_bg_pixel(bg_pixel, cgb_enabled);
+            return self.get_bg_pixel(bg_pixel);
         }
         let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_pixel.oam_entry as usize];
-        if cgb_enabled {
+        if self.cgb_enabled {
             // Based on MagenTests ColorBgOamPriority - https://github.com/alloncm/MagenTests
             // in case BG pixel is 0 or BG layer is diabled or both BG and OAM attributes has BG priority disabled
             // draw the OAM pixel else draw the BG pixel
@@ -426,8 +428,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
     }
 
-    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel, cgb_enabled: bool) -> Color {
-        return if cgb_enabled {
+    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel) -> Color {
+        return if self.cgb_enabled {
             Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)
         }            
         else{

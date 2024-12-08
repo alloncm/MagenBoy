@@ -1,6 +1,6 @@
 use std::env;
 
-use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run, joypad_menu::*, menu::*, mpmc_gfx_device::MpmcGfxDevice, EMULATOR_STATE};
+use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run_gameboy, joypad_menu::*, menu::*, mpmc_gfx_device::MpmcGfxDevice, EMULATOR_STATE};
 use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, keypad::joypad_provider::JoypadProvider};
 use magenboy_rpi::{configuration::{display::*, emulation::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, BlankAudioDevice, MENU_PIN_BCM};
 
@@ -65,7 +65,7 @@ fn main(){
 }
 
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, joypad_provider:impl JoypadProvider) {
-    init_and_run(args, program_name, spsc_gfx_device, joypad_provider, BlankAudioDevice);
+    init_and_run_gameboy(args, program_name, spsc_gfx_device, joypad_provider, BlankAudioDevice);
 }
 
 extern "C" fn sigint_handler(_:std::os::raw::c_int){
