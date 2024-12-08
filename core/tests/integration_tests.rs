@@ -29,19 +29,6 @@ impl JoypadProvider for StubJoypadProvider{
     fn provide(&mut self, _joypad:&mut Joypad) {}
 }
 
-#[cfg(feature = "dbg")]
-struct StubDebuggerUi;
-#[cfg(feature = "dbg")]
-impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
-    fn should_stop(&self)->bool {false}
-
-    fn recv_command(&self)->magenboy_core::debugger::DebuggerCommand {
-        magenboy_core::debugger::DebuggerCommand::Continue
-    }
-
-    fn send_result(&self, _:magenboy_core::debugger::DebuggerResult) {}
-}
-
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
@@ -55,9 +42,15 @@ fn test_cpu_instrs_timing(){
 }
 
 #[test]
-fn test_dmg_acid(){
+fn test_dmg_acid_dmg_mode(){
     let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
     run_integration_test_from_url(file_url, 60, 14652376974750987946, Some(Mode::DMG));
+}
+
+#[test]
+fn test_dmg_acid_cgb_mode(){
+    let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
+    run_integration_test_from_url(file_url, 60, 18113135055643582129, Some(Mode::CGB));
 }
 
 #[test]
@@ -92,7 +85,7 @@ fn test_mooneye_acceptance_ppu_intr_2_oam_ok_timing(){
 
 #[test]
 fn test_magentests_bg_oam_priority(){
-    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.1.2/bg_oam_priority.gbc";
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.3.0/bg_oam_priority.gbc";
     run_integration_test_from_url(file_url, 60, 6516853904884538463, Some(Mode::CGB));
 }
 
@@ -153,17 +146,11 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Option<Bootrom>, frames_to_exe
             mbc,
             StubJoypadProvider{},
             StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
-            #[cfg(feature = "dbg")]
-            StubDebuggerUi,
-            b),
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, b),
         None => GameBoy::new_with_mode(mbc,
             StubJoypadProvider{},
             StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
-            #[cfg(feature = "dbg")]
-            StubDebuggerUi,
-            mode.unwrap())
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, mode.unwrap())
         };
 
     for _ in 0..frames_to_execute {
@@ -239,14 +226,10 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
     let test_gfx_device = GetHashGfxDevice{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new_with_bootrom(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
-            #[cfg(feature = "dbg")]StubDebuggerUi,
-            Bootrom::Gb(boot_rom.try_into().unwrap()))
+        GameBoy::new_with_bootrom(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,Bootrom::Gb(boot_rom.try_into().unwrap()))
     }
     else{
-        GameBoy::new_with_mode(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
-            #[cfg(feature = "dbg")]StubDebuggerUi,
-            mode.unwrap())
+        GameBoy::new_with_mode(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device, mode.unwrap())
     };
 
     loop {gameboy.cycle_frame();}
