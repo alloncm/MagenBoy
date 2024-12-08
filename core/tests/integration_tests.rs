@@ -102,6 +102,12 @@ fn test_magentests_hblank_vram_dma(){
 }
 
 #[test]
+fn test_magentests_key0_lock_after_boot(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.4.0/key0_lock_after_boot.gbc";
+    run_integration_test_from_url(file_url, 60, 2706871350915036708, Some(Mode::CGB));
+}
+
+#[test]
 fn test_cgb_acid2(){
     let file_url = "https://github.com/mattcurrie/cgb-acid2/releases/download/v1.1/cgb-acid2.gbc";
     run_integration_test_from_url(file_url, 60, 2979852716992493573, Some(Mode::CGB));
