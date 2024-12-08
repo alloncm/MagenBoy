@@ -171,7 +171,6 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             mem_watch: crate::debugger::MemoryWatcher::new()
         };
         if bootrom_missing{
-            mmu.write(LCDC_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Enable PPU
             if mode == Mode::CGB {
                 // Mimic the CGB bootrom behavior
                 if cgb_reg & BIT_7_MASK != 0{
