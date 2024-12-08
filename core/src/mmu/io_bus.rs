@@ -2,7 +2,7 @@ use crate::{
     apu::{audio_device::AudioDevice, gb_apu::GbApu, *}, 
     keypad::{joypad_handler::JoypadHandler, joypad_provider::JoypadProvider}, 
     machine::Mode, 
-    ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice, ppu_register_updater::*}, 
+    ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice}, 
     timer::{gb_timer::GbTimer, timer_register_updater::*}, utils::bit_masks::BIT_2_MASK
 };
 use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController, vram_dma_controller::VramDmaController, external_memory_bus::ExternalMemoryBus, access_bus::AccessBus};
@@ -84,7 +84,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             WAVE_RAM_START_INDEX..=WAVE_RAM_END_INDEX => get_wave_ram(&self.apu.wave_channel, address),
             //PPU
             LCDC_REGISTER_INDEX=>self.ppu.lcd_control,
-            STAT_REGISTER_INDEX=> get_stat(&self.ppu),
+            STAT_REGISTER_INDEX=> self.ppu.get_stat(),
             SCY_REGISTER_INDEX=> self.ppu.bg_pos.y,
             SCX_REGISTER_INDEX=> self.ppu.bg_pos.x,
             LY_REGISTER_INDEX=> self.ppu.ly_register,
@@ -94,7 +94,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             OBP0_REGISTER_INDEX=> self.ppu.obj_pallete_0_register,
             OBP1_REGISTER_INDEX=> self.ppu.obj_pallete_1_register,
             WY_REGISTER_INDEX => self.ppu.window_pos.y,
-            WX_REGISTER_INDEX=> get_wx_register(&self.ppu),
+            WX_REGISTER_INDEX=> self.ppu.get_wx_register(),
             //Joypad
             JOYP_REGISTER_INDEX => self.joypad_handler.get_register(),
 
@@ -104,14 +104,14 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                 VBK_REGISTER_INDEX =>self.ppu.vram.get_bank_reg(),
                 //GBC speed switch
                 KEY1_REGISTER_INDEX =>self.speed_switch_register | 0b0111_1110,
-                ORPI_REGISTER_INDEX => get_orpi(&self.ppu),
+                ORPI_REGISTER_INDEX => self.ppu.get_orpi(),
                 // VRAM DMA
                 HDMA5_REGISTER_INDEX =>self.vram_dma_controller.get_mode_length(),
                 //Color ram
-                BGPI_REGISTER_INDEX =>get_bgpi(&self.ppu),
-                BGPD_REGISTER_INDEX =>get_bgpd(&self.ppu),
-                OBPI_REGISTER_INDEX =>get_obpi(&self.ppu),
-                OBPD_REGISTER_INDEX =>get_obpd(&self.ppu),
+                BGPI_REGISTER_INDEX =>self.ppu.get_bgpi(),
+                BGPD_REGISTER_INDEX =>self.ppu.get_bgpd(),
+                OBPI_REGISTER_INDEX =>self.ppu.get_obpi(),
+                OBPD_REGISTER_INDEX =>self.ppu.get_obpd(),
                 _=>0xFF
             }
             _=>0xFF
@@ -157,18 +157,18 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
             NR52_REGISTER_INDEX=> set_nr52(&mut self.apu, value),
             WAVE_RAM_START_INDEX..=WAVE_RAM_END_INDEX => set_wave_ram(&mut self.apu.wave_channel, address, value), 
             //PPU
-            LCDC_REGISTER_INDEX=> handle_lcdcontrol_register(value, &mut self.ppu),
-            STAT_REGISTER_INDEX=> update_stat_register(value, &mut self.ppu),
-            SCY_REGISTER_INDEX=> set_scy(&mut self.ppu, value),
-            SCX_REGISTER_INDEX=> set_scx(&mut self.ppu, value),
+            LCDC_REGISTER_INDEX=> self.ppu.set_lcdcontrol_register(value),
+            STAT_REGISTER_INDEX=> self.ppu.set_stat_register(value),
+            SCY_REGISTER_INDEX=> self.ppu.set_scy(value),
+            SCX_REGISTER_INDEX=> self.ppu.set_scx(value),
             // LY is readonly
-            LYC_REGISTER_INDEX=> set_lyc(&mut self.ppu, value),
+            LYC_REGISTER_INDEX=> self.ppu.set_lyc(value),
             DMA_REGISTER_INDEX=>self.oam_dma_controller.set_dma_register(value),
-            BGP_REGISTER_INDEX=> handle_bg_pallet_register(value,&mut self.ppu.bg_color_mapping, &mut self.ppu.bg_palette_register),
-            OBP0_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping0, &mut self.ppu.obj_pallete_0_register),
-            OBP1_REGISTER_INDEX=> handle_obp_pallet_register(value,&mut self.ppu.obj_color_mapping1, &mut self.ppu.obj_pallete_1_register),
-            WY_REGISTER_INDEX=> handle_wy_register(value, &mut self.ppu),
-            WX_REGISTER_INDEX=> handle_wx_register(value, &mut self.ppu),
+            BGP_REGISTER_INDEX=> self.ppu.set_bg_palette_register(value),
+            OBP0_REGISTER_INDEX=> self.ppu.set_obp_palette_register(value, false),
+            OBP1_REGISTER_INDEX=> self.ppu.set_obp_palette_register(value, true),
+            WY_REGISTER_INDEX=> self.ppu.set_wy_register(value),
+            WX_REGISTER_INDEX=> self.ppu.set_wx_register(value),
             JOYP_REGISTER_INDEX => self.joypad_handler.set_register(value),
 
             // CGB registers
@@ -184,7 +184,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                     self.speed_switch_register &= 0b1111_1110;    // clear bit 0
                     self.speed_switch_register |= value & 1;      // change state for bit 0
                 }
-                ORPI_REGISTER_INDEX => set_orpi(&mut self.ppu, value),
+                ORPI_REGISTER_INDEX => self.ppu.set_orpi(value),
                 // VRAM DMA
                 HDMA1_REGISTER_INDEX =>self.vram_dma_controller.set_source_high(value),
                 HDMA2_REGISTER_INDEX =>self.vram_dma_controller.set_source_low(value),
@@ -192,10 +192,10 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                 HDMA4_REGISTER_INDEX =>self.vram_dma_controller.set_dest_low(value),
                 HDMA5_REGISTER_INDEX =>self.vram_dma_controller.set_mode_length(value),
                 // COLOR Ram
-                BGPI_REGISTER_INDEX =>set_bgpi(&mut self.ppu, value),
-                BGPD_REGISTER_INDEX =>set_bgpd(&mut self.ppu, value),
-                OBPI_REGISTER_INDEX =>set_obpi(&mut self.ppu, value),
-                OBPD_REGISTER_INDEX =>set_obpd(&mut self.ppu, value),
+                BGPI_REGISTER_INDEX =>self.ppu.set_bgpi(value),
+                BGPD_REGISTER_INDEX =>self.ppu.set_bgpd(value),
+                OBPI_REGISTER_INDEX =>self.ppu.set_obpi(value),
+                OBPD_REGISTER_INDEX =>self.ppu.set_obpd(value),
                 _=>{}
             }
             _=>{}

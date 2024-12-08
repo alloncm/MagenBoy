@@ -1,5 +1,5 @@
 use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_0_MASK, BIT_2_MASK, BIT_7_MASK}, memory_registers::{BGPD_REGISTER_ADDRESS, BGPI_REGISTER_ADDRESS, BOOT_REGISTER_ADDRESS, KEY0_REGISTER_ADDRESS, LCDC_REGISTER_ADDRESS, OBPD_REGISTER_ADDRESS, OBPI_REGISTER_ADDRESS, OPRI_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS}}};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}};
 
 const HRAM_SIZE:usize = 0x7F;
 
