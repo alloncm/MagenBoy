@@ -3,6 +3,8 @@ use core::cmp;
 use crate::{machine::Mode, utils::{bit_masks::*, vec2::Vec2}};
 use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
+const WX_OFFSET:u8 = 7;
+
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
 pub const BUFFERS_NUMBER:usize = 2;
@@ -36,6 +38,7 @@ pub struct GbPpu<GFX: GfxDevice>{
     pub bg_color_pallete_index:u8,
     pub obj_color_ram:[u8;64],
     pub obj_color_pallete_index:u8,
+    pub cgb_priority_mode: bool,
 
     //interrupts
     pub v_blank_interrupt_request:bool,
@@ -86,6 +89,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             bg_color_pallete_index:0,
             obj_color_ram:[0;64],
             obj_color_pallete_index:0,
+            cgb_priority_mode: mode == Mode::CGB,    // By default sets to use cgb priority on cgb mode
             //interrupts
             v_blank_interrupt_request:false, 
             h_blank_interrupt_request:false,
@@ -96,8 +100,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             m_cycles_passed:0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
-            bg_fetcher:BackgroundFetcher::new(mode),
-            sprite_fetcher:SpriteFetcher::new(mode),
+            bg_fetcher:BackgroundFetcher::new(),
+            sprite_fetcher:SpriteFetcher::new(),
             pixel_x_pos:0,
             scanline_started:false,
             next_state:PpuState::OamSearch,
@@ -125,12 +129,12 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.state = PpuState::OamSearch;
     }
 
-    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8)->Option<u32>{
+    pub fn cycle(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->Option<u32>{
         if self.lcd_control & BIT_7_MASK == 0{
             return None;
         }
 
-        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register) as u32;
+        let fethcer_m_cycles_to_next_event = self.cycle_fetcher(m_cycles, if_register, cgb_enabled) as u32;
 
         let stat_m_cycles_to_next_event = self.update_stat_register(if_register);
 
@@ -187,7 +191,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return t_cycles_to_next_stat_change;
     }
 
-    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
+    fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8, cgb_enabled: bool)->u16{
         let mut m_cycles_counter = 0;
 
         while m_cycles_counter < m_cycles{
@@ -196,7 +200,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     self.state = PpuState::OamSearch;
                     // first iteration
                     if self.m_cycles_passed == 0{
-                        self.read_sprites_from_oam();
+                        self.read_sprites_from_oam(cgb_enabled);
                     }
                     
                     let scope_m_cycles_passed = cmp::min(m_cycles as u16, OAM_SEARCH_M_CYCLES_LENGTH - self.m_cycles_passed);
@@ -264,14 +268,14 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     while m_cycles_counter < m_cycles && self.pixel_x_pos < SCREEN_WIDTH as u8{
                         for _ in 0..4{
                             if self.lcd_control & BIT_1_MASK != 0{
-                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos);
+                                self.sprite_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, self.pixel_x_pos, cgb_enabled, self.cgb_priority_mode);
                             }
                             if self.sprite_fetcher.rendering{
                                 self.bg_fetcher.pause();
                             }
                             else{
-                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos);
-                                self.try_push_to_lcd();
+                                self.bg_fetcher.fetch_pixels(&self.vram, self.lcd_control, self.ly_register, &self.window_pos, &self.bg_pos, cgb_enabled);
+                                self.try_push_to_lcd(cgb_enabled);
                                 if self.pixel_x_pos == SCREEN_WIDTH as u8{
                                     self.next_state = PpuState::Hblank;
                                     if self.h_blank_interrupt_request{
@@ -314,7 +318,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return m_cycles_for_state - self.m_cycles_passed;
     }
 
-    fn read_sprites_from_oam(&mut self) {
+    fn read_sprites_from_oam(&mut self, cgb_enabled: bool) {
         let sprite_height = if (self.lcd_control & BIT_2_MASK) != 0 {EXTENDED_SPRITE_HIGHT} else {NORMAL_SPRITE_HIGHT};
         for oam_index in 0..(OAM_MEMORY_SIZE as u16 / OAM_ENTRY_SIZE){
             let oam_entry_address = (oam_index * OAM_ENTRY_SIZE) as usize;
@@ -333,7 +337,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                         // Use min/max to get the lowest/highest end/start point and making sure it wont get override by later entries
                         // TODO: check iterating over the oam_entries in reverse so that index 0 (the highest prioirty on CGB is last)
                         if end_x < entry.x{
-                            if self.mode == Mode::CGB{
+                            if cgb_enabled && self.cgb_priority_mode {
                                 vis_end = cmp::min(entry.x - end_x, vis_end);
                             }else{
                                 entry.visibility_start = cmp::max(SPRITE_WIDTH - (entry.x - end_x), entry.visibility_start);
@@ -369,7 +373,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             .sort_unstable_by(|s1:&SpriteAttributes, s2:&SpriteAttributes| s1.x.cmp(&s2.x));
     }
 
-    fn try_push_to_lcd(&mut self){
+    fn try_push_to_lcd(&mut self, cgb_enabled: bool){
         if self.bg_fetcher.fifo.len() == 0{
             return;
         }
@@ -387,21 +391,21 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
 
         let bg_pixel = self.bg_fetcher.fifo.remove();
-        let pixel = self.get_pixel_color(bg_pixel);
+        let pixel = self.get_pixel_color(bg_pixel, cgb_enabled);
         self.push_pixel(Color::into(pixel));
         self.pixel_x_pos += 1;
     }
 
-    fn get_pixel_color(&mut self, bg_pixel:BackgroundPixel) -> Color {
+    fn get_pixel_color(&mut self, bg_pixel:BackgroundPixel, cgb_enabled: bool) -> Color {
         if self.sprite_fetcher.fifo.len() == 0{
-            return self.get_bg_pixel(bg_pixel);
+            return self.get_bg_pixel(bg_pixel, cgb_enabled);
         }
         let sprite_pixel = self.sprite_fetcher.fifo.remove();
         if sprite_pixel.color_index == 0{
-            return self.get_bg_pixel(bg_pixel);
+            return self.get_bg_pixel(bg_pixel, cgb_enabled);
         }
         let pixel_oam_attribute = &self.sprite_fetcher.oam_entries[sprite_pixel.oam_entry as usize];
-        if self.mode == Mode::CGB{
+        if cgb_enabled {
             // Based on MagenTests ColorBgOamPriority - https://github.com/alloncm/MagenTests
             // in case BG pixel is 0 or BG layer is diabled or both BG and OAM attributes has BG priority disabled
             // draw the OAM pixel else draw the BG pixel
@@ -422,8 +426,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         }
     }
 
-    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel) -> Color {
-        return if self.mode == Mode::CGB{
+    fn get_bg_pixel(&self, bg_pixel:BackgroundPixel, cgb_enabled: bool) -> Color {
+        return if cgb_enabled {
             Self::get_color_from_color_ram(&self.bg_color_ram, bg_pixel.attributes.cgb_pallete_number, bg_pixel.color_index)
         }            
         else{
@@ -453,6 +457,169 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         color |= (color_ram[pixel_color_index as usize + 1] as u16) << 8;
         
         return Color::from(color);
+    }
+}
+
+impl<GFX:GfxDevice> GbPpu<GFX>{
+    pub fn set_lcdcontrol_register(&mut self, register:u8){
+        if self.lcd_control & BIT_7_MASK != 0 && register & BIT_7_MASK == 0{
+            self.turn_off();
+        }
+        else if self.lcd_control & BIT_7_MASK == 0 && register & BIT_7_MASK != 0{
+            self.turn_on();
+        }
+        
+        self.lcd_control = register;
+    }
+
+    pub fn set_stat_register(&mut self, register:u8){
+        self.h_blank_interrupt_request = register & BIT_3_MASK != 0;
+        self.v_blank_interrupt_request = register & BIT_4_MASK != 0;
+        self.oam_search_interrupt_request = register & BIT_5_MASK != 0;
+        self.coincidence_interrupt_request = register & BIT_6_MASK != 0;
+
+        self.stat_register &= 0b1000_0111;
+        self.stat_register |= register & 0b111_1000;
+    }
+
+    pub fn set_scx(&mut self, value:u8){
+        self.bg_pos.x = value;
+    }
+
+    pub fn set_scy(&mut self, value:u8){
+        self.bg_pos.y = value;
+    }
+
+    pub fn set_bg_palette_register(&mut self, register:u8){
+        if self.mode == Mode::CGB {
+            self.bg_color_mapping[0] = Self::get_color_from_color_ram(&self.bg_color_ram, 0, register&0b00000011);
+            self.bg_color_mapping[1] = Self::get_color_from_color_ram(&self.bg_color_ram, 0, (register&0b00001100)>>2);
+            self.bg_color_mapping[2] = Self::get_color_from_color_ram(&self.bg_color_ram, 0, (register&0b00110000)>>4);
+            self.bg_color_mapping[3] = Self::get_color_from_color_ram(&self.bg_color_ram, 0, (register&0b11000000)>>6);
+        }
+        else{
+            self.bg_color_mapping[0] = Self::get_dmg_matching_color(register&0b00000011);
+            self.bg_color_mapping[1] = Self::get_dmg_matching_color((register&0b00001100)>>2);
+            self.bg_color_mapping[2] = Self::get_dmg_matching_color((register&0b00110000)>>4);
+            self.bg_color_mapping[3] = Self::get_dmg_matching_color((register&0b11000000)>>6);
+        }
+        self.bg_palette_register = register;
+    }
+
+    pub fn set_obp_palette_register(&mut self, register:u8, index: bool){
+        let (palette, palette_register) = if index 
+        {
+            (&mut self.obj_color_mapping1, &mut self.obj_pallete_1_register)
+        } else {
+            (&mut self.obj_color_mapping0, &mut self.obj_pallete_0_register)
+        };
+
+        palette[0] = None;
+        if self.mode == Mode::CGB {
+            palette[1] = Some(Self::get_color_from_color_ram(&self.obj_color_ram, index as u8, (register&0b00001100)>>2));
+            palette[2] = Some(Self::get_color_from_color_ram(&self.obj_color_ram, index as u8, (register&0b00110000)>>4));
+            palette[3] = Some(Self::get_color_from_color_ram(&self.obj_color_ram, index as u8, (register&0b11000000)>>6));
+        }
+        else{
+            palette[1] = Some(Self::get_dmg_matching_color((register&0b00001100)>>2));
+            palette[2] = Some(Self::get_dmg_matching_color((register&0b00110000)>>4));
+            palette[3] = Some(Self::get_dmg_matching_color((register&0b11000000)>>6));
+        }
+        *palette_register = register;
+    }
+
+    fn get_dmg_matching_color(number:u8)->Color{
+        return match number{
+            0b00=>WHITE,
+            0b01=>LIGHT_GRAY,
+            0b10=>DARK_GRAY,
+            0b11=>BLACK,
+            _=>core::panic!("no macthing color for color number: {}", number)
+        };
+    }
+
+    pub fn set_wy_register(&mut self, register:u8){
+        self.window_pos.y = register;
+    }
+
+    pub fn set_wx_register(&mut self, register:u8){
+        if register < WX_OFFSET{
+            self.window_pos.x = 0;
+        }
+        else{
+            self.window_pos.x = register - WX_OFFSET;
+        }
+    }
+
+    pub fn get_wx_register(&self)->u8{
+        // This function is not accurate as it wont return wx between 0-6 (will return them as 7)
+        self.window_pos.x + WX_OFFSET
+    }
+
+    pub fn get_stat(&self)->u8{
+        self.stat_register
+    }
+
+    pub fn set_lyc(&mut self, value:u8){
+        self.lyc_register = value;
+    }
+
+    pub fn set_bgpi(&mut self, value:u8){
+        self.bg_color_pallete_index = value;
+    }
+
+    pub fn get_bgpi(&self)->u8{
+        self.bg_color_pallete_index
+    }
+
+    pub fn set_bgpd(&mut self, value:u8){
+        Self::set_cgb_color_data_register(self.state, &mut self.bg_color_ram, &mut self.bg_color_pallete_index, value);
+    }
+
+    pub fn get_bgpd(&self)->u8{
+        self.bg_color_ram[(self.bg_color_pallete_index & 0b11_1111) as usize]
+    }
+
+
+    pub fn set_obpi(&mut self, value:u8){
+        // bit 6 is discarded
+        self.obj_color_pallete_index = value & 0b1011_1111;
+    }
+
+    pub fn get_obpi(&self)->u8{
+        self.obj_color_pallete_index
+    }
+
+    pub fn set_obpd(&mut self, value:u8){
+        Self::set_cgb_color_data_register(self.state, &mut self.obj_color_ram, &mut self.obj_color_pallete_index, value);
+    }
+
+    pub fn get_obpd(&self)->u8{
+        self.obj_color_ram[(self.obj_color_pallete_index & 0b11_1111) as usize]
+    }
+
+    pub fn set_orpi(&mut self, value:u8){
+        self.cgb_priority_mode = value & BIT_0_MASK == 0;
+    }
+
+    pub fn get_orpi(&self) -> u8 {
+        self.cgb_priority_mode as u8
+    }
+
+    fn set_cgb_color_data_register(ppu_state:PpuState, color_ram:&mut[u8;64], pallete_index_register:&mut u8, value:u8){
+        // cant wrtite during pixel trasfer, auto increment still takes effect though
+        if ppu_state as u8 != PpuState::PixelTransfer as u8{
+            color_ram[(*pallete_index_register & 0b11_1111) as usize] = value;
+        }
+        else{
+            log::warn!("bad color ram write: index - {:#X}, value: - {:#X}", pallete_index_register, value);
+        }
+
+        // if bit 7 is set inderement the dest adderess after write
+        if (*pallete_index_register & BIT_7_MASK) != 0 {
+            // Anding with all the bits except bit 6 to achieve wrap behaviour in case of overflow
+            *pallete_index_register = (*pallete_index_register + 1) & 0b1011_1111;
+        }
     }
 }
 

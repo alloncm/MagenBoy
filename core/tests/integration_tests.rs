@@ -29,23 +29,10 @@ impl JoypadProvider for StubJoypadProvider{
     fn provide(&mut self, _joypad:&mut Joypad) {}
 }
 
-#[cfg(feature = "dbg")]
-struct StubDebuggerUi;
-#[cfg(feature = "dbg")]
-impl magenboy_core::debugger::DebuggerInterface for StubDebuggerUi{
-    fn should_stop(&self)->bool {false}
-
-    fn recv_command(&self)->magenboy_core::debugger::DebuggerCommand {
-        magenboy_core::debugger::DebuggerCommand::Continue
-    }
-
-    fn send_result(&self, _:magenboy_core::debugger::DebuggerResult) {}
-}
-
 #[test]
 fn test_cpu_instrs(){
     let file_url = "https://raw.githubusercontent.com/retrio/gb-test-roms/master/cpu_instrs/cpu_instrs.gb";
-    run_integration_test_from_url(file_url, 1800, 8045249190936210527, None);
+    run_integration_test_from_url(file_url, 3200, 8045249190936210527, Some(Mode::DMG));
 }
 
 #[test]
@@ -55,9 +42,15 @@ fn test_cpu_instrs_timing(){
 }
 
 #[test]
-fn test_dmg_acid(){
+fn test_dmg_acid_dmg_mode(){
     let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
     run_integration_test_from_url(file_url, 60, 14652376974750987946, Some(Mode::DMG));
+}
+
+#[test]
+fn test_dmg_acid_cgb_mode(){
+    let file_url = "https://github.com/mattcurrie/dmg-acid2/releases/download/v1.0/dmg-acid2.gb";
+    run_integration_test_from_url(file_url, 60, 18113135055643582129, Some(Mode::CGB));
 }
 
 #[test]
@@ -92,7 +85,7 @@ fn test_mooneye_acceptance_ppu_intr_2_oam_ok_timing(){
 
 #[test]
 fn test_magentests_bg_oam_priority(){
-    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.1.2/bg_oam_priority.gbc";
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.3.0/bg_oam_priority.gbc";
     run_integration_test_from_url(file_url, 60, 6516853904884538463, Some(Mode::CGB));
 }
 
@@ -109,6 +102,12 @@ fn test_magentests_hblank_vram_dma(){
 }
 
 #[test]
+fn test_magentests_key0_lock_after_boot(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.4.0/key0_lock_after_boot.gbc";
+    run_integration_test_from_url(file_url, 60, 2706871350915036708, Some(Mode::CGB));
+}
+
+#[test]
 fn test_cgb_acid2(){
     let file_url = "https://github.com/mattcurrie/cgb-acid2/releases/download/v1.1/cgb-acid2.gbc";
     run_integration_test_from_url(file_url, 60, 2979852716992493573, Some(Mode::CGB));
@@ -117,7 +116,7 @@ fn test_cgb_acid2(){
 fn run_turtle_integration_test(program_name:&str, hash:u64){
     let zip_url = "https://github.com/Powerlated/TurtleTests/releases/download/v1.0/release.zip";
     let program = get_ziped_program(zip_url, program_name);
-    run_integration_test(program, Bootrom::None, 100, hash, format!("The program: {} has failed", program_name), Some(Mode::DMG));
+    run_integration_test(program, None, 100, hash, format!("The program: {} has failed", program_name), Some(Mode::DMG));
 }
 
 fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
@@ -126,7 +125,7 @@ fn run_mooneye_test_suite_test(program_name:&str, hash:u64){
     let program_zip_path = format!("{}/{program_name}", "mts-20220522-1522-55c535c");
     let program = get_ziped_program(zip_url, program_zip_path.as_str());
     let boot_rom = reqwest::blocking::get(boot_rom_url).unwrap().bytes().unwrap().to_vec();
-    run_integration_test(program, Bootrom::Gb(boot_rom.try_into().unwrap()), 300, hash, format!("The program: {} has failed", program_zip_path), Some(Mode::DMG));
+    run_integration_test(program, Some(Bootrom::Gb(boot_rom.try_into().unwrap())), 300, hash, format!("The program: {} has failed", program_zip_path), Some(Mode::DMG));
 }
 
 fn get_ziped_program(zip_url:&str, program_zip_path:&str)->Vec<u8>{
@@ -142,22 +141,23 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
     let file = reqwest::blocking::get(program_url).unwrap().bytes().unwrap();
     let program = Vec::from(file.as_ref());
     let fail_message = format!("The program {} has failed", program_url);
-    run_integration_test(program, Bootrom::None, frames_to_execute, expected_hash, fail_message, mode);
+    run_integration_test(program, None, frames_to_execute, expected_hash, fail_message, mode);
 }
 
-fn run_integration_test(program:Vec<u8>, boot_rom:Bootrom, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
-    let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None, mode);
+fn run_integration_test(program:Vec<u8>, boot_rom:Option<Bootrom>, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
+    let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None);
     let found = AtomicBool::new(false);
-    let mut gameboy = GameBoy::new(
-        mbc,
-        StubJoypadProvider{},
-        StubAudioDevice{}, 
-        CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found},
-        #[cfg(feature = "dbg")]
-        StubDebuggerUi,
-        boot_rom,
-        mode
-    );
+    let mut gameboy = match boot_rom {
+        Some(b)=>GameBoy::new_with_bootrom(
+            mbc,
+            StubJoypadProvider{},
+            StubAudioDevice{}, 
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, b),
+        None => GameBoy::new_with_mode(mbc,
+            StubJoypadProvider{},
+            StubAudioDevice{}, 
+            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, mode.unwrap())
+        };
 
     for _ in 0..frames_to_execute {
         gameboy.cycle_frame();
@@ -227,19 +227,15 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
     
     let program = Vec::from(program);
 
-    let mbc = initialize_mbc(&program, None, mode);
+    let mbc = initialize_mbc(&program, None);
 
     let test_gfx_device = GetHashGfxDevice{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
-            #[cfg(feature = "dbg")]StubDebuggerUi,
-            Bootrom::Gb(boot_rom.try_into().unwrap()), mode)
+        GameBoy::new_with_bootrom(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,Bootrom::Gb(boot_rom.try_into().unwrap()))
     }
     else{
-        GameBoy::new(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,
-            #[cfg(feature = "dbg")]StubDebuggerUi,
-             Bootrom::None, mode)
+        GameBoy::new_with_mode(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device, mode.unwrap())
     };
 
     loop {gameboy.cycle_frame();}

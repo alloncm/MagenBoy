@@ -12,6 +12,8 @@ use crate::utils::global_static_alloctor::static_alloc_array;
 
 pub const ROM_BANK_SIZE:usize = 0x4000;
 pub const RAM_BANK_SIZE:usize = 0x2000;
+
+pub const CGB_FLAG_ADDRESS:usize = 0x143;
 pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 
 pub fn get_ram_size(ram_size_register:u8)->usize{
