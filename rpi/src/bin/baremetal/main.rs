@@ -7,7 +7,7 @@ mod logging;
 use core::panic::PanicInfo;
 
 use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRenderer}, JoypadMenu, }, menu::*, VERSION};
-use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::external_memory_bus::Bootrom, utils::stack_string::StackString};
+use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, utils::stack_string::StackString};
 use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
 const MAX_ROM_SIZE:usize = 0x80_0000;       // 8 MiB, Max size of MBC5 rom
@@ -46,9 +46,10 @@ pub extern "C" fn main()->!{
     
     let rom = unsafe{&mut ROM_BUFFER};
     fs.read_file(selected_rom, rom);
-    let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], None, None);
+    let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], None);
+    let mode = mbc.detect_prefered_mode();
 
-    let mut gameboy = GameBoy::new(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, Bootrom::None, None);
+    let mut gameboy = GameBoy::new_with_mode(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, mode);
     log::info!("Initialized gameboy!");
 
     let menu_pin = unsafe {PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(GpioPull::PullUp)};

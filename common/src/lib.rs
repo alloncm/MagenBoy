@@ -10,6 +10,8 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")] {
         pub use audio_resampler::*;
         pub use manual_audio_resampler::*;
     }
+    pub mod initialization;
+    pub use initialization::*;
 }}
 
 pub mod menu;

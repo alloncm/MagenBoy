@@ -1,4 +1,3 @@
-use crate::utils::memory_registers::{BOOT_REGISTER_ADDRESS, SVBK_REGISTER_ADRRESS};
 use super::{ram::Ram, carts::Mbc};
 
 pub const GB_BOOT_ROM_SIZE:usize = 0x100;
@@ -6,7 +5,6 @@ pub const GBC_BOOT_ROM_SIZE:usize = 0x900;
 
 #[derive(PartialEq, Eq)]
 pub enum Bootrom {
-    None,
     Gb([u8;GB_BOOT_ROM_SIZE]),
     Gbc([u8;GBC_BOOT_ROM_SIZE])
 }
@@ -14,17 +12,19 @@ pub enum Bootrom {
 pub struct ExternalMemoryBus<'a>{
     ram: Ram,
     mbc: &'a mut dyn Mbc,
-    bootrom :Bootrom,
+    bootrom :Option<Bootrom>,
     bootrom_register:u8,
+    finished_boot: bool
 }
 
 impl<'a> ExternalMemoryBus<'a> {
-    pub fn new(mbc:&'a mut dyn Mbc, bootrom: Bootrom)->Self{
+    pub fn new(mbc:&'a mut dyn Mbc, bootrom: Option<Bootrom>)->Self{
         Self{
             mbc,
             ram:Ram::default(),
             bootrom,
             bootrom_register: 0,
+            finished_boot: false
         }
     }
 
@@ -32,17 +32,17 @@ impl<'a> ExternalMemoryBus<'a> {
         return match address{
             0x0000..=0x00FF=>{
                 match self.bootrom{
-                    Bootrom::Gb(r) => r[address as usize],
-                    Bootrom::Gbc(r) => r[address as usize],
-                    Bootrom::None=>self.mbc.read_bank0(address),
+                    Some(Bootrom::Gb(r)) => r[address as usize],
+                    Some(Bootrom::Gbc(r)) => r[address as usize],
+                    None=>self.mbc.read_bank0(address),
                 }
             }
             0x0100..=0x01FF=>self.mbc.read_bank0(address),
             0x0200..=0x08FF=>{
                 match self.bootrom {
-                    Bootrom::Gbc(r)=>r[address as usize],
-                    Bootrom::Gb(_) | 
-                    Bootrom::None=>self.mbc.read_bank0(address)
+                    Some(Bootrom::Gbc(r))=>r[address as usize],
+                    Some(Bootrom::Gb(_)) | 
+                    None=>self.mbc.read_bank0(address)
                 }
             }
             0x0900..=0x3FFF=>self.mbc.read_bank0(address),
@@ -51,8 +51,6 @@ impl<'a> ExternalMemoryBus<'a> {
             0xC000..=0xCFFF=>self.ram.read_bank0(address - 0xC000),
             0xD000..=0xDFFF=>self.ram.read_current_bank(address - 0xD000),
             0xE000..=0xFDFF=>self.ram.read_bank0(address - 0xE000),
-            BOOT_REGISTER_ADDRESS=>self.bootrom_register,
-            SVBK_REGISTER_ADRRESS=>self.ram.get_bank(),
             _=>core::panic!("Error: attemp to read invalid external memory bus address: {:#X}", address)
         }
     }
@@ -64,16 +62,23 @@ impl<'a> ExternalMemoryBus<'a> {
             0xC000..=0xCFFF=>self.ram.write_bank0(address - 0xC000, value),
             0xD000..=0xDFFF=>self.ram.write_current_bank(address-0xD000, value),
             0xE000..=0xFDFF=>self.ram.write_bank0(address - 0xE000, value),
-            BOOT_REGISTER_ADDRESS=>{
-                self.bootrom_register = value;
-                if self.bootrom != Bootrom::None && value != 0{
-                    self.bootrom = Bootrom::None
-                }
-            }
-            SVBK_REGISTER_ADRRESS=>self.ram.set_bank(value),
             _=>core::panic!("Error: attemp to write invalid external memory bus address: {:#X}", address)
         }
     }
+
+    pub fn read_boot_reg(&self) -> u8 {self.bootrom_register}
+    pub fn write_boot_reg(&mut self, value:u8) {
+        self.bootrom_register = value;
+        if value != 0 && !self.finished_boot{
+            self.bootrom = None;
+            self.finished_boot = true;
+        }
+    }
+
+    pub fn finished_boot(&self)->bool {self.finished_boot}
+
+    pub fn read_svbk_reg(&self)->u8 {self.ram.get_bank()}
+    pub fn write_svbk_reg(&mut self, value:u8) {self.ram.set_bank(value)}
 
     #[cfg(feature = "dbg")]
     pub fn get_current_rom_bank(&self)->u16{ self.mbc.get_bank_number() }

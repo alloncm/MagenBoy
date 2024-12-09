@@ -4,6 +4,8 @@ version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 edition.workspace = true
+default-run = "magenboy_sdl" # Even though this is not in the workspace it affects the workspace
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
@@ -22,4 +24,4 @@ wav = "1.0"
 [features]
 default = ["static-sdl"]
 static-sdl = ["sdl2/bundled", "sdl2/static-link"]
-dbg = ["magenboy_core/dbg"]
+dbg = ["magenboy_core/dbg", "magenboy_common/dbg"]

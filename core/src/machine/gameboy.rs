@@ -22,42 +22,45 @@ macro_rules! impl_gameboy {
 pub(crate) use impl_gameboy;
 
 impl_gameboy! {{
-    pub fn new(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, #[cfg(feature = "dbg")]dui:DUI, boot_rom:Bootrom, mode:Option<Mode>)->Self{
-        let mode = mode.unwrap_or(mbc.get_compatibility_mode().into());
-        
+    pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, mode:Mode, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mut cpu = GbCpu::default();
-        if boot_rom == Bootrom::None{
-            //Values after the bootrom
-            match mode{
-                Mode::DMG=>{
-                    *cpu.af.value_mut() = 0x190;
-                    *cpu.bc.value_mut() = 0x13;
-                    *cpu.de.value_mut() = 0xD8;
-                    *cpu.hl.value_mut() = 0x14D;
-                },
-                Mode::CGB=>{
-                    *cpu.af.value_mut() = 0x1180;
-                    *cpu.bc.value_mut() = 0x0;
-                    *cpu.de.value_mut() = 0xFF56;
-                    *cpu.hl.value_mut() = 0xD;
-                }
-            }
-            cpu.stack_pointer = 0xFFFE;
-            cpu.program_counter = 0x100;
-        }
-        else {
-            // Make sure that the mode and bootrom are compatible
-            match mode{
-                Mode::DMG => {let Bootrom::Gb(_) = boot_rom else {core::panic!("Bootrom doesnt match mode DMG")};}
-                Mode::CGB => {let Bootrom::Gbc(_) = boot_rom else {core::panic!("Bootrom doesnt match mode CGB")};}
+        match mode{
+            Mode::DMG=>{
+                *cpu.af.value_mut() = 0x190;
+                *cpu.bc.value_mut() = 0x13;
+                *cpu.de.value_mut() = 0xD8;
+                *cpu.hl.value_mut() = 0x14D;
+            },
+            Mode::CGB=>{
+                *cpu.af.value_mut() = 0x1180;
+                *cpu.bc.value_mut() = 0x0;
+                *cpu.de.value_mut() = 0xFF56;
+                *cpu.hl.value_mut() = 0xD;
             }
         }
-        GameBoy{
+        cpu.stack_pointer = 0xFFFE;
+        cpu.program_counter = 0x100;
+
+        return Self{
             cpu: cpu,
-            mmu: GbMmu::new(mbc, boot_rom, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            mmu: GbMmu::new(mbc, None, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
             #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
-        }
+        };
+    }
+
+    pub fn new_with_bootrom(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, bootrom:Bootrom, #[cfg(feature = "dbg")]dui:DUI)->Self{
+        let mode = match bootrom{
+            Bootrom::Gb(_) => Mode::DMG,
+            Bootrom::Gbc(_) => Mode::CGB
+        };
+
+        return Self{
+            cpu: GbCpu::default(),
+            mmu: GbMmu::new(mbc, Some(bootrom), GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            #[cfg(feature = "dbg")]
+            debugger: Debugger::new(dui),
+        };
     }
 
     pub fn cycle_frame(&mut self){

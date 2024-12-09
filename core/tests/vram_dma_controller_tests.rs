@@ -25,7 +25,7 @@ fn vram_dma_transfer_test(){
     let mut controller = VramDmaController::new();
     let mut ppu = GbPpu::new(StubGfxDevice, Mode::CGB);
     let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
-    let mut memory = ExternalMemoryBus::new(&mut mbc, Bootrom::None);
+    let mut memory = ExternalMemoryBus::new(&mut mbc, None);
     let dma_len_reg = 100;
 
     ppu.vram.set_bank_reg(1);
@@ -46,7 +46,7 @@ fn vram_hblank_dma_transfer_test<'a>(){
     let mut controller = VramDmaController::new();
     let mut ppu = GbPpu::new(StubGfxDevice, Mode::CGB);
     let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
-    let mut memory = ExternalMemoryBus::new(&mut mbc, Bootrom::None);
+    let mut memory = ExternalMemoryBus::new(&mut mbc, None);
     let dma_len_reg = 100;
 
     ppu.vram.set_bank_reg(1);

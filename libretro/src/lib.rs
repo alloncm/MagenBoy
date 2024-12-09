@@ -5,7 +5,7 @@ use std::{ffi::{c_char, c_uint, c_void}, mem::MaybeUninit, ptr::null_mut, slice}
 
 use libretro_sys::*;
 
-use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer}, mmu::external_memory_bus::Bootrom, ppu::gb_ppu::*};
+use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer}, ppu::gb_ppu::*};
 
 use crate::{devices::*, logging::*};
 
@@ -82,11 +82,12 @@ pub unsafe extern "C" fn retro_init(){
 #[no_mangle]
 pub unsafe extern "C" fn retro_load_game(game_info: *const GameInfo)->bool{
     let rom_buffer = slice::from_raw_parts::<u8>((*game_info).data as *const u8, (*game_info).size);
-    let mbc = mbc_initializer::initialize_mbc(rom_buffer, None, None);
+    let mbc = mbc_initializer::initialize_mbc(rom_buffer, None);
     if mbc.has_battery(){
         RETRO_CORE_CTX.save_data_fat_ptr = Some((mbc.get_ram().as_mut_ptr(), mbc.get_ram().len()));
     }
-    RETRO_CORE_CTX.gameboy = Some(GameBoy::new(mbc, RetroJoypadProvider, RetroAudioDevice::default(), RetroGfxDevice, Bootrom::None, None));
+    let mode = mbc.detect_prefered_mode();
+    RETRO_CORE_CTX.gameboy = Some(GameBoy::new_with_mode(mbc, RetroJoypadProvider, RetroAudioDevice::default(), RetroGfxDevice, mode));
     
     let mut pixel_format = PixelFormat::RGB565.to_uint();
     if !(RETRO_CORE_CTX.environment_cb.unwrap())(ENVIRONMENT_SET_PIXEL_FORMAT, &mut pixel_format as *mut u32 as *mut c_void){

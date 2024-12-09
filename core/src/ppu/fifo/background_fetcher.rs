@@ -1,4 +1,4 @@
-use crate::{utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}, ppu::{VRam, attributes::GbcBackgroundAttributes}, machine::Mode};
+use crate::{utils::{bit_masks::*, fixed_size_queue::FixedSizeQueue, vec2::Vec2}, ppu::{VRam, attributes::GbcBackgroundAttributes}};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*, get_decoded_pixel};
 
 #[derive(Clone, Copy, Default)]
@@ -18,11 +18,10 @@ pub struct BackgroundFetcher{
     fetcher_state_machine:FetcherStateMachine,
     scanline_rendering_started:bool,
     cgb_attribute:GbcBackgroundAttributes,
-    mode:Mode,
 }
 
 impl BackgroundFetcher{ 
-    pub fn new(mode:Mode)->Self{
+    pub fn new()->Self{
         let state_machine = [FetchingState::Sleep, FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Push, FetchingState::Sleep];
         BackgroundFetcher{
             fetcher_state_machine:FetcherStateMachine::new(state_machine),
@@ -33,7 +32,6 @@ impl BackgroundFetcher{
             rendering_window:false,
             has_wy_reached_ly:false,
             scanline_rendering_started:false,
-            mode
         }
     }
 
@@ -55,7 +53,7 @@ impl BackgroundFetcher{
         }
     }
 
-    pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>){
+    pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, window_pos:&Vec2<u8>, bg_pos:&Vec2<u8>, cgb_enabled:bool){
         self.has_wy_reached_ly = self.has_wy_reached_ly || ly_register == window_pos.y;
         self.rendering_window = self.is_rendering_wnd(lcd_control, window_pos);
 
@@ -73,18 +71,18 @@ impl BackgroundFetcher{
                 };
 
                 self.fetcher_state_machine.data.reset();
-                self.cgb_attribute = if self.mode == Mode::CGB {GbcBackgroundAttributes::new(vram.read_bank(address, 1))} else {DEFAULT_GBC_ATTRIBUTES};
+                self.cgb_attribute = if cgb_enabled {GbcBackgroundAttributes::new(vram.read_bank(address, 1))} else {DEFAULT_GBC_ATTRIBUTES};
                 self.fetcher_state_machine.data.tile_data = vram.read_bank(address, 0);
                 // Calculating once per fetching cycle might be inaccurate (not sure), but could improve perf
-                self.fetcher_state_machine.data.tile_data_address = self.get_tila_data_address(lcd_control, bg_pos.y, ly_register, self.fetcher_state_machine.data.tile_data);
+                self.fetcher_state_machine.data.tile_data_address = self.get_tila_data_address(lcd_control, bg_pos.y, ly_register, self.fetcher_state_machine.data.tile_data, cgb_enabled);
             }
             FetchingState::FetchLowTile=>{
-                let bank = if self.mode == Mode::CGB {self.cgb_attribute.attribute.gbc_bank as u8}else{0};
+                let bank = if cgb_enabled {self.cgb_attribute.attribute.gbc_bank as u8}else{0};
                 let low_data = vram.read_bank(self.fetcher_state_machine.data.tile_data_address, bank);
                 self.fetcher_state_machine.data.low_tile_data = low_data;
             }
             FetchingState::FetchHighTile=>{
-                let bank = if self.mode == Mode::CGB {self.cgb_attribute.attribute.gbc_bank as u8}else{0};
+                let bank = if cgb_enabled {self.cgb_attribute.attribute.gbc_bank as u8}else{0};
                 let high_data = vram.read_bank(self.fetcher_state_machine.data.tile_data_address + 1, bank);
                 self.fetcher_state_machine.data.high_tile_data = high_data;
 
@@ -100,7 +98,7 @@ impl BackgroundFetcher{
                     return;
                 }
                 // On DMG LCDC bit 0 turn the background to white but not on CGB
-                if lcd_control & BIT_0_MASK == 0 && self.mode == Mode::DMG{
+                if lcd_control & BIT_0_MASK == 0 && !cgb_enabled {
                     self.fifo.fill(&EMPTY_FIFO_BUFFER);
                     self.current_x_pos += SPRITE_WIDTH;
                 }
@@ -117,7 +115,7 @@ impl BackgroundFetcher{
                         get_decoded_pixel(1, low_data, high_data),
                         get_decoded_pixel(0, low_data, high_data),
                     ];
-                    if self.mode == Mode::CGB && self.cgb_attribute.attribute.flip_x{
+                    if cgb_enabled && self.cgb_attribute.attribute.flip_x{
                         pixels.reverse();
                     }
                     for i in 0..SPRITE_WIDTH{
@@ -140,7 +138,7 @@ impl BackgroundFetcher{
         self.fetcher_state_machine.advance();
     }
 
-    fn get_tila_data_address(&self, lcd_control:u8, scy:u8, ly_register:u8, tile_num:u8)->u16{
+    fn get_tila_data_address(&self, lcd_control:u8, scy:u8, ly_register:u8, tile_num:u8, cgb_enabled:bool)->u16{
         let current_tile_base_data_address = if (lcd_control & BIT_4_MASK) == 0 && (tile_num & BIT_7_MASK) == 0 {0x1000} else {0};
         let current_tile_data_address = current_tile_base_data_address + (tile_num  as u16 * 16);
         let sprite_line_number = if self.rendering_window{
@@ -150,7 +148,7 @@ impl BackgroundFetcher{
         };
         // if flip_y is set I want to take the last line instead if first (and so on), so im substracting the line number in the sprite from 7(=maxlines - 1)
         return current_tile_data_address + 2 * 
-            if self.mode == Mode::CGB && self.cgb_attribute.attribute.flip_y{7 - sprite_line_number}else{sprite_line_number};
+            if cgb_enabled && self.cgb_attribute.attribute.flip_y{7 - sprite_line_number}else{sprite_line_number};
     }
 
     fn is_rendering_wnd(&self, lcd_control:u8, window_pos:&Vec2<u8>)->bool{

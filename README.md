@@ -85,13 +85,13 @@ See - [RealMagenBoy](docs/RealMagenBoy.md)
 
 #### Optional flags
 
+* `--bootrom [path to bootrom file]` - Specify the path for a bootrom, also used to detect the system type to emulate
+* `--mode [mahcine type]` - Sets the machine type to emualte in case of a missing bootrom (mode can be: `CGB` - Gameboy color | `DMG` - Original Gameboy) in case both flags are missing the system to auto detect the machine type
 * `--file-audio` - Saves the audio to a file
 * `--full-screen` - Full screen mode
 * `--no-vsync` - Disable vsync
-* `--bootrom [path to bootrom file]` - Specify the path for a bootrom (If not specified the emualtor will look for `dmg_boot.bin` at the cwd)
 * `--rom-menu [path to roms folder]` - Opens an interactive dialog uopn start to choose the rom from the folder
 Choose a game with the Joypad bindings (Dpad and A to confirm)
-* `--mode [mahcine mode]` - Override the auto machine detection for the game (mode can be: `CGB` - Gameboy color | `DMG` - Original Gameboy  | `ANY` - default)
 * `--shutdown-rpi` - Requires `rpi` feature, shutdown the RPi upon shutdown of the program
 
 ### Raspberry Pi Baremetal

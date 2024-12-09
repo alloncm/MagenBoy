@@ -1,5 +1,5 @@
-use super::{Memory, carts::Mbc, external_memory_bus::{ExternalMemoryBus, Bootrom}, interrupts_handler::InterruptRequest, io_bus::IoBus, access_bus::AccessBus};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::flip_bit_u8, memory_registers::BOOT_REGISTER_ADDRESS}};
+use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{color::Color, gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}, Pixel};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -113,10 +113,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xA000..=0xFDFF=>self.external_memory_bus.read(address),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize],
             0xFEA0..=0xFEFF=>0x0,
-            0xFF00..=0xFF4F | 
-            0xFF51..=0xFF6F |
-            0xFF71..=0xFF7F=>self.io_bus.read(address - 0xFF00),
-            0xFF50 | 0xFF70=>self.external_memory_bus.read(address),
+            BOOT_REGISTER_ADDRESS => self.external_memory_bus.read_boot_reg(),
+            SVBK_REGISTER_ADRRESS => self.external_memory_bus.read_svbk_reg(),
+            0xFF00..=0xFF7F=>self.io_bus.read(address - 0xFF00),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize],
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag
         };
@@ -136,16 +135,20 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             0xA000..=0xFDFF=>self.external_memory_bus.write(address, value),
             0xFE00..=0xFE9F=>self.io_bus.ppu.oam[(address-0xFE00) as usize] = value,
             0xFEA0..=0xFEFF=>{},
-            0xFF00..=0xFF4F | 
-            0xFF51..=0xFF6F |
-            0xFF71..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
-            0xFF50 | 0xFF70=>{
-                self.external_memory_bus.write(address, value);
+            BOOT_REGISTER_ADDRESS => {
+                self.external_memory_bus.write_boot_reg(value);
+                if self.external_memory_bus.finished_boot(){
+                    self.io_bus.set_boot_finished();
+                }
+            },
+            SVBK_REGISTER_ADRRESS => if self.io_bus.is_cgb_enabled() {
+                self.external_memory_bus.write_svbk_reg(value);
                 #[cfg(feature = "dbg")]
                 {
                     self.mem_watch.current_ram_bank_number = self.external_memory_bus.get_current_ram_bank();
                 }
             },
+            0xFF00..=0xFF7F=>self.io_bus.write(address - 0xFF00, value),
             0xFF80..=0xFFFE=>self.hram[(address-0xFF80) as usize] = value,
             0xFFFF=>self.io_bus.interrupt_handler.interrupt_enable_flag = value
         }
@@ -153,8 +156,9 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 }
 
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
-    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Bootrom, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
-        let bootrom_missing = boot_rom == Bootrom::None;
+    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Option<Bootrom>, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
+        let bootrom_missing = boot_rom.is_none();
+        let cgb_reg = mbc.read_bank0(CGB_FLAG_ADDRESS as u16);
         let mut mmu = GbMmu{
             io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
@@ -167,6 +171,33 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
             mem_watch: crate::debugger::MemoryWatcher::new()
         };
         if bootrom_missing{
+            if mode == Mode::CGB {
+                // Mimic the CGB bootrom behavior
+                if cgb_reg & BIT_7_MASK != 0{
+                    mmu.write(KEY0_REGISTER_ADDRESS, cgb_reg, 0);
+                }
+                else{
+                    mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatability mode 
+                    mmu.write(OPRI_REGISTER_ADDRESS, 1, 0);     // Set DMG priority mode
+
+                    // Setup the default BG palletes
+                    mmu.write(BGPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x7BFF31 as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x0063C5 as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x000000 as u32));
+
+                    // Setup the default OBJ palletes
+                    mmu.write(OBPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
+                    // Fill the first 2 object palettes with the same palette
+                    for _ in 0..2{
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0xFF8484 as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0x943A3A as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0x000000 as u32));
+                    }
+                }
+            }
             //Setting the bootrom register to be set (the boot sequence has over)
             mmu.write(BOOT_REGISTER_ADDRESS, 1, 0);
         }
@@ -217,5 +248,13 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     fn bad_dma_write(address:u16){
         log::warn!("bad memory write during dma. {:#X}", address)
+    }
+
+    fn write_color_ram(&mut self, address:u16, color: Color){
+        let pixel:Pixel = color.into();
+        
+        // The value is little endian in memory so writing the low bits first and then the high bits
+        self.write(address, (pixel & 0xFF) as u8, 0);
+        self.write(address, ((pixel >> 8) & 0xFF) as u8, 0);
     }
 }
