@@ -183,7 +183,7 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
                     self.speed_switch_register &= 0b1111_1110;    // clear bit 0
                     self.speed_switch_register |= value & 1;      // change state for bit 0
                 }
-                ORPI_REGISTER_INDEX => self.ppu.set_orpi(value),
+                ORPI_REGISTER_INDEX => self.ppu.set_orpi(value, self.boot_finished),
                 // VRAM DMA
                 HDMA1_REGISTER_INDEX =>self.vram_dma_controller.set_source_high(value),
                 HDMA2_REGISTER_INDEX =>self.vram_dma_controller.set_source_low(value),

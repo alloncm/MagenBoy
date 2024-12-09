@@ -600,8 +600,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         self.obj_color_ram[(self.obj_color_pallete_index & 0b11_1111) as usize]
     }
 
-    pub fn set_orpi(&mut self, value:u8){
-        self.cgb_priority_mode = value & BIT_0_MASK == 0;
+    pub fn set_orpi(&mut self, value:u8, boot_finished: bool){
+        if boot_finished{
+            self.cgb_priority_mode = value & BIT_0_MASK == 0;
+        }
     }
 
     pub fn get_orpi(&self) -> u8 {
