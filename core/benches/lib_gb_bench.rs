@@ -128,7 +128,7 @@ pub fn ppu_gb_ppu(c:&mut Criterion){
     c.bench_function("Ppu", |b|b.iter(||{
         let mut if_register = 0;
         for _ in 0..100{
-            ppu.cycle(10, &mut if_register, false);
+            ppu.cycle(10, &mut if_register);
         }
     }));
 
