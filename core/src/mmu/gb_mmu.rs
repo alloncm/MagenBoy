@@ -182,45 +182,20 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
                     // Setup the default BG palletes
                     mmu.write(BGPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
-                    // 0xFFFFFF
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0xFF, 0);
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x7F, 0);
-                    // 0x7BFF31
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0xEF, 0);
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x1B, 0);
-                    // 0x0063C5
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x80, 0);
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x61, 0);
-                    // 0x000000 
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x00, 0);
-                    mmu.write(BGPD_REGISTER_ADDRESS, 0x00, 0);
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x7BFF31 as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x0063C5 as u32));
+                    mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x000000 as u32));
 
                     // Setup the default OBJ palletes
                     mmu.write(OBPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
-                    // 0xFFFFFF
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0xFF, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x7F, 0);
-                    // 0xFF8484
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1F, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x42, 0);
-                    // 0x943A3A
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0xF2, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1C, 0);
-                    // 0x000000
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
-                    // 0xFFFFFF
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0xFF, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x7F, 0);
-                    // 0xFF8484
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1F, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x42, 0);
-                    // 0x943A3A
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0xF2, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x1C, 0);
-                    // 0x000000
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
-                    mmu.write(OBPD_REGISTER_ADDRESS, 0x00, 0);
+                    // Fill the first 2 object palettes with the same palette
+                    for _ in 0..2{
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0xFF8484 as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0x943A3A as u32));
+                        mmu.write_color_ram(OBPD_REGISTER_ADDRESS, Color::from(0x000000 as u32));
+                    }
                 }
             }
             //Setting the bootrom register to be set (the boot sequence has over)
@@ -273,5 +248,13 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     fn bad_dma_write(address:u16){
         log::warn!("bad memory write during dma. {:#X}", address)
+    }
+
+    fn write_color_ram(&mut self, address:u16, color: Color){
+        let pixel:Pixel = color.into();
+        
+        // The value is little endian in memory so writing the low bits first and then the high bits
+        self.write(address, (pixel & 0xFF) as u8, 0);
+        self.write(address, ((pixel >> 8) & 0xFF) as u8, 0);
     }
 }
