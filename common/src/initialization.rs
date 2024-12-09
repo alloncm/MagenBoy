@@ -1,6 +1,6 @@
 use log::info;
 
-use magenboy_core::{JoypadProvider, AudioDevice, Bootrom, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE, GameBoy};
+use magenboy_core::{Mode, AudioDevice, Bootrom, GameBoy, JoypadProvider, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
 #[cfg(feature = "dbg")]
 use magenboy_core::debugger::DebuggerInterface;
 
@@ -60,7 +60,7 @@ pub fn init_and_run_gameboy(
                 mode
             }
             else{
-                std::panic!("Could not infer --mode flag")
+                Mode::CGB
             };
             GameBoy::new_with_mode(mbc, joypad_provider, audio_devices, spsc_gfx_device, mode, #[cfg(feature = "dbg")] dui)
         }
