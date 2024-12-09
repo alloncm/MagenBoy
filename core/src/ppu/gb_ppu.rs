@@ -672,7 +672,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                     for k in 0..8{
                         let mask = 1 << k;
                         let pixel = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
-                        let attributes = if self.mode == Mode::CGB {attributes_map[y * 32 + x]} else {0};
+                        let attributes = if self.cgb_enabled {attributes_map[y * 32 + x]} else {0};
                         buffer[index_prefix + (8 - k - 1)] = self.get_bg_pixel(BackgroundPixel { color_index: pixel, attributes: GbcBackgroundAttributes::new(attributes)}).into();
                     }
                 }
@@ -691,7 +691,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         let mut oam_entry = 0;
         for sprite in oam_table{
             let tile_address = sprite.tile_number as usize * size;
-            let bank = if self.mode == Mode::CGB && sprite.attributes.gbc_bank {1} else {0};
+            let bank = if self.cgb_enabled && sprite.attributes.gbc_bank {1} else {0};
             let data = &self.vram.get_bank(bank)[tile_address ..  tile_address + size];
             let y = sprite.y as usize;
             let x = sprite.x as usize;
@@ -702,15 +702,15 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                 let index_prefix = index_prefix + (j * PPU_BUFFER_WIDTH);
                 for k in 0..8{
                     let mask = 1 << k;
-                    let color_index = (((upper_byte & mask) >> k) << 1) | ((lower_byte & mask) >> k);
+                    let color_index = (((lower_byte & mask) >> k) << 1) | ((upper_byte & mask) >> k);
                     if color_index == 0 {continue}
                     let sprite_pixel = SpritePixel{ color_index, oam_entry};
-                    let color = match self.mode{
-                        Mode::DMG => self.get_dmg_sprite_pixel(&sprite, sprite_pixel),
-                        Mode::CGB => Self::get_color_from_color_ram(&self.obj_color_ram, sprite.gbc_palette_number, sprite_pixel.color_index),
+                    let color = match self.cgb_enabled {
+                        false => self.get_dmg_sprite_pixel(&sprite, sprite_pixel),
+                        true => Self::get_color_from_color_ram(&self.obj_color_ram, sprite.gbc_palette_number, sprite_pixel.color_index),
                     };
                     let index = index_prefix + (8 - k - 1);
-                    // Some could be placed at x/y = 247 -- 255 and it could crash the program, not sure how to fix it
+                    // TODO: Some could be placed at x/y = 247 -- 255 and it could crash the program, not sure how to fix it
                     if index < PPU_BUFFER_SIZE{
                         buffer[index] = color.into();
                     }
