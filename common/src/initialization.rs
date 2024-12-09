@@ -1,6 +1,6 @@
 use log::info;
 
-use magenboy_core::{Mode, AudioDevice, Bootrom, GameBoy, JoypadProvider, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
+use magenboy_core::{AudioDevice, Bootrom, GameBoy, JoypadProvider, Mode, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
 #[cfg(feature = "dbg")]
 use magenboy_core::debugger::DebuggerInterface;
 
@@ -60,7 +60,9 @@ pub fn init_and_run_gameboy(
                 mode
             }
             else{
-                Mode::CGB
+                let mode = mbc.detect_prefered_mode();
+                log::info!("Could not find a mode flag, auto detected {}", <Mode as Into<&str>>::into(mode));
+                mode
             };
             GameBoy::new_with_mode(mbc, joypad_provider, audio_devices, spsc_gfx_device, mode, #[cfg(feature = "dbg")] dui)
         }
