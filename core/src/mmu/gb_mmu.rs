@@ -179,7 +179,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
                 else{
                     mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatibility mode 
                     mmu.write(OPRI_REGISTER_ADDRESS, 1, 0);     // Set DMG priority mode
-
+                    
+                    // Default colors are from here - https://tcrf.net/Notes:Game_Boy_Color_Bootstrap_ROM
                     // Setup the default BG palettes
                     mmu.write(BGPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
                     mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
