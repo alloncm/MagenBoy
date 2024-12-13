@@ -18,4 +18,4 @@ pub mod menu;
 pub mod joypad_menu;
 pub mod interpolation;
 
-pub const VERSION:&str = env!("CARGO_PKG_VERSION");
+pub const VERSION:&str = env!("MAGENBOY_VERSION");
