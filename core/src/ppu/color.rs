@@ -19,7 +19,7 @@ impl From<Color> for Pixel{
 }
 
 impl From<u16> for Color{
-    /// color is RGB555 u16 value (Red - low bits, Blue - High bits)
+    /// color is BGR555 u16 value (Red - low bits, Blue - High bits)
     fn from(color:u16)->Color{
         Color{
             r: ((color & 0b1_1111) as u8) << 3, 
