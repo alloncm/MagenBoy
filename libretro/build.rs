@@ -17,7 +17,7 @@ fn main() {
     info_filename.pop();
     info_filename = info_filename.join(executable_filename);
     info_filename.set_extension("info");
-    let version = var("CARGO_PKG_VERSION").unwrap();
+    let version = magenboy_common::VERSION;
     let authors = var("CARGO_PKG_AUTHORS").unwrap();
     let content = std::format!(
 r##"display_name = "MagenBoy - GameBoy & GameBoy Color"
