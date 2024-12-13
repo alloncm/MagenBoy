@@ -60,7 +60,7 @@ pub fn init_and_run_gameboy(
                 mode
             }
             else{
-                let mode = mbc.detect_prefered_mode();
+                let mode = mbc.detect_preferred_mode();
                 log::info!("Could not find a mode flag, auto detected {}", <Mode as Into<&str>>::into(mode));
                 mode
             };

@@ -1,5 +1,5 @@
 use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{color::Color, gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}, Pixel};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{color::Color, gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}};
 
 const HRAM_SIZE:usize = 0x7F;
 
@@ -177,17 +177,18 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
                     mmu.write(KEY0_REGISTER_ADDRESS, cgb_reg, 0);
                 }
                 else{
-                    mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatability mode 
+                    mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatibility mode 
                     mmu.write(OPRI_REGISTER_ADDRESS, 1, 0);     // Set DMG priority mode
-
-                    // Setup the default BG palletes
+                    
+                    // Default colors are from here - https://tcrf.net/Notes:Game_Boy_Color_Bootstrap_ROM
+                    // Setup the default BG palettes
                     mmu.write(BGPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
                     mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0xFFFFFF as u32));
                     mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x7BFF31 as u32));
                     mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x0063C5 as u32));
                     mmu.write_color_ram(BGPD_REGISTER_ADDRESS, Color::from(0x000000 as u32));
 
-                    // Setup the default OBJ palletes
+                    // Setup the default OBJ palettes
                     mmu.write(OBPI_REGISTER_ADDRESS, BIT_7_MASK, 0);    // Set to auto increment
                     // Fill the first 2 object palettes with the same palette
                     for _ in 0..2{
@@ -251,10 +252,10 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     fn write_color_ram(&mut self, address:u16, color: Color){
-        let pixel:Pixel = color.into();
+        let bgr555_value = ((color.r >> 3) as u16 & 0b1_1111) | (((color.g >> 3) as u16 & 0b1_1111) << 5)  | (((color.b >> 3) as u16 & 0b1_1111) << 10);
         
         // The value is little endian in memory so writing the low bits first and then the high bits
-        self.write(address, (pixel & 0xFF) as u8, 0);
-        self.write(address, ((pixel >> 8) & 0xFF) as u8, 0);
+        self.write(address, (bgr555_value & 0xFF) as u8, 0);
+        self.write(address, ((bgr555_value >> 8) & 0xFF) as u8, 0);
     }
 }

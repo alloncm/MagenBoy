@@ -86,7 +86,7 @@ pub unsafe extern "C" fn retro_load_game(game_info: *const GameInfo)->bool{
     if mbc.has_battery(){
         RETRO_CORE_CTX.save_data_fat_ptr = Some((mbc.get_ram().as_mut_ptr(), mbc.get_ram().len()));
     }
-    let mode = mbc.detect_prefered_mode();
+    let mode = mbc.detect_preferred_mode();
     RETRO_CORE_CTX.gameboy = Some(GameBoy::new_with_mode(mbc, RetroJoypadProvider, RetroAudioDevice::default(), RetroGfxDevice, mode));
     
     let mut pixel_format = PixelFormat::RGB565.to_uint();
