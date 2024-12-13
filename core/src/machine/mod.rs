@@ -35,7 +35,7 @@ impl From<Mode> for &str{
 // for some reason the lifetime is important here for the
 // compiler to accept this call on any Mbc lifetine and not just 'static
 impl<'a> dyn Mbc + 'a{
-    pub fn detect_prefered_mode(&self)->Mode{
+    pub fn detect_preferred_mode(&self)->Mode{
         let cart_compatibility_reg = self.read_bank0(CGB_FLAG_ADDRESS as u16);
         return if cart_compatibility_reg & BIT_7_MASK == 0 {Mode::DMG} else{Mode::CGB};
     }

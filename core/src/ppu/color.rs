@@ -14,11 +14,12 @@ pub struct Color{
 
 impl From<Color> for Pixel{
     #[inline]
-    fn from(color: Color) -> Self {(((color.b >> 3) as u16) << 10) | (((color.g >> 3) as u16) << 5) | ((color.r >> 3) as u16)}
+    // Notice that Pixel is RGB565, for more see Pixel doc
+    fn from(color: Color) -> Self {(((color.r >> 3) as u16) << 11) | (((color.g >> 2) as u16) << 5) | ((color.b >> 3) as u16)}
 }
 
 impl From<u16> for Color{
-    /// color is BGR555 u16 value
+    /// color is RGB555 u16 value (Red - low bits, Blue - High bits)
     fn from(color:u16)->Color{
         Color{
             r: ((color & 0b1_1111) as u8) << 3, 
@@ -29,7 +30,7 @@ impl From<u16> for Color{
 }
 
 impl From<u32> for Color{
-    /// Color is RGB RGB888 value where Red is the high bits and Blue the low bits
+    /// Color is RGB888 value (Red - high bits, Blue - low bits)
     fn from(color: u32) -> Self {
         Self{ r: ((color >> 16) & 0xFF) as u8, g: ((color >> 8) & 0xFF) as u8, b: (color & 0xFF) as u8 }
     }

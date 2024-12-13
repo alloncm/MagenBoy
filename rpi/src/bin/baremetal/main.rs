@@ -47,7 +47,7 @@ pub extern "C" fn main()->!{
     let rom = unsafe{&mut ROM_BUFFER};
     fs.read_file(selected_rom, rom);
     let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], None);
-    let mode = mbc.detect_prefered_mode();
+    let mode = mbc.detect_preferred_mode();
 
     let mut gameboy = GameBoy::new_with_mode(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, mode);
     log::info!("Initialized gameboy!");
