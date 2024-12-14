@@ -175,6 +175,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
                 // Mimic the CGB bootrom behavior
                 if cgb_reg & BIT_7_MASK != 0{
                     mmu.write(KEY0_REGISTER_ADDRESS, cgb_reg, 0);
+                    
+                    // Both bootroms leaves the PPU turned on, unfortunately turning it on for both modes makes some tests
+                    // fail as they seem really sensitive to timing.
+                    // Setting this only for CGB mode cgb enabled (mostly to make games the assumes the PPU is turned on to work).
+                    // TODO: Turn on the PPU on both modes while preserving accurate timing.
+                    mmu.write(LCDC_REGISTER_ADDRESS, 0x80, 0);
                 }
                 else{
                     mmu.write(KEY0_REGISTER_ADDRESS, 0x4, 0);   // Set bit 2 that indicates DMG compatibility mode 
