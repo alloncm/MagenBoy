@@ -10,26 +10,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  install-deps:
+  build-and-test-all-targets:
     runs-on: ubuntu-latest
     steps:  
+    - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: install cargo make
       run: cargo install cargo-make
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Run tests
       run: cargo make test
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Build sdl
       run: cargo make sdl
     - name: Build libretro
