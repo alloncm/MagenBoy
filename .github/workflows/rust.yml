@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, feature/all_targets_ci ]
   pull_request:
     branches: [ master, feature/*, fix/* ]
 
