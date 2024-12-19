@@ -1,5 +1,0 @@
-[target.armv7a-none-eabihf]
-rustflags = [
-    "-Clink-arg=--script=./rpi/src/bin/baremetal/link.ld", 
-    "-Ctarget-feature=+virtualization"
-]
