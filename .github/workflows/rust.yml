@@ -10,13 +10,31 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test:
-
+  install-deps:
     runs-on: ubuntu-latest
+    steps:  
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+    - name: install cargo make
+      run: cargo install cargo-make
 
+  test:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Build sdl
-      run: cargo build --verbose --package magenboy_sdl
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
     - name: Run tests
-      run: cargo test --verbose --package magenboy_core
+      run: cargo make test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+    - name: Build sdl
+      run: cargo make sdl
+    - name: Build libretro
+      run: cargo make libretro_desktop
+    - name: rpi os
+      run: cargo make rpios
+    - name: rpi baremetal
+      run: cargo make rpibm
