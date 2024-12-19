@@ -2,7 +2,6 @@
 mod config{
     pub const RPI_ENV_VAR_NAME:&'static str = "RPI";
     pub const LD_SCRIPT_PATH:&str = "src/bin/baremetal/link.ld";
-    pub const CONFIG_FILE_PATH: &str = "config.txt";
     pub const CONFIG_TXT_CONTENT:&str = 
 "# configuration for the RPI
 arm_64bit=0 # boot to 32 bit mode
@@ -32,7 +31,14 @@ fn main(){
         println!("cargo:rustc-link-arg-bin=baremetal={}", ld_script_path);
 
         // Creates config.txt
-        std::fs::write(config::CONFIG_FILE_PATH, config::CONFIG_TXT_CONTENT).unwrap();
+        let out_dir = std::env::var("OUT_DIR").unwrap();
+        // Turns the out dir to the artifacts dir
+        let mut config_file_path = std::path::Path::new(&out_dir).to_path_buf();
+        config_file_path.pop();
+        config_file_path.pop();
+        config_file_path.pop();
+        config_file_path = config_file_path.join("config.txt");
+        std::fs::write(config_file_path, config::CONFIG_TXT_CONTENT).unwrap();
 
         // Add the cfg option `rpi` with that value of the env var `RPI`
         let rpi_version = std::env::var(config::RPI_ENV_VAR_NAME)
