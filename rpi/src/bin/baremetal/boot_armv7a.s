@@ -1,3 +1,7 @@
+// Enabling all the features of the cortex-a72, currently rust has a bug preventing enabling with rustc 
+// For more see - https://github.com/rust-lang/rust/issues/127269
+.cpu cortex-a72
+
 // alias the PERIPHERALS_BASE_ADDRESS symbol at pointer
 // since it is a static global variable from the rust side
 .equ    PERIPHERALS_BASE_ADDRESS_PTR,   PERIPHERALS_BASE_ADDRESS
