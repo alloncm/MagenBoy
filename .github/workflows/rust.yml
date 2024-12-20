@@ -20,13 +20,13 @@ jobs:
         cache-directories: /home/runner/.cargo/bin
     - name: install cargo make
       run: cargo install cargo-make
-    - name: rpi os
-      run: cargo make rpios
     - name: Run tests
       run: cargo make test
     - name: Build sdl
       run: cargo make sdl
     - name: Build libretro
       run: cargo make libretro_desktop
+    - name: rpi os
+      run: cargo make rpios
     - name: rpi baremetal
       run: cargo make rpibm
