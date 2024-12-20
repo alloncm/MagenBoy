@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-test-all-targets:
-    straregy: 
+    strategy: 
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
