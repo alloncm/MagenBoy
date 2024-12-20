@@ -21,7 +21,8 @@ jobs:
       with:
         toolchain: stable, nightly
         rustflags: ""
-        cache-directories: /home/runner/.cargo/bin
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
     - name: install cargo make
       run: cargo install cargo-make
     - name: Run tests
@@ -34,4 +35,4 @@ jobs:
     - name: Build libretro
       run: cargo make libretro_desktop
     - name: rpi baremetal
-      run: cargo make rpibm
+      run: cargo make -e RPI=4 rpibm
