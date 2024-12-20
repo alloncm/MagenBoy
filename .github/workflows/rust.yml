@@ -22,10 +22,10 @@ jobs:
       run: cargo install cargo-make
     - name: Run tests
       run: cargo make test
-    - name: rpi os
-      run: cargo make rpios
     - name: Build sdl
       run: cargo make sdl
+    - name: rpi os
+      run: cargo make rpios
     - name: Build libretro
       run: cargo make libretro_desktop
     - name: rpi baremetal
