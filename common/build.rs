@@ -8,9 +8,8 @@ fn main() {
     // println!("cargo:rerun-if-changed={}", head_path.to_str().unwrap());
     // println!("cargo:rerun-if-changed={}", current_commit_file.to_str().unwrap());
 
-    // let output = Command::new("git").args(&["rev-parse", "--short", "HEAD"]).output().unwrap();
-    // let git_hash = String::from_utf8(output.stdout).unwrap();
-    let git_hash = "0";
+    let output = Command::new("git").args(&["rev-parse", "--short", "HEAD"]).output().unwrap();
+    let git_hash = String::from_utf8(output.stdout).unwrap();
     let version = env!("CARGO_PKG_VERSION");
     println!("cargo:rustc-env=MAGENBOY_VERSION={}", std::format!("{}-{}", version, git_hash));
 }
