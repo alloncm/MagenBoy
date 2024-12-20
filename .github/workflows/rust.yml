@@ -11,21 +11,26 @@ env:
 
 jobs:
   build-and-test-all-targets:
-    runs-on: ubuntu-latest
+    straregy: 
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         rustflags: ""
         cache-directories: /home/runner/.cargo/bin
+        target: armv7a-none-eabihf
     - name: install cargo make
       run: cargo install cargo-make
     - name: Run tests
       run: cargo make test
+    # for some reason the sdl instalation making this fail (some error about not finding glibc) so this should before the sdl
+    - name: rpi os  
+      run: cargo make rpios
     - name: Build sdl
       run: cargo make sdl
-    - name: rpi os
-      run: cargo make rpios
     - name: Build libretro
       run: cargo make libretro_desktop
     - name: rpi baremetal
