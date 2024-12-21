@@ -44,9 +44,11 @@ fn main(){
         let rpi_version = std::env::var(config::RPI_ENV_VAR_NAME)
             .expect(std::format!("{} env must be set", config::RPI_ENV_VAR_NAME).as_str());
         println!("cargo:rustc-cfg=rpi=\"{}\"", rpi_version);
+    
+        // Silent warnings for this cfg     
+        println!("cargo:rustc-check-cfg=cfg(rpi, values(\"4\", \"2\"))");
     }
     
     // Silent warnings for this cfg 
-    println!("cargo::rustc-check-cfg=cfg(rpi, values(\"4\", \"2\"))");
-    println!("cargo::rustc-check-cfg=cfg(rpi)");
+    println!("cargo:rustc-check-cfg=cfg(rpi)");
 }

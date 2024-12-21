@@ -1,6 +1,9 @@
 [config]
 default_to_workspace = false
 
+[env]
+nightly_version = "nightly-2023-10-05"
+
 [tasks.all]
 dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
 
@@ -37,25 +40,29 @@ install_crate_args=["--locked", "--version", "0.2.5"]
 command = "cross"
 args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
 
+[tasks.pre-rpibm]
+command = "rustup"
+args = ["toolchain", "install", "${nightly_version}"]
+
 [tasks.rpibm]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 install_crate = "cargo-binutils"
 command = "rust-objcopy"
 args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
-dependencies = ["build_rpi_baremetal","install_llvm_tools"]
+dependencies = ["pre-rpibm", "build_rpi_baremetal","install_llvm_tools"]
 
 [tasks.build_rpi_baremetal]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 command = "cargo"
 args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core"]
 dependencies = ["install_rust_src"]
 
 [tasks.install_llvm_tools]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 install_crate = {rustup_component_name = "llvm-tools-preview"}
 
 [tasks.install_rust_src]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 command = "rustup"
 args = ["component", "add", "rust-src"]
 
