@@ -36,5 +36,6 @@ jobs:
     - name: Build libretro
       run: cargo make libretro_desktop
     - name: rpi baremetal
-      run: rustup toolchain install nightly
-      run: cargo make -e RPI=4 rpibm
+      run: |
+       rustup toolchain install nightly
+       cargo make -e RPI=4 rpibm
