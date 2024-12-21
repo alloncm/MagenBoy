@@ -9,6 +9,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  cancel-in-progress: false
+
 jobs:
   build-and-test-all-targets:
     strategy: 
