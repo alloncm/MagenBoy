@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ master, feature/all_targets_ci ]
+    branches: [ master ]
   pull_request:
     branches: [ master, feature/*, fix/* ]
 
@@ -16,7 +16,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    
+
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
