@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [env]
-nightly_version = "nightly-2023-10-05"
+nightly_version = "nightly-2023-10-05"  # 1.73.0 toolchain nightly version
 
 [tasks.all]
 dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
@@ -50,10 +50,10 @@ args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bi
 
 [tasks.pre-rpibm]
 command = "rustup"
-args = ["toolchain", "install", "${nightly_version}"]
+args = ["toolchain", "install", "--profile", "minimal", "${nightly_version}"]
 
 [tasks.rpibm]
-toolchain = "${nightly_version}"
+# toolchain = "${nightly_version}"
 install_crate = "cargo-binutils"
 command = "rust-objcopy"
 args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
