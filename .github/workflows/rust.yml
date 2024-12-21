@@ -24,7 +24,7 @@ jobs:
         cache-directories: "/home/runner/.cargo/bin
           C:\\Users\\runneradmin\\.cargo\\bin"
     - name: install cargo make
-      run: cargo install cargo-make
+      run: cargo install --no-default-features --locked --version 0.37.23 cargo-make
     - name: Run tests
       run: cargo make test
     # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
