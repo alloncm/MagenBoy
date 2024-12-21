@@ -13,13 +13,13 @@ jobs:
   build-and-test-all-targets:
     strategy: 
       matrix:
-        os: [windows-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        # toolchain: stable, nightly
+        toolchain: 1.73.0
         rustflags: ""
         cache-directories: "/home/runner/.cargo/bin
           C:\\Users\\runneradmin\\.cargo\\bin"
@@ -28,11 +28,13 @@ jobs:
     - name: Run tests
       run: cargo make test
     # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
-    - name: rpi os  
+    - name: rpi os
+      if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
     - name: Build sdl
       run: cargo make sdl
     - name: Build libretro
       run: cargo make libretro_desktop
     - name: rpi baremetal
+      run: rustup toolchain install nightly
       run: cargo make -e RPI=4 rpibm

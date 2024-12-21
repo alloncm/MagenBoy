@@ -32,7 +32,7 @@ try_install libsdl2-dev
 ]
 
 [tasks.rpios]
-install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}
+install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h", install_crate_args="--locked"}
 command = "cross"
 args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
 
