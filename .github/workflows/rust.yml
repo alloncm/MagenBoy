@@ -34,6 +34,9 @@ jobs:
     - name: Build sdl
       continue-on-error: true
       run: cargo make sdl
+    - name: Build sdl with debugger
+      continue-on-error: true
+      run: cargo make sdl_dbg
     - name: Build libretro
       continue-on-error: true
       run: cargo make libretro_desktop

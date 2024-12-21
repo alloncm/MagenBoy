@@ -15,8 +15,16 @@ args = ["test", "--package", "magenboy_core"]
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_sdl"]
 
+[tasks.sdl_dbg]
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_sdl", "--features", "dbg"]
+
 [tasks.sdl.linux]
 args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features"]
+dependencies = ["install_sdl2_linux"]
+
+[tasks.sdl_dbg.linux]
+args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features", "-features", "dbg"]
 dependencies = ["install_sdl2_linux"]
 
 [tasks.install_sdl2_linux]
