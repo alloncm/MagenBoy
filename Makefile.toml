@@ -24,7 +24,7 @@ args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-feature
 dependencies = ["install_sdl2_linux"]
 
 [tasks.sdl_dbg.linux]
-args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features", "-features", "dbg"]
+args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features", "--features", "dbg"]
 dependencies = ["install_sdl2_linux"]
 
 [tasks.install_sdl2_linux]
