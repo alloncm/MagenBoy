@@ -20,9 +20,8 @@ jobs:
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
+      # Stable toolchains are installed with rust-toolchain.toml and the rest toolchains and targets are installed by Makefile.toml
       with:
-        # toolchain: 1.73.0, nightly-2023-10-05
-        # target: aarch64-linux-android
         rustflags: ""
         cache-directories: "/home/runner/.cargo/bin
           C:\\Users\\runneradmin\\.cargo\\bin"
@@ -35,16 +34,11 @@ jobs:
 
     - name: install cargo make
       run: cargo install --no-default-features --locked --version 0.37.23 cargo-make
-      
-    - name: Build libretro android
-      run: cargo make libretro_android
-      # env:
-      #   ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
     - name: Run tests
       run: cargo make test
 
-    # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
+    # For some reason the other installation causing this to fail (some error about not finding glibc) so this should come first
     - name: Build rpi os
       if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
@@ -60,3 +54,6 @@ jobs:
 
     - name: Build libretro desktop
       run: cargo make libretro_desktop
+
+    - name: Build libretro android
+      run: cargo make libretro_android
