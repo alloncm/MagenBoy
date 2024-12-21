@@ -1,8 +1,8 @@
 [config]
 default_to_workspace = false
 
-[tasks.all]
-dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
+[env]
+nightly_version = "nightly-2023-10-05"  # 1.73.0 toolchain nightly version
 
 [tasks.test]
 command = "cargo"
@@ -12,8 +12,16 @@ args = ["test", "--package", "magenboy_core"]
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_sdl"]
 
+[tasks.sdl_dbg]
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_sdl", "--features", "dbg"]
+
 [tasks.sdl.linux]
 args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features"]
+dependencies = ["install_sdl2_linux"]
+
+[tasks.sdl_dbg.linux]
+args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features", "--features", "dbg"]
 dependencies = ["install_sdl2_linux"]
 
 [tasks.install_sdl2_linux]
@@ -33,28 +41,34 @@ try_install libsdl2-dev
 
 [tasks.rpios]
 install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}
+install_crate_args=["--locked", "--version", "0.2.5"]
 command = "cross"
 args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
 
+[tasks.pre-rpibm]
+command = "rustup"
+args = ["toolchain", "install", "--profile", "minimal", "--no-self-update", "${nightly_version}"]
+
 [tasks.rpibm]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 install_crate = "cargo-binutils"
+install_crate_args=["--locked", "--version", "0.3.6"]
 command = "rust-objcopy"
 args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
-dependencies = ["build_rpi_baremetal","install_llvm_tools"]
+dependencies = ["pre-rpibm", "build_rpi_baremetal","install_llvm_tools"]
 
 [tasks.build_rpi_baremetal]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 command = "cargo"
 args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core"]
 dependencies = ["install_rust_src"]
 
 [tasks.install_llvm_tools]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 install_crate = {rustup_component_name = "llvm-tools-preview"}
 
 [tasks.install_rust_src]
-toolchain = "nightly"
+toolchain = "${nightly_version}"
 command = "rustup"
 args = ["component", "add", "rust-src"]
 
@@ -64,5 +78,11 @@ args = ["build", "--release", "--package", "magenboy_libretro"]
 
 [tasks.libretro_android]
 install_crate = {crate_name = "cargo-ndk", binary = "cargo", test_arg = "ndk"}
+install_crate_args=["--locked", "--version", "3.5.4"]
 command = "cargo"
 args = ["ndk", "--target=aarch64-linux-android", "build", "--release", "--package", "magenboy_libretro"]
+dependencies = ["add_android_target"]
+
+[tasks.add_android_target]
+command = "rustup"
+args = ["target", "add", "aarch64-linux-android"]

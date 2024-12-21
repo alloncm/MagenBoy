@@ -10,13 +10,50 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test:
+  build-and-test-all-targets:
+    strategy: 
+      fail-fast: false  # Allow the other job to continue running
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
-    runs-on: ubuntu-latest
+    steps:  
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      # Stable toolchains are installed with rust-toolchain.toml and the rest toolchains and targets are installed by Makefile.toml
+      with:
+        rustflags: ""
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Build sdl
-      run: cargo build --verbose --package magenboy_sdl
+    - uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r25  # This is the minimum version rust supports
+        add-to-path: true
+
+    - name: install cargo make
+      run: cargo install --no-default-features --locked --version 0.37.23 cargo-make
+
     - name: Run tests
-      run: cargo test --verbose --package magenboy_core
+      run: cargo make test
+
+    # For some reason the other installation causing this to fail (some error about not finding glibc) so this should come first
+    - name: Build rpi os
+      if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
+      run: cargo make rpios
+      
+    - name: Build rpi baremetal
+      run: cargo make -e RPI=4 rpibm
+
+    - name: Build sdl
+      run: cargo make sdl
+
+    - name: Build sdl with debugger
+      run: cargo make sdl_dbg
+
+    - name: Build libretro desktop
+      run: cargo make libretro_desktop
+
+    - name: Build libretro android
+      run: cargo make libretro_android
