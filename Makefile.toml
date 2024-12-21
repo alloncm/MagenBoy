@@ -50,7 +50,7 @@ args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bi
 
 [tasks.pre-rpibm]
 command = "rustup"
-args = ["toolchain", "install", "--profile", "minimal", "--force", "${nightly_version}"]
+args = ["toolchain", "install", "--profile", "minimal", "--no-self-update", "${nightly_version}"]
 
 [tasks.rpibm]
 toolchain = "${nightly_version}"
