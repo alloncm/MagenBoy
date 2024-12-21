@@ -81,5 +81,6 @@ args = ["build", "--release", "--package", "magenboy_libretro"]
 
 [tasks.libretro_android]
 install_crate = {crate_name = "cargo-ndk", binary = "cargo", test_arg = "ndk"}
+install_crate_args=["--locked", "--version", "3.5.4"]
 command = "cargo"
 args = ["ndk", "--target=aarch64-linux-android", "build", "--release", "--package", "magenboy_libretro"]
