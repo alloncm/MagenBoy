@@ -53,6 +53,7 @@ command = "rustup"
 args = ["toolchain", "install", "--profile", "minimal", "${nightly_version}"]
 
 [tasks.rpibm]
+toolchain = "${nightly_version}"
 install_crate = "cargo-binutils"
 install_crate_args=["--locked", "--version", "0.3.6"]
 command = "rust-objcopy"
