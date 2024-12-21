@@ -1,4 +1,5 @@
 [toolchain]
 channel = "1.73.0"
 components = [ "rust-src" ]
-profile = "default"
+profile = "minimal"
+targets = ["aarch64-linux-android", "armv7a-none-eabihf"]
