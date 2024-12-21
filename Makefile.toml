@@ -4,9 +4,6 @@ default_to_workspace = false
 [env]
 nightly_version = "nightly-2023-10-05"  # 1.73.0 toolchain nightly version
 
-[tasks.all]
-dependencies = ["test", "sdl", "rpios", "rpibm", "libretro"]
-
 [tasks.test]
 command = "cargo"
 args = ["test", "--package", "magenboy_core"]
@@ -88,4 +85,4 @@ dependencies = ["add_android_target"]
 
 [tasks.add_android_target]
 command = "rustup"
-args = ["target", "install", "aarch64-linux-android"]
+args = ["target", "add", "aarch64-linux-android"]
