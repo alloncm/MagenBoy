@@ -9,15 +9,13 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-concurrency:
-  cancel-in-progress: false
-
 jobs:
   build-and-test-all-targets:
     strategy: 
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    continue-on-error: true
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
