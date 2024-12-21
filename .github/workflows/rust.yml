@@ -34,9 +34,11 @@ jobs:
 
     - name: install cargo make
       run: cargo install --no-default-features --locked --version 0.37.23 cargo-make
-
-    - name: Build rpi baremetal
-      run: cargo make -e RPI=4 rpibm
+      
+    - name: Build libretro android
+      run: cargo make libretro_android
+      env:
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
     - name: Run tests
       run: cargo make test
@@ -45,6 +47,9 @@ jobs:
     - name: Build rpi os
       if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
+      
+    - name: Build rpi baremetal
+      run: cargo make -e RPI=4 rpibm
 
     - name: Build sdl
       run: cargo make sdl
@@ -54,8 +59,3 @@ jobs:
 
     - name: Build libretro desktop
       run: cargo make libretro_desktop
-
-    - name: Build libretro android
-      run: cargo make libretro_android
-      env:
-        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
