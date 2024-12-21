@@ -53,8 +53,8 @@ command = "rustup"
 args = ["toolchain", "install", "--profile", "minimal", "${nightly_version}"]
 
 [tasks.rpibm]
-# toolchain = "${nightly_version}"
 install_crate = "cargo-binutils"
+install_crate_args=["--locked", "--version", "0.3.6"]
 command = "rust-objcopy"
 args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
 dependencies = ["pre-rpibm", "build_rpi_baremetal","install_llvm_tools"]
