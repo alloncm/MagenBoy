@@ -15,7 +15,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
     steps:  
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -28,14 +27,16 @@ jobs:
     - name: Run tests
       run: cargo make test
     # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
-    - name: rpi os
+    - name: Build rpi os
+      continue-on-error: true
       if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
     - name: Build sdl
+      continue-on-error: true
       run: cargo make sdl
     - name: Build libretro
+      continue-on-error: true
       run: cargo make libretro_desktop
-    - name: rpi baremetal
-      run: |
-       rustup toolchain install nightly
-       cargo make -e RPI=4 rpibm
+    - name: Build rpi baremetal
+      continue-on-error: true
+      run: cargo make -e RPI=4 rpibm
