@@ -10,10 +10,10 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-and-test-all-targets:
-    strategy: 
-      matrix:
-        os: [ubuntu-latest, windows-latest]
+  strategy: 
+    matrix:
+      os: [ubuntu-latest, windows-latest]
+  install_deps:
     runs-on: ${{ matrix.os }}
     steps:  
     - uses: actions/checkout@v4
@@ -24,22 +24,61 @@ jobs:
           C:\\Users\\runneradmin\\.cargo\\bin"
     - name: install cargo make
       run: cargo install --no-default-features --locked --version 0.37.23 cargo-make
+
+  test:
+    runs-on: ${{ matrix.os }}
+    needs: install_deps
+    steps:  
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        rustflags: ""
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
     - name: Run tests
       run: cargo make test
-    # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
-    - name: Build rpi os
-      continue-on-error: true
+
+  build-rpi:
+    runs-on: ${{ matrix.os }}
+    needs: install_deps
+    steps:  
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        rustflags: ""
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
+    - name: Build
+      # for some reason the sdl installation causing this to fail (some error about not finding glibc) so this should before the sdl
       if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
-    - name: Build sdl
-      continue-on-error: true
-      run: cargo make sdl
-    - name: Build sdl with debugger
-      continue-on-error: true
-      run: cargo make sdl_dbg
-    - name: Build libretro
-      continue-on-error: true
-      run: cargo make libretro_desktop
     - name: Build rpi baremetal
-      continue-on-error: true
       run: cargo make -e RPI=4 rpibm
+
+  build-sdl:
+    runs-on: ${{ matrix.os }}
+    needs: install_deps
+    steps:  
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        rustflags: ""
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
+    - name: Build
+      run: cargo make sdl
+    - name: Build with debugger
+      run: cargo make sdl_dbg
+
+  build-libretro:
+    runs-on: ${{ matrix.os }}
+    needs: install_deps
+    steps:  
+    - uses: actions/checkout@v4
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        rustflags: ""
+        cache-directories: "/home/runner/.cargo/bin
+          C:\\Users\\runneradmin\\.cargo\\bin"
+    - name: Build libretro
+      run: cargo make libretro_desktop
