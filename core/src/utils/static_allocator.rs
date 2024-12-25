@@ -26,24 +26,26 @@ impl Layout{
 }
 
 pub struct StaticAllocator{
-    buffer:&'static [u8],
-    allocation_size:usize
+    buffer_ptr: *mut u8,
+    buffer_size: usize,
+    allocation_size: usize
 }
 
 impl StaticAllocator{
-    pub const fn new(buffer:&'static [u8])->Self{
-        Self{ buffer, allocation_size: 0 }
+    pub const fn new(buffer_ptr:*mut u8, buffer_size: usize)->Self{
+        Self{ buffer_ptr, buffer_size, allocation_size: 0 }
     }
 
-    pub unsafe fn alloc(&mut self, layout: Layout) -> NonNull<u8> {
-        let allocation_address = self.buffer.as_ptr().add(self.allocation_size) as usize;
+    pub fn alloc(&mut self, layout: Layout) -> NonNull<u8> {
+        let allocation_address = self.buffer_ptr as usize + self.allocation_size;
         let aligned_address = Self::align_address(allocation_address, layout.align);
         self.allocation_size += layout.size + (aligned_address - allocation_address);
 
-        if self.allocation_size > self.buffer.len(){
-            core::panic!("Allocation failed, allocator is out of static memory, pool size: {}, allocation req: {}", self.buffer.len(), layout.size);
+        if self.allocation_size > self.buffer_size{
+            core::panic!("Allocation failed, allocator is out of static memory, pool size: {}, allocation req: {}", self.buffer_size, layout.size);
         }
-        return NonNull::new_unchecked(aligned_address as *mut u8);
+
+        return NonNull::new(aligned_address as *mut u8).expect("Null ptr detected");
     }
 
     fn align_address(address:usize, alignment:usize)->usize{
@@ -58,16 +60,14 @@ mod tests{
 
     #[test]
     fn test_alloc_alignment(){
-        unsafe{
-            static mut BUFFER:[u8;100] = [0;100];
-            let mut allocator = StaticAllocator::new(&mut BUFFER);
-            let aligns = 5;
-            for a in 1..aligns{
-                let align = 1 << a;
-                let ptr = allocator.alloc(Layout { size: 1, align });
-                // verify the address is aligned
-                assert_eq!(ptr.as_ptr() as usize & (align - 1), 0);
-            }
+        static mut BUFFER:[u8;100] = [0;100];
+        let mut allocator = unsafe{StaticAllocator::new(BUFFER.as_mut_ptr(), 100)};
+        let aligns = 5;
+        for a in 1..aligns{
+            let align = 1 << a;
+            let ptr = allocator.alloc(Layout { size: 1, align });
+            // verify the address is aligned
+            assert_eq!(ptr.as_ptr() as usize & (align - 1), 0);
         }
     }
 
