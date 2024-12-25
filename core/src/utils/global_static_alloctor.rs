@@ -1,4 +1,4 @@
-use core::{mem::size_of, ptr::{slice_from_raw_parts_mut, write_unaligned, NonNull}};
+use core::{mem::{size_of, align_of}, ptr::{slice_from_raw_parts_mut, write_unaligned, NonNull}};
 
 use super::static_allocator::{StaticAllocator, Layout};
 
