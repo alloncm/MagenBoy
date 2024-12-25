@@ -118,6 +118,8 @@ impl<T:Copy, const SIZE:usize> IndexMut<usize> for FixedSizeQueue<T, SIZE>{
 
 #[cfg(test)]
 mod tests{
+    use super::*;
+    
     #[test]
     fn test_fifo_ub(){
         let mut fifo = FixedSizeQueue::<u8, 8>::new();
