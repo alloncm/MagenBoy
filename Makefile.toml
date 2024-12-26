@@ -60,7 +60,7 @@ dependencies = ["pre-rpibm", "build_rpi_baremetal","install_llvm_tools"]
 [tasks.build_rpi_baremetal]
 toolchain = "${nightly_version}"
 command = "cargo"
-args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core"]
+args = ["build", "--release", "--target", "armv7a-none-eabihf","--package", "magenboy_rpi", "--bin", "baremetal", "-Z", "build-std=core", "--features", "bm"]
 dependencies = ["install_rust_src"]
 
 [tasks.install_llvm_tools]

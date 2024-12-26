@@ -6,8 +6,10 @@ mod logging;
 
 use core::panic::PanicInfo;
 
+use arrayvec::ArrayString;
+
 use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRenderer}, JoypadMenu, }, menu::*, VERSION};
-use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, utils::stack_string::StackString};
+use magenboy_core::machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc};
 use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
 const MAX_ROM_SIZE:usize = 0x80_0000;       // 8 MiB, Max size of MBC5 rom
@@ -37,10 +39,10 @@ pub extern "C" fn main()->!{
 
     let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
 
-    let mut menu_options:[MenuOption<FileEntry, StackString<{FileEntry::FILENAME_SIZE}>>; 255] = [Default::default(); 255];
+    let mut menu_options:[MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255] = [Default::default(); 255];
     let menu_options_size = read_menu_options(&mut fs, &mut menu_options);
 
-    let mut menu = JoypadMenu::new(&menu_options[0..menu_options_size], StackString::from("Choose ROM"), menu_renderer);
+    let mut menu = JoypadMenu::new(&menu_options[0..menu_options_size], ArrayString::from("Choose ROM").unwrap(), menu_renderer);
     let selected_rom = menu.get_menu_selection(&mut joypad_provider);
     log::info!("Selected ROM: {}", selected_rom.get_name());
     
@@ -53,7 +55,7 @@ pub extern "C" fn main()->!{
     log::info!("Initialized gameboy!");
 
     let menu_pin = unsafe {PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(GpioPull::PullUp)};
-    let pause_menu_header:StackString<30> = StackString::from_args(format_args!("MagenBoy bm v{}", VERSION));
+    let pause_menu_header:ArrayString<30> = ArrayString::try_from(format_args!("MagenBoy bm v{}", VERSION)).unwrap();
     let pause_menu_renderer = GfxDeviceMenuRenderer::new(&mut pause_menu_gfx);
     let mut pause_menu = JoypadMenu::new(&GAME_MENU_OPTIONS, pause_menu_header.as_str(), pause_menu_renderer);
     loop{
@@ -77,7 +79,7 @@ pub extern "C" fn main()->!{
     }
 }
 
-fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, StackString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
+fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
     let mut menu_options_size = 0;
     let mut root_dir_offset = 0;
     const FILES_PER_LIST:usize = 20;
@@ -87,7 +89,7 @@ fn read_menu_options(fs: &mut Fat32, menu_options: &mut [MenuOption<FileEntry, S
             let Some(entry) = entry else {break 'search_dir_loop};
             let extension = entry.get_extension();
             if extension.eq_ignore_ascii_case("gb") || extension.eq_ignore_ascii_case("gbc"){
-                menu_options[menu_options_size] = MenuOption{ value: entry.clone(), prompt: StackString::from(entry.get_name()) };
+                menu_options[menu_options_size] = MenuOption{ value: entry.clone(), prompt: ArrayString::from(entry.get_name()).unwrap() };
                 menu_options_size += 1;
                 log::debug!("Detected ROM: {}", entry.get_name());
             }

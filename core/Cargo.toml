@@ -15,8 +15,8 @@ dbg = []
 
 [dev-dependencies]
 criterion = "0.3"
-reqwest = { version = "0.12", features = ["blocking"] }
-zip = "2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "default-tls"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 image = { version = "0.25", default-features = false, features = ["bmp"] }
 
 [[bench]]
