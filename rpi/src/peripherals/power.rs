@@ -91,6 +91,6 @@ impl Power{
         
         // The program should not return from reset
         // If it returns panic
-        core::panic!("Failed reset attempt");
+        core::unreachable!("Failed reset attempt");
     }   
 }
