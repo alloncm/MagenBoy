@@ -12,6 +12,8 @@ use crate::utils::global_static_alloctor::static_alloc_array;
 
 pub const ROM_BANK_SIZE:usize = 0x4000;
 pub const RAM_BANK_SIZE:usize = 0x2000;
+
+pub const CGB_FLAG_ADDRESS:usize = 0x143;
 pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 
 pub fn get_ram_size(ram_size_register:u8)->usize{
@@ -42,7 +44,7 @@ pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut
 }
 
 pub trait Mbc{
-    fn get_ram(&self)->&[u8];
+    fn get_ram(&mut self)->&mut [u8];
     fn has_battery(&self)->bool;
 
     fn read_bank0(&self, address:u16)->u8;
@@ -50,4 +52,7 @@ pub trait Mbc{
     fn write_rom(&mut self, address:u16, value:u8);
     fn read_external_ram(&self, address:u16)->u8;
     fn write_external_ram(&mut self, address:u16, value:u8);
+
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16;
 }

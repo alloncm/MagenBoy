@@ -2,7 +2,7 @@
 name = "magenboy_common"
 version.workspace = true
 authors.workspace = true
-edition = "2021"
+edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,9 +16,7 @@ chrono = {version = "0.4", optional = true}
 
 [features]
 std = ["chrono", "fern", "crossbeam-channel"]
-
-[build-dependencies]
-cc = "1.0"
+dbg = ["std"]
 
 [dev-dependencies]
 criterion = "0.3"

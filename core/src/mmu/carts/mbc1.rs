@@ -12,7 +12,7 @@ pub struct Mbc1<'a>{
 }
 
 impl<'a> Mbc for Mbc1<'a>{
-    fn get_ram(&self) ->&[u8] {
+    fn get_ram(&mut self) ->&mut [u8] {
         self.ram
     }
 
@@ -53,6 +53,9 @@ impl<'a> Mbc for Mbc1<'a>{
             self.ram[(bank as usize * RAM_BANK_SIZE) + address as usize] = value;
         }
     }
+    
+    #[cfg(feature = "dbg")]
+    fn get_bank_number(&self)->u16 { self.get_current_rom_bank() as u16 }
 }
 
 impl<'a> Mbc1<'a>{

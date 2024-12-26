@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use magenboy_common::interpolation::{scale_bilinear, scale_biliniear_c, scale_nearest};
+use magenboy_common::interpolation::{scale_bilinear, scale_nearest};
 
 
 pub fn interpolation_rust_bench(c: &mut Criterion){
@@ -7,14 +7,6 @@ pub fn interpolation_rust_bench(c: &mut Criterion){
     let mut output_buffer = [0_u8; 240*266*2];
     c.bench_function("bench rust inter", |b|b.iter(||{
         unsafe{scale_bilinear::<160, 144, 266, 240>(input_buffer.as_ptr(), output_buffer.as_mut_ptr())};
-    }));
-}
-
-pub fn interpolation_c_bench(c: &mut Criterion){
-    let input_buffer = [0_u16; 160*144];
-    let mut output_buffer = [0_u8; 240*266*2];
-    c.bench_function("bench c inter", |b|b.iter(||{
-        unsafe{scale_biliniear_c::<160, 144, 266, 240>(input_buffer.as_ptr(), output_buffer.as_mut_ptr())};
     }));
 }
 
@@ -51,5 +43,5 @@ pub fn interpolation_fir_bench(c: &mut Criterion){
     }));
 }
 
-criterion_group!(benches, interpolation_fir_bench, interpolation_rust_bench, interpolation_c_bench, neighbor_rust_inter);
+criterion_group!(benches, interpolation_fir_bench, interpolation_rust_bench, neighbor_rust_inter);
 criterion_main!(benches);

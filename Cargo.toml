@@ -1,15 +1,19 @@
 [workspace]
+resolver = "2"
+
 members = [
     "sdl",
     "core",
     "rpi",
-    "common"
+    "common", 
+    "libretro"
 ]
 
 [workspace.package]
 version = "4.0.0"
 authors = ["alloncm <alloncm@gmail.com>"]
-rust-version = "1.70"   # cause of once cell
+rust-version = "1.73"   # cause of cargo-ndk used to build for android platform
+edition = "2021"
 
 [profile.release]
 lto = true  # Samller binaries and faster code

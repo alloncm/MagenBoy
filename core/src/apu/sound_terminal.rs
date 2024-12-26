@@ -1,4 +1,4 @@
-use super::{audio_device::{DEFAULT_SAPMPLE, Sample}, sound_utils::NUMBER_OF_CHANNELS};
+use super::{audio_device::{DEFAULT_SAPMPLE, Sample}, NUMBER_OF_CHANNELS};
 
 type ChannelMask = u16;
 

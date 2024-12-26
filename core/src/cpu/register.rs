@@ -24,18 +24,22 @@ impl Reg{
     }
 
     pub fn low(&mut self)->&mut u8{
-        self.mask();
+        self.value = self.get_masked_value();
         self.get_offset_byte(LOW_POSITION)
     }
 
     pub fn high(&mut self)->&mut u8{
-        self.mask();
+        self.value = self.get_masked_value();
         self.get_offset_byte(HIGH_POSITION)
     }
     
-    pub fn value(&mut self)->&mut u16{
-        self.mask();
+    pub fn value_mut(&mut self)->&mut u16{
+        self.value = self.get_masked_value();
         return &mut self.value;
+    }
+
+    pub fn value(&self)->u16{
+        self.get_masked_value()
     }
 
     fn get_offset_byte(&mut self, offset:isize)->&mut u8{
@@ -46,7 +50,7 @@ impl Reg{
         }
     }
 
-    fn mask(&mut self){
-        self.value &= self.read_only_mask;
+    fn get_masked_value(&self)->u16{
+        self.value & self.read_only_mask
     }
 } 

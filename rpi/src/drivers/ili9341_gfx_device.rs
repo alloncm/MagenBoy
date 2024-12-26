@@ -96,8 +96,8 @@ impl Ili9341Contoller{
         controller.spi.write(Ili9341Command::VcomControl2 as u8, &[0x86]);
 
         // Configuring the screen
-        controller.spi.write(Ili9341Command::MemoryAccessControl as u8, &[0x28]); // This command tlit the screen 90 degree and set pixel to BGR order 
-        controller.spi.write(Ili9341Command::PixelFormatSet as u8, &[0x55]);     // set pixel format to 16 bit per pixel;
+        controller.spi.write(Ili9341Command::MemoryAccessControl as u8, &[0x28]); // This command tilt the screen 90 degree and set pixel to RGB order (low bits (Blue) -> High bits (Red))
+        controller.spi.write(Ili9341Command::PixelFormatSet as u8, &[0x55]);      // set pixel format to 16 bit per pixel;
         controller.spi.write(Ili9341Command::FrameRateControl as u8, &[0x0, 0x10 /*According to the docs this is 119 hrz, setting this option in order to avoid screen tearing on rpi zero2 */]);
         controller.spi.write(Ili9341Command::DisplayFunctionControl as u8, &[0x8, 0x82, 0x27]);
         

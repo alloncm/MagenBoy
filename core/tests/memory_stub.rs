@@ -1,8 +1,8 @@
-use magenboy_core::mmu::memory::Memory;
+use magenboy_core::mmu::Memory;
 
 pub struct MemoryStub{
     pub data:[u8;0xFFFF],
-    pub double_speed:bool,
+    pub double_speed:bool
 }
 
 impl Memory for MemoryStub{
@@ -17,4 +17,6 @@ impl Memory for MemoryStub{
     fn set_double_speed_mode(&mut self, s:bool) {
         self.double_speed = s;
     }
+    
+    fn set_halt(&mut self, _:bool) {}
 }

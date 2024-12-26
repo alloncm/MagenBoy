@@ -1,5 +1,4 @@
-use crate::mmu::interrupts_handler::InterruptRequest;
-use crate::mmu::memory::Memory;
+use crate::mmu::{interrupts_handler::InterruptRequest, Memory};
 
 use super::register::Reg;
 use super::flag::Flag;
@@ -39,7 +38,10 @@ impl Default for GbCpu {
 impl GbCpu {
     pub fn execute_interrupt_request(&mut self, memory:&mut impl Memory, ir: InterruptRequest)->u8{
         match ir{
-            InterruptRequest::Unhalt=>self.halt = false,
+            InterruptRequest::Unhalt=>{
+                self.halt = false;
+                memory.set_halt(false);
+            },
             InterruptRequest::Interrupt(address)=>return self.prepare_for_interrupt(memory, address),
             InterruptRequest::None=>{}
         }
@@ -84,10 +86,10 @@ impl GbCpu {
     }
 
     pub fn inc_hl(&mut self){
-        *self.hl.value() = (*self.hl.value()).wrapping_add(1);
+        *self.hl.value_mut() = self.hl.value().wrapping_add(1);
     }
 
     pub fn dec_hl(&mut self){
-        *self.hl.value() = (*self.hl.value()).wrapping_sub(1);
+        *self.hl.value_mut() = self.hl.value().wrapping_sub(1);
     }
 }

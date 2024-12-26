@@ -1,4 +1,4 @@
-use crate::{mmu::vram::VRam, ppu::attributes::SpriteAttributes, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}, machine::Mode};
+use crate::{ppu::{attributes::SpriteAttributes, VRam}, utils::{self, bit_masks::{BIT_0_MASK, BIT_2_MASK}, fixed_size_queue::FixedSizeQueue}};
 use super::{FIFO_SIZE, SPRITE_WIDTH, fetching_state::*, get_decoded_pixel};
 
 pub const NORMAL_SPRITE_HIGHT:u8 = 8;
@@ -16,11 +16,10 @@ pub struct SpriteFetcher{
 
     fetcher_state_machine:FetcherStateMachine,
     current_oam_entry:u8,
-    mode:Mode
 }
 
 impl SpriteFetcher{
-    pub fn new(mode:Mode)->Self{
+    pub fn new()->Self{
         let oam_entries:[SpriteAttributes; MAX_SPRITES_PER_LINE] = utils::create_array(|| SpriteAttributes::new(0,0,0,0, 0, 0));
         let state_machine:[FetchingState;8] = [FetchingState::FetchTileNumber, FetchingState::Sleep, FetchingState::Sleep, FetchingState::FetchLowTile, FetchingState::Sleep, FetchingState::FetchHighTile, FetchingState::Sleep, FetchingState::Push];
         
@@ -31,7 +30,6 @@ impl SpriteFetcher{
             oam_entries,
             fifo:FixedSizeQueue::<SpritePixel, 8>::new(),
             rendering:false,
-            mode
         }
     }
 
@@ -43,7 +41,7 @@ impl SpriteFetcher{
         self.rendering = false;
     }
 
-    pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, current_x_pos:u8){
+    pub fn fetch_pixels(&mut self, vram:&VRam, lcd_control:u8, ly_register:u8, current_x_pos:u8, cgb_enabled: bool, cgb_priorty: bool){
         let sprite_size = if lcd_control & BIT_2_MASK == 0 {NORMAL_SPRITE_HIGHT} else{EXTENDED_SPRITE_HIGHT};
 
         match self.fetcher_state_machine.current_state(){
@@ -52,14 +50,14 @@ impl SpriteFetcher{
             }
             FetchingState::FetchLowTile=>{
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let bank = if self.mode == Mode::CGB {oam_attribute.attributes.gbc_bank as u8}else{0};
+                let bank = if cgb_enabled {oam_attribute.attributes.gbc_bank as u8}else{0};
                 let low_data = vram.read_bank(self.fetcher_state_machine.data.tile_data_address, bank);
                 self.fetcher_state_machine.data.low_tile_data = low_data;
                 self.fetcher_state_machine.advance();
             }
             FetchingState::FetchHighTile=>{
                 let oam_attribute = &self.oam_entries[self.current_oam_entry as usize];
-                let bank = if self.mode == Mode::CGB {oam_attribute.attributes.gbc_bank as u8}else{0};
+                let bank = if cgb_enabled {oam_attribute.attributes.gbc_bank as u8}else{0};
                 let high_data = vram.read_bank(self.fetcher_state_machine.data.tile_data_address + 1, bank);
                 self.fetcher_state_machine.data.high_tile_data = high_data;
                 self.fetcher_state_machine.advance();
@@ -103,7 +101,7 @@ impl SpriteFetcher{
                 }
 
                 // if end_x is greater or equal than start_x it means that those pixels didnt had a chance to be pushed to the fifo
-                if self.mode == Mode::CGB && end_x >= start_x{
+                if cgb_enabled && cgb_priorty && end_x >= start_x{
                     // support CGB mode with sprite with lower priority (high OAM index) at a small x
                     // and a sprite with higher prority (low OAM index) at high x
                     let start_index =  core::cmp::max(end_x, self.fifo.len());

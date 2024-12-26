@@ -1,6 +1,11 @@
-use super::{sample_producer::SampleProducer, sound_utils::DUTY_TABLE};
-use super::freq_sweep::FreqSweep;
-use super::volume_envelop::VolumeEnvlope;
+use super::{freq_sweep::FreqSweep, sample_producer::SampleProducer, volume_envelop::VolumeEnvlope};
+
+const DUTY_TABLE:[[u8; 8]; 4] = [
+    [0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,1],
+    [1,0,0,0,0,1,1,1],
+    [0,1,1,1,1,1,1,0],
+];
 
 pub struct SquareSampleProducer{
     pub wave_duty:u8,
