@@ -154,7 +154,18 @@ impl FileEntry{
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct FatSegment{
+    pub state:FatSegmentState,
+    pub len:u32,
+    pub start_index:u32,
+}
 
+impl FatSegment{
+    pub fn new(value:u32, start_index:u32)->Self{
+        Self { state: value.into(), len: 1, start_index}
+    }
+}
 
 // Currently the driver support only 0x100 files in the root directory
 const MAX_FILES: usize = 0x100;
@@ -179,7 +190,8 @@ impl Fat32Fs{
         let bpb_sector_index = disk.get_partition_first_sector_index(DISK_PARTITION_INDEX);
 
         let mut boot_sector:Fat32BootSector = Default::default();
-        let buffer = as_mut_buffer(&mut boot_sector);
+        // SAFETY: Fat32BootSector is repr(C) and therefore safe to transmute to byte slice
+        let buffer = unsafe{as_mut_buffer(&mut boot_sector)};
         disk.read(bpb_sector_index, buffer);
 
         let fs_type_label = boot_sector.fs_type_label.clone();
@@ -217,7 +229,8 @@ impl Fat32Fs{
         let mut sector_offset = 0;
         'search: loop{
             let mut root_dir = [FatShortDirEntry::default();FAT_DIR_ENTRIES_PER_SECTOR];
-            let buffer = as_mut_buffer(&mut root_dir);
+            // SAFETY: FatShortDirEntry is repr(C) and packed and since arrays has the same alingnment as T it is safe
+            let buffer = unsafe{as_mut_buffer(&mut root_dir)};
             self.disk.read(root_start_sector_index + sector_offset, buffer);
             sector_offset += 1;     // Since root_dir buffer contains enough entries for exactly 1 sector
             for dir in root_dir{
@@ -464,7 +477,8 @@ impl Fat32Fs{
 
     fn write_root_dir_cache(&mut self){
         let root_sector_index = self.get_cluster_start_sector_index(self.boot_sector.fat32_bpb.root_dir_first_cluster);
-        let buffer = Self::arrayvec_as_buffer(&self.root_dir_cache);
+        // SAFETY: FatShortDirEntry layout is repr(C)
+        let buffer = unsafe{Self::arrayvec_as_buffer(&self.root_dir_cache)};
         self.disk.write(root_sector_index, buffer);
     }
 
@@ -476,7 +490,13 @@ impl Fat32Fs{
         (self.boot_sector.fat32_bpb.sectors_per_fat_32 * self.boot_sector.fat32_bpb.fats_count as u32)
     }
     
-    fn arrayvec_as_buffer<'a, T, const CAP:usize>(vec:&'a ArrayVec<T, CAP>)->&'a [u8]{
-        unsafe{core::slice::from_raw_parts(vec.as_ptr() as *const u8, vec.len() * core::mem::size_of::<T>())}
+    /// Takes an `ArrayVec<T>` and converts it to a byte slice
+    /// This is a function in order to borrow the input properly and bind in to the output slice
+    /// The function borrows the vec and returns a slice binded to the vec borrow
+    /// 
+    /// ## SAFETY
+    /// T layout must be known
+    unsafe fn arrayvec_as_buffer<'a, T, const CAP:usize>(vec:&'a ArrayVec<T, CAP>)->&'a [u8]{
+        core::slice::from_raw_parts(vec.as_ptr() as *const u8, vec.len() * core::mem::size_of::<T>())
     }
 }

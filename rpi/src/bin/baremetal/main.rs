@@ -110,9 +110,10 @@ fn get_save_filename(selected_rom: &FileEntry) -> ArrayString<11> {
 }
 
 fn read_menu_options(fs: &mut Fat32Fs, menu_options: &mut [MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255]) -> usize {
+    const FILES_PER_LIST:usize = 20;
+
     let mut menu_options_size = 0;
     let mut root_dir_offset = 0;
-    const FILES_PER_LIST:usize = 20;
     loop{
         let dir_entries = fs.root_dir_list::<FILES_PER_LIST>(root_dir_offset);
         for entry in &dir_entries{

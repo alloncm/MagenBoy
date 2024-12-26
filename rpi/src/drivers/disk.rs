@@ -44,7 +44,8 @@ impl Disk{
         emmc.init();
 
         let mut mbr = MasterBootRecord::default();
-        let buffer = as_mut_buffer(&mut mbr);
+        // SAFETY: MasterBootRecord is repr(C)
+        let buffer = unsafe{as_mut_buffer(&mut mbr)};
         
         if !emmc.read(buffer){
             core::panic!("Cant read MBR from disk");

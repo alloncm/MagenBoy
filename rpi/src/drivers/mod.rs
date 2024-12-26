@@ -11,6 +11,10 @@ pub use ili9341_gfx_device::*;
 
 
 #[cfg(not(feature = "os"))]
-pub(crate) fn as_mut_buffer<'a, T>(t:&'a mut T)->&'a mut [u8]{
-    unsafe{&mut *core::ptr::slice_from_raw_parts_mut(t as *mut T as *mut _, core::mem::size_of::<T>())}
+/// Casts a type to slice of bytes while keeping the lifetime (fancy reinterepter cast to byte array)
+/// 
+/// ## SAFETY
+/// `T` byte representation must be known (aka `repr(C)`) in order for the slice to be usable without UB
+pub(crate) unsafe fn as_mut_buffer<'a, T>(t:&'a mut T)->&'a mut [u8]{
+    core::slice::from_raw_parts_mut(t as *mut T as *mut _, core::mem::size_of::<T>())
 }
