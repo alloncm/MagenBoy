@@ -16,6 +16,7 @@ use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull, ResetMode, P
 fn panic(info:&PanicInfo)->!{
     log::error!("An error has occurred!: \r\n{}", info);
 
+    // SAFETY: Defined in boot asm code, no params passed and this function does not returned so no calling convention is even needed
     unsafe{boot::hang_led()};
 }
 
@@ -55,6 +56,7 @@ pub extern "C" fn main()->!{
     let selected_rom = menu.get_menu_selection(&mut joypad_provider);
     log::info!("Selected ROM: {}", selected_rom.get_name());
     
+    // SAFETY: Only ref to this static mut var
     let rom = unsafe{&mut ROM_BUFFER};
     fs.read_file(selected_rom, rom);
     let save_data = try_read_save_file(selected_rom, &mut fs);
@@ -99,6 +101,8 @@ fn reset_system<'a>(mbc: &'a mut dyn Mbc, mut fs: Fat32Fs, mut power_manager: Po
 fn try_read_save_file(selected_rom: &FileEntry, mut fs: &mut Fat32Fs) -> Option<&'static [u8]> {
     let save_filename = get_save_filename(selected_rom);
     let file = search_file(&mut fs, save_filename.as_str())?;
+
+    // SAFETY: The only reference to this static mut var
     let ram = unsafe{&mut RAM_BUFFER[0..file.size as usize]};
     fs.read_file(&file, ram);
     log::info!("Found save file for selected rom: {}", file.get_name());
