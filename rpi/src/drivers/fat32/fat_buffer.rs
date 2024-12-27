@@ -35,7 +35,7 @@ impl From<u32> for FatSegmentState{
 impl FatSegmentState{
     /// Checks whether a value should be part of this segment or not
     pub fn should_continue_segment(&self, other: &Self)->bool{
-        // AllocatedEof is should never continue segment 
+        // AllocatedEof should never continue segment 
         // otherwise fallback to check raw values of the enum
         if *self == Self::AllocatedEof || *other == Self::AllocatedEof{
             return false;
@@ -58,7 +58,7 @@ impl FatInfo{
 }
 
 // This is the default size of a fat buffer
-// the actual size is just tweaking between fewer read operation and smaller buffer
+// This size is just a result of tweaking between fewer read operation and smaller working buffers
 pub const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
 pub struct FatBuffer<const FBS:usize = FAT_BUFFER_SIZE>{
