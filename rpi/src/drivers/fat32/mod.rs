@@ -123,7 +123,7 @@ struct FatLongDirEntry{
 }
 
 const DISK_PARTITION_INDEX:u8       = 0;
-const SECTOR_SIZE:usize             = Disk::get_block_size() as usize;
+const SECTOR_SIZE:usize             = Disk::BLOCK_SIZE as usize;
 const FAT_ENTRY_EOF_INDEX:u32       = 0x0FFF_FFFF;
 const FAT_ENTRY_FREE_INDEX:u32      = 0;
 const DELETED_DIR_ENTRY_PREFIX:u8   = 0xE5;

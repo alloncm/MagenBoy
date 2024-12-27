@@ -1,6 +1,6 @@
 mod gpio_joypad;
 mod ili9341_gfx_device;
-cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
+cfg_if::cfg_if!{ if #[cfg(feature = "bm")]{
     pub(super) mod disk;
     mod fat32;
     pub use fat32::*;
@@ -10,7 +10,7 @@ pub use gpio_joypad::*;
 pub use ili9341_gfx_device::*;
 
 
-#[cfg(not(feature = "os"))]
+#[cfg(feature = "bm")]
 /// Casts a type to slice of bytes while keeping the lifetime (fancy reinterepter cast to byte array)
 /// 
 /// ## SAFETY

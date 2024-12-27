@@ -1,4 +1,4 @@
-#[cfg(not(feature = "os"))]
+#[cfg(feature = "bm")]
 pub use no_std_impl::*;
 #[cfg(feature = "os")]
 pub use std_impl::*;
@@ -23,7 +23,7 @@ pub enum Trigger{
     RisingEdge
 }
 
-#[cfg(not(feature = "os"))]
+#[cfg(feature = "bm")]
 pub mod no_std_impl{
     use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier, BulkWrite}};
     use super::*;

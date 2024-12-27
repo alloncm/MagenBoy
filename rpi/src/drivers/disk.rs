@@ -37,7 +37,7 @@ pub struct Disk{
 }
 
 impl Disk{
-    const BLOCK_SIZE:u32 = Emmc::get_block_size();
+    pub const BLOCK_SIZE:u32 = Emmc::get_block_size();
 
     pub fn new()->Self{
         let mut emmc = unsafe{PERIPHERALS.take_emmc()};
@@ -58,8 +58,7 @@ impl Disk{
     }
 
     pub fn read(&mut self, block_index:u32, buffer:&mut [u8]){
-        let buffer_len_reminder = buffer.len() % Self::BLOCK_SIZE as usize;
-        let max_aligned_buffer_len = buffer.len() - buffer_len_reminder;
+        let (max_aligned_buffer_len, buffer_len_reminder) = Self::get_max_alligned_buffer_len_and_reminder(buffer);
         let aligned_buffer = &mut buffer[..max_aligned_buffer_len];
 
         self.emmc.seek((block_index * Self::BLOCK_SIZE) as u64);
@@ -83,8 +82,7 @@ impl Disk{
     }
 
     pub fn write(&mut self, block_index:u32, buffer:&[u8]){
-        let buffer_len_reminder = buffer.len() % Self::BLOCK_SIZE as usize;
-        let max_aligned_buffer_len = buffer.len() - buffer_len_reminder;
+        let (max_aligned_buffer_len, buffer_len_reminder) = Self::get_max_alligned_buffer_len_and_reminder(buffer);
         let aligned_buffer = &buffer[..max_aligned_buffer_len];
 
         self.emmc.seek((block_index * Self::BLOCK_SIZE) as u64);
@@ -99,16 +97,20 @@ impl Disk{
         self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
         self.emmc_write(&temp_buffer);
     }
+    
+    pub fn get_partition_first_sector_index(&self, partition_index:u8)->u32{
+        self.mbr.partitions[partition_index as usize].first_sector_index
+    }
 
     fn emmc_write(&mut self, buffer: &[u8]) {
         if !self.emmc.write(buffer){
             core::panic!("Error while writing object of size: {}", buffer.len());
         }
     }
-
-    pub fn get_partition_first_sector_index(&self, partition_index:u8)->u32{
-        self.mbr.partitions[partition_index as usize].first_sector_index
+    
+    fn get_max_alligned_buffer_len_and_reminder(buffer: &[u8]) -> (usize, usize) {
+        let buffer_len_reminder = buffer.len() % Self::BLOCK_SIZE as usize;
+        let max_aligned_buffer_len = buffer.len() - buffer_len_reminder;
+        return (max_aligned_buffer_len, buffer_len_reminder);
     }
-
-    pub const fn get_block_size()->u32{Self::BLOCK_SIZE}
 }
