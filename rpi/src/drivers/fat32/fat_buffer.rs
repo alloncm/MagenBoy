@@ -101,8 +101,8 @@ impl<const FBS:usize> FatBuffer<FBS>{
 
     /// On success returns the FAT entry, on error returns the last valid fat index
     pub fn read(&mut self)->Result<u32, FatIndex>{
-        let (start_index, end_index) = self.get_internal_sector_boundries_indicies()?;
-        let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
+        let entry_slice = self.get_internal_sector_index_entry_slice()?;
+        let entry = Self::bytes_to_fat_entry((*entry_slice).try_into().unwrap());
         self.increment_fat_internal_index();
         // Mask the entry to hide the reserved bits
         return Ok(entry & FAT_ENTRY_MASK);
@@ -110,11 +110,11 @@ impl<const FBS:usize> FatBuffer<FBS>{
 
     /// On error returns the last valid fat index
     pub fn write(&mut self, mut value:u32)->Result<(), FatIndex>{
-        let (start_index, end_index) = self.get_internal_sector_boundries_indicies()?;
-        let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
+        let entry_slice = self.get_internal_sector_index_entry_slice()?;
+        let entry = Self::bytes_to_fat_entry((*entry_slice).try_into().unwrap());
         let reserved_bits = entry & (!FAT_ENTRY_MASK);
         value = (value & FAT_ENTRY_MASK) | reserved_bits;
-        self.buffer[start_index ..  end_index].copy_from_slice(&Self::fat_entry_to_bytes(value));
+        entry_slice.copy_from_slice(&Self::fat_entry_to_bytes(value));
         self.increment_fat_internal_index();
         return Ok(());
     }
@@ -128,12 +128,11 @@ impl<const FBS:usize> FatBuffer<FBS>{
         }
     }
 
-    // Returns the internal sector index start and end indicies, on error returns the last valid fat index
-    fn get_internal_sector_boundries_indicies(&mut self) -> Result<(usize, usize), FatIndex> {
+    // Returns the internal sector index slice, on error returns the last valid fat index
+    fn get_internal_sector_index_entry_slice(&mut self) -> Result<&mut [u8], FatIndex> {
         let internal_sector_index = self.get_internal_sector_index()?;
         let start_index = (internal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
-        let end_index = start_index + FAT_ENTRY_SIZE;
-        return Ok((start_index, end_index));
+        return Ok(&mut self.buffer[start_index .. start_index + FAT_ENTRY_SIZE]);
     }
 
     fn increment_fat_internal_index(&mut self) {
