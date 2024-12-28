@@ -432,14 +432,8 @@ impl Fat32Fs{
             // 2. If its smaller than the required size (can use some of the allocation)
             if (existing_entry.size as usize) == content.len(){
                 log::debug!("Using existing allocation");
-                let existing_entry = existing_entry.clone();        // Shadow the original in order to satisfy the borrow checker
-                let mut current_cluster = existing_entry.get_first_cluster_index();
-                let mut cluster_count = 0;
-                while cluster_count < segment_len{
-                    self.write_to_data_section(content, current_cluster);
-                    current_cluster = fat_buffer.read().ok().unwrap();
-                    cluster_count += 1;
-                }
+                let first_cluster_index = existing_entry.get_first_cluster_index();
+                self.write_to_data_section(content, first_cluster_index);
                 return ControlFlow::Break(());
             }
             else{
