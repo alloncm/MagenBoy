@@ -6,6 +6,7 @@ pub fn initialize_mbc(program:&[u8], save_data:Option<&[u8]>)->&'static mut dyn 
     let program_clone:&mut [u8] = static_alloc_array(program.len());
     program_clone.clone_from_slice(program);
     let save_data_clone:Option<&'static mut[u8]> = if let Some(sd) = save_data{
+        log::info!("Found save data!");
         let static_alloc_array = static_alloc_array(sd.len());
         static_alloc_array.clone_from_slice(&sd);
         Some(static_alloc_array)
