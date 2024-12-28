@@ -57,14 +57,16 @@ impl FatInfo{
     }
 }
 
-// This is the default size of a fat buffer
-// This size is just a result of tweaking between fewer read operation and smaller working buffers
-pub const FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
+/// This is the default size of a fat buffer.
+/// This size is just a result of tweaking between fewer read operations and smaller working buffers
+pub const DEFAULT_FAT_BUFFER_SIZE:usize = SECTOR_SIZE as usize * 100;
 
-pub struct FatBuffer<const FBS:usize = FAT_BUFFER_SIZE>{
+pub struct FatBuffer<const FBS:usize = DEFAULT_FAT_BUFFER_SIZE>{
     buffer:[u8;FBS],
     buffer_len: usize,
+    /// Start of the buffer (immutable)
     fat_start_index:FatIndex,
+    /// Running counter of the current postion on the buffer (mutable)
     fat_internal_index:FatIndex,
     fat_info:FatInfo,
 }
@@ -76,7 +78,10 @@ impl<const FBS:usize> FatBuffer<FBS>{
         let entries_count = entries_count.unwrap_or((FBS - SECTOR_SIZE) / FAT_ENTRY_SIZE);      // The max size is smaller cause I need some padding space for alignment
         let mut buffer = [0; FBS];
         let fat_offset = first_cluster_index * FAT_ENTRY_SIZE;
-        let fat_index = FatIndex{ sector_index: (fat_info.first_fat_start_sector + (fat_offset / SECTOR_SIZE)) as u32, sector_offset: fat_offset % SECTOR_SIZE };
+        let fat_index = FatIndex{ 
+            sector_index: (fat_info.first_fat_start_sector + (fat_offset / SECTOR_SIZE)) as u32, 
+            sector_offset: fat_offset % SECTOR_SIZE 
+        };
         
         // Align the end read to SECTOR_SIZE, since the FAT table is not aligned we need to read exactly X sectors in order to be able to write them back later
         let fat_end_read = (entries_count * FAT_ENTRY_SIZE) + (SECTOR_SIZE - ((entries_count * FAT_ENTRY_SIZE) % SECTOR_SIZE));
@@ -84,38 +89,33 @@ impl<const FBS:usize> FatBuffer<FBS>{
             core::panic!("Error fat entries count is too much: expected:{}, actual: {}", FBS / FAT_ENTRY_SIZE, entries_count);
         }
         disk.read(fat_index.sector_index, &mut buffer[..fat_end_read]);
-        return Self { buffer, fat_start_index: fat_index.clone(), fat_internal_index: fat_index, buffer_len: fat_end_read, fat_info };
+        
+        return Self { 
+            buffer, 
+            fat_start_index: fat_index.clone(), 
+            fat_internal_index: fat_index, 
+            buffer_len: fat_end_read, 
+            fat_info 
+        };
     }
 
     /// On success returns the FAT entry, on error returns the last valid fat index
     pub fn read(&mut self)->Result<u32, FatIndex>{
-        let internal_sector_index = self.get_internal_sector_index()?;
-        let start_index = (internal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
-        let end_index = start_index + FAT_ENTRY_SIZE;
+        let (start_index, end_index) = self.get_internal_sector_boundries_indicies()?;
         let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
-        self.fat_internal_index.sector_offset += FAT_ENTRY_SIZE;
-        if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
-            self.fat_internal_index.sector_index += 1;
-            self.fat_internal_index.sector_offset = 0;
-        }
+        self.increment_fat_internal_index();
         // Mask the entry to hide the reserved bits
         return Ok(entry & FAT_ENTRY_MASK);
     }
 
     /// On error returns the last valid fat index
     pub fn write(&mut self, mut value:u32)->Result<(), FatIndex>{
-        let internal_sector_index = self.get_internal_sector_index()?;
-        let start_index = (internal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
-        let end_index = start_index + FAT_ENTRY_SIZE;
+        let (start_index, end_index) = self.get_internal_sector_boundries_indicies()?;
         let entry = Self::bytes_to_fat_entry(self.buffer[start_index .. end_index].try_into().unwrap());
         let reserved_bits = entry & (!FAT_ENTRY_MASK);
         value = (value & FAT_ENTRY_MASK) | reserved_bits;
         self.buffer[start_index ..  end_index].copy_from_slice(&Self::fat_entry_to_bytes(value));
-        self.fat_internal_index.sector_offset += FAT_ENTRY_SIZE;
-        if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
-            self.fat_internal_index.sector_index += 1;
-            self.fat_internal_index.sector_offset = 0;
-        }
+        self.increment_fat_internal_index();
         return Ok(());
     }
 
@@ -125,6 +125,22 @@ impl<const FBS:usize> FatBuffer<FBS>{
         for i in 0..self.fat_info.fats_count{
             let start_sector = self.fat_start_index.sector_index + (self.fat_info.sectors_per_fat * i) as u32;
             let _ = disk.write(start_sector, &mut self.buffer[..self.buffer_len]);
+        }
+    }
+
+    // Returns the internal sector index start and end indicies, on error returns the last valid fat index
+    fn get_internal_sector_boundries_indicies(&mut self) -> Result<(usize, usize), FatIndex> {
+        let internal_sector_index = self.get_internal_sector_index()?;
+        let start_index = (internal_sector_index * SECTOR_SIZE) + self.fat_internal_index.sector_offset;
+        let end_index = start_index + FAT_ENTRY_SIZE;
+        return Ok((start_index, end_index));
+    }
+
+    fn increment_fat_internal_index(&mut self) {
+        self.fat_internal_index.sector_offset += FAT_ENTRY_SIZE;
+        if self.fat_internal_index.sector_offset >= SECTOR_SIZE{
+            self.fat_internal_index.sector_index += 1;
+            self.fat_internal_index.sector_offset = 0;
         }
     }
 

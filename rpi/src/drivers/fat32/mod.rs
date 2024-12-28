@@ -252,7 +252,7 @@ impl Fat32Fs{
     fn init_fat_table_cache(&mut self){
         // This buffer is bigger then the default in order to minimize the number of read operations
         // The value is tweaked for faster reads
-        const INIT_FAT_BUFFER_SIZE:usize = FAT_BUFFER_SIZE * 10;
+        const INIT_FAT_BUFFER_SIZE:usize = DEFAULT_FAT_BUFFER_SIZE * 10;
         let mut fat_buffer:FatBuffer<INIT_FAT_BUFFER_SIZE> = FatBuffer::new(self.fat_info, 0, None, &mut self.disk);
 
         // The fat has entry per cluster in the volume, were adding 2 for the first 2 reserved entries (0,1)
