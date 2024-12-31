@@ -616,7 +616,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             color_ram[(*pallete_index_register & 0b11_1111) as usize] = value;
         }
         else{
-            log::warn!("bad color ram write: index - {:#X}, value: - {:#X}", pallete_index_register, value);
+            log::trace!("bad color ram write: index - {:#X}, value: - {:#X}", pallete_index_register, value);
         }
 
         // if bit 7 is set inderement the dest adderess after write

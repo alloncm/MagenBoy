@@ -41,7 +41,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
                     return self.io_bus.ppu.vram.read_current_bank(address-0x8000);
                 }
                 else{
-                    log::warn!("bad vram read");
+                    log::trace!("bad vram read");
                     return BAD_READ_VALUE;
                 }
             },
@@ -50,7 +50,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
                     return self.io_bus.ppu.oam[(address-0xFE00) as usize];
                 }
                 else{
-                    log::warn!("bad oam read");
+                    log::trace!("bad oam read");
                     return BAD_READ_VALUE;
                 }
             }
@@ -80,7 +80,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
                         self.io_bus.ppu.vram.write_current_bank(address-0x8000, value);
                     }
                     else{
-                        log::warn!("bad vram write: address - {:#X}, value - {:#X}, bank - {}", address, value, self.io_bus.ppu.vram.get_bank_reg());
+                        log::trace!("bad vram write: address - {:#X}, value - {:#X}, bank - {}", address, value, self.io_bus.ppu.vram.get_bank_reg());
                     }
                 },
                 0xFE00..=0xFE9F=>{
@@ -88,7 +88,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
                         self.io_bus.ppu.oam[(address-0xFE00) as usize] = value;
                     }
                     else{
-                        log::warn!("bad oam write")
+                        log::trace!("bad oam write")
                     }
                 },
                 _=>self.write_unprotected(address, value)
@@ -249,12 +249,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     fn bad_dma_read(address:u16)->u8{
-        log::warn!("bad memory read during dma. {:#X}", address);
+        log::trace!("bad memory read during dma. {:#X}", address);
         return BAD_READ_VALUE;
     }
 
     fn bad_dma_write(address:u16){
-        log::warn!("bad memory write during dma. {:#X}", address)
+        log::trace!("bad memory write during dma. {:#X}", address)
     }
 
     fn write_color_ram(&mut self, address:u16, color: Color){

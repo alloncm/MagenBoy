@@ -65,7 +65,7 @@ impl Power{
         Self { registers: get_static_peripheral(PM_BASE_OFFSET) }
     }
 
-    pub fn reset(&mut self, mode:ResetMode){
+    pub fn reset(&mut self, mode:ResetMode)->!{
         let mbox = unsafe{PERIPHERALS.get_mailbox()};
         for device_id in 0..RPI_DEVICES_COUNT{
             mbox.call(Tag::SetPowerState, [device_id as u32, 0 /* power off, no wait */]);
@@ -88,5 +88,9 @@ impl Power{
         rstc_reg |= PM_PASSWORD | PM_RSTC_WRCFG_FULL_RESET;
         self.registers.rstc.write(rstc_reg);
         memory_barrier();
+        
+        // The program should not return from reset
+        // If it returns panic
+        core::unreachable!("Failed reset attempt");
     }   
 }

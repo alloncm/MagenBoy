@@ -4,7 +4,7 @@ use super::as_mut_buffer;
 #[repr(C, packed)]
 struct PartitionEntry{
     status:u8,
-    frist_sector_chs_address:[u8;3],
+    first_sector_chs_address:[u8;3],
     partition_type:u8,
     last_sector_chs_address:[u8;3],
     first_sector_index:u32,
@@ -13,7 +13,7 @@ struct PartitionEntry{
 
 impl Default for PartitionEntry{
     fn default() -> Self {
-        Self { status: Default::default(), frist_sector_chs_address: Default::default(), partition_type: Default::default(), last_sector_chs_address: Default::default(), first_sector_index: Default::default(), sectors_count: Default::default() }
+        Self { status: Default::default(), first_sector_chs_address: Default::default(), partition_type: Default::default(), last_sector_chs_address: Default::default(), first_sector_index: Default::default(), sectors_count: Default::default() }
     }
 }
 
@@ -37,11 +37,14 @@ pub struct Disk{
 }
 
 impl Disk{
+    pub const BLOCK_SIZE:u32 = Emmc::get_block_size();
+
     pub fn new()->Self{
         let mut emmc = unsafe{PERIPHERALS.take_emmc()};
         emmc.init();
 
         let mut mbr = MasterBootRecord::default();
+        // SAFETY: MasterBootRecord is repr(C)
         let buffer = unsafe{as_mut_buffer(&mut mbr)};
         
         if !emmc.read(buffer){
@@ -54,24 +57,60 @@ impl Disk{
         Self { emmc, mbr }
     }
 
-    /// Returns the number of blocks the read operation fetched
-    /// The user knows how much of the buffer is filled
-    pub fn read(&mut self, block_index:u32, buffer:&mut [u8]) -> u32 {
-        let block_size = self.emmc.get_block_size();
-        let buffer_size = buffer.len();
-        if buffer_size  % block_size as usize != 0{
-            core::panic!("buffer size must be a division of block size: {}", block_size);
+    pub fn read(&mut self, block_index:u32, buffer:&mut [u8]){
+        let (max_aligned_buffer_len, buffer_len_reminder) = Self::get_max_alligned_buffer_len_and_reminder(buffer);
+        let aligned_buffer = &mut buffer[..max_aligned_buffer_len];
+
+        self.emmc.seek((block_index * Self::BLOCK_SIZE) as u64);
+        // Verify the buffer is larger than a single block 
+        if aligned_buffer.len() != 0{
+            self.emmc_read(aligned_buffer);
+            // early return if the buffer is aligned
+            if buffer_len_reminder == 0 {return};
         }
-        self.emmc.seek((block_index * block_size) as u64);
-        if !self.emmc.read(buffer){
-            core::panic!("Error while reading object of size: {}", buffer_size);
-        }
-        return  buffer_size as u32 / block_size;
+        // handle the case buffer length is not aligned for block size
+        let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
+        self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
+        self.emmc_read(&mut temp_buffer);
+        buffer[max_aligned_buffer_len..].copy_from_slice(&mut temp_buffer[..buffer_len_reminder]);
     }
 
+    fn emmc_read(&mut self, buffer: &mut [u8]) {
+        if !self.emmc.read(buffer){
+            core::panic!("Error while reading object of size: {}", buffer.len());
+        }
+    }
+
+    pub fn write(&mut self, block_index:u32, buffer:&[u8]){
+        let (max_aligned_buffer_len, buffer_len_reminder) = Self::get_max_alligned_buffer_len_and_reminder(buffer);
+        let aligned_buffer = &buffer[..max_aligned_buffer_len];
+
+        self.emmc.seek((block_index * Self::BLOCK_SIZE) as u64);
+        if aligned_buffer.len() != 0{
+            self.emmc_write(aligned_buffer);
+            // early return since the buffer is aligned
+            if buffer_len_reminder == 0 {return};
+        }
+        // handle the case buffer length is not aligned for block size
+        let mut temp_buffer:[u8;Self::BLOCK_SIZE as usize] = [0;Self::BLOCK_SIZE as usize];
+        temp_buffer[..buffer_len_reminder].copy_from_slice(&buffer[max_aligned_buffer_len..]);
+        self.emmc.seek(((block_index + (max_aligned_buffer_len as u32 / Self::BLOCK_SIZE)) * Self::BLOCK_SIZE) as u64);
+        self.emmc_write(&temp_buffer);
+    }
+    
     pub fn get_partition_first_sector_index(&self, partition_index:u8)->u32{
         self.mbr.partitions[partition_index as usize].first_sector_index
     }
 
-    pub fn get_block_size(&self)->u32{self.emmc.get_block_size()}
+    fn emmc_write(&mut self, buffer: &[u8]) {
+        if !self.emmc.write(buffer){
+            core::panic!("Error while writing object of size: {}", buffer.len());
+        }
+    }
+    
+    fn get_max_alligned_buffer_len_and_reminder(buffer: &[u8]) -> (usize, usize) {
+        let buffer_len_reminder = buffer.len() % Self::BLOCK_SIZE as usize;
+        let max_aligned_buffer_len = buffer.len() - buffer_len_reminder;
+        return (max_aligned_buffer_len, buffer_len_reminder);
+    }
 }
