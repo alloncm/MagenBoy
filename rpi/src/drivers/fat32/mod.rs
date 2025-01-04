@@ -155,15 +155,48 @@ impl FileEntry{
 }
 
 #[derive(Clone, Debug)]
-pub struct FatSegment{
-    pub state:FatSegmentState,
-    pub len:u32,
-    pub start_index:u32,
+struct FatSegment{
+    state:FatSegmentState,
+    len:u32,
+    start_index:u32,
 }
 
 impl FatSegment{
-    pub fn new(value:u32, start_index:u32)->Self{
+    fn new(value:u32, start_index:u32)->Self{
         Self { state: value.into(), len: 1, start_index}
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum FatSegmentState{
+    Free,
+    Allocated,
+    AllocatedEof,
+    Reserved,
+    Bad,
+}
+
+impl From<u32> for FatSegmentState{
+    fn from(value: u32) -> Self {
+        match value{
+            0 => Self::Free,
+            2..=0xFFF_FFF5 => Self::Allocated,
+            0xFFF_FFFF => Self::AllocatedEof,
+            0xFFF_FFF7 => Self::Bad,
+            _ => Self::Reserved
+        }
+    }
+}
+
+impl FatSegmentState{
+    /// Checks whether a value should be part of this segment or not
+    fn should_continue_segment(&self, other: &Self)->bool{
+        // AllocatedEof should never continue segment 
+        // otherwise fallback to check raw values of the enum
+        if *self == Self::AllocatedEof || *other == Self::AllocatedEof{
+            return false;
+        }
+        return self == other;
     }
 }
 
@@ -297,7 +330,7 @@ impl Fat32Fs{
             }
             if dir.attributes == ATTR_LONG_NAME{
                 continue;
-                // handle long file names here
+                // TODO: handle long file names here
             }
             if discard > 0{
                 discard -= 1;
@@ -419,17 +452,23 @@ impl Fat32Fs{
                 return ControlFlow::Continue(())
             };
 
-            let segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == existing_entry.get_first_cluster_index()).unwrap().clone();
+            let first_cluster_index = existing_entry.get_first_cluster_index();
+            let segment = self.fat_table_cache.as_slice().into_iter().find(|f|f.start_index == first_cluster_index).unwrap().clone();
             let segment_len = match segment.state {
                 FatSegmentState::Allocated => segment.len + 1,
                 FatSegmentState::AllocatedEof => 1,
                 _ => core::panic!("FAT32 FS Error: received not allocated segment"),
             };
-            let mut fat_buffer:FatBuffer = FatBuffer::new(self.fat_info, existing_entry.get_first_cluster_index() as usize, Some(segment_len as usize), &mut self.disk);
+            let mut fat_buffer:FatBuffer = FatBuffer::new(self.fat_info, first_cluster_index as usize, Some(segment_len as usize), &mut self.disk);
 
             // Possible Optimization: Allow more cases to reuse the allocation
             // 1. if its in the range of the cluster alignment
             // 2. If its smaller than the required size (can use some of the allocation)
+            //
+            // This check also verifes that the allocation is continuous, allocation done by this driver are continous but other drivers can allocate differently.
+            // If the allocation is not continous the overwrite logic will not work as it assumes continous allocation. 
+            // The check done by the fact that it checks for allocated segment for this file allocation
+            // and the if the allocated segment is the len of the file -> the allocation is continous.
             if (existing_entry.size as usize) == content.len(){
                 log::debug!("Using existing allocation");
                 let first_cluster_index = existing_entry.get_first_cluster_index();
@@ -438,13 +477,12 @@ impl Fat32Fs{
             }
             else{
                 existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
-                // Mark the fat entries as free
+                // Mark the fat entries as free in order to make them usable
                 for _ in 0..segment_len{
                     fat_buffer.write(FAT_ENTRY_FREE_INDEX).ok().unwrap();
                 }
-                // while fat_buffer.write(FAT_ENTRY_FREE_INDEX).is_ok() {}
                 fat_buffer.flush(&mut self.disk);
-                // The root dir cache is flushed at the end of the function
+                // The root dir cache is written to disk at the end of the write operation
             }
         }
         return ControlFlow::Continue(());
@@ -489,7 +527,7 @@ impl Fat32Fs{
     /// The function borrows the vec and returns a slice binded to the vec borrow
     /// 
     /// ## SAFETY
-    /// T layout must be known
+    /// T layout must be known (AKA `repr(C)`)
     unsafe fn arrayvec_as_buffer<'a, T, const CAP:usize>(vec:&'a ArrayVec<T, CAP>)->&'a [u8]{
         core::slice::from_raw_parts(vec.as_ptr() as *const u8, vec.len() * core::mem::size_of::<T>())
     }
