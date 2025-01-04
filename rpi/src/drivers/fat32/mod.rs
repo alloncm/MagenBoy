@@ -108,7 +108,7 @@ impl FatShortDirEntry{
 }
 
 // This struct is for support to the long filenames that I will add later
-// unused for now
+#[allow(unused)]
 #[derive(Clone, Copy)]
 #[repr(C,packed)]
 struct FatLongDirEntry{
@@ -228,8 +228,9 @@ impl Fat32Fs{
         disk.read(bpb_sector_index, buffer);
 
         let fs_type_label = boot_sector.fs_type_label.clone();
-        if &fs_type_label[0..3] != b"FAT"{
-            core::panic!("File system is not FAT");
+        let fat_magic = &fs_type_label[0..3];
+        if fat_magic != b"FAT"{
+            core::panic!("File system is not FAT, found magic: {:?}", fat_magic);
         }
         if boot_sector.fat32_bpb.sectors_per_fat_16 != 0{
             core::panic!("Detected FAT16 and not FAT32 file system");
@@ -281,7 +282,7 @@ impl Fat32Fs{
 
     // Failed Optimization Attempt: I tried to read the files from the root dir, and once I have all the entries abort and mark the rest of the clusters as free
     // for some reason there were allocated entries on the FAT that I couldn't understand what allocated them and couldn't predict and calculate the expected entries count
-    // Ill live it like that for now
+    // Ill leave it like that for now
     fn init_fat_table_cache(&mut self){
         // This buffer is bigger then the default in order to minimize the number of read operations
         // The value is tweaked for faster reads
@@ -447,6 +448,7 @@ impl Fat32Fs{
     fn handle_existing_filename(&mut self, name: [u8; 8], extension: [u8; 3], content: &[u8]) -> ControlFlow<()> {
         if let Some(existing_entry) = self.root_dir_cache.as_mut_slice().into_iter().find(|d|d.file_name == name && d.file_extension == extension){
             log::debug!("File already exists, overwriting it");
+            // Early return if the existing file is empty (and contain no allocated space)
             if existing_entry.size == 0 {
                 existing_entry.file_name[0] = DELETED_DIR_ENTRY_PREFIX;
                 return ControlFlow::Continue(())
@@ -465,7 +467,7 @@ impl Fat32Fs{
             // 1. if its in the range of the cluster alignment
             // 2. If its smaller than the required size (can use some of the allocation)
             //
-            // This check also verifes that the allocation is continuous, allocation done by this driver are continous but other drivers can allocate differently.
+            // This check also verifies that the allocation is continuous, allocation done by this driver are continous but other drivers can allocate differently.
             // If the allocation is not continous the overwrite logic will not work as it assumes continous allocation. 
             // The check done by the fact that it checks for allocated segment for this file allocation
             // and the if the allocated segment is the len of the file -> the allocation is continous.
