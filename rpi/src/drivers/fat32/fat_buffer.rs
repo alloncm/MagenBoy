@@ -11,39 +11,6 @@ pub struct FatIndex{
     sector_offset:usize,
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum FatSegmentState{
-    Free,
-    Allocated,
-    AllocatedEof,
-    Reserved,
-    Bad,
-}
-
-impl From<u32> for FatSegmentState{
-    fn from(value: u32) -> Self {
-        match value{
-            0 => Self::Free,
-            2..=0xFFF_FFF5 => Self::Allocated,
-            0xFFF_FFFF => Self::AllocatedEof,
-            0xFFF_FFF7 => Self::Bad,
-            _ => Self::Reserved
-        }
-    }
-}
-
-impl FatSegmentState{
-    /// Checks whether a value should be part of this segment or not
-    pub fn should_continue_segment(&self, other: &Self)->bool{
-        // AllocatedEof should never continue segment 
-        // otherwise fallback to check raw values of the enum
-        if *self == Self::AllocatedEof || *other == Self::AllocatedEof{
-            return false;
-        }
-        return self == other;
-    }
-}
-
 #[derive(Clone, Copy)]
 pub struct FatInfo{
     first_fat_start_sector:usize,
