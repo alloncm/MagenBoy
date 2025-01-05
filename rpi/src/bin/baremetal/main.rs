@@ -67,7 +67,7 @@ pub extern "C" fn main()->!{
     log::info!("Initialized gameboy!");
 
     let menu_pin = unsafe {PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(GpioPull::PullUp)};
-    let pause_menu_header:ArrayString<30> = ArrayString::try_from(format_args!("MagenBoy bm v{}", VERSION)).unwrap();
+    let pause_menu_header:ArrayString<30> = ArrayString::try_from(format_args!("MagenBoy v{}", VERSION)).unwrap();
     let pause_menu_renderer = GfxDeviceMenuRenderer::new(&mut pause_menu_gfx);
     let mut pause_menu = JoypadMenu::new(&GAME_MENU_OPTIONS, pause_menu_header.as_str(), pause_menu_renderer);
     loop{

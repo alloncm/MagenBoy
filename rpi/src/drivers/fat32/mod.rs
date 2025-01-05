@@ -154,6 +154,8 @@ impl FileEntry{
     }
 }
 
+/// Represent a consecutive fat entries with the same value.
+/// This is an implementation detail and not defined by the specefications.
 #[derive(Clone, Debug)]
 struct FatSegment{
     state:FatSegmentState,
@@ -200,10 +202,6 @@ impl FatSegmentState{
     }
 }
 
-// Currently the driver support only 0x100 files in the root directory
-const MAX_FILES: usize = 0x100;
-const MAX_FAT_SEGMENTS_COUNT: usize = MAX_FILES * 100;
-
 pub struct Fat32Fs{
     disk: Disk,
     boot_sector:Fat32BootSector,
@@ -211,12 +209,19 @@ pub struct Fat32Fs{
 
     clusters_count:u32,
     fat_info:FatInfo,
-    fat_table_cache: ArrayVec<FatSegment, MAX_FAT_SEGMENTS_COUNT>,
-    root_dir_cache: ArrayVec<FatShortDirEntry, MAX_FILES>,
+    fat_table_cache: ArrayVec<FatSegment, {Self::MAX_FAT_SEGMENTS_COUNT}>,
+    root_dir_cache: ArrayVec<FatShortDirEntry, {Self::MAX_FILES}>,
     root_dir_allocated_clusters_count: u32,
 }
 
 impl Fat32Fs{
+    // Currently the driver support only 0x100 files in the root directory
+    const MAX_FILES: usize = 0x100;
+    
+    // Assuming each file contains at max 2 segments (allocated and eof) and between every 2 files
+    // there is another free segment I minimized it and added a buffer just in case
+    const MAX_FAT_SEGMENTS_COUNT: usize = Self::MAX_FILES * 5;
+
     pub fn new()->Self{
         let mut disk = Disk::new();
         // This driver currently support only a single partition (some has more than one for backup or stuff I don't know)
@@ -248,12 +253,14 @@ impl Fat32Fs{
         let mut fat32 = Self { 
             fat_info:FatInfo::new( fat_start_sector, boot_sector.fat32_bpb.sectors_per_fat_32 as usize, boot_sector.fat32_bpb.fats_count as usize ),
             disk, boot_sector, partition_start_sector_index:bpb_sector_index, clusters_count,
-            fat_table_cache: ArrayVec::<FatSegment, MAX_FAT_SEGMENTS_COUNT>::new(),
-            root_dir_cache: ArrayVec::<FatShortDirEntry, MAX_FILES>::new(),
+            fat_table_cache: ArrayVec::<FatSegment, {Self::MAX_FAT_SEGMENTS_COUNT}>::new(),
+            root_dir_cache: ArrayVec::<FatShortDirEntry, {Self::MAX_FILES}>::new(),
             root_dir_allocated_clusters_count: 0
         };
         fat32.init_root_directory_cache();
         fat32.init_fat_table_cache();
+
+        log::info!("Initialized the FAT32 driver");
 
         return fat32;
     }
