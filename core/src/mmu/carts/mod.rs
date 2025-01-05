@@ -19,11 +19,11 @@ pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 pub fn get_ram_size(ram_size_register:u8)->usize{
     match ram_size_register{
         0x0=>0,
-        0x1=>0x800,
+        0x1=>0x800,     // Unofficial - Undefined according to official docs
         0x2=>0x4000,
         0x3=>0x8000,
-        0x4=>0x20000,
-        0x5=>0x10000,
+        0x4=>0x2_0000,
+        0x5=>0x1_0000,
         _=>core::panic!("invalid ram size register {:#X}", ram_size_register)
     }
 }
@@ -34,7 +34,7 @@ pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut
     match external_ram{
         Some(ram)=>{
             if ram.len() != ram_size{
-                core::panic!("external rom is not in the correct size for the cartridge");
+                core::panic!("External ram is not in the correct size for the cartridge, the save seems corrupted, either fix or delete it and try again");
             }
 
             return ram;

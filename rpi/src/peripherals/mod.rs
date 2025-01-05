@@ -6,15 +6,17 @@ mod gpu;
 mod spi;
 mod dma;
 mod timer;
-#[cfg(feature = "os")]
-mod bcm_host;
-cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
+
+cfg_if::cfg_if!{ if #[cfg(feature = "bm")]{
     mod emmc;
     mod power;
     pub(crate) use utils::compile_time_size_assert;
     pub use utils::PERIPHERALS_BASE_ADDRESS;
     pub use emmc::Emmc;
     pub use power::*;
+}
+else if #[cfg(feature = "os")]{
+    mod bcm_host;
 }}
 
 pub use gpio::*;
@@ -32,9 +34,9 @@ pub struct Peripherals{
     mailbox: Peripheral<mailbox::Mailbox>,
     timer: Peripheral<Timer>,
     spi0: Peripheral<Spi0>,
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     emmc: Peripheral<emmc::Emmc>,
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     power: Peripheral<Power>
 }
 
@@ -62,11 +64,11 @@ impl Peripherals{
     pub fn take_spi0(&mut self)->Spi0{
         self.spi0.take(||spi::Spi0::new(SPI0_DC_BCM_PIN))
     }
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     pub fn take_emmc(&mut self)->emmc::Emmc{
         self.emmc.take(||emmc::Emmc::new())
     }
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     pub fn take_power(&mut self)->Power{
         self.power.take(||Power::new())
     }
@@ -78,8 +80,8 @@ pub static mut PERIPHERALS: Peripherals = Peripherals{
     mailbox: Peripheral::Uninit,
     timer: Peripheral::Uninit,
     spi0: Peripheral::Uninit,
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     emmc: Peripheral::Uninit,
-    #[cfg(not(feature = "os"))]
+    #[cfg(feature = "bm")]
     power: Peripheral::Uninit
 };

@@ -97,13 +97,14 @@ Choose a game with the Joypad bindings (Dpad and A to confirm)
 ### Raspberry Pi Baremetal
 
 Currently only Raspberry Pi 4 is supported using the following instructions:
-* Format a sd card and make a single `FAT32` partition called `boot`
-* Copy the file `config.txt` to the root dir of the sd card
-* Copy the following files from the [Raspberry Pi firmware repo](https://github.com/raspberrypi/firmware/tree/master/boot) onto the SD card:
-    - [fixup4.dat](https://github.com/raspberrypi/firmware/raw/master/boot/fixup4.dat)
-    - [start4.elf](https://github.com/raspberrypi/firmware/raw/master/boot/start4.elf)
-    - [bcm2711-rpi-4-b.dtb](https://github.com/raspberrypi/firmware/raw/master/boot/bcm2711-rpi-4-b.dtb)
-* Copy `kernel7.img` onto the SD card
+* Format a sd card to MBR (not GPT) and create a single `FAT32` partition (On windows you can use Rufus)
+* Copy the following files from the [Raspberry Pi firmware repo](https://github.com/raspberrypi/firmware/tree/191360eaf2e5933eaa0ed76ac0d62722b6f9a58f/boot) onto the SD card:
+    - [fixup4.dat](https://github.com/raspberrypi/firmware/raw/191360eaf2e5933eaa0ed76ac0d62722b6f9a58f/boot/fixup4.dat)
+    - [start4.elf](https://github.com/raspberrypi/firmware/raw/191360eaf2e5933eaa0ed76ac0d62722b6f9a58f/boot/start4.elf)
+    - [bcm2711-rpi-4-b.dtb](https://github.com/raspberrypi/firmware/raw/191360eaf2e5933eaa0ed76ac0d62722b6f9a58f/boot/bcm2711-rpi-4-b.dtb)
+
+    _**Notice**: This is a specific revision, for some reason it broke on the latest version of those files_
+* Copy `kernel7.img` and `config.txt` to the SD card
 * Connect all the peripherals (ili9341 display and gpio buttons)
 * Insert the SD card to the RPI4 and boot it
 

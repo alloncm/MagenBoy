@@ -11,7 +11,7 @@ magenboy_core = {path = "../core"}
 magenboy_common = {path = "../common"}
 log = "0.4"
 cfg-if = "1"
-bitfield-struct = "0.5"
+bitfield-struct = {version = "0.9", optional = true}
 libc = {version = "0.2", optional = true}
 nix = {version = "0.24", optional = true}
 crossbeam-channel = {version = "0.5", optional = true}
@@ -20,7 +20,7 @@ arrayvec = {version = "0.7.6", default-features = false, optional = true}
 
 [features]
 os = ["magenboy_common/std", "libc", "nix/ioctl", "crossbeam-channel", "rppal"]
-bm = ["arrayvec"]
+bm = ["arrayvec", "bitfield-struct"]
 
 [[bin]]
 name = "rpios"

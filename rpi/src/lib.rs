@@ -1,12 +1,12 @@
-#![cfg_attr(not(feature = "os"), no_std)]
+#![cfg_attr(feature = "bm", no_std)]
 
-#[cfg(all(feature = "os", rpi))]
-core::compile_error!("The os feature and the rpi cfg value cant be set at the same time");
+#[cfg(all(feature = "os", feature = "bm"))]
+core::compile_error!("The os feature and bm feature cant be set at the same time");
 
 pub mod configuration;
 pub mod peripherals;
 pub mod drivers;
-cfg_if::cfg_if!{ if #[cfg(not(feature = "os"))]{
+cfg_if::cfg_if!{ if #[cfg(feature = "bm")]{
     pub mod syncronization;
     pub mod delay;
 }}
