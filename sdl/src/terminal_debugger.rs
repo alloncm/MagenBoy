@@ -12,7 +12,7 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - remove_break(rb) [address:bank] - delete a breakpoint 
 - registers(reg) - print the cpu registers state
 - disassemble(di) [number_of_opcodes] - print the disassembly of the next opcodes
-- dump(du) [address number_of_bytes] - print memory addresses values
+- dump(du) [address number_of_bytes] - print memory addresses values from current bank
 - watch(w) [address:bank] - set a watch point
 - remove_watch(rw) [address:bank] - delete a watch point
 - ppu_info(pi) - print info about the ppu execution state
@@ -95,7 +95,7 @@ impl TerminalDebugger{
                         println!();
                         print!("{:#X}:{}: ", address + i as u16 , bank);
                     }
-                    print!("{:#04x}, ", buffer[i]);
+                    print!("{:#04X}, ", buffer[i]);
                 }
                 println!();
             },
