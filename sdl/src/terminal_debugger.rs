@@ -11,8 +11,8 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - break(b) [address:bank] - set a break point
 - remove_break(rb) [address:bank] - delete a breakpoint 
 - registers(reg) - print the cpu registers state
-- disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
-- dump(du) [number of bytes] - print next the memory addresses values
+- disassemble(di) [number_of_opcodes] - print the disassembly of the next opcodes
+- dump(du) [address number_of_bytes] - print memory addresses values
 - watch(w) [address:bank] - set a watch point
 - remove_watch(rw) [address:bank] - delete a watch point
 - ppu_info(pi) - print info about the ppu execution state
