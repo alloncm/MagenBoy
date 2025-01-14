@@ -22,8 +22,8 @@ pub enum DebuggerCommand{
     RemoveBreak(u16, u16),
     DumpMemory(u16, u16),
     Disassemble(u16),
-    Watch(u16),
-    RemoveWatch(u16),
+    Watch(u16, u16),
+    RemoveWatch(u16, u16),
     PpuInfo,
     GetPpuLayer(PpuLayer)
 }
@@ -44,10 +44,10 @@ pub enum DebuggerResult{
     Stopped(u16, u16),
     MemoryDump(u16, u16, Vec<u8>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
-    AddedWatch(u16),
-    HitWatch(u16, u16, u8),
-    RemovedWatch(u16),
-    WatchDoNotExist(u16),
+    AddedWatch(u16, u16),
+    HitWatch(u16, u16, u16, u16, u8),
+    RemovedWatch(u16, u16),
+    WatchDoNotExist(u16, u16),
     PpuInfo(PpuInfo),
     PpuLayer(PpuLayer, Box<[Pixel;PPU_BUFFER_SIZE]>)
 }
@@ -122,23 +122,23 @@ impl<UI:DebuggerInterface> Debugger<UI>{
 
 impl_gameboy!{{
     pub fn run_debugger(&mut self){
-        while self.debugger.should_halt(&self.cpu, self.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) {
+        while self.debugger.should_halt(&self.cpu, self.mmu.get_current_bank(self.cpu.program_counter), self.mmu.mem_watch.hit_addr.is_some()) {
             if !self.cpu.halt && self.debugger.skip_halt{
                 self.debugger.send(DebuggerResult::HaltWakeup);
                 self.debugger.skip_halt = false;
             }
-            if self.debugger.check_for_break(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)){
-                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
+            if self.debugger.check_for_break(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)){
+                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)));
             }
-            if let Some((addr, val)) = self.mmu.mem_watch.hit_addr{
-                self.debugger.send(DebuggerResult::HitWatch(addr, self.cpu.program_counter, val));
+            if let Some((addr, bank, val)) = self.mmu.mem_watch.hit_addr{
+                self.debugger.send(DebuggerResult::HitWatch(addr, bank, self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter), val));
                 self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
-                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter))),
+                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter))),
                 DebuggerCommand::Step=>{
                     self.step();
-                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
+                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)));
                 }
                 DebuggerCommand::Continue=>{
                     self.debugger.send(DebuggerResult::Continuing);
@@ -163,20 +163,20 @@ impl_gameboy!{{
                         buffer[i as usize] = self.mmu.dbg_read(address + i);
                     }
 
-                    self.debugger.send(DebuggerResult::MemoryDump(address, self.get_current_bank(address), buffer));
+                    self.debugger.send(DebuggerResult::MemoryDump(address, self.mmu.get_current_bank(address), buffer));
                 }
                 DebuggerCommand::Disassemble(len)=>{
                     let result = disassemble(&self.cpu, &mut self.mmu, len);
-                    self.debugger.send(DebuggerResult::Disassembly(len, self.get_current_bank(self.cpu.program_counter), result));
+                    self.debugger.send(DebuggerResult::Disassembly(len, self.mmu.get_current_bank(self.cpu.program_counter), result));
                 },
-                DebuggerCommand::Watch(address)=>{
-                    self.mmu.mem_watch.add_address(address);
-                    self.debugger.send(DebuggerResult::AddedWatch(address));
+                DebuggerCommand::Watch(address, bank)=>{
+                    self.mmu.mem_watch.add_address(address, bank);
+                    self.debugger.send(DebuggerResult::AddedWatch(address, bank));
                 },
-                DebuggerCommand::RemoveWatch(address)=>{
-                    match self.mmu.mem_watch.try_remove_address(address){
-                        true=>self.debugger.send(DebuggerResult::RemovedWatch(address)),
-                        false=>self.debugger.send(DebuggerResult::WatchDoNotExist(address)),
+                DebuggerCommand::RemoveWatch(address, bank)=>{
+                    match self.mmu.mem_watch.try_remove_address(address, bank){
+                        true=>self.debugger.send(DebuggerResult::RemovedWatch(address, bank)),
+                        false=>self.debugger.send(DebuggerResult::WatchDoNotExist(address, bank)),
                     }
                 },
                 DebuggerCommand::PpuInfo=>self.debugger.send(DebuggerResult::PpuInfo(PpuInfo::new(self.mmu.get_ppu()))),
@@ -187,27 +187,17 @@ impl_gameboy!{{
             }
         }
     }
-
-    fn get_current_bank(&self, address:u16)->u16{
-        return match address{
-            0..=0x3FFF => 0,
-            0x4000..=0x7FFF => self.mmu.mem_watch.current_rom_bank_number,
-            0x8000..=0x9FFF => self.mmu.get_ppu().vram.get_bank_reg() as u16,
-            0xC000..=0xFDFF => self.mmu.mem_watch.current_ram_bank_number as u16,
-            _=>0
-        };
-    }
 }}
 
 pub struct MemoryWatcher{
-    pub watching_addresses: HashSet<u16>,
-    pub hit_addr:Option<(u16, u8)>,
+    pub watching_addresses: HashSet<(u16, u16)>,
+    pub hit_addr:Option<(u16, u16, u8)>,
     pub current_rom_bank_number: u16,
     pub current_ram_bank_number: u8,
 }
 
 impl MemoryWatcher{
     pub fn new()->Self{Self { watching_addresses: HashSet::new(), hit_addr: None, current_rom_bank_number: 0, current_ram_bank_number: 0 }}
-    pub fn add_address(&mut self, address:u16){_ = self.watching_addresses.insert(address)}
-    pub fn try_remove_address(&mut self, address:u16)->bool{self.watching_addresses.remove(&address)}
+    pub fn add_address(&mut self, address:u16, bank:u16){_ = self.watching_addresses.insert((address, bank))}
+    pub fn try_remove_address(&mut self, address:u16, bank:u16)->bool{self.watching_addresses.remove(&(address, bank))}
 }

@@ -55,8 +55,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
         };
 
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&address){
-            self.mem_watch.hit_addr = Some((address, value));
+        if self.mem_watch.watching_addresses.contains(&(address, self.get_current_bank(address))){
+            self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
         }
 
         return value;
@@ -64,8 +64,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&address){
-            self.mem_watch.hit_addr = Some((address, value));
+        if self.mem_watch.watching_addresses.contains(&(address, self.get_current_bank(address))){
+            self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
         }
 
         self.cycle(m_cycles);
@@ -243,6 +243,17 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     #[cfg(feature = "dbg")]
     pub fn dbg_read(&mut self, address:u16)->u8{self.read_unprotected(address)}
+
+    #[cfg(feature = "dbg")]
+    pub fn get_current_bank(&self, address:u16)->u16{
+        return match address{
+            0..=0x3FFF => 0,
+            0x4000..=0x7FFF => self.mem_watch.current_rom_bank_number,
+            0x8000..=0x9FFF => self.get_ppu().vram.get_bank_reg() as u16,
+            0xC000..=0xFDFF => self.mem_watch.current_ram_bank_number as u16,
+            _=>0
+        };
+    }
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer

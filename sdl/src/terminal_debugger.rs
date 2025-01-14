@@ -13,8 +13,8 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - registers(reg) - print the cpu registers state
 - disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
 - dump(du) [number of bytes] - print next the memory addresses values
-- watch(w) [address] - set a watch point
-- remove_watch(rw) [address] - delete a watch point
+- watch(w) [address:bank] - set a watch point
+- remove_watch(rw) [address:bank] - delete a watch point
 - ppu_info(pi) - print info about the ppu execution state
 - ppu_layer(pl) [layer] - a debug window with one ppu layer (win, bg, spr)
 ";
@@ -104,13 +104,13 @@ impl TerminalDebugger{
                     println!("{:#X}:{} {}", opcodes[i].address, bank, opcodes[i].string);
                 }
             },
-            DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
-            DebuggerResult::HitWatch(address, pc, value) => {
-                println!("Hit watch point: {:#X} at address: {:#X} with value: {:#X}", address, pc, value);
+            DebuggerResult::AddedWatch(addr, bank)=>println!("Set Watch point at: {addr:#X}:{bank} successfully"),
+            DebuggerResult::HitWatch(address, addr_bank, pc, pc_bank, value) => {
+                println!("Hit watch point: {address:#X}:{addr_bank} at address: {pc:#X}:{pc_bank} with value: {value:#X}");
                 enabled.store(true, Ordering::SeqCst);
             },
-            DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
-            DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
+            DebuggerResult::RemovedWatch(addr, bank) => println!("Removed watch point {addr:#X}:{bank}"),
+            DebuggerResult::WatchDoNotExist(addr, bank) => println!("Watch point {addr:#X}:{bank} do not exist"),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], \nbank: {}",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y, info.vram_bank),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
@@ -149,12 +149,12 @@ impl TerminalDebugger{
                         (Err(msg), _) | 
                         (_, Err(msg)) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"|"watch"=> match parse_number_string(&buffer, 1){
-                        Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
+                    "w"|"watch"=> match parse_address_string(&buffer, 1){
+                        Ok((addr, bank)) => sender.send(DebuggerCommand::Watch(addr, bank)).unwrap(),
                         Err(msg) => println!("Error setting watch point {}", msg),
                     }
-                    "rw"|"remove_watch"=>match parse_number_string(&buffer, 1){
-                        Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
+                    "rw"|"remove_watch"=>match parse_address_string(&buffer, 1){
+                        Ok((addr, bank)) => sender.send(DebuggerCommand::RemoveWatch(addr, bank)).unwrap(),
                         Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
                     "pi"|"ppu_info"=>sender.send(DebuggerCommand::PpuInfo).unwrap(),
