@@ -34,10 +34,10 @@ pub const PPU_BUFFER_SIZE:usize = PPU_BUFFER_HEIGHT * PPU_BUFFER_WIDTH;
 
 pub enum DebuggerResult{
     Registers(Registers),
-    AddedBreak(u16),
+    AddedBreak(u16, u16),
     HitBreak(u16, u16),
-    RemovedBreak(u16),
-    BreakDoNotExist(u16),
+    RemovedBreak(u16, u16),
+    BreakDoNotExist(u16, u16),
     Continuing,
     HaltWakeup,
     Stepped(u16, u16),
@@ -45,7 +45,7 @@ pub enum DebuggerResult{
     MemoryDump(u16, u16, Vec<u8>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(u16),
-    HitWatch(u16, u16),
+    HitWatch(u16, u16, u8),
     RemovedWatch(u16),
     WatchDoNotExist(u16),
     PpuInfo(PpuInfo),
@@ -130,8 +130,8 @@ impl_gameboy!{{
             if self.debugger.check_for_break(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)){
                 self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.get_current_bank(self.cpu.program_counter)));
             }
-            if let Some(addr) = self.mmu.mem_watch.hit_addr{
-                self.debugger.send(DebuggerResult::HitWatch(addr, self.cpu.program_counter));
+            if let Some((addr, val)) = self.mmu.mem_watch.hit_addr{
+                self.debugger.send(DebuggerResult::HitWatch(addr, self.cpu.program_counter, val));
                 self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
@@ -148,12 +148,12 @@ impl_gameboy!{{
                 DebuggerCommand::Registers => self.debugger.send(DebuggerResult::Registers(Registers::new(&self.cpu))),
                 DebuggerCommand::Break(address, bank) => {
                     self.debugger.add_breakpoint(address, bank);
-                    self.debugger.send(DebuggerResult::AddedBreak(address));
+                    self.debugger.send(DebuggerResult::AddedBreak(address, bank));
                 },
                 DebuggerCommand::RemoveBreak(address, bank)=>{
                     let result = match self.debugger.try_remove_breakpoint(address, bank) {
-                        true => DebuggerResult::RemovedBreak(address),
-                        false => DebuggerResult::BreakDoNotExist(address)
+                        true => DebuggerResult::RemovedBreak(address, bank),
+                        false => DebuggerResult::BreakDoNotExist(address, bank)
                     };
                     self.debugger.send(result);
                 },
@@ -201,7 +201,7 @@ impl_gameboy!{{
 
 pub struct MemoryWatcher{
     pub watching_addresses: HashSet<u16>,
-    pub hit_addr:Option<u16>,
+    pub hit_addr:Option<(u16, u8)>,
     pub current_rom_bank_number: u16,
     pub current_ram_bank_number: u8,
 }

@@ -8,8 +8,8 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - halt(h) - start the debugging session (halt the program execution)
 - continue(c) - continue program execution
 - step(s) - step 1 instruction
-- break(b) [address] - set a break point
-- remove_break(rb) [address] - delete a breakpoint 
+- break(b) [address:bank] - set a break point
+- remove_break(rb) [address:bank] - delete a breakpoint 
 - registers(reg) - print the cpu registers state
 - disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
 - dump(du) [number of bytes] - print next the memory addresses values
@@ -83,11 +83,11 @@ impl TerminalDebugger{
                 println!("Hit break: {:#X}:{}", addr, bank);
             }
             DebuggerResult::HaltWakeup => println!("Waked up from halt"),
-            DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
+            DebuggerResult::AddedBreak(addr, bank)=>println!("Added BreakPoint successfully at address: {:#X}:{bank}", addr),
             DebuggerResult::Continuing=>println!("Continuing execution"),
             DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
-            DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
-            DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
+            DebuggerResult::RemovedBreak(addr, bank) => println!("Removed breakpoint successfully at {:#X}:{}", addr, bank),
+            DebuggerResult::BreakDoNotExist(addr, bank) => println!("Breakpoint {:#X}:{} does not exist", addr, bank),
             DebuggerResult::MemoryDump(address, bank, buffer) => {
                 const SPACING: usize = 16;
                 for i in 0..buffer.len() as usize{
@@ -105,8 +105,8 @@ impl TerminalDebugger{
                 }
             },
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
-            DebuggerResult::HitWatch(address, pc) => {
-                println!("Hit watch point: {:#X} at address: {:#X}", address, pc);
+            DebuggerResult::HitWatch(address, pc, value) => {
+                println!("Hit watch point: {:#X} at address: {:#X} with value: {:#X}", address, pc, value);
                 enabled.store(true, Ordering::SeqCst);
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
@@ -131,16 +131,14 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
-                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::Break(address, bank)).unwrap(),
-                        (Err(msg), _) | 
-                        (_, Err(msg)) => println!("Error setting BreakPoint {}", msg),
+                    "b"|"break"=>match parse_address_string(&buffer, 1) {
+                        Ok((address, bank)) => sender.send(DebuggerCommand::Break(address, bank)).unwrap(),
+                        Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
                     "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
-                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::RemoveBreak(address, bank)).unwrap(),
-                        (Err(msg), _) | 
-                        (_, Err(msg)) => println!("Error deleting BreakPoint {}", msg),
+                    "rb"|"remove_break"=>match parse_address_string(&buffer, 1) {
+                        Ok((address, bank)) => sender.send(DebuggerCommand::RemoveBreak(address, bank)).unwrap(),
+                        Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
                     "di"|"disassemble"=>match parse_number_string(&buffer, 1){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
@@ -173,6 +171,17 @@ impl TerminalDebugger{
         }
     }
 }
+
+/// Address is "memory_address:bank" format
+fn parse_address_string(buffer: &Vec<&str>, index:usize)->Result<(u16, u16), String>{
+    let Some(param) = buffer.get(index) else {
+        return Result::Err(String::from("No parameter"))
+    };
+    let strs:Vec<&str> = param.split(":").collect();
+    let mem_addr = parse_number_string(&strs, 0)?;
+    let bank = parse_number_string(&strs, 1)?;
+    return Ok((mem_addr, bank));
+}   
 
 fn parse_number_string(buffer: &Vec<&str>, index:usize) -> Result<u16, String> {
     let Some(param) = buffer.get(index) else {
