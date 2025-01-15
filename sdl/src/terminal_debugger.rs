@@ -8,6 +8,7 @@ const HELP_MESSAGE:&'static str = r"Debugger commands:
 - halt(h) - start the debugging session (halt the program execution)
 - continue(c) - continue program execution
 - step(s) - step 1 instruction
+- skip_halt - skip untill CPU is hanlted
 - break(b) [address:bank] - set a break point
 - remove_break(rb) [address:bank] - delete a breakpoint 
 - registers(reg) - print the cpu registers state
