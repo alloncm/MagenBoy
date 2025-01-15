@@ -20,7 +20,7 @@ pub fn get_ram_size(ram_size_register:u8)->usize{
     match ram_size_register{
         0x0=>0,
         0x1=>0x800,     // Unofficial - Undefined according to official docs
-        0x2=>0x4000,
+        0x2=>0x2000,
         0x3=>0x8000,
         0x4=>0x2_0000,
         0x5=>0x1_0000,
