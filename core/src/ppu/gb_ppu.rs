@@ -117,6 +117,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         unsafe{core::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
         self.swap_buffer();
         self.state = PpuState::Hblank;
+        self.update_stat_ppu_mode();
         self.ly_register = 0;
         self.stat_triggered = false;
         self.trigger_stat_interrupt = false;
@@ -158,8 +159,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     fn update_stat_register(&mut self, if_register: &mut u8) -> u32{
-        self.stat_register &= 0b1111_1100;
-        self.stat_register |= self.state as u8;
+        self.update_stat_ppu_mode();
         if self.ly_register == self.lyc_register{
             if self.coincidence_interrupt_request {
                 self.trigger_stat_interrupt = true;
@@ -191,6 +191,11 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         };
 
         return t_cycles_to_next_stat_change;
+    }
+
+    fn update_stat_ppu_mode(&mut self) {
+        self.stat_register &= 0b1111_1100;
+        self.stat_register |= self.state as u8;
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
