@@ -55,8 +55,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
         };
 
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&(address, self.get_current_bank(address))){
-            self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+        if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
+            if watch_value.0 == crate::debugger::WatchMode::Read {
+                if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
+                    self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+                }
+            }
         }
 
         return value;
@@ -64,8 +68,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&(address, self.get_current_bank(address))){
-            self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+        if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
+            if watch_value.0 == crate::debugger::WatchMode::Write {
+                if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
+                    self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+                }
+            }
         }
 
         self.cycle(m_cycles);
