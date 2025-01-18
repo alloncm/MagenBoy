@@ -38,15 +38,16 @@ impl<'a> Mbc for Mbc5<'a> {
             2=>self.rom_bank_number_register = (self.rom_bank_number_register & 0xFF00) | value as u16,
             // high bit 9
             3=>self.rom_bank_number_register = (self.rom_bank_number_register & 0x00FF) | ((value as u16) << 8),
-            4|5=>self.ram_bank_number = value,
+            4|5=>self.ram_bank_number = value & 0xF,
             _=>{}
         }
     }
 
     fn read_external_ram(&self, address:u16)->u8 {
         if self.ram_enable_register == ENABLE_RAM_VALUE{
-            let bank = (self.ram_bank_number & 0xF) as usize * RAM_BANK_SIZE;
-            return *self.ram.get(address as usize + bank).unwrap_or(&0xFF);
+            let bank = self.ram_bank_number as usize * RAM_BANK_SIZE;
+            let address= (address as usize + bank) & self.ram.len() - 1;    // Clip the address to the boudries of the ram assuming that ram len is multiple of 2
+            return self.ram[address];
         }
 
         // ram is disabled
@@ -55,13 +56,9 @@ impl<'a> Mbc for Mbc5<'a> {
 
     fn write_external_ram(&mut self, address:u16, value:u8) {
         if self.ram_enable_register == ENABLE_RAM_VALUE{
-            let bank = (self.ram_bank_number & 0xF) as usize * RAM_BANK_SIZE;
-            if let Some(memory_cell) = self.ram.get_mut(address as usize + bank){
-                *memory_cell = value;
-            }
-        }
-        else{
-            log::warn!("MBC5 write while ram is not enabled. ram_address: {}, value: {}", address, value);
+            let bank = self.ram_bank_number as usize * RAM_BANK_SIZE;
+            let address= (address as usize + bank) & self.ram.len() - 1;    // Clip the address to the boudries of the ram assuming that ram len is multiple of 2
+            self.ram[address] = value;
         }
     }
     
