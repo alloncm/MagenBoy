@@ -29,11 +29,11 @@ impl<'a> Mbc for Rom<'a>{
     }
 
     fn read_external_ram(&self, address:u16)->u8{
-        self.external_ram[address as usize]
+        self.external_ram[get_external_ram_valid_address(address as usize, &self.external_ram)]
     }
 
     fn write_external_ram(&mut self, address:u16, value:u8){
-        self.external_ram[address as usize] = value
+        self.external_ram[get_external_ram_valid_address(address as usize, &self.external_ram)] = value
     }
 
     #[cfg(feature = "dbg")]

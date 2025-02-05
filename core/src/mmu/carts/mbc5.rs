@@ -46,7 +46,7 @@ impl<'a> Mbc for Mbc5<'a> {
     fn read_external_ram(&self, address:u16)->u8 {
         if self.ram_enable_register == ENABLE_RAM_VALUE{
             let bank = self.ram_bank_number as usize * RAM_BANK_SIZE;
-            let address= (address as usize + bank) & self.ram.len() - 1;    // Clip the address to the boudries of the ram assuming that ram len is multiple of 2
+            let address= get_external_ram_valid_address(address as usize + bank, &self.ram);
             return self.ram[address];
         }
 
@@ -57,7 +57,7 @@ impl<'a> Mbc for Mbc5<'a> {
     fn write_external_ram(&mut self, address:u16, value:u8) {
         if self.ram_enable_register == ENABLE_RAM_VALUE{
             let bank = self.ram_bank_number as usize * RAM_BANK_SIZE;
-            let address= (address as usize + bank) & self.ram.len() - 1;    // Clip the address to the boudries of the ram assuming that ram len is multiple of 2
+            let address= get_external_ram_valid_address(address as usize + bank, &self.ram);
             self.ram[address] = value;
         }
     }

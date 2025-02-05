@@ -56,7 +56,8 @@ impl<'a> Mbc for Mbc3<'a>{
         return match self.ram_rtc_select{
             0..=3=>{
                 let internal_address = self.ram_rtc_select as usize * RAM_BANK_SIZE as usize +  address as usize;
-                return self.ram[internal_address];
+                let address = get_external_ram_valid_address(internal_address, &self.ram);
+                return self.ram[address];
             },
             0x8..=0xC=>self.rtc_registers[(self.ram_rtc_select - 8) as usize],
             _=>EXTERNAL_RAM_READ_ERROR_VALUE
@@ -68,7 +69,8 @@ impl<'a> Mbc for Mbc3<'a>{
             match self.ram_rtc_select{
                 0..=3=>{
                     let internal_address = self.ram_rtc_select as usize * RAM_BANK_SIZE as usize +  address as usize;
-                    self.ram[internal_address] = value;
+                    let address = get_external_ram_valid_address(internal_address, &self.ram);
+                    self.ram[address] = value;
                 },
                 0x8..=0xC=>self.rtc_registers[(self.ram_rtc_select - 8) as usize] = value,
                 _=>{}

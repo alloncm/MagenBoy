@@ -43,14 +43,19 @@ impl<'a> Mbc for Mbc1<'a>{
         if self.ram.is_empty(){
             return 0xFF;
         }
+        
         let bank:u16 = self.get_current_ram_bank() as u16;
-        return self.ram[(bank as usize * RAM_BANK_SIZE) + address as usize];
+        let address = (bank as usize * RAM_BANK_SIZE) + address as usize;
+        let address = get_external_ram_valid_address(address, &self.ram);
+        return self.ram[address];
     }
 
     fn write_external_ram(&mut self, address: u16, value: u8){
         if self.ram.len() > 0{
             let bank:u16 = self.get_current_ram_bank() as u16;
-            self.ram[(bank as usize * RAM_BANK_SIZE) + address as usize] = value;
+            let address = (bank as usize * RAM_BANK_SIZE) + address as usize;
+            let address = get_external_ram_valid_address(address, &self.ram);
+            self.ram[address] = value;
         }
     }
     
