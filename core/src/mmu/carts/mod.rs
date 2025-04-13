@@ -16,11 +16,11 @@ pub const RAM_BANK_SIZE:usize = 0x2000;
 pub const CGB_FLAG_ADDRESS:usize = 0x143;
 pub const MBC_RAM_SIZE_LOCATION:usize = 0x149;
 
-pub fn get_ram_size(ram_size_register:u8)->usize{
+fn get_ram_size(ram_size_register:u8)->usize{
     match ram_size_register{
         0x0=>0,
         0x1=>0x800,     // Unofficial - Undefined according to official docs
-        0x2=>0x4000,
+        0x2=>0x2000,
         0x3=>0x8000,
         0x4=>0x2_0000,
         0x5=>0x1_0000,
@@ -41,6 +41,13 @@ pub fn init_ram(ram_reg:u8, external_ram:Option<&'static mut[u8]>)->&'static mut
         }
         None=>static_alloc_array(ram_size)
     }
+}
+
+/// Almost all MBC's external ram access are clipped to the ram size by masking with the relevent bits
+/// (Notice that all the avaliable sizes are left shifts of 1 and we assume `init_ram` initialized it).
+/// This emulates the bus to the chip with the amount of bits from the address the ram chip reads.
+pub(self) fn get_external_ram_valid_address(address:usize, external_ram:&[u8])->usize{
+    address as usize & (external_ram.len() - 1)
 }
 
 pub trait Mbc{

@@ -2,21 +2,23 @@ use std::{io::stdin, sync::{atomic::{AtomicBool, Ordering}, Arc}, thread};
 
 use crossbeam_channel::{bounded, Sender, Receiver};
 
-use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer, PPU_BUFFER_SIZE}, Pixel};
+use magenboy_core::{debugger::{DebuggerCommand, DebuggerInterface, DebuggerResult, PpuLayer, PPU_BUFFER_SIZE, Address, WatchMode}, Pixel};
 
 const HELP_MESSAGE:&'static str = r"Debugger commands:
 - halt(h) - start the debugging session (halt the program execution)
 - continue(c) - continue program execution
 - step(s) - step 1 instruction
-- break(b) [address] - set a break point
-- remove_break(rb) [address] - delete a breakpoint 
-- registers(reg) - print the cpu registers state
-- disassemble(di) [number of opcodes] - print the disassembly of the next opcodes
-- dump(du) [number of bytes] - print next the memory addresses values
-- watch(w) [address] - set a watch point
-- remove_watch(rw) [address] - delete a watch point
+- skip_halt - skip untill CPU is hanlted
+- break(b) [address:bank] - set a break point
+- remove_break(rb) [address:bank] - delete a breakpoint 
+- reg(r) - print the cpu registers state
+- disassemble(di) [number_of_opcodes] - print the disassembly of the next opcodes
+- dump(du) [address number_of_bytes] - print memory addresses values from current bank
+- watch(w) [address:bank R/W/RW optional_watch_value] - set a watch point
+- remove_watch(rw) [address:bank] - delete a watch point
 - ppu_info(pi) - print info about the ppu execution state
 - ppu_layer(pl) [layer] - a debug window with one ppu layer (win, bg, spr)
+- help - prints this help message
 ";
 
 pub struct PpuLayerResult(pub Box<[Pixel; PPU_BUFFER_SIZE]>, pub PpuLayer);
@@ -75,27 +77,27 @@ impl TerminalDebugger{
     
     fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         match result{
-            DebuggerResult::Stopped(addr, bank) => println!("Stopped -> {:#X}:{}", addr, bank),
-            DebuggerResult::Registers(regs) => println!("AF: 0x{:X}\nBC: 0x{:X}\nDE: 0x{:X}\nHL: 0x{:X}\nSP: 0x{:X}\nPC: 0x{:X}",
-                                                            regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc),
-            DebuggerResult::HitBreak(addr, bank) =>{
+            DebuggerResult::Stopped(addr) => println!("Stopped -> {}", addr),
+            DebuggerResult::Registers(regs) => println!("AF: 0x{:04X}\nBC: 0x{:04X}\nDE: 0x{:04X}\nHL: 0x{:04X}\nSP: 0x{:04X}\nPC: 0x{:04X}\nIME: {}",
+                                                            regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc, regs.ime),
+            DebuggerResult::HitBreak(addr) =>{
                 enabled.store(true, Ordering::SeqCst);
-                println!("Hit break: {:#X}:{}", addr, bank);
+                println!("Hit break: {}", addr);
             }
             DebuggerResult::HaltWakeup => println!("Waked up from halt"),
-            DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at {:#X}", addr),
+            DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at address: {addr}"),
             DebuggerResult::Continuing=>println!("Continuing execution"),
-            DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
-            DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {:#X}", addr),
-            DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {:#X} does not exist", addr),
-            DebuggerResult::MemoryDump(address, bank, buffer) => {
+            DebuggerResult::Stepped(addr)=>println!("-> {}", addr),
+            DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {addr}"),
+            DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {addr} does not exist"),
+            DebuggerResult::MemoryDump(address, buffer) => {
                 const SPACING: usize = 16;
                 for i in 0..buffer.len() as usize{
                     if i % SPACING == 0 { 
                         println!();
-                        print!("{:#X}:{}: ", address + i as u16 , bank);
+                        print!("{:#X}:{}: ", address.mem_addr + i as u16 , address.bank);
                     }
-                    print!("{:#04x}, ", buffer[i]);
+                    print!("{:#04X}, ", buffer[i]);
                 }
                 println!();
             },
@@ -104,13 +106,13 @@ impl TerminalDebugger{
                     println!("{:#X}:{} {}", opcodes[i].address, bank, opcodes[i].string);
                 }
             },
-            DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {:#X} successfully", addr),
-            DebuggerResult::HitWatch(address, pc) => {
-                println!("Hit watch point: {:#X} at address: {:#X}", address, pc);
+            DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {addr} successfully"),
+            DebuggerResult::HitWatch(address, pc_address, value) => {
+                println!("Hit watch point: {address} at address: {pc_address} with value: {value:#X}");
                 enabled.store(true, Ordering::SeqCst);
             },
-            DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {:#X}", addr),
-            DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {:#X} do not exist", addr),
+            DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {addr}"),
+            DebuggerResult::WatchDoNotExist(addr) => println!("Watch point {addr} do not exist"),
             DebuggerResult::PpuInfo(info) => println!("PpuInfo: \nstate: {} \nlcdc: {:#X} \nstat: {:#X} \nly: {} \nbackground [X: {}, Y: {}] \nwindow [X: {}, Y: {}], \nbank: {}",
                 info.ppu_state as u8, info.lcdc, info.stat, info.ly, info.background_pos.x, info.background_pos.y, info.window_pos.x, info.window_pos.y, info.vram_bank),
             DebuggerResult::PpuLayer(layer, buffer) => ppu_layer_sender.send(PpuLayerResult(buffer, layer)).unwrap()
@@ -131,16 +133,14 @@ impl TerminalDebugger{
                         sender.send(DebuggerCommand::Continue).unwrap();
                     }
                     "s"|"step"=>sender.send(DebuggerCommand::Step).unwrap(),
-                    "b"|"break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
-                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::Break(address, bank)).unwrap(),
-                        (Err(msg), _) | 
-                        (_, Err(msg)) => println!("Error setting BreakPoint {}", msg),
+                    "b"|"break"=>match parse_address_string(&buffer, 1) {
+                        Ok(address) => sender.send(DebuggerCommand::Break(address)).unwrap(),
+                        Err(msg) => println!("Error setting BreakPoint {}", msg),
                     },
-                    "reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
-                    "rb"|"remove_break"=>match (parse_number_string(&buffer, 1), parse_number_string(&buffer, 2)) {
-                        (Ok(address), Ok(bank)) => sender.send(DebuggerCommand::RemoveBreak(address, bank)).unwrap(),
-                        (Err(msg), _) | 
-                        (_, Err(msg)) => println!("Error deleting BreakPoint {}", msg),
+                    "r"|"reg"|"registers"=>sender.send(DebuggerCommand::Registers).unwrap(),
+                    "rb"|"remove_break"=>match parse_address_string(&buffer, 1) {
+                        Ok(address) => sender.send(DebuggerCommand::RemoveBreak(address)).unwrap(),
+                        Err(msg) => println!("Error deleting BreakPoint {}", msg),
                     },
                     "di"|"disassemble"=>match parse_number_string(&buffer, 1){
                         Ok(num) => sender.send(DebuggerCommand::Disassemble(num)).unwrap(),
@@ -151,11 +151,15 @@ impl TerminalDebugger{
                         (Err(msg), _) | 
                         (_, Err(msg)) => println!("Error dumping memory: {}", msg),
                     },
-                    "w"|"watch"=> match parse_number_string(&buffer, 1){
-                        Ok(addr) => sender.send(DebuggerCommand::Watch(addr)).unwrap(),
-                        Err(msg) => println!("Error setting watch point {}", msg),
+                    "w"|"watch"=> match (parse_address_string(&buffer, 1), parse_watch_mode(&buffer, 2)){
+                        (Ok(addr), Ok(mode)) => {
+                            let watch_value:Option<u8> = parse_number_string(&buffer, 3).ok().map(|v|v.try_into().unwrap());
+                            sender.send(DebuggerCommand::Watch(addr, mode, watch_value)).unwrap()
+                        }
+                        (Err(msg), _) |
+                        (_, Err(msg)) => println!("Error setting watch point {}", msg),
                     }
-                    "rw"|"remove_watch"=>match parse_number_string(&buffer, 1){
+                    "rw"|"remove_watch"=>match parse_address_string(&buffer, 1){
                         Ok(addr) => sender.send(DebuggerCommand::RemoveWatch(addr)).unwrap(),
                         Err(msg) => println!("Error deleting watch point: {}", msg),
                     },
@@ -173,6 +177,17 @@ impl TerminalDebugger{
         }
     }
 }
+
+/// Address is "memory_address:bank" format
+fn parse_address_string(buffer: &Vec<&str>, index:usize)->Result<Address, String>{
+    let Some(param) = buffer.get(index) else {
+        return Result::Err(String::from("No parameter"))
+    };
+    let strs:Vec<&str> = param.split(":").collect();
+    let mem_addr = parse_number_string(&strs, 0)?;
+    let bank = parse_number_string(&strs, 1)?;
+    return Ok(Address::new(mem_addr, bank));
+}   
 
 fn parse_number_string(buffer: &Vec<&str>, index:usize) -> Result<u16, String> {
     let Some(param) = buffer.get(index) else {
@@ -196,6 +211,20 @@ fn parse_ppu_layer(buffer: &Vec<&str>)->Result<PpuLayer, String>{
         "spr" => Ok(PpuLayer::Sprites),
         "bg" => Ok(PpuLayer::Background),
         _=> Err(String::from("No matching layer"))
+    };
+}
+
+fn parse_watch_mode(buffer: &Vec<&str>, index:usize)->Result<WatchMode, String>{
+    let Some(param) = buffer.get(index) else {
+        return Result::Err(String::from("No parameter"))
+    };
+    
+    return match param.to_ascii_lowercase().as_str(){
+        "r" => Ok(WatchMode::Read),
+        "w" => Ok(WatchMode::Write),
+        "rw" |
+        "wr" => Ok(WatchMode::ReadWrite),
+        _=>Err(String::from("Could not find watch mode (r/w/rw"))
     };
 }
 

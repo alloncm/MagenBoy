@@ -113,6 +113,54 @@ fn test_cgb_acid2(){
     run_integration_test_from_url(file_url, 60, 1123147979104076695, Some(Mode::CGB));
 }
 
+#[test]
+fn test_magentests_ppu_off_stat_reg_state_cgb_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/ppu_disabled_state.gbc";
+    run_integration_test_from_url(file_url, 60, 6410113756445583331, Some(Mode::CGB));
+}
+
+#[test]
+fn test_magentests_ppu_off_stat_reg_state_dmg_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/ppu_disabled_state.gbc";
+    run_integration_test_from_url(file_url, 60, 3114957375595162924, Some(Mode::DMG));
+}
+
+#[test]
+fn test_magentests_mbc1_oob_access_cgb_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc1.gbc";
+    run_integration_test_from_url(file_url, 60, 6410113756445583331, Some(Mode::CGB));
+}
+
+#[test]
+fn test_magentests_mbc1_oob_access_dmg_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc1.gbc";
+    run_integration_test_from_url(file_url, 60, 3114957375595162924, Some(Mode::DMG));
+}
+
+#[test]
+fn test_magentests_mbc3_oob_access_cgb_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc3.gbc";
+    run_integration_test_from_url(file_url, 60, 6410113756445583331, Some(Mode::CGB));
+}
+
+#[test]
+fn test_magentests_mbc3_oob_access_dmg_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc3.gbc";
+    run_integration_test_from_url(file_url, 60, 3114957375595162924, Some(Mode::DMG));
+}
+
+#[test]
+fn test_magentests_mbc5_oob_access_cgb_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc5.gbc";
+    run_integration_test_from_url(file_url, 60, 6410113756445583331, Some(Mode::CGB));
+}
+
+#[test]
+fn test_magentests_mbc5_oob_access_dmg_mode(){
+    let file_url = "https://github.com/alloncm/MagenTests/releases/download/0.5.0/mbc_oob_sram_mbc5.gbc";
+    run_integration_test_from_url(file_url, 60, 3114957375595162924, Some(Mode::DMG));
+}
+
 fn run_turtle_integration_test(program_name:&str, hash:u64){
     let zip_url = "https://github.com/Powerlated/TurtleTests/releases/download/v1.0/release.zip";
     let program = get_ziped_program(zip_url, program_name);
@@ -183,9 +231,9 @@ fn run_integration_test(program:Vec<u8>, boot_rom:Option<Bootrom>, frames_to_exe
 #[test]
 #[ignore]
 fn generate_hash(){
-    let path = "path to rom";
+    let path = r"C:\Users\Alon\source\MagenTests\build\ppu_disabled_state.gbc";
     let boot_rom_path = None;
-    let mode = None;
+    let mode = Some(Mode::DMG);
     calc_hash(path, boot_rom_path, mode);
 }
 

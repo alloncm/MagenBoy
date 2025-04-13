@@ -73,6 +73,7 @@ pub fn init_and_run_gameboy(
     EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
     while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
         if !EMULATOR_STATE.pause.load(std::sync::atomic::Ordering::SeqCst){
+            // Locking the state mutex in order to signal the menu that we are cycling a frame now
             let state = &EMULATOR_STATE;
             let _mutex_ctx = state.state_mutex.lock().unwrap();
             gameboy.cycle_frame();

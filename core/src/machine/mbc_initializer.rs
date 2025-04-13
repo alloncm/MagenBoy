@@ -28,7 +28,8 @@ pub fn initialize_mbc(program:&[u8], save_data:Option<&[u8]>)->&'static mut dyn 
         0x12 => static_alloc(Mbc3::new(program_clone,false,None)),
         0x19 | 
         0x1A => static_alloc(Mbc5::new(program_clone, false, save_data_clone)),
-        0x1B => static_alloc(Mbc5::new(program_clone, true, save_data_clone)),
+        0x1B |
+        0x1E => static_alloc(Mbc5::new(program_clone, true, save_data_clone)),
         _=> core::panic!("not supported cartridge: {:#X}",mbc_type)
     };
     

@@ -21,47 +21,59 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
 impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
-        #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&address){
-            self.mem_watch.hit_addr = Some(address);
-        }
-
         self.cycle(m_cycles);
-        if let Some (bus) = &self.occupied_access_bus{
-            return match address{
+        let value = if let Some (bus) = &self.occupied_access_bus{
+            match address{
                 0xFEA0..=0xFEFF | 0xFF00..=0xFFFF=>self.read_unprotected(address),
                 0x8000..=0x9FFF => if let AccessBus::External = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 0..=0x7FFF | 0xA000..=0xFDFF => if let AccessBus::Video = bus {self.read_unprotected(address)} else{Self::bad_dma_read(address)},
                 _=>Self::bad_dma_read(address)
-            };
+            }
         }
-        return match address{
-            0x8000..=0x9FFF=>{
-                if self.is_vram_ready_for_io(){
-                    return self.io_bus.ppu.vram.read_current_bank(address-0x8000);
+        else{ 
+            match address{
+                0x8000..=0x9FFF=>{
+                    if self.is_vram_ready_for_io(){
+                        return self.io_bus.ppu.vram.read_current_bank(address-0x8000);
+                    }
+                    else{
+                        log::trace!("bad vram read");
+                        return BAD_READ_VALUE;
+                    }
+                },
+                0xFE00..=0xFE9F=>{
+                    if self.is_oam_ready_for_io(){
+                        return self.io_bus.ppu.oam[(address-0xFE00) as usize];
+                    }
+                    else{
+                        log::trace!("bad oam read");
+                        return BAD_READ_VALUE;
+                    }
                 }
-                else{
-                    log::trace!("bad vram read");
-                    return BAD_READ_VALUE;
-                }
-            },
-            0xFE00..=0xFE9F=>{
-                if self.is_oam_ready_for_io(){
-                    return self.io_bus.ppu.oam[(address-0xFE00) as usize];
-                }
-                else{
-                    log::trace!("bad oam read");
-                    return BAD_READ_VALUE;
+                _=>self.read_unprotected(address)
+            }
+        };
+
+        #[cfg(feature = "dbg")]
+        if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
+            if watch_value.0 == crate::debugger::WatchMode::Read {
+                if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
+                    self.mem_watch.hit_addr = Some((crate::debugger::Address{ mem_addr: address, bank: self.get_current_bank(address) }, value));
                 }
             }
-            _=>self.read_unprotected(address)
-        };
+        }
+
+        return value;
     }
 
     fn write(&mut self, address:u16, value:u8, m_cycles:u8){
         #[cfg(feature = "dbg")]
-        if self.mem_watch.watching_addresses.contains(&address){
-            self.mem_watch.hit_addr = Some(address);
+        if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
+            if watch_value.0 == crate::debugger::WatchMode::Write {
+                if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
+                    self.mem_watch.hit_addr = Some((crate::debugger::Address{ mem_addr: address, bank: self.get_current_bank(address) }, value));
+                }
+            }
         }
 
         self.cycle(m_cycles);
@@ -239,6 +251,17 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
 
     #[cfg(feature = "dbg")]
     pub fn dbg_read(&mut self, address:u16)->u8{self.read_unprotected(address)}
+
+    #[cfg(feature = "dbg")]
+    pub fn get_current_bank(&self, address:u16)->u16{
+        return match address{
+            0..=0x3FFF => 0,
+            0x4000..=0x7FFF => self.mem_watch.current_rom_bank_number,
+            0x8000..=0x9FFF => self.get_ppu().vram.get_bank_reg() as u16,
+            0xC000..=0xFDFF => self.mem_watch.current_ram_bank_number as u16,
+            _=>0
+        };
+    }
 
     fn is_oam_ready_for_io(&self)->bool{
         return self.io_bus.ppu.state != PpuState::OamSearch && self.io_bus.ppu.state != PpuState::PixelTransfer
