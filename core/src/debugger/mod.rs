@@ -69,14 +69,14 @@ pub const PPU_BUFFER_SIZE:usize = PPU_BUFFER_HEIGHT * PPU_BUFFER_WIDTH;
 pub enum DebuggerResult{
     Registers(Registers),
     AddedBreak(Address),
-    HitBreak(u16, u16),
+    HitBreak(Address),
     RemovedBreak(Address),
     BreakDoNotExist(Address),
     Continuing,
     HaltWakeup,
-    Stepped(u16, u16),
-    Stopped(u16, u16),
-    MemoryDump(u16, u16, Vec<u8>),
+    Stepped(Address),
+    Stopped(Address),
+    MemoryDump(Address, Vec<u8>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(Address),
     HitWatch(Address, Address, u8),
@@ -162,17 +162,17 @@ impl_gameboy!{{
                 self.debugger.skip_halt = false;
             }
             if self.debugger.check_for_break(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)){
-                self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)));
+                self.debugger.send(DebuggerResult::HitBreak(Address { mem_addr: self.cpu.program_counter, bank: self.mmu.get_current_bank(self.cpu.program_counter) }));
             }
             if let Some((hit_address, val)) = self.mmu.mem_watch.hit_addr{
                 self.debugger.send(DebuggerResult::HitWatch(hit_address, Address { mem_addr: self.cpu.program_counter, bank: self.mmu.get_current_bank(self.cpu.program_counter) }, val));
                 self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
-                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter))),
+                DebuggerCommand::Stop=>self.debugger.send(DebuggerResult::Stopped(Address{ mem_addr: self.cpu.program_counter, bank: self.mmu.get_current_bank(self.cpu.program_counter) })),
                 DebuggerCommand::Step=>{
                     self.step();
-                    self.debugger.send(DebuggerResult::Stepped(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)));
+                    self.debugger.send(DebuggerResult::Stepped(Address{ mem_addr: self.cpu.program_counter, bank: self.mmu.get_current_bank(self.cpu.program_counter) }));
                 }
                 DebuggerCommand::Continue=>{
                     self.debugger.send(DebuggerResult::Continuing);
@@ -197,7 +197,7 @@ impl_gameboy!{{
                         buffer[i as usize] = self.mmu.dbg_read(address + i);
                     }
 
-                    self.debugger.send(DebuggerResult::MemoryDump(address, self.mmu.get_current_bank(address), buffer));
+                    self.debugger.send(DebuggerResult::MemoryDump(Address { mem_addr: address, bank: self.mmu.get_current_bank(address) }, buffer));
                 }
                 DebuggerCommand::Disassemble(len)=>{
                     let result = disassemble(&self.cpu, &mut self.mmu, len);

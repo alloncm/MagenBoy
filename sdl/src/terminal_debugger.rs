@@ -77,25 +77,25 @@ impl TerminalDebugger{
     
     fn handle_debugger_result(result:DebuggerResult, ppu_layer_sender:Sender<PpuLayerResult>, enabled:Arc<AtomicBool>){
         match result{
-            DebuggerResult::Stopped(addr, bank) => println!("Stopped -> {:#X}:{}", addr, bank),
+            DebuggerResult::Stopped(addr) => println!("Stopped -> {}", addr),
             DebuggerResult::Registers(regs) => println!("AF: 0x{:04X}\nBC: 0x{:04X}\nDE: 0x{:04X}\nHL: 0x{:04X}\nSP: 0x{:04X}\nPC: 0x{:04X}\nIME: {}",
                                                             regs.af, regs.bc, regs.de, regs.hl, regs.sp, regs.pc, regs.ime),
-            DebuggerResult::HitBreak(addr, bank) =>{
+            DebuggerResult::HitBreak(addr) =>{
                 enabled.store(true, Ordering::SeqCst);
-                println!("Hit break: {:#X}:{}", addr, bank);
+                println!("Hit break: {}", addr);
             }
             DebuggerResult::HaltWakeup => println!("Waked up from halt"),
             DebuggerResult::AddedBreak(addr)=>println!("Added BreakPoint successfully at address: {addr}"),
             DebuggerResult::Continuing=>println!("Continuing execution"),
-            DebuggerResult::Stepped(addr, bank)=>println!("-> {:#X}:{}", addr, bank),
+            DebuggerResult::Stepped(addr)=>println!("-> {}", addr),
             DebuggerResult::RemovedBreak(addr) => println!("Removed breakpoint successfully at {addr}"),
             DebuggerResult::BreakDoNotExist(addr) => println!("Breakpoint {addr} does not exist"),
-            DebuggerResult::MemoryDump(address, bank, buffer) => {
+            DebuggerResult::MemoryDump(address, buffer) => {
                 const SPACING: usize = 16;
                 for i in 0..buffer.len() as usize{
                     if i % SPACING == 0 { 
                         println!();
-                        print!("{:#X}:{}: ", address + i as u16 , bank);
+                        print!("{:#X}:{}: ", address.mem_addr + i as u16 , address.bank);
                     }
                     print!("{:#04X}, ", buffer[i]);
                 }
@@ -108,7 +108,7 @@ impl TerminalDebugger{
             },
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {addr} successfully"),
             DebuggerResult::HitWatch(address, pc_address, value) => {
-                println!("Hit watch point: {address:#X} at address: {pc:#X} with value: {value:#X}");
+                println!("Hit watch point: {address} at address: {pc_address} with value: {value:#X}");
                 enabled.store(true, Ordering::SeqCst);
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {addr}"),
