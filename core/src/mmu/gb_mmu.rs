@@ -58,7 +58,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
         if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
             if watch_value.0 == crate::debugger::WatchMode::Read {
                 if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
-                    self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+                    self.mem_watch.hit_addr = Some((crate::debugger::Address{ mem_addr: address, bank: self.get_current_bank(address) }, value));
                 }
             }
         }
@@ -71,7 +71,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
         if let Some(watch_value) = self.mem_watch.watching_addresses.get(&crate::debugger::Address::new(address, self.get_current_bank(address))){
             if watch_value.0 == crate::debugger::WatchMode::Write {
                 if watch_value.1.is_none() || watch_value.1.is_some_and(|v|v == value){
-                    self.mem_watch.hit_addr = Some((address, self.get_current_bank(address), value));
+                    self.mem_watch.hit_addr = Some((crate::debugger::Address{ mem_addr: address, bank: self.get_current_bank(address) }, value));
                 }
             }
         }

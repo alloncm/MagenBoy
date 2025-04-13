@@ -79,7 +79,7 @@ pub enum DebuggerResult{
     MemoryDump(u16, u16, Vec<u8>),
     Disassembly(u16, u16, Vec<OpcodeEntry>),
     AddedWatch(Address),
-    HitWatch(u16, u16, u16, u16, u8),
+    HitWatch(Address, Address, u8),
     RemovedWatch(Address),
     WatchDoNotExist(Address),
     PpuInfo(PpuInfo),
@@ -164,8 +164,8 @@ impl_gameboy!{{
             if self.debugger.check_for_break(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)){
                 self.debugger.send(DebuggerResult::HitBreak(self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter)));
             }
-            if let Some((addr, bank, val)) = self.mmu.mem_watch.hit_addr{
-                self.debugger.send(DebuggerResult::HitWatch(addr, bank, self.cpu.program_counter, self.mmu.get_current_bank(self.cpu.program_counter), val));
+            if let Some((hit_address, val)) = self.mmu.mem_watch.hit_addr{
+                self.debugger.send(DebuggerResult::HitWatch(hit_address, Address { mem_addr: self.cpu.program_counter, bank: self.mmu.get_current_bank(self.cpu.program_counter) }, val));
                 self.mmu.mem_watch.hit_addr = None;
             }
             match self.debugger.recv(){
@@ -225,7 +225,7 @@ impl_gameboy!{{
 
 pub struct MemoryWatcher{
     pub watching_addresses: HashMap<Address, (WatchMode, Option<u8>)>,
-    pub hit_addr:Option<(u16, u16, u8)>,
+    pub hit_addr:Option<(Address, u8)>,
     pub current_rom_bank_number: u16,
     pub current_ram_bank_number: u8,
 }

@@ -107,8 +107,8 @@ impl TerminalDebugger{
                 }
             },
             DebuggerResult::AddedWatch(addr)=>println!("Set Watch point at: {addr} successfully"),
-            DebuggerResult::HitWatch(address, addr_bank, pc, pc_bank, value) => {
-                println!("Hit watch point: {address:#X}:{addr_bank} at address: {pc:#X}:{pc_bank} with value: {value:#X}");
+            DebuggerResult::HitWatch(address, pc_address, value) => {
+                println!("Hit watch point: {address:#X} at address: {pc:#X} with value: {value:#X}");
                 enabled.store(true, Ordering::SeqCst);
             },
             DebuggerResult::RemovedWatch(addr) => println!("Removed watch point {addr}"),
