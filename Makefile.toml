@@ -89,7 +89,7 @@ args = ["target", "add", "aarch64-linux-android"]
 
 [tasks.nx]
 command = "make"
-args = ["-C", "nx"]
+args = ["--directory", "nx", "--always-make"]
 dependencies = ["build_nx"]
 # TODO: install libnx
 

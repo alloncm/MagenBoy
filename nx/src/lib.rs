@@ -8,6 +8,8 @@ use core::{ffi::{c_char, c_ulonglong, c_void}, panic};
 use logging::{LogCallback, NxLogger};
 use magenboy_core::{machine, GameBoy, JoypadProvider, GfxDevice, AudioDevice, Mode};
 
+const ROM: &[u8] = include_bytes!("../../Dependencies/PokemonRed.gb");
+
 struct NxJoypadProvider;
 
 impl JoypadProvider for NxJoypadProvider {
@@ -39,25 +41,23 @@ impl AudioDevice for NxAudioDevice{
 pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong, log_cb: LogCallback) -> *mut c_void {
     NxLogger::init(log::LevelFilter::Debug, log_cb);
 
-    log::info!("Initializing MagenBoy with rom size: {}", rom_size);
-
     // let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
-    // let mbc = machine::mbc_initializer::initialize_mbc(&rom, None);
+    let rom = ROM;
+    let mbc = machine::mbc_initializer::initialize_mbc(&rom, None);
     
-    // // Initialize the GameBoy instance
-    // let gameboy = GameBoy::new_with_mode(
-    //     mbc,
-    //     NxJoypadProvider,
-    //     NxAudioDevice,
-    //     NxGfxDevice,
-    //     Mode::DMG,
-    // );
+    // Initialize the GameBoy instance
+    let gameboy = GameBoy::new_with_mode(
+        mbc,
+        NxJoypadProvider,
+        NxAudioDevice,
+        NxGfxDevice,
+        Mode::DMG,
+    );
 
-    // // Allocate on static memory
-    // let static_gameboy = magenboy_core::utils::global_static_alloctor::static_alloc(gameboy);
-    
-    // return static_gameboy as *mut _ as *mut c_void;
-    return core::ptr::null_mut();
+    // Allocate on static memory
+    let static_gameboy = magenboy_core::utils::global_static_alloctor::static_alloc(gameboy);
+    log::info!("Initialized MagenBoy successfully");
+    return static_gameboy as *mut _ as *mut c_void;
 }
 
 
@@ -68,6 +68,7 @@ pub unsafe extern "C" fn magenboy_cycle_frame(ctx: *mut c_void) {
     unsafe {
         (*(ctx as *mut GameBoy<NxJoypadProvider, NxAudioDevice, NxGfxDevice>)).cycle_frame()
     }
+    log::debug!("Cycled frame");
 }
 
 #[panic_handler]

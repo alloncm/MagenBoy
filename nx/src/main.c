@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     // Other initialization goes here. As a demonstration, we print hello world.
     printf("Hello World!\n");
 
-    magenboy_init(rom, 0x1000, log_cb); // Initialize the GameBoy instance with no ROM
+    void* ctx = magenboy_init(rom, 0x1000, log_cb); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())
@@ -64,6 +64,7 @@ int main(int argc, char* argv[])
             break; // break in order to return to hbmenu
 
         // Your code goes here
+        magenboy_cycle_frame(ctx);
     }
 
     // Deinitialize and clean up resources
