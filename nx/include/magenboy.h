@@ -8,11 +8,15 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+// Define a callback type for logging.
+// Adjust the signature as needed.
+typedef void (*LogCallback)(const char* message, int len);
+
 // Initialize the GameBoy instance.
 //   rom: pointer to ROM data
 //   rom_size: size of ROM data in bytes
 // Returns: a pointer to the statically allocated GameBoy instance.
-void* magenboy_init(const char* rom, uint64_t rom_size);
+void* magenboy_init(const char* rom, uint64_t rom_size, LogCallback log_cb);
 
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy instance returned by magenboy_init.

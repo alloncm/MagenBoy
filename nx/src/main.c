@@ -13,6 +13,11 @@
 
 static const char rom[0x1000] = {0};
 
+static void log_cb(const char* message, int len)
+{
+    fwrite(message, 1, len, stdout);
+}
+
 // Main program entrypoint
 int main(int argc, char* argv[])
 {
@@ -43,7 +48,7 @@ int main(int argc, char* argv[])
     // Other initialization goes here. As a demonstration, we print hello world.
     printf("Hello World!\n");
 
-    magenboy_init(rom, 0x1000); // Initialize the GameBoy instance with no ROM
+    magenboy_init(rom, 0x1000, log_cb); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())
