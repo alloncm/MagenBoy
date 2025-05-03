@@ -8,6 +8,11 @@
 // Include the main libnx system header, for Switch development
 #include <switch.h>
 
+// Include magenboy header
+#include "magenboy.h"
+
+static const char rom[0x1000] = {0};
+
 // Main program entrypoint
 int main(int argc, char* argv[])
 {
@@ -37,7 +42,8 @@ int main(int argc, char* argv[])
 
     // Other initialization goes here. As a demonstration, we print hello world.
     printf("Hello World!\n");
-    
+
+    magenboy_init(rom, 0x1000); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())

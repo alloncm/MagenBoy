@@ -88,6 +88,12 @@ command = "rustup"
 args = ["target", "add", "aarch64-linux-android"]
 
 [tasks.nx]
+command = "make"
+args = ["-C", "nx"]
+dependencies = ["build_nx"]
+# TODO: install libnx
+
+[tasks.build_nx]
 toolchain = "${nightly_version}"
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_nx", "--target", "aarch64-nintendo-switch-freestanding", 
