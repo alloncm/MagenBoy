@@ -8,8 +8,6 @@ use core::{ffi::{c_char, c_ulonglong, c_void}, panic};
 use logging::{LogCallback, NxLogger};
 use magenboy_core::{machine, GameBoy, JoypadProvider, GfxDevice, AudioDevice, Mode};
 
-const ROM: &[u8] = include_bytes!("../../Dependencies/PokemonRed.gb");
-
 struct NxJoypadProvider;
 
 impl JoypadProvider for NxJoypadProvider {
@@ -41,8 +39,7 @@ impl AudioDevice for NxAudioDevice{
 pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong, log_cb: LogCallback) -> *mut c_void {
     NxLogger::init(log::LevelFilter::Debug, log_cb);
 
-    // let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
-    let rom = ROM;
+    let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
     let mbc = machine::mbc_initializer::initialize_mbc(&rom, None);
     
     // Initialize the GameBoy instance

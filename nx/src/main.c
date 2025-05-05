@@ -11,21 +11,54 @@
 // Include magenboy header
 #include "magenboy.h"
 
-static const char rom[0x1000] = {0};
-
 static void log_cb(const char* message, int len)
 {
     fwrite(message, 1, len, stdout);
 }
 
-// Main program entrypoint
+static const long read_rom_buffer(const char* path, char** out_rom_buffer)
+{
+    long return_value = -1;
+    *out_rom_buffer = NULL;
+
+    FILE* file = fopen(path, "rb");
+    if (!file)
+    {
+        perror("Failed to open ROM file");
+        return return_value;
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0)
+    {
+        perror("Failed to seek to end of ROM file");
+        goto exit_file;
+    }
+    long size = ftell(file);
+    rewind(file);
+
+    *out_rom_buffer = (char*)malloc(size);
+    if (!out_rom_buffer)
+    {
+        perror("Failed to allocate memory for ROM");
+        goto exit_file;
+    }
+
+    if (fread(*out_rom_buffer, 1, size, file) != size)
+    {
+        perror("Failed to read ROM file");    
+        free(*out_rom_buffer);
+        *out_rom_buffer = NULL;
+    }
+
+    return_value = size;
+
+exit_file:
+    fclose(file);
+    return return_value;
+}
+
 int main(int argc, char* argv[])
 {
-    // This example uses a text console, as a simple way to output text to the screen.
-    // If you want to write a software-rendered graphics application,
-    //   take a look at the graphics/simplegfx example, which uses the libnx Framebuffer API instead.
-    // If on the other hand you want to write an OpenGL based application,
-    //   take a look at the graphics/opengl set of examples, which uses EGL instead.
     if (socketInitializeDefault() != 0)
     {
         printf("Failed to initialize socket driver.\n");
@@ -45,10 +78,17 @@ int main(int argc, char* argv[])
     PadState pad;
     padInitializeDefault(&pad);
 
-    // Other initialization goes here. As a demonstration, we print hello world.
-    printf("Hello World!\n");
+    // Read a rom file
 
-    void* ctx = magenboy_init(rom, 0x1000, log_cb); // Initialize the GameBoy instance with no ROM
+    char* rom_buffer = NULL;
+    long file_size = read_rom_buffer("roms/PokemonRed.gb", &rom_buffer);
+    if (file_size < 0)
+    {
+        printf("Failed to read ROM file.\n");
+        goto exit_link;
+    }
+
+    void* ctx = magenboy_init(rom_buffer, file_size, log_cb); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())
@@ -67,6 +107,8 @@ int main(int argc, char* argv[])
         magenboy_cycle_frame(ctx);
     }
 
+    free(rom_buffer);
+exit_link:
     // Deinitialize and clean up resources
     close(nxlink_fd);
 scoket_exit:
