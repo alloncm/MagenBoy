@@ -57,6 +57,26 @@ exit_file:
     return return_value;
 }
 
+static Framebuffer fb;
+
+static void render_buffer_cb(const uint16_t* buffer, int width, int height)
+{
+    u32 stride;
+    uint16_t* framebuffer = (uint16_t*)framebufferBegin(&fb, &stride);
+    stride /= sizeof(uint16_t);
+    printf("width, height, stride: %d %d %d\n", width, height, stride);
+    memset(framebuffer, 0, 1280 * 720 * sizeof(uint16_t));
+
+    for (int y = 0; y < height; y++)
+    {
+        uint16_t* dest = framebuffer + (y * stride);
+        const uint16_t* src = buffer + (y * width);
+        memcpy(dest, src, width * sizeof(uint16_t));
+    }
+
+    framebufferEnd(&fb);
+}
+
 int main(int argc, char* argv[])
 {
     if (socketInitializeDefault() != 0)
@@ -78,17 +98,32 @@ int main(int argc, char* argv[])
     PadState pad;
     padInitializeDefault(&pad);
 
-    // Read a rom file
+    // Retrieve the default window
+    NWindow* win = nwindowGetDefault();
 
+    // Initialize the framebuffer
+    if (R_FAILED(framebufferCreate(&fb, win, 1280, 720, PIXEL_FORMAT_RGB_565, 2))) 
+    {
+        printf("Failed to create framebuffer.\n");
+        goto link_exit;
+    }
+
+    if (R_FAILED(framebufferMakeLinear(&fb)))
+    {
+        printf("Failed to make framebuffer linear.\n");
+        goto fb_exit;
+    }
+
+    // Read a rom file
     char* rom_buffer = NULL;
     long file_size = read_rom_buffer("roms/PokemonRed.gb", &rom_buffer);
     if (file_size < 0)
     {
         printf("Failed to read ROM file.\n");
-        goto exit_link;
+        goto fb_exit;
     }
 
-    void* ctx = magenboy_init(rom_buffer, file_size, log_cb); // Initialize the GameBoy instance with no ROM
+    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, log_cb); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())
@@ -107,9 +142,11 @@ int main(int argc, char* argv[])
         magenboy_cycle_frame(ctx);
     }
 
-    free(rom_buffer);
-exit_link:
     // Deinitialize and clean up resources
+    free(rom_buffer);
+fb_exit:
+    framebufferClose(&fb);
+link_exit:
     close(nxlink_fd);
 scoket_exit:
     socketExit();
