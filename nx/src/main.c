@@ -58,6 +58,7 @@ exit_file:
 }
 
 static Framebuffer fb;
+static PadState pad;
 
 static void render_buffer_cb(const uint16_t* buffer, int width, int height)
 {
@@ -75,6 +76,12 @@ static void render_buffer_cb(const uint16_t* buffer, int width, int height)
     }
 
     framebufferEnd(&fb);
+}
+
+static uint64_t get_joycon_state()
+{
+    // Pad update is being called in the main loop
+    return padGetButtonsDown(&pad);
 }
 
 int main(int argc, char* argv[])
@@ -95,7 +102,6 @@ int main(int argc, char* argv[])
     padConfigureInput(1, HidNpadStyleSet_NpadStandard);
 
     // Initialize the default gamepad (which reads handheld mode inputs as well as the first connected controller)
-    PadState pad;
     padInitializeDefault(&pad);
 
     // Retrieve the default window
@@ -123,22 +129,16 @@ int main(int argc, char* argv[])
         goto fb_exit;
     }
 
-    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, log_cb); // Initialize the GameBoy instance with no ROM
+    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, log_cb); // Initialize the GameBoy instance with no ROM
 
     // Main loop
     while (appletMainLoop())
     {
-        // Scan the gamepad. This should be done once for each frame
         padUpdate(&pad);
-
-        // padGetButtonsDown returns the set of buttons that have been
-        // newly pressed in this frame compared to the previous one
         u64 kDown = padGetButtonsDown(&pad);
-
-        if (kDown & HidNpadButton_Plus)
+        if (kDown & HidNpadButton_X)
             break; // break in order to return to hbmenu
 
-        // Your code goes here
         magenboy_cycle_frame(ctx);
     }
 

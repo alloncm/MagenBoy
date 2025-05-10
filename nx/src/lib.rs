@@ -2,20 +2,19 @@
 
 mod mutex;
 mod logging;
+mod devices;
 
 use core::{ffi::{c_char, c_ulonglong, c_void}, panic};
 
-use devices::GfxDeviceCallback;
+use devices::*;
 use logging::{LogCallback, NxLogger};
 use magenboy_core::{machine, GameBoy, Mode};
-
-mod devices;
 
 // Exported C interface for nx
 
 /// SAFETY: rom size must be the size of rom
 #[no_mangle]
-pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong, gfx_cb: GfxDeviceCallback, log_cb: LogCallback) -> *mut c_void {
+pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong, gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, log_cb: LogCallback) -> *mut c_void {
     NxLogger::init(log::LevelFilter::Debug, log_cb);
 
     let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
@@ -24,9 +23,9 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
     // Initialize the GameBoy instance
     let gameboy = GameBoy::new_with_mode(
         mbc,
-        devices::NxJoypadProvider,
-        devices::NxAudioDevice,
-        devices::NxGfxDevice {cb: gfx_cb},
+        NxJoypadProvider{cb: joypad_cb},
+        NxAudioDevice,
+        NxGfxDevice {cb: gfx_cb},
         Mode::DMG,
     );
 
