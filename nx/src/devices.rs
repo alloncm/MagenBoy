@@ -65,6 +65,6 @@ pub(crate) struct NxAudioDevice{
 impl AudioDevice for NxAudioDevice{
     fn push_buffer(&mut self, buffer:&[magenboy_core::apu::audio_device::StereoSample; magenboy_core::apu::audio_device::BUFFER_SIZE]) {
         let resampled = self.resampler.resample(buffer);
-        unsafe{(self.cb)(resampled.as_ptr(), resampled.len() as c_int)};
+        unsafe{(self.cb)(resampled.as_ptr(), (resampled.len() * 2) as c_int)};
     }
 }

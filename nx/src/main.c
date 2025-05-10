@@ -100,22 +100,24 @@ static bool first_buffer = true;
 
 static void audio_device_cb(const int16_t* buffer, int size)
 {
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < size; i += 2)
     {
         // Convert each sample to a dual channel sample
-        audio_work_buffer[audio_work_data_offset++] = (buffer[i] << 16) | (buffer[i] & 0xFFFF); 
+        audio_work_buffer[audio_work_data_offset] = (buffer[i] << 16) | (buffer[i + 1] & 0xFFFF); 
+        audio_work_data_offset++;
+        
         if (audio_work_data_offset >= (AUDIO_DATA_SIZE / (CHANNEL_COUNT + BYTES_PER_SAMPLE)))
         {
             audio_work_data_offset = 0;
-            AudioOutBuffer *released_buffer = NULL;
-            u32 count = 0;
-            // wait for last buffer to finish playing
             if (first_buffer)
             {
                 first_buffer = false;
             }
             else
             {
+                // wait for last buffer to finish playing
+                AudioOutBuffer *released_buffer = NULL;
+                u32 count = 0;
                 audoutWaitPlayFinish(&released_buffer, &count, UINT64_MAX);
             }
 
