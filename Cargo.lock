@@ -920,6 +920,7 @@ name = "magenboy_nx"
 version = "4.0.0"
 dependencies = [
  "log",
+ "magenboy_common",
  "magenboy_core",
 ]
 

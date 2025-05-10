@@ -12,4 +12,5 @@ crate-type = ["staticlib"]
 
 [dependencies]
 magenboy_core = { path = "../core", features = ["apu"] }
+magenboy_common = { path = "../common", features = ["alloc"] }
 log = "0.4"

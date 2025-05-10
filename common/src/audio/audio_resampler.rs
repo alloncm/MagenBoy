@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use magenboy_core::apu::audio_device::{Sample, AudioDevice, StereoSample, BUFFER_SIZE};
 
 pub trait AudioResampler{

@@ -1,5 +1,7 @@
 use core::ffi::c_int;
 
+use magenboy_common::audio::AudioResampler;
+use magenboy_common::audio::ManualAudioResampler;
 use magenboy_core::AudioDevice;
 
 use magenboy_core::GfxDevice;
@@ -53,10 +55,16 @@ impl GfxDevice for NxGfxDevice{
     }
 }
 
-pub(crate) struct NxAudioDevice;
+pub type AudioDeviceCallback = unsafe extern "C" fn(buffer:*const magenboy_core::apu::audio_device::StereoSample, size:c_int) -> ();
+
+pub(crate) struct NxAudioDevice{
+    pub cb: AudioDeviceCallback,
+    pub resampler: ManualAudioResampler,
+}
 
 impl AudioDevice for NxAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[magenboy_core::apu::audio_device::StereoSample; magenboy_core::apu::audio_device::BUFFER_SIZE]) {
-        // TODO: implement
+    fn push_buffer(&mut self, buffer:&[magenboy_core::apu::audio_device::StereoSample; magenboy_core::apu::audio_device::BUFFER_SIZE]) {
+        let resampled = self.resampler.resample(buffer);
+        unsafe{(self.cb)(resampled.as_ptr(), resampled.len() as c_int)};
     }
 }
