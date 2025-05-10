@@ -32,7 +32,7 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
     let gameboy = GameBoy::new_with_mode(
         mbc,
         NxJoypadProvider{cb: joypad_cb},
-        NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY, 44800)},
+        NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY, 48000)},
         NxGfxDevice {cb: gfx_cb},
         Mode::DMG,
     );

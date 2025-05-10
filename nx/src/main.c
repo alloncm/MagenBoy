@@ -4,12 +4,15 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <time.h> 
 
 // Include the main libnx system header, for Switch development
 #include <switch.h>
 
 // Include magenboy header
 #include "magenboy.h"
+
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 static void log_cb(const char* message, int len)
 {
@@ -87,53 +90,48 @@ static uint64_t get_joycon_state()
 #define SAMPLERATE (48000)
 #define CHANNEL_COUNT (2)
 #define BYTES_PER_SAMPLE (sizeof(int16_t))
-#define AUDIO_DATA_SIZE ((SAMPLERATE * CHANNEL_COUNT * BYTES_PER_SAMPLE) / (60))
+// For sone reason multplying by 40 makes the best audio latency (60 for example makes audoutWaitPlayFinish to block for a long time)
+// causing frame drops and audio glitches
+#define AUDIO_DATA_SIZE ((SAMPLERATE * CHANNEL_COUNT * BYTES_PER_SAMPLE) / (40))
 
 // buffer for audio must be aligned to 0x1000 bytes
 #define BUFFER_ALIGNMENT (0x1000)
 #define AUDIO_BUFFER_SIZE ((AUDIO_DATA_SIZE + (BUFFER_ALIGNMENT - 1)) & ~(BUFFER_ALIGNMENT - 1)) /*Aligned buffer size*/
 
-static uint32_t *audio_work_buffer;
+static int16_t *audio_work_buffer;
 static int audio_work_data_offset = 0;
-static uint32_t *audio_io_buffer;
-static bool first_buffer = true;
+static int16_t *audio_io_buffer;
 
 static void audio_device_cb(const int16_t* buffer, int size)
 {
-    for (int i = 0; i < size; i += 2)
+    int transfer_size = MIN(size, (AUDIO_DATA_SIZE / BYTES_PER_SAMPLE) - audio_work_data_offset);
+    memcpy(audio_work_buffer + audio_work_data_offset, buffer, transfer_size * BYTES_PER_SAMPLE);
+    audio_work_data_offset += transfer_size;
+    
+    if (audio_work_data_offset >= (AUDIO_DATA_SIZE / BYTES_PER_SAMPLE))
     {
-        // Convert each sample to a dual channel sample
-        audio_work_buffer[audio_work_data_offset] = (buffer[i] << 16) | (buffer[i + 1] & 0xFFFF); 
-        audio_work_data_offset++;
+        audio_work_data_offset = 0;
         
-        if (audio_work_data_offset >= (AUDIO_DATA_SIZE / (CHANNEL_COUNT + BYTES_PER_SAMPLE)))
+        // wait for last buffer to finish playing
+        AudioOutBuffer *released_buffer = NULL;
+        u32 count = 0;
+        audoutWaitPlayFinish(&released_buffer, &count, UINT64_MAX);
+
+        // Copy data to buffer
+        if (released_buffer)
         {
-            audio_work_data_offset = 0;
-            if (first_buffer)
-            {
-                first_buffer = false;
-            }
-            else
-            {
-                // wait for last buffer to finish playing
-                AudioOutBuffer *released_buffer = NULL;
-                u32 count = 0;
-                audoutWaitPlayFinish(&released_buffer, &count, UINT64_MAX);
-            }
-
-            // Copy data to io buffer
-            memcpy(audio_io_buffer, audio_work_buffer, AUDIO_BUFFER_SIZE);
-
-            // Submit new samples
-            AudioOutBuffer audio_out_buffer = {
-                .next = NULL,
-                .buffer = audio_io_buffer,
-                .buffer_size = AUDIO_BUFFER_SIZE,
-                .data_size = AUDIO_DATA_SIZE,
-                .data_offset = 0,
-            };
-            audoutAppendAudioOutBuffer(&audio_out_buffer);
+            memcpy(released_buffer->buffer, audio_work_buffer, released_buffer->data_size);
         }
+
+        // Submit new samples
+        audoutAppendAudioOutBuffer(released_buffer);
+    }
+
+    if (transfer_size < size)
+    {
+        int remaining_size = size - transfer_size;
+        memcpy(audio_work_buffer + audio_work_data_offset, buffer + transfer_size, remaining_size * BYTES_PER_SAMPLE);
+        audio_work_data_offset += remaining_size;
     }
 }
 
@@ -211,6 +209,18 @@ int main(int argc, char* argv[])
         goto audio_exit;
     }
 
+    // Initialize the audio output buffer
+
+    AudioOutBuffer audio_out_buffer = {
+        .buffer = audio_io_buffer,
+        .buffer_size = AUDIO_BUFFER_SIZE,
+        .data_size = AUDIO_DATA_SIZE,
+        .data_offset = 0,
+        .next = NULL,
+    };
+
+    audoutAppendAudioOutBuffer(&audio_out_buffer);
+
     // Read a rom file
     char* rom_buffer = NULL;
     long file_size = read_rom_buffer("roms/PokemonRed.gb", &rom_buffer);
@@ -222,6 +232,18 @@ int main(int argc, char* argv[])
 
     void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, audio_device_cb, log_cb); // Initialize the GameBoy instance with no ROM
 
+    // FPS measurement variables
+    struct timespec start_time, end_time;
+    int frame_count = 0;
+    double elapsed_time = 0.0;
+
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    printf("Sample rate: %d\n", audoutGetSampleRate());
+    printf("Channel count: %d\n", audoutGetChannelCount());
+    printf("PCM format: %d\n", audoutGetPcmFormat());
+    printf("Device state: %d\n", audoutGetDeviceState());
+
     // Main loop
     while (appletMainLoop())
     {
@@ -231,6 +253,19 @@ int main(int argc, char* argv[])
             break; // break in order to return to hbmenu
 
         magenboy_cycle_frame(ctx);
+
+        // FPS calculation
+        frame_count++;
+        clock_gettime(CLOCK_MONOTONIC, &end_time);
+        elapsed_time = (end_time.tv_sec - start_time.tv_sec) + 
+                       (end_time.tv_nsec - start_time.tv_nsec) / 1e9;
+
+        if (elapsed_time >= 1.0) // Print FPS every second
+        {
+            printf("FPS: %d\n", frame_count);
+            frame_count = 0;
+            clock_gettime(CLOCK_MONOTONIC, &start_time);
+        }
     }
 
     // Deinitialize and clean up resources
