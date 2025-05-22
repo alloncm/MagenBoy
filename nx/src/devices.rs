@@ -43,7 +43,7 @@ impl JoypadProvider for NxJoypadProvider {
     }
 }
 
-pub type GfxDeviceCallback = unsafe extern "C" fn(buffer:*const u16, width:c_int, height: c_int) -> ();
+pub type GfxDeviceCallback = unsafe extern "C" fn(buffer:*const u16) -> ();
 
 pub(crate) struct NxGfxDevice{
     pub cb: GfxDeviceCallback
@@ -51,7 +51,7 @@ pub(crate) struct NxGfxDevice{
 
 impl GfxDevice for NxGfxDevice{
     fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
-        unsafe{(self.cb)(buffer.as_ptr(), magenboy_core::ppu::gb_ppu::SCREEN_WIDTH as c_int, magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT as c_int)};
+        unsafe{(self.cb)(buffer.as_ptr())};
     }
 }
 

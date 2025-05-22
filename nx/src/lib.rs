@@ -18,6 +18,12 @@ use logging::{LogCallback, NxLogger};
 #[global_allocator]
 static ALLOCATOR: allocator::NxAllocator = allocator::NxAllocator{};
 
+#[panic_handler]
+fn panic_handler(info: &panic::PanicInfo) -> ! {
+    log::error!("Panic: {}", info);
+    loop{}
+}
+
 // Exported C interface for nx
 
 /// SAFETY: rom size must be the size of rom
@@ -53,8 +59,11 @@ pub unsafe extern "C" fn magenboy_cycle_frame(ctx: *mut c_void) {
     }
 }
 
-#[panic_handler]
-fn panic_handler(info: &panic::PanicInfo) -> ! {
-    log::error!("Panic: {}", info);
-    loop{}
+#[no_mangle]
+pub unsafe extern "C" fn magenboy_get_dimensions(width: *mut u32, height: *mut u32) {
+    // SAFETY: width and height are valid pointers to uint32_t
+    unsafe {
+        *width = magenboy_core::ppu::gb_ppu::SCREEN_WIDTH as u32;
+        *height = magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT as u32;
+    }
 }

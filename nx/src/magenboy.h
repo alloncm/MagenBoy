@@ -11,7 +11,7 @@ extern "C" {
 // Define a callback type for logging.
 // Adjust the signature as needed.
 typedef void (*LogCallback)(const char* message, int len);
-typedef void (*GfxDeviceCallback)(const uint16_t* buffer, int width, int height);
+typedef void (*GfxDeviceCallback)(const uint16_t* buffer);
 typedef uint64_t (*JoypadDeviceCallback)();
 typedef void (*AudioDeviceCallback)(const int16_t* buffer, int size);
 
@@ -24,6 +24,9 @@ void* magenboy_init(const char* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy instance returned by magenboy_init.
 void magenboy_cycle_frame(void* ctx);
+
+// Get the GB display dimensions.
+void magenboy_get_dimensions(uint32_t* width, uint32_t* height);
 
 #ifdef __cplusplus
 }

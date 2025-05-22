@@ -19,7 +19,7 @@ static void log_cb(const char* message, int len)
     fwrite(message, 1, len, stdout);
 }
 
-static const long read_rom_buffer(const char* path, char** out_rom_buffer)
+static long read_rom_buffer(const char* path, char** out_rom_buffer)
 {
     long return_value = -1;
     *out_rom_buffer = NULL;
@@ -62,18 +62,22 @@ exit_file:
 
 static Framebuffer fb;
 
-static void render_buffer_cb(const uint16_t* buffer, int width, int height)
+static void render_buffer_cb(const uint16_t* buffer)
 {
     u32 stride;
     uint16_t* framebuffer = (uint16_t*)framebufferBegin(&fb, &stride);
     stride /= sizeof(uint16_t);
-    memset(framebuffer, 0, 1280 * 720 * sizeof(uint16_t));
 
-    for (int y = 0; y < height; y++)
+    u32 gb_width, gb_height;
+    magenboy_get_dimensions(&gb_width, &gb_height);
+
+    u32 frame_initial_width = (stride - gb_width) / 2;
+
+    for (int y = 0; y < gb_height; y++)
     {
-        uint16_t* dest = framebuffer + (y * stride);
-        const uint16_t* src = buffer + (y * width);
-        memcpy(dest, src, width * sizeof(uint16_t));
+        uint16_t* dest = framebuffer + (y * stride) + frame_initial_width;
+        const uint16_t* src = buffer + (y * gb_width);
+        memcpy(dest, src, gb_width * sizeof(uint16_t));
     }
 
     framebufferEnd(&fb);
@@ -157,6 +161,11 @@ static int intiailzie_audio_buffers()
     return 0;
 }
 
+static void get_timespec(struct timespec* ts)
+{
+    clock_gettime(CLOCK_MONOTONIC, ts);
+}
+
 int main(int argc, char* argv[])
 {
     if (socketInitializeDefault() != 0)
@@ -180,8 +189,22 @@ int main(int argc, char* argv[])
     // Retrieve the default window
     NWindow* win = nwindowGetDefault();
 
+    u32 win_width, win_height;
+    if (R_FAILED(nwindowGetDimensions(win, &win_width, &win_height)))
+    {
+        printf("Failed to get window dimensions.\n");
+        goto scoket_exit;
+    }
+
+    u32 gb_wifth, gb_height;
+    magenboy_get_dimensions(&gb_wifth, &gb_height);
+
+    // Adjusting the framebuffer width to match the window width in order to let the switch scale the image
+    float width_scale_ratio = (float)win_height / (float)gb_height;
+    u32 frame_width = (u32)(gb_wifth * (float)win_width / (float)(gb_wifth * width_scale_ratio));
+
     // Initialize the framebuffer
-    if (R_FAILED(framebufferCreate(&fb, win, 1280, 720, PIXEL_FORMAT_RGB_565, 2))) 
+    if (R_FAILED(framebufferCreate(&fb, win, frame_width, gb_height, PIXEL_FORMAT_RGB_565, 2)))
     {
         printf("Failed to create framebuffer.\n");
         goto link_exit;
@@ -237,12 +260,7 @@ int main(int argc, char* argv[])
     int frame_count = 0;
     double elapsed_time = 0.0;
 
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
-
-    printf("Sample rate: %d\n", audoutGetSampleRate());
-    printf("Channel count: %d\n", audoutGetChannelCount());
-    printf("PCM format: %d\n", audoutGetPcmFormat());
-    printf("Device state: %d\n", audoutGetDeviceState());
+    get_timespec(&start_time);
 
     // Main loop
     while (appletMainLoop())
@@ -256,7 +274,7 @@ int main(int argc, char* argv[])
 
         // FPS calculation
         frame_count++;
-        clock_gettime(CLOCK_MONOTONIC, &end_time);
+        get_timespec(&end_time);
         elapsed_time = (end_time.tv_sec - start_time.tv_sec) + 
                        (end_time.tv_nsec - start_time.tv_nsec) / 1e9;
 
@@ -264,7 +282,7 @@ int main(int argc, char* argv[])
         {
             printf("FPS: %d\n", frame_count);
             frame_count = 0;
-            clock_gettime(CLOCK_MONOTONIC, &start_time);
+            get_timespec(&start_time);
         }
     }
 
