@@ -88,7 +88,7 @@ static PadState pad;
 static uint64_t get_joycon_state()
 {
     // Pad update is being called in the main loop
-    return padGetButtonsDown(&pad);
+    return padGetButtons(&pad);
 }
 
 #define SAMPLERATE (48000)
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
     if (nxlink_fd < 0)
     {
         printf("Failed to initialize NXLink: %d.\n", errno);
-        goto scoket_exit;
+        socketExit();
     }
 
     // Configure our supported input layout: a single player with standard controller styles
@@ -297,8 +297,14 @@ audio_buffers_exit:
 fb_exit:
     framebufferClose(&fb);
 link_exit:
-    close(nxlink_fd);
+    if (nxlink_fd > 0)
+    {
+        close(nxlink_fd);
+    }
 scoket_exit:
-    socketExit();
+    if (nxlink_fd > 0)
+    {
+        socketExit();
+    }
     return 0;
 }
