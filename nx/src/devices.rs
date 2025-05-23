@@ -2,6 +2,7 @@ use core::ffi::c_int;
 
 use magenboy_common::audio::AudioResampler;
 use magenboy_common::audio::ManualAudioResampler;
+use magenboy_common::joypad_menu::MenuJoypadProvider;
 use magenboy_core::AudioDevice;
 
 use magenboy_core::GfxDevice;
@@ -12,6 +13,7 @@ use magenboy_core::JoypadProvider;
 use magenboy_core::keypad::button::Button;
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
+pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
 
 // Copied from libnx definitions
 const fn bit(index: u64) -> u64 { 1 << index }
@@ -25,13 +27,12 @@ const JOYCON_RIGHT: u64 = bit(14);
 const JOYCON_DOWN: u64  = bit(15);
 
 pub(crate) struct NxJoypadProvider{
-    pub cb: JoypadProviderCallback
+    pub provider_cb: JoypadProviderCallback,
+    pub poll_cb: PollJoypadProviderCallback
 }
 
-impl JoypadProvider for NxJoypadProvider {
-    fn provide(&mut self, joypad: &mut magenboy_core::keypad::joypad::Joypad) {
-        let joycons_state = unsafe{(self.cb)()};
-
+impl NxJoypadProvider{
+    fn update_state(joypad: &mut magenboy_core::keypad::joypad::Joypad, joycons_state: u64) {
         joypad.buttons[Button::A as usize]      = (joycons_state & JOYCON_A) != 0;
         joypad.buttons[Button::B as usize]      = (joycons_state & JOYCON_B) != 0;
         joypad.buttons[Button::Start as usize]  = (joycons_state & JOYCON_PLUS) != 0;
@@ -40,6 +41,20 @@ impl JoypadProvider for NxJoypadProvider {
         joypad.buttons[Button::Down as usize]   = (joycons_state & JOYCON_DOWN) != 0;
         joypad.buttons[Button::Right as usize]  = (joycons_state & JOYCON_RIGHT) != 0;
         joypad.buttons[Button::Left as usize]   = (joycons_state & JOYCON_LEFT) != 0;
+    }
+}
+
+impl JoypadProvider for NxJoypadProvider {
+    fn provide(&mut self, joypad: &mut magenboy_core::keypad::joypad::Joypad) {
+        let joycons_state = unsafe{(self.provider_cb)()};
+        Self::update_state(joypad, joycons_state);
+    }
+}
+
+impl MenuJoypadProvider for NxJoypadProvider {
+    fn poll(&mut self, joypad:&mut magenboy_core::keypad::joypad::Joypad) {
+        let joycon_state = unsafe{(self.poll_cb)()};
+        Self::update_state(joypad, joycon_state);
     }
 }
 

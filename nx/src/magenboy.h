@@ -13,13 +13,19 @@ extern "C" {
 typedef void (*LogCallback)(const char* message, int len);
 typedef void (*GfxDeviceCallback)(const uint16_t* buffer);
 typedef uint64_t (*JoypadDeviceCallback)();
+typedef uint64_t (*PollJoypadDeviceCallback)();
 typedef void (*AudioDeviceCallback)(const int16_t* buffer, int size);
+
+void magenboy_init_logger(LogCallback log_cb);
 
 // Initialize the GameBoy instance.
 //   rom: pointer to ROM data
 //   rom_size: size of ROM data in bytes
 // Returns: a pointer to the statically allocated GameBoy instance.
-void* magenboy_init(const char* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, AudioDeviceCallback audio_cb, LogCallback log_cb);
+void* magenboy_init(const char* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb,
+    AudioDeviceCallback audio_cb);
+
+const char* magenboy_menu_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb, const char** roms, uint32_t roms_count);
 
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy instance returned by magenboy_init.

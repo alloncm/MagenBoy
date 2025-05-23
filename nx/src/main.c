@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h> 
+#include <dirent.h>
 
 // Include the main libnx system header, for Switch development
 #include <switch.h>
@@ -87,8 +88,23 @@ static PadState pad;
 
 static uint64_t get_joycon_state()
 {
-    // Pad update is being called in the main loop
+    padUpdate(&pad);
     return padGetButtons(&pad);
+}
+
+static uint64_t poll_until_joycon_pressed()
+{
+    while (1)
+    {
+        padUpdate(&pad);
+        u64 buttons = padGetButtons(&pad);
+        if (buttons != 0)
+        {
+            return buttons;
+        }
+
+        svcSleepThread(10000000ULL); // 10ms in nanoseconds
+    }
 }
 
 #define SAMPLERATE (48000)
@@ -165,6 +181,42 @@ static void get_timespec(struct timespec* ts)
 {
     clock_gettime(CLOCK_MONOTONIC, ts);
 }
+
+static int read_dir_filenames(const char* directory_path, char** file_list, size_t max_filename_size, size_t max_files) 
+{
+    struct dirent* entry;
+    DIR* dir = opendir(directory_path);
+
+    if (dir == NULL) {
+        perror("Failed to open directory");
+        return -1;
+    }
+
+    printf("Files in directory '%s':\n", directory_path);
+    int counter = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip "." and ".."
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            printf("%s\n", entry->d_name);
+
+            if (counter < max_files) {
+                snprintf(file_list[counter], max_filename_size, "%s/%s", directory_path, entry->d_name);
+                counter++;
+            }
+            else
+            {
+                printf("Maximum number of files reached.\n");
+                break;
+            }
+        }
+    }
+
+    closedir(dir);
+    return counter;
+}
+
+#define MAX_ROMS (30)
+#define MAX_FILENAME_SIZE (300)
 
 int main(int argc, char* argv[])
 {
@@ -244,16 +296,34 @@ int main(int argc, char* argv[])
 
     audoutAppendAudioOutBuffer(&audio_out_buffer);
 
+    magenboy_init_logger(log_cb);
+
+    // Asks the user to select a ROM file
+    char **roms = malloc(MAX_ROMS * sizeof(char*));
+    for (int i = 0; i < MAX_ROMS; i++)
+    {
+        roms[i] = malloc(MAX_FILENAME_SIZE);
+    }
+
+    int count = read_dir_filenames("roms", roms, MAX_FILENAME_SIZE, MAX_ROMS);
+
+    const char* filepath = magenboy_menu_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, (const char**)roms, count);
+    if (filepath == NULL)
+    {
+        printf("Failed to trigger ROM menu.\n");
+        goto fb_exit;
+    }
+
     // Read a rom file
     char* rom_buffer = NULL;
-    long file_size = read_rom_buffer("roms/PokemonRed.gb", &rom_buffer);
+    long file_size = read_rom_buffer(filepath, &rom_buffer);
     if (file_size < 0)
     {
         printf("Failed to read ROM file.\n");
         goto fb_exit;
     }
 
-    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, audio_device_cb, log_cb); // Initialize the GameBoy instance with no ROM
+    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, audio_device_cb);
 
     // FPS measurement variables
     struct timespec start_time, end_time;
