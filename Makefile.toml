@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [env]
-nightly_version = "nightly-2024-02-08"  # 1.76.0 toolchain nightly version
+nightly_version = "nightly-2023-10-05" # 1.73.0 toolchain nightly version
 
 [tasks.test]
 command = "cargo"
@@ -98,4 +98,4 @@ toolchain = "${nightly_version}"
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_nx", "--target", "aarch64-nintendo-switch-freestanding", 
     "-Z", "build-std=core,compiler_builtins,alloc", "-Z", "build-std-features=compiler-builtins-mem"]
-dependencies = ["nightly-install"]
+dependencies = ["nightly-install", "install_rust_src"]
