@@ -40,6 +40,9 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
 
     let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
     let mbc = machine::mbc_initializer::initialize_mbc(&rom, None);
+
+    let mode = mbc.detect_preferred_mode();
+    log::info!("Detected mode: {}", <Mode as Into<&str>>::into(mode));
     
     // Initialize the GameBoy instance
     let gameboy = GameBoy::new_with_mode(
@@ -47,7 +50,7 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
         NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb},
         NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY, 48000)},
         NxGfxDevice {cb: gfx_cb},
-        Mode::DMG,
+        mode,
     );
 
     // Allocate on static memory
