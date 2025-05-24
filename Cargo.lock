@@ -916,6 +916,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "magenboy_nx"
+version = "4.0.0"
+dependencies = [
+ "log",
+ "magenboy_common",
+ "magenboy_core",
+]
+
+[[package]]
 name = "magenboy_rpi"
 version = "4.1.0"
 dependencies = [
