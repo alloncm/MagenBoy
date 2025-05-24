@@ -218,6 +218,62 @@ static int read_dir_filenames(const char* directory_path, char** file_list, size
 #define MAX_ROMS (30)
 #define MAX_FILENAME_SIZE (300)
 
+static int try_load_sram(const char* filepath, u8** sram_buffer, size_t* sram_size)
+{
+    char sram_path[MAX_FILENAME_SIZE];
+    snprintf(sram_path, sizeof(sram_path), "%s.sram", filepath);
+
+    FILE* file = fopen(sram_path, "rb");
+    if (!file)
+    {
+        perror("Failed to open SRAM file");
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    *sram_size = ftell(file);
+    rewind(file);
+
+    *sram_buffer = (u8*)malloc(*sram_size);
+    if (!*sram_buffer)
+    {
+        perror("Failed to allocate memory for SRAM");
+        goto error;
+    }
+
+    if (fread(*sram_buffer, 1, *sram_size, file) != *sram_size)
+    {
+        perror("Failed to read SRAM file");
+        free(*sram_buffer);
+        goto error;
+    }
+
+    return 0;
+error:
+    fclose(file);
+    return -1;
+}
+
+static void save_sram(const char* filepath, const u8* sram_buffer, size_t sram_size)
+{
+    char sram_path[MAX_FILENAME_SIZE];
+    snprintf(sram_path, sizeof(sram_path), "%s.sram", filepath);
+
+    FILE* file = fopen(sram_path, "wb");
+    if (!file)
+    {
+        perror("Failed to open SRAM file for writing");
+        return;
+    }
+
+    if (fwrite(sram_buffer, 1, sram_size, file) != sram_size)
+    {
+        perror("Failed to write SRAM data");
+    }
+
+    fclose(file);
+}
+
 int main(int argc, char* argv[])
 {
     if (socketInitializeDefault() != 0)
@@ -323,7 +379,20 @@ int main(int argc, char* argv[])
         goto fb_exit;
     }
 
+    u8* found_sram_buffer = NULL;
+    size_t found_sram_size = 0;
+    int found_sram = try_load_sram(filepath, &found_sram_buffer, &found_sram_size);
+
     void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, audio_device_cb);
+
+    u8* sram_buffer = NULL;
+    size_t sram_size = 0;
+    magenboy_get_sram(ctx, &found_sram_buffer, &found_sram_size);
+
+    if (found_sram == 0 && sram_size == found_sram_size)
+    {
+        memcpy(sram_buffer, found_sram_buffer, sram_size);
+    }
 
     // FPS measurement variables
     struct timespec start_time, end_time;
@@ -355,6 +424,8 @@ int main(int argc, char* argv[])
             get_timespec(&start_time);
         }
     }
+
+    save_sram(filepath, sram_buffer, sram_size);
 
     // Deinitialize and clean up resources
     free(rom_buffer);

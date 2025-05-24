@@ -16,6 +16,11 @@ use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 use devices::*;
 use logging::{LogCallback, NxLogger};
 
+struct NxGbContext<'a>{
+    gb: GameBoy<'a, NxJoypadProvider, NxAudioDevice, NxGfxDevice>,
+    sram_fat_pointer: (*mut u8, usize)
+}
+
 #[global_allocator]
 static ALLOCATOR: allocator::NxAllocator = allocator::NxAllocator{};
 
@@ -43,7 +48,9 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
 
     let mode = mbc.detect_preferred_mode();
     log::info!("Detected mode: {}", <Mode as Into<&str>>::into(mode));
-    
+
+    let sram_fat_pointer = (mbc.get_ram().as_mut_ptr(), mbc.get_ram().len());
+
     // Initialize the GameBoy instance
     let gameboy = GameBoy::new_with_mode(
         mbc,
@@ -53,8 +60,10 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
         mode,
     );
 
+    let ctx = NxGbContext {gb: gameboy, sram_fat_pointer };
+
     // Allocate on static memory
-    let static_gameboy = magenboy_core::utils::global_static_alloctor::static_alloc(gameboy);
+    let static_gameboy = magenboy_core::utils::global_static_alloctor::static_alloc(ctx);
     log::info!("Initialized MagenBoy successfully");
     return static_gameboy as *mut _ as *mut c_void;
 }
@@ -90,7 +99,7 @@ pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad
 pub unsafe extern "C" fn magenboy_cycle_frame(ctx: *mut c_void) {
     // SAFETY: ctx is a valid pointer to a GameBoy instance
     unsafe {
-        (*(ctx as *mut GameBoy<devices::NxJoypadProvider, devices::NxAudioDevice, devices::NxGfxDevice>)).cycle_frame()
+        (*(ctx as *mut NxGbContext)).gb.cycle_frame()
     }
 }
 
@@ -101,4 +110,11 @@ pub unsafe extern "C" fn magenboy_get_dimensions(width: *mut u32, height: *mut u
         *width = magenboy_core::ppu::gb_ppu::SCREEN_WIDTH as u32;
         *height = magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT as u32;
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn magenboy_get_sram(ctx: *mut c_void, ptr: *mut *mut u8, size: *mut usize){
+    let sram_fat_ptr = (*(ctx as *mut NxGbContext)).sram_fat_pointer;
+    *ptr = sram_fat_ptr.0;
+    *size = sram_fat_ptr.1;
 }

@@ -22,7 +22,7 @@ void magenboy_init_logger(LogCallback log_cb);
 //   rom: pointer to ROM data
 //   rom_size: size of ROM data in bytes
 // Returns: a pointer to the statically allocated GameBoy instance.
-void* magenboy_init(const char* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb,
+void* magenboy_init(const uint8_t* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb,
     AudioDeviceCallback audio_cb);
 
 const char* magenboy_menu_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb, const char** roms, uint32_t roms_count);
@@ -33,6 +33,8 @@ void magenboy_cycle_frame(void* ctx);
 
 // Get the GB display dimensions.
 void magenboy_get_dimensions(uint32_t* width, uint32_t* height);
+
+void magenboy_get_sram(void* ctx, uint8_t** sram_buffer, size_t* sram_size);
 
 #ifdef __cplusplus
 }
