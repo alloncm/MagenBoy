@@ -57,3 +57,6 @@ jobs:
 
     - name: Build libretro android
       run: cargo make libretro_android
+
+    - name: Build nintendo switch
+      run: cargo make nx
