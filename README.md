@@ -10,7 +10,7 @@ Install `cargo-make`
 ```sh
 cargo install cargo-make
 ```
-verify you have docker or podman installed 
+Verify you have cmake and docker or podman installed
 
 ### Desktop
 
