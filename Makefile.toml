@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [env]
-nightly_version = "nightly-2023-10-05" # 1.73.0 toolchain nightly version
+nightly_version = "nightly-2023-10-05"  # 1.73.0 toolchain nightly version
 
 [tasks.test]
 command = "cargo"
@@ -88,14 +88,5 @@ command = "rustup"
 args = ["target", "add", "aarch64-linux-android"]
 
 [tasks.nx]
-command = "make"
-args = ["--directory", "nx", "--always-make"]
-dependencies = ["build_nx"]
-# TODO: install libnx
-
-[tasks.build_nx]
-toolchain = "${nightly_version}"
-command = "cargo"
-args = ["build", "--release", "--package", "magenboy_nx", "--target", "aarch64-nintendo-switch-freestanding", 
-    "-Z", "build-std=core,compiler_builtins,alloc", "-Z", "build-std-features=compiler-builtins-mem"]
-dependencies = ["nightly-install", "install_rust_src"]
+command = "docker"
+args = ["build", ".", "--target", "export", "--output=.", "--file", "nx.Dockerfile", "--build-arg", "NIGHTLY=${nightly_version}"]
