@@ -89,4 +89,4 @@ args = ["target", "add", "aarch64-linux-android"]
 
 [tasks.nx]
 command = "docker"
-args = ["build", ".", "--target", "export", "--output=.", "--file", "nx.Dockerfile", "--build-arg", "NIGHTLY=${nightly_version}"]
+args = ["build", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=.", "--build-arg", "NIGHTLY=${nightly_version}"]

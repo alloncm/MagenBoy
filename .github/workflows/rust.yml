@@ -59,4 +59,5 @@ jobs:
       run: cargo make libretro_android
 
     - name: Build nintendo switch
+      if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
       run: cargo make nx

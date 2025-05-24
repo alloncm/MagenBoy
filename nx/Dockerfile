@@ -1,4 +1,5 @@
-FROM rust:1.73.0 AS builder
+# We are installing the Rust toolchain so the version does not matter
+FROM rust:latest AS builder
 
 # Nightly version - entered as a build argument
 ARG NIGHTLY
