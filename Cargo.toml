@@ -6,7 +6,8 @@ members = [
     "core",
     "rpi",
     "common", 
-    "libretro"
+    "libretro",
+    "nx"
 ]
 
 [workspace.package]

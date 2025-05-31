@@ -15,8 +15,9 @@ fern = {version = "0.6", optional = true}
 chrono = {version = "0.4", optional = true}
 
 [features]
-std = ["chrono", "fern", "crossbeam-channel"]
+std = ["chrono", "fern", "crossbeam-channel", "alloc"]
 dbg = ["std"]
+alloc = []
 
 [dev-dependencies]
 criterion = "0.3"
