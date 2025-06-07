@@ -887,7 +887,7 @@ checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
 
 [[package]]
 name = "magenboy_common"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "cfg-if",
  "chrono",
@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy_core"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "cfg-if",
  "criterion",
@@ -914,7 +914,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy_libretro"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "libretro-sys",
  "log",
@@ -924,7 +924,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy_nx"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "log",
  "magenboy_common",
@@ -933,7 +933,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy_rpi"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "arrayvec",
  "bitfield-struct",
@@ -949,7 +949,7 @@ dependencies = [
 
 [[package]]
 name = "magenboy_sdl"
-version = "4.1.0"
+version = "4.2.0"
 dependencies = [
  "cfg-if",
  "crossbeam-channel",

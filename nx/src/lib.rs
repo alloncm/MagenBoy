@@ -7,9 +7,9 @@ mod devices;
 mod allocator;
 
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
-use alloc::{vec::Vec, boxed::Box};
+use alloc::{vec::Vec, boxed::Box, string::String};
 
-use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}};
+use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 
 use devices::*;
@@ -106,7 +106,8 @@ pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad
 pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback) -> u32 {
     
     log::info!("Starting pause menu");
-    let selection= render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &GAME_MENU_OPTIONS, "Magenboy");
+    let header: String = alloc::format!("Magenboy {VERSION}");
+    let selection= render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &GAME_MENU_OPTIONS, header.as_str());
     return *selection as u32;
 }
 
