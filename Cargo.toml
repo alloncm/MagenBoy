@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "4.0.0"
+version = "4.1.0"
 authors = ["alloncm <alloncm@gmail.com>"]
 rust-version = "1.73"   # cause of cargo-ndk used to build for android platform
 edition = "2021"
