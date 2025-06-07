@@ -1,4 +1,5 @@
 {
+    "C_Cpp.clang_format_fallbackStyle": "WebKit",
     "C_Cpp.default.includePath": [
         "${DEVKITPRO}\\libnx\\include",
         "${DEVKITPRO}\\devkitA64\\aarch64-none-elf\\include",
