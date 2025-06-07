@@ -2,13 +2,12 @@
 
 extern crate alloc;
 
-mod mutex;
 mod logging;
 mod devices;
 mod allocator;
 
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
-use alloc::vec::Vec;
+use alloc::{vec::Vec, boxed::Box};
 
 use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
@@ -63,10 +62,23 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
     let ctx = NxGbContext {gb: gameboy, sram_fat_pointer };
 
     // Allocate on static memory
-    let static_gameboy = magenboy_core::utils::global_static_alloctor::static_alloc(ctx);
+    let gameboy = Box::new(ctx);
     log::info!("Initialized MagenBoy successfully");
-    return static_gameboy as *mut _ as *mut c_void;
+    return Box::into_raw(gameboy) as *mut c_void;
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn magenboy_deinit(ctx: *mut c_void) {
+    // SAFETY: ctx is a valid pointer to a GameBoy instance
+    if ctx.is_null() { 
+        log::warn!("Attempted to deinitialize MagenBoy with a null context pointer");
+        return; 
+    }
+
+    let _ = unsafe { Box::from_raw(ctx as *mut NxGbContext) }; // Drop the Box to deallocate memory
+    log::info!("MagenBoy deinitialized successfully");
+}
+
 
 #[no_mangle]
 pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, 

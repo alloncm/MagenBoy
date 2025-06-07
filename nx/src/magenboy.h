@@ -25,6 +25,8 @@ void magenboy_init_logger(LogCallback log_cb);
 void* magenboy_init(const uint8_t* rom, uint64_t rom_size, GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb,
     AudioDeviceCallback audio_cb);
 
+void magenboy_deinit(void* ctx);
+
 const char* magenboy_menu_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb, const char** roms, uint32_t roms_count);
 
 const uint32_t magenboy_pause_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb);

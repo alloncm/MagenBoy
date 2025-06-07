@@ -459,6 +459,7 @@ restart:
     save_sram(filepath, sram_buffer, sram_size);
 
     // Deinitialize and clean up resources
+    magenboy_deinit(ctx);
     free(rom_buffer);
     audoutStopAudioOut();
 audio_exit:

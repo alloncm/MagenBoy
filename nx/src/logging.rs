@@ -1,8 +1,8 @@
 use core::{ffi::{c_char, c_int}, fmt::Write};
 
-use log::Log;
+use magenboy_common::synchronization::Mutex;
 
-use crate::mutex::Mutex;
+use log::Log;
 
 pub type LogCallback = extern "C" fn(*const c_char, len: c_int) -> ();
 

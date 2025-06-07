@@ -22,5 +22,6 @@ cfg_if::cfg_if!{ if #[cfg(feature = "alloc")] {
 pub mod menu;
 pub mod joypad_menu;
 pub mod interpolation;
+pub mod synchronization;
 
 pub const VERSION:&str = env!("MAGENBOY_VERSION");
