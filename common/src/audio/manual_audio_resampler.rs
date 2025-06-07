@@ -20,8 +20,8 @@ impl AudioResampler for ManualAudioResampler{
         let div = original_frequency as f32 /  target_frequency as f32;
 
         // Sicne we dont have many f32 methods without std we are implementing them ourself
-        let lower_to_skip = div as u32;     // Acts as f32::floor (since inputs are unsigned)
-        let upper_to_skip = ((original_frequency as f32 + target_frequency as f32 - 1.0) / target_frequency as f32) as u32;     // Acts as f32::ceil
+        let lower_to_skip = libm::floorf(div) as u32;
+        let upper_to_skip = libm::ceilf(div) as u32;
         let mut reminder = div - (div as u32 as f32);       // Acts as f32::fracts (since inputs are unsigned)
         
         let (to_skip, alt_to_skip) = if reminder < 0.5{

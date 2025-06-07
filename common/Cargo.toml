@@ -10,6 +10,7 @@ edition.workspace = true
 magenboy_core = {path = "../core"}
 log = "0.4"
 cfg-if = "1"
+libm = "0.2.15"
 crossbeam-channel = {version = "0.5", optional = true}
 fern = {version = "0.6", optional = true}
 chrono = {version = "0.4", optional = true}
