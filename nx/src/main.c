@@ -97,13 +97,13 @@ static uint64_t poll_until_joycon_pressed()
     while (1)
     {
         padUpdate(&pad);
-        u64 buttons = padGetButtons(&pad);
+        u64 buttons = padGetButtonsDown(&pad);
         if (buttons != 0)
         {
             return buttons;
         }
 
-        svcSleepThread(10000000ULL); // 10ms in nanoseconds
+        svcSleepThread(10000000ULL); // 100ms in nanoseconds
     }
 }
 
@@ -182,6 +182,16 @@ static void get_timespec(struct timespec* ts)
     clock_gettime(CLOCK_MONOTONIC, ts);
 }
 
+static int has_gb_extension(const char* filename)
+{
+    const char* ext = strrchr(filename, '.');
+    if (ext && (strcmp(ext, ".gb") == 0 || strcmp(ext, ".gbc") == 0))
+    {
+        return 1;
+    }
+    return 0;
+}
+
 static int read_dir_filenames(const char* directory_path, char** file_list, size_t max_filename_size, size_t max_files) 
 {
     struct dirent* entry;
@@ -195,8 +205,7 @@ static int read_dir_filenames(const char* directory_path, char** file_list, size
     printf("Files in directory '%s':\n", directory_path);
     int counter = 0;
     while ((entry = readdir(dir)) != NULL) {
-        // Skip "." and ".."
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+        if (has_gb_extension(entry->d_name) != 0) {
             printf("%s\n", entry->d_name);
 
             if (counter < max_files) {
@@ -220,6 +229,7 @@ static int read_dir_filenames(const char* directory_path, char** file_list, size
 
 static int try_load_sram(const char* filepath, u8** sram_buffer, size_t* sram_size)
 {
+    int status = 0;
     char sram_path[MAX_FILENAME_SIZE];
     snprintf(sram_path, sizeof(sram_path), "%s.sram", filepath);
 
@@ -238,20 +248,21 @@ static int try_load_sram(const char* filepath, u8** sram_buffer, size_t* sram_si
     if (!*sram_buffer)
     {
         perror("Failed to allocate memory for SRAM");
-        goto error;
+        status = -1;
+        goto exit;
     }
 
     if (fread(*sram_buffer, 1, *sram_size, file) != *sram_size)
     {
         perror("Failed to read SRAM file");
         free(*sram_buffer);
-        goto error;
+        status = -1;
+        goto exit;
     }
 
-    return 0;
-error:
+exit:
     fclose(file);
-    return -1;
+    return status;
 }
 
 static void save_sram(const char* filepath, const u8* sram_buffer, size_t sram_size)
@@ -361,6 +372,7 @@ int main(int argc, char* argv[])
         roms[i] = malloc(MAX_FILENAME_SIZE);
     }
 
+restart:
     int count = read_dir_filenames("roms", roms, MAX_FILENAME_SIZE, MAX_ROMS);
 
     const char* filepath = magenboy_menu_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, (const char**)roms, count);
@@ -387,11 +399,12 @@ int main(int argc, char* argv[])
 
     u8* sram_buffer = NULL;
     size_t sram_size = 0;
-    magenboy_get_sram(ctx, &found_sram_buffer, &found_sram_size);
+    magenboy_get_sram(ctx, &sram_buffer, &sram_size);
 
     if (found_sram == 0 && sram_size == found_sram_size)
     {
         memcpy(sram_buffer, found_sram_buffer, sram_size);
+        printf("Loaded SRAM from file: %s.sram\n", filepath);
     }
 
     // FPS measurement variables
@@ -407,7 +420,25 @@ int main(int argc, char* argv[])
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
         if (kDown & HidNpadButton_X)
-            break; // break in order to return to hbmenu
+        {
+            int shutdown = 0;
+            switch (magenboy_pause_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed))
+            {
+                case 0: // Resume
+                    break;
+                case 1: // Restart
+                    printf("Restarting\n");
+                    goto restart;
+                case 2: // Shutdon
+                    printf("Shutting down\n");
+                    shutdown = 1;
+                    break;
+            }
+            if (shutdown)
+            {
+                break; // Exit the main loop
+            }
+        }
 
         magenboy_cycle_frame(ctx);
 

@@ -4,6 +4,8 @@ pub struct MenuOption<T, S:AsRef<str>>{
     pub prompt:S
 }
 
+#[repr(u32)]
+#[derive(Debug, Clone, Copy)]
 pub enum EmulatorMenuOption{
     Resume,
     Restart,

@@ -27,6 +27,8 @@ void* magenboy_init(const uint8_t* rom, uint64_t rom_size, GfxDeviceCallback gfx
 
 const char* magenboy_menu_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb, const char** roms, uint32_t roms_count);
 
+const uint32_t magenboy_pause_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb);
+
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy instance returned by magenboy_init.
 void magenboy_cycle_frame(void* ctx);

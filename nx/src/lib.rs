@@ -10,7 +10,7 @@ mod allocator;
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
 use alloc::vec::Vec;
 
-use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::MenuOption};
+use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 
 use devices::*;
@@ -80,18 +80,30 @@ pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad
         for i in 0..roms_count {
             let rom_name = *(roms.add(i as usize));
             let c_str = CStr::from_ptr(rom_name as *mut c_char);
-            roms_vec.push(MenuOption{value: c_str, prompt: c_str.to_str().unwrap()});
+            roms_vec.push(MenuOption{value: c_str, prompt: filename_from_path(c_str.to_str().unwrap())});
         }
         roms_vec
     };
     
+    let selection = render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &roms, "Choose ROM menu");
+
+    return selection.as_ptr();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback) -> u32 {
+    
+    log::info!("Starting pause menu");
+    let selection= render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &GAME_MENU_OPTIONS, "Magenboy");
+    return *selection as u32;
+}
+
+fn render_menu<'a, T>(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, options: &'a [MenuOption<T, &str>], header: &'a str) -> &'a T {
     let mut gfx_device = NxGfxDevice {cb: gfx_cb};
     let menu_renderer = GfxDeviceMenuRenderer::new(&mut gfx_device);
     let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
-    let mut menu = JoypadMenu::new(&roms, "Choose ROM", menu_renderer);
-    let selection= menu.get_menu_selection(&mut provider);
-
-    return selection.as_ptr();
+    let mut menu = JoypadMenu::new(&options, header, menu_renderer);
+    return menu.get_menu_selection(&mut provider);
 }
 
 /// SAFETY: ctx is a valid pointer to a GameBoy instance
@@ -117,4 +129,11 @@ pub unsafe extern "C" fn magenboy_get_sram(ctx: *mut c_void, ptr: *mut *mut u8, 
     let sram_fat_ptr = (*(ctx as *mut NxGbContext)).sram_fat_pointer;
     *ptr = sram_fat_ptr.0;
     *size = sram_fat_ptr.1;
+}
+
+fn filename_from_path(path: &str) -> &str {
+    match path.rfind(|c| c == '/') {
+        Some(pos) => &path[pos + 1..],
+        None => path,
+    }
 }
