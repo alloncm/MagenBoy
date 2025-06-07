@@ -37,20 +37,22 @@ impl StaticAllocator{
     }
 
     pub fn alloc(&mut self, layout: Layout) -> NonNull<u8> {
-        let allocation_address = self.buffer_ptr as usize + self.allocation_size;
-        let aligned_address = Self::align_address(allocation_address, layout.align);
-        self.allocation_size += layout.size + (aligned_address - allocation_address);
-
-        if self.allocation_size > self.buffer_size{
+        if self.allocation_size + layout.align + layout.size > self.buffer_size {
             core::panic!("Allocation failed, allocator is out of static memory, pool size: {}, allocation req: {}", self.buffer_size, layout.size);
         }
+
+        let allocation_address = unsafe{self.buffer_ptr.add(self.allocation_size)};
+        let aligned_address = Self::align_address(allocation_address, layout.align);
+        self.allocation_size += layout.size + (unsafe{aligned_address.offset_from(allocation_address)} as usize);
 
         return NonNull::new(aligned_address as *mut u8).expect("Null ptr detected");
     }
 
-    fn align_address(address:usize, alignment:usize)->usize{
-        let reminder = address % alignment;
-        return if reminder != 0 {address - reminder + alignment} else {address};
+    fn align_address(address:*mut u8, alignment:usize)->*mut u8 {
+        let reminder = address as usize % alignment;
+        return if reminder != 0 {
+            unsafe{address.sub(reminder).add(alignment)}
+        } else {address};
     }
 }
 

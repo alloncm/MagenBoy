@@ -1,6 +1,8 @@
-use magenboy_core::apu::audio_device::{BUFFER_SIZE, StereoSample};
-use super::audio_resampler::AudioResampler;
+use alloc::vec::Vec;
 
+use magenboy_core::apu::audio_device::{BUFFER_SIZE, StereoSample};
+
+use super::audio_resampler::AudioResampler;
 
 pub struct ManualAudioResampler{
     to_skip:u32,
@@ -17,9 +19,11 @@ impl AudioResampler for ManualAudioResampler{
         // Calling round in order to get the nearest integer and resample as precise as possible
         let div = original_frequency as f32 /  target_frequency as f32;
 
-        let lower_to_skip = div.floor() as u32;
-        let upper_to_skip = div.ceil() as u32;
-        let mut reminder = div.fract();
+        // Sicne we dont have many f32 methods without std we are implementing them ourself
+        let lower_to_skip = libm::floorf(div) as u32;
+        let upper_to_skip = libm::ceilf(div) as u32;
+        let mut reminder = div - (div as u32 as f32);       // Acts as f32::fracts (since inputs are unsigned)
+        
         let (to_skip, alt_to_skip) = if reminder < 0.5{
             (lower_to_skip, upper_to_skip)
         }
@@ -29,7 +33,7 @@ impl AudioResampler for ManualAudioResampler{
         };
 
         if lower_to_skip == 0{
-            std::panic!("target freqency is too high: {}", target_frequency);
+            core::panic!("target freqency is too high: {}", target_frequency);
         }
 
         ManualAudioResampler{
