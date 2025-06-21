@@ -370,8 +370,8 @@ restart:
 
     // Main loop
     while (appletMainLoop()) {
-        padUpdate(&pad);
-        u64 kDown = padGetButtonsDown(&pad);
+        // No need to update as the joypad called is polling the state
+        u64 kDown = padGetButtons(&pad);
         if ((kDown & HidNpadButton_L) != 0 && (kDown & HidNpadButton_R) != 0) {
             int shutdown = 0;
             switch (magenboy_pause_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed)) {
