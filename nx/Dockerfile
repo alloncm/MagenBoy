@@ -29,7 +29,6 @@ COPY --from=builder /magenboy/target/ target/
 # Without this the Makefile will not be able to find the version and authors
 RUN export VERSION=$(cat target/aarch64-nintendo-switch-freestanding/release/version.txt) && \
     export AUTHORS=$(cat target/aarch64-nintendo-switch-freestanding/release/authors.txt) && \
-    echo "Version: ${VERSION}, authors: ${AUTHORS}" && \
     make --always-make
 
 # Export the built files using a scratch image, this is the best praactice for multi-stage builds

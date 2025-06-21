@@ -19,7 +19,7 @@ static void log_cb(const char* message, int len)
     fwrite(message, 1, len, stdout);
 }
 
-static long read_rom_buffer(const char* path, char** out_rom_buffer)
+static long read_rom_buffer(const char* path, u8** out_rom_buffer)
 {
     long return_value = -1;
     *out_rom_buffer = NULL;
@@ -37,7 +37,7 @@ static long read_rom_buffer(const char* path, char** out_rom_buffer)
     long size = ftell(file);
     rewind(file);
 
-    *out_rom_buffer = (char*)malloc(size);
+    *out_rom_buffer = (u8*)malloc(size);
     if (!out_rom_buffer) {
         perror("Failed to allocate memory for ROM");
         goto exit_file;
@@ -352,7 +352,7 @@ restart:
     }
 
     // Read a rom file
-    char* rom_buffer = NULL;
+    u8* rom_buffer = NULL;
     long file_size = read_rom_buffer(filepath, &rom_buffer);
     if (file_size < 0) {
         printf("Failed to read ROM file.\n");
