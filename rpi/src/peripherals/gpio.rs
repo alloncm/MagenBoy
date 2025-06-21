@@ -25,7 +25,9 @@ pub enum Trigger{
 
 #[cfg(feature = "bm")]
 pub mod no_std_impl{
-    use crate::{syncronization::Mutex, peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier, BulkWrite}};
+    use magenboy_common::synchronization::Mutex;
+
+    use crate::peripherals::utils::{compile_time_size_assert, MmioReg32, get_static_peripheral, memory_barrier, BulkWrite};
     use super::*;
     
     #[repr(C,align(4))]

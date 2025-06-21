@@ -1,0 +1,16 @@
+[package]
+name = "magenboy_nx"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+magenboy_core = { path = "../core", features = ["apu"] }
+magenboy_common = { path = "../common", features = ["alloc"] }
+log = "0.4"

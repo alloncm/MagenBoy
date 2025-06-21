@@ -7,7 +7,6 @@ pub mod configuration;
 pub mod peripherals;
 pub mod drivers;
 cfg_if::cfg_if!{ if #[cfg(feature = "bm")]{
-    pub mod syncronization;
     pub mod delay;
 }}
 

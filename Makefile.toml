@@ -45,7 +45,7 @@ install_crate_args=["--locked", "--version", "0.2.5"]
 command = "cross"
 args = ["build", "--release", "--target", "armv7-unknown-linux-gnueabihf", "--bin", "rpios","--no-default-features", "--features", "os"]
 
-[tasks.pre-rpibm]
+[tasks.nightly-install]
 command = "rustup"
 args = ["toolchain", "install", "--profile", "minimal", "--no-self-update", "${nightly_version}"]
 
@@ -55,7 +55,7 @@ install_crate = "cargo-binutils"
 install_crate_args=["--locked", "--version", "0.3.6"]
 command = "rust-objcopy"
 args = ["target/armv7a-none-eabihf/release/baremetal", "-O", "binary", "kernel7.img"]
-dependencies = ["pre-rpibm", "build_rpi_baremetal","install_llvm_tools"]
+dependencies = ["nightly-install", "build_rpi_baremetal","install_llvm_tools"]
 
 [tasks.build_rpi_baremetal]
 toolchain = "${nightly_version}"
@@ -86,3 +86,7 @@ dependencies = ["add_android_target"]
 [tasks.add_android_target]
 command = "rustup"
 args = ["target", "add", "aarch64-linux-android"]
+
+[tasks.nx]
+command = "docker"
+args = ["build", "--progress=plain", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=.", "--build-arg", "NIGHTLY=${nightly_version}"]
