@@ -1,16 +1,7 @@
 use core::ffi::c_int;
 
-use magenboy_common::audio::AudioResampler;
-use magenboy_common::audio::ManualAudioResampler;
-use magenboy_common::joypad_menu::MenuJoypadProvider;
-use magenboy_core::AudioDevice;
-
-use magenboy_core::GfxDevice;
-
-use magenboy_core;
-
-use magenboy_core::JoypadProvider;
-use magenboy_core::keypad::button::Button;
+use magenboy_common::{audio::{ManualAudioResampler, AudioResampler}, joypad_menu::MenuJoypadProvider};
+use magenboy_core::{AudioDevice, GfxDevice, self, JoypadProvider, keypad::button::Button};
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
 pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
@@ -63,12 +54,17 @@ impl MenuJoypadProvider for NxJoypadProvider {
 pub type GfxDeviceCallback = unsafe extern "C" fn(buffer:*const u16) -> ();
 
 pub(crate) struct NxGfxDevice{
-    pub cb: GfxDeviceCallback
+    pub cb: GfxDeviceCallback,
+    pub turbo: u32,
+    pub frame_counter: u32,
 }
 
 impl GfxDevice for NxGfxDevice{
     fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
-        unsafe{(self.cb)(buffer.as_ptr())};
+        if self.frame_counter % self.turbo == 0{
+            unsafe{(self.cb)(buffer.as_ptr())}; 
+        }
+        self.frame_counter = (self.frame_counter + 1) % self.turbo;
     }
 }
 

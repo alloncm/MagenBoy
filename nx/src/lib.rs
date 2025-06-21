@@ -15,6 +15,8 @@ use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 use devices::*;
 use logging::{LogCallback, NxLogger};
 
+const TURBO: u32 = 2;
+
 struct NxGbContext<'a>{
     gb: GameBoy<'a, NxJoypadProvider, NxAudioDevice, NxGfxDevice>,
     sram_fat_pointer: (*mut u8, usize)
@@ -54,8 +56,8 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
     let gameboy = GameBoy::new_with_mode(
         mbc,
         NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb},
-        NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY, 48000)},
-        NxGfxDevice {cb: gfx_cb},
+        NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY * TURBO, 48000)},
+        NxGfxDevice {cb: gfx_cb, turbo: TURBO, frame_counter: 0},
         mode,
     );
 
@@ -112,7 +114,7 @@ pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypa
 }
 
 fn render_menu<'a, T>(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, options: &'a [MenuOption<T, &str>], header: &'a str) -> &'a T {
-    let mut gfx_device = NxGfxDevice {cb: gfx_cb};
+    let mut gfx_device = NxGfxDevice {cb: gfx_cb, turbo: 1, frame_counter: 0};
     let menu_renderer = GfxDeviceMenuRenderer::new(&mut gfx_device);
     let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
     let mut menu = JoypadMenu::new(&options, header, menu_renderer);
