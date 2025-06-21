@@ -73,6 +73,10 @@ rustup component add llvm-tools-preview
 
 See - [LibretroDocs](docs/Libretro.md)
 
+### Nintendo Switch
+
+See - [NxDocs](docs/Nx.md)
+
 ## Running
 
 ### Desktop
