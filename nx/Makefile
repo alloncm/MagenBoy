@@ -42,7 +42,7 @@ SOURCES		:=	src
 DATA		:=	data
 INCLUDES	:=	include
 TARGET		:=	$(BUILD)/magenboy
-APP_VERSION := 	${VERSION}
+APP_VERSION	:= 	${VERSION}
 APP_AUTHOR 	:= 	${AUTHORS}
 #ROMFS	:=	romfs
 

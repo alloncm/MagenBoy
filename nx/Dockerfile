@@ -14,7 +14,6 @@ COPY . .
 RUN cargo +${NIGHTLY} build --release --package magenboy_nx --target aarch64-nintendo-switch-freestanding \
     -Z build-std=core,compiler_builtins,alloc -Z build-std-features=compiler-builtins-mem
 
-# Use the devkitpro/devkita64 image for the second stage
 FROM devkitpro/devkita64 AS final
 
 WORKDIR /magenboy_nx
@@ -31,6 +30,6 @@ RUN export VERSION=$(cat target/aarch64-nintendo-switch-freestanding/release/ver
     export AUTHORS=$(cat target/aarch64-nintendo-switch-freestanding/release/authors.txt) && \
     make --always-make
 
-# Export the built files using a scratch image, this is the best praactice for multi-stage builds
+# Export the built files using a scratch image, this is the best practice for multi-stage builds
 FROM scratch AS export
 COPY --from=final /magenboy_nx/build/ /target/nx

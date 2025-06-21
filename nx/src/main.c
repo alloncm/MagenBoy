@@ -14,13 +14,11 @@
 
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
-static void log_cb(const char* message, int len)
-{
+static void log_cb(const char* message, int len) {
     fwrite(message, 1, len, stdout);
 }
 
-static long read_rom_buffer(const char* path, u8** out_rom_buffer)
-{
+static long read_rom_buffer(const char* path, u8** out_rom_buffer) {
     long return_value = -1;
     *out_rom_buffer = NULL;
 
@@ -58,8 +56,7 @@ exit_file:
 
 static Framebuffer fb;
 
-static void render_buffer_cb(const uint16_t* buffer)
-{
+static void render_buffer_cb(const uint16_t* buffer) {
     u32 stride;
     uint16_t* framebuffer = (uint16_t*)framebufferBegin(&fb, &stride);
     stride /= sizeof(uint16_t);
@@ -80,14 +77,12 @@ static void render_buffer_cb(const uint16_t* buffer)
 
 static PadState pad;
 
-static uint64_t get_joycon_state()
-{
+static uint64_t get_joycon_state() {
     padUpdate(&pad);
     return padGetButtons(&pad);
 }
 
-static uint64_t poll_until_joycon_pressed()
-{
+static uint64_t poll_until_joycon_pressed() {
     while (1) {
         padUpdate(&pad);
         u64 buttons = padGetButtonsDown(&pad);
@@ -114,8 +109,7 @@ static int16_t* audio_work_buffer;
 static int audio_work_data_offset = 0;
 static int16_t* audio_io_buffer;
 
-static void audio_device_cb(const int16_t* buffer, int size)
-{
+static void audio_device_cb(const int16_t* buffer, int size) {
     int transfer_size = MIN(size, (AUDIO_DATA_SIZE / BYTES_PER_SAMPLE) - audio_work_data_offset);
     memcpy(audio_work_buffer + audio_work_data_offset, buffer, transfer_size * BYTES_PER_SAMPLE);
     audio_work_data_offset += transfer_size;
@@ -144,8 +138,7 @@ static void audio_device_cb(const int16_t* buffer, int size)
     }
 }
 
-static int intiailzie_audio_buffers()
-{
+static int intiailzie_audio_buffers() {
     audio_work_buffer = aligned_alloc(BUFFER_ALIGNMENT, AUDIO_BUFFER_SIZE);
     if (audio_work_buffer == NULL) {
         printf("Failed to allocate audio work buffer.\n");
@@ -164,13 +157,11 @@ static int intiailzie_audio_buffers()
     return 0;
 }
 
-static void get_timespec(struct timespec* ts)
-{
+static void get_timespec(struct timespec* ts) {
     clock_gettime(CLOCK_MONOTONIC, ts);
 }
 
-static int has_gb_extension(const char* filename)
-{
+static int has_gb_extension(const char* filename) {
     const char* ext = strrchr(filename, '.');
     if (ext && (strcmp(ext, ".gb") == 0 || strcmp(ext, ".gbc") == 0)) {
         return 1;
@@ -178,8 +169,7 @@ static int has_gb_extension(const char* filename)
     return 0;
 }
 
-static int read_dir_filenames(const char* directory_path, char** file_list, size_t max_filename_size, size_t max_files)
-{
+static int read_dir_filenames(const char* directory_path, char** file_list, size_t max_filename_size, size_t max_files) {
     struct dirent* entry;
     DIR* dir = opendir(directory_path);
 
@@ -211,8 +201,7 @@ static int read_dir_filenames(const char* directory_path, char** file_list, size
 #define MAX_ROMS (30)
 #define MAX_FILENAME_SIZE (300)
 
-static int try_load_sram(const char* filepath, u8** sram_buffer, size_t* sram_size)
-{
+static int try_load_sram(const char* filepath, u8** sram_buffer, size_t* sram_size) {
     int status = 0;
     char sram_path[MAX_FILENAME_SIZE];
     snprintf(sram_path, sizeof(sram_path), "%s.sram", filepath);
@@ -246,8 +235,7 @@ exit:
     return status;
 }
 
-static void save_sram(const char* filepath, const u8* sram_buffer, size_t sram_size)
-{
+static void save_sram(const char* filepath, const u8* sram_buffer, size_t sram_size) {
     char sram_path[MAX_FILENAME_SIZE];
     snprintf(sram_path, sizeof(sram_path), "%s.sram", filepath);
 
@@ -264,8 +252,7 @@ static void save_sram(const char* filepath, const u8* sram_buffer, size_t sram_s
     fclose(file);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     if (socketInitializeDefault() != 0) {
         printf("Failed to initialize socket driver.\n");
         return -1;
@@ -385,18 +372,18 @@ restart:
     while (appletMainLoop()) {
         padUpdate(&pad);
         u64 kDown = padGetButtonsDown(&pad);
-        if (kDown & HidNpadButton_X) {
+        if ((kDown & HidNpadButton_L) != 0 && (kDown & HidNpadButton_R) != 0) {
             int shutdown = 0;
             switch (magenboy_pause_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed)) {
-            case 0: // Resume
-                break;
-            case 1: // Restart
-                printf("Restarting\n");
-                goto restart;
-            case 2: // Shutdon
-                printf("Shutting down\n");
-                shutdown = 1;
-                break;
+                case 0: // Resume
+                    break;
+                case 1: // Restart
+                    printf("Restarting\n");
+                    goto restart;
+                case 2: // Shutdon
+                    printf("Shutting down\n");
+                    shutdown = 1;
+                    break;
             }
             if (shutdown) {
                 break; // Exit the main loop

@@ -19,6 +19,8 @@ pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
 const fn bit(index: u64) -> u64 { 1 << index }
 const JOYCON_A: u64     = bit(0);
 const JOYCON_B: u64     = bit(1);
+const JOYCON_X: u64     = bit(2);
+const JOYCON_Y: u64     = bit(3);
 const JOYCON_PLUS: u64  = bit(10);
 const JOYCON_MINUS: u64 = bit(11);
 const JOYCON_LEFT: u64  = bit(12);
@@ -33,8 +35,8 @@ pub(crate) struct NxJoypadProvider{
 
 impl NxJoypadProvider{
     fn update_state(joypad: &mut magenboy_core::keypad::joypad::Joypad, joycons_state: u64) {
-        joypad.buttons[Button::A as usize]      = (joycons_state & JOYCON_A) != 0;
-        joypad.buttons[Button::B as usize]      = (joycons_state & JOYCON_B) != 0;
+        joypad.buttons[Button::A as usize]      = (joycons_state & JOYCON_A) != 0 || (joycons_state & JOYCON_X) != 0;
+        joypad.buttons[Button::B as usize]      = (joycons_state & JOYCON_B) != 0 || (joycons_state & JOYCON_Y) != 0;
         joypad.buttons[Button::Start as usize]  = (joycons_state & JOYCON_PLUS) != 0;
         joypad.buttons[Button::Select as usize] = (joycons_state & JOYCON_MINUS) != 0;
         joypad.buttons[Button::Up as usize]     = (joycons_state & JOYCON_UP) != 0;
