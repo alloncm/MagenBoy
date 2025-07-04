@@ -1,6 +1,10 @@
 use std::ffi::{CString, c_void};
+
 use sdl2::sys::*;
+
+use magenboy_common::EMULATOR_STATE;
 use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, utils::vec2::Vec2, GfxDevice, Pixel};
+
 use super::utils::get_sdl_error_message;
 
 // The bit order is high bits -> low bits as opposed to RGB555 in the gbdev docs which is low -> high.
@@ -75,23 +79,32 @@ impl Drop for SdlWindow{
 
 pub struct SdlGfxDevice{
     sdl_window:SdlWindow,
-    discard:u8,
-    turbo_mul:u8,
+    turbo_counter:u8,
+    turbo_factor:u8,
 }
 
 impl SdlGfxDevice{
-    pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
+    pub fn new(window_name: &str, screen_scale: usize, turbo_factor:u8, disable_vsync:bool, full_screen:bool)->Self{
         
-        let window_flags = if full_screen{                
+        let window_flags = if full_screen {                
             // Hide cursor
             unsafe{SDL_ShowCursor(0);}
             SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
-        }
-        else{
+        } else {
             SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32
         };
         
-        return Self{discard:0, turbo_mul, sdl_window: SdlWindow::new(window_name, Vec2{x:SCREEN_WIDTH, y:SCREEN_HEIGHT}, screen_scale, disable_vsync, window_flags)};
+        return Self{
+            turbo_counter: 0, 
+            turbo_factor, 
+            sdl_window: SdlWindow::new(
+                window_name, 
+                Vec2{x: SCREEN_WIDTH, y: SCREEN_HEIGHT}, 
+                screen_scale, 
+                disable_vsync, 
+                window_flags
+            )
+        };
     }
 
     pub fn poll_event(&self)->Option<SDL_Event>{
@@ -109,10 +122,13 @@ impl SdlGfxDevice{
 
 impl GfxDevice for SdlGfxDevice{
     fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        self.discard = (self.discard + 1) % self.turbo_mul;
-        if self.discard != 0{
-            return;
+        if EMULATOR_STATE.turbo.load(std::sync::atomic::Ordering::Relaxed) {
+            self.turbo_counter = (self.turbo_counter + 1) % self.turbo_factor;
+            if self.turbo_counter != 0{
+                return;
+            }
         }
+        
         self.sdl_window.render(buffer);
     }
 }
