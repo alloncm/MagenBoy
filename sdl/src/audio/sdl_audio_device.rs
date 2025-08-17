@@ -1,4 +1,4 @@
-use std::{ffi::c_void, mem::{ManuallyDrop, MaybeUninit}};
+use std::{ffi::c_void, mem::{ManuallyDrop, MaybeUninit}, sync::Arc};
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use sdl2::sys::*;
@@ -18,7 +18,7 @@ struct UserData{
 
 pub struct SdlAudioDevice<AR:AudioResampler>{
     resampler: AR,
-    buffers: [[Sample;BUFFER_SIZE];BUFFERS_NUMBER],
+    buffers: [Arc<[Sample;BUFFER_SIZE]>; BUFFERS_NUMBER],
     buffer_number_index:usize,
     buffer_index:usize,
 
@@ -42,7 +42,7 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlAudioDevice<AR>{
         });
 
         let mut device = SdlAudioDevice{
-            buffers:[[DEFAULT_SAPMPLE;BUFFER_SIZE];BUFFERS_NUMBER],
+            buffers:[Arc::new([DEFAULT_SAPMPLE; BUFFER_SIZE]); BUFFERS_NUMBER],
             buffer_index:0,
             buffer_number_index:0,
             resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
