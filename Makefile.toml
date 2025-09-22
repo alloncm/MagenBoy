@@ -84,9 +84,18 @@ args = ["ndk", "--target=aarch64-linux-android", "build", "--release", "--packag
 dependencies = ["add_android_target"]
 
 [tasks.add_android_target]
+private = true
 command = "rustup"
 args = ["target", "add", "aarch64-linux-android"]
 
+[tasks.build_mabenboy_nx]
+private = true
+toolchain = "${nightly_version}"
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_nx", "--target", "aarch64-nintendo-switch-freestanding", "-Z", "build-std=core,compiler_builtins,alloc", "-Z", "build-std-features=compiler-builtins-mem"]
+dependencies = ["nightly-install", "install_rust_src"]
+
 [tasks.nx]
 command = "docker"
-args = ["build", "--progress=plain", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=.", "--build-arg", "NIGHTLY=${nightly_version}"]
+args = ["build", "--progress=plain", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=." ]
+dependencies = ["build_mabenboy_nx"]
