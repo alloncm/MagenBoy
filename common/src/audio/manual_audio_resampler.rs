@@ -5,6 +5,9 @@ use magenboy_core::apu::audio_device::{BUFFER_SIZE, StereoSample};
 use super::audio_resampler::AudioResampler;
 
 pub struct ManualAudioResampler{
+    target_frequency:u32,
+    original_frequency:u32,
+
     to_skip:u32,
     sampling_buffer:Vec<StereoSample>,
     sampling_counter:u32,
@@ -16,35 +19,22 @@ pub struct ManualAudioResampler{
 
 impl AudioResampler for ManualAudioResampler{
     fn new(original_frequency:u32, target_frequency:u32)->Self{
-        // Calling round in order to get the nearest integer and resample as precise as possible
-        let div = original_frequency as f32 /  target_frequency as f32;
-
-        // Sicne we dont have many f32 methods without std we are implementing them ourself
-        let lower_to_skip = libm::floorf(div) as u32;
-        let upper_to_skip = libm::ceilf(div) as u32;
-        let mut reminder = div - (div as u32 as f32);       // Acts as f32::fracts (since inputs are unsigned)
         
-        let (to_skip, alt_to_skip) = if reminder < 0.5{
-            (lower_to_skip, upper_to_skip)
-        }
-        else{
-            reminder = 1.0 - reminder;
-            (upper_to_skip, lower_to_skip)
+        let mut resampler = ManualAudioResampler{
+            target_frequency,
+            original_frequency: 0, // Will be set in set_original_frequency
+            to_skip: 0,
+            sampling_buffer: Vec::new(),
+            sampling_counter: 0,
+            reminder_steps: 0.0,
+            reminder_counter: 0.0,
+            alternate_to_skip: 0,
+            skip_to_use: 0,
         };
 
-        if lower_to_skip == 0{
-            core::panic!("target freqency is too high: {}", target_frequency);
-        }
+        resampler.set_original_frequency(original_frequency);
 
-        ManualAudioResampler{
-            to_skip:to_skip,
-            sampling_buffer:Vec::with_capacity(upper_to_skip as usize),
-            sampling_counter: 0,
-            reminder_steps:reminder,
-            reminder_counter:0.0,
-            alternate_to_skip: alt_to_skip,
-            skip_to_use:to_skip
-        }
+        return resampler;
     }
 
     fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
@@ -71,5 +61,44 @@ impl AudioResampler for ManualAudioResampler{
         }
 
         return output;
+    }
+    
+    fn set_original_frequency(&mut self, original_frequency:u32) {
+        if original_frequency == self.original_frequency{
+            // No need to reconfigure resampler parameters
+            return;
+        }
+
+        log::info!("Reconfiguring audio resampler from {} to {}", self.original_frequency, original_frequency);
+        
+        // Calling round in order to get the nearest integer and resample as precise as possible
+        let div = original_frequency as f32 /  self.target_frequency as f32;
+
+        // Sicne we dont have many f32 methods without std we are implementing them ourself
+        let lower_to_skip = libm::floorf(div) as u32;
+        let upper_to_skip = libm::ceilf(div) as u32;
+        let mut reminder = div - (div as u32 as f32);       // Acts as f32::fracts (since inputs are unsigned)
+        
+        let (to_skip, alt_to_skip) = if reminder < 0.5{
+            (lower_to_skip, upper_to_skip)
+        }
+        else{
+            reminder = 1.0 - reminder;
+            (upper_to_skip, lower_to_skip)
+        };
+
+        if lower_to_skip == 0{
+            core::panic!("target freqency is too high: {} for original frequency: {}", self.target_frequency, original_frequency);
+        }
+
+        self.to_skip = to_skip;
+        self.alternate_to_skip = alt_to_skip;
+        self.skip_to_use = to_skip;
+        self.reminder_steps = reminder;
+        self.original_frequency = original_frequency;
+        // Reset buffers to avoid issues
+        self.sampling_buffer.clear();
+        self.sampling_counter = 0;
+        self.reminder_counter = 0.0;
     }
 }

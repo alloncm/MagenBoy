@@ -79,12 +79,10 @@ impl Drop for SdlWindow{
 
 pub struct SdlGfxDevice{
     sdl_window:SdlWindow,
-    turbo_counter:u8,
-    turbo_factor:u8,
 }
 
 impl SdlGfxDevice{
-    pub fn new(window_name: &str, screen_scale: usize, turbo_factor:u8, disable_vsync:bool, full_screen:bool)->Self{
+    pub fn new(window_name: &str, screen_scale: usize, disable_vsync:bool, full_screen:bool)->Self{
         
         let window_flags = if full_screen {                
             // Hide cursor
@@ -95,8 +93,6 @@ impl SdlGfxDevice{
         };
         
         return Self{
-            turbo_counter: 0, 
-            turbo_factor, 
             sdl_window: SdlWindow::new(
                 window_name, 
                 Vec2{x: SCREEN_WIDTH, y: SCREEN_HEIGHT}, 
@@ -122,14 +118,9 @@ impl SdlGfxDevice{
 
 impl GfxDevice for SdlGfxDevice{
     fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        if EMULATOR_STATE.turbo.load(std::sync::atomic::Ordering::Relaxed) {
-            self.turbo_counter = (self.turbo_counter + 1) % self.turbo_factor;
-            if self.turbo_counter != 0{
-                return;
-            }
+        if EMULATOR_STATE.turbo.update_and_check() {
+            self.sdl_window.render(buffer);
         }
-        
-        self.sdl_window.render(buffer);
     }
 }
 

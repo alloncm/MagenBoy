@@ -13,8 +13,6 @@ use sdl2::sys::*;
 
 use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlAudioDevice};
 
-const TURBO_FACTOR:u8 = 4;
-
 const SCREEN_SCALE:usize = 4;
 use sdl2::sys::SDL_Scancode;
 const KEYBOARD_MAPPING:[SDL_Scancode; NUM_OF_KEYS] = [
@@ -40,8 +38,7 @@ fn main() {
     // Initialize the gfx first cause it initialize both the screen and the sdl context for the joypad
     let mut gfx_device: SdlGfxDevice = SdlGfxDevice::new(
         header.as_str(), 
-        SCREEN_SCALE, 
-        TURBO_FACTOR,
+        SCREEN_SCALE,
         check_for_terminal_feature_flag(&args, "--no-vsync"),
         check_for_terminal_feature_flag(&args, "--full-screen")
     );
@@ -117,7 +114,7 @@ fn main() {
 // Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
 fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, #[cfg(feature = "dbg")] debugger_sender: crossbeam_channel::Sender<terminal_debugger::PpuLayerResult>) {
     let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_FACTOR);
+    let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100);
     devices.push(Box::new(audio_device));
     
     if check_for_terminal_feature_flag(&args, "--file-audio"){

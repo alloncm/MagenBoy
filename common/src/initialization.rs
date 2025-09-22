@@ -15,8 +15,9 @@ pub fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_messa
     return args.get(index + 1).expect(error_message).clone();
 }
 
+const TURBO_FACTOR:u32 = 4;
 // This is static and not local for the unix signal handler to access it
-pub static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
+pub static EMULATOR_STATE:MagenBoyState = MagenBoyState::new(TURBO_FACTOR);
 
 pub fn init_and_run_gameboy(
     args: Vec<String>,

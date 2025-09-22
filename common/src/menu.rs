@@ -1,3 +1,5 @@
+use core::sync::atomic::{AtomicBool, Ordering, AtomicU32};
+
 #[derive(Default, Clone, Copy)]
 pub struct MenuOption<T, S:AsRef<str>>{
     pub value:T,
@@ -20,25 +22,58 @@ pub const GAME_MENU_OPTIONS:[MenuOption<EmulatorMenuOption, &str>; 4] = [
     MenuOption{prompt:"Shutdown", value:EmulatorMenuOption::Shutdown}
 ];
 
+pub struct Turbo {
+    pub enabled: AtomicBool,
+    factor: u32,
+    counter: AtomicU32,
+}
+
+impl Turbo {
+    pub const fn new(factor: u32) -> Self {
+        Self { enabled: AtomicBool::new(false), factor, counter: AtomicU32::new(0) }
+    }
+
+    /// Updates the internal counter and returns true if a frame should be rendered
+    /// Returns true if turbo is disabled
+    pub fn update_and_check(&self) -> bool {
+        if self.enabled.load(Ordering::Relaxed) {
+            let value = self.counter.load(Ordering::SeqCst);
+            let updated_value = (value + 1) % self.factor;
+            self.counter.store(updated_value, Ordering::SeqCst);
+            return updated_value == 0;
+        } 
+        return true;
+    }
+
+    pub fn get_factor(&self) -> u32 {
+        if self.enabled.load(Ordering::Relaxed) {
+            self.factor
+        } else {
+            1
+        }
+    }
+}
+
+
 cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
-    use std::{sync::{atomic::AtomicBool, Mutex}, path::PathBuf};
+    use std::{sync::Mutex, path::PathBuf};
     use magenboy_core::{ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
     use super::joypad_menu::{MenuJoypadProvider, joypad_gfx_menu, JoypadMenu, MenuRenderer};
 
     pub struct MagenBoyState{
         // Use atomic bool, normal bool doesnt works on arm (probably cause of the memory model)
         pub running: AtomicBool,
-        pub turbo: AtomicBool,
+        pub turbo: Turbo,
         pub pause: AtomicBool,
         pub exit: AtomicBool,
         pub state_mutex: Mutex<()>
     }
 
     impl MagenBoyState{
-        pub const fn new() -> Self {
+        pub const fn new(turbo_factor: u32) -> Self {
             Self { 
                 running: AtomicBool::new(true), 
-                turbo: AtomicBool::new(false),
+                turbo: Turbo::new(turbo_factor),
                 pause: AtomicBool::new(false), 
                 exit: AtomicBool::new(false), 
                 state_mutex: Mutex::new(()) 
@@ -65,8 +100,8 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
             match self.get_game_menu_selection(state, gfx_device, receiver){
                 EmulatorMenuOption::Resume => {},
                 EmulatorMenuOption::Turbo => {
-                    let new_turbo_state = !state.turbo.load(std::sync::atomic::Ordering::Relaxed);
-                    state.turbo.store(new_turbo_state, std::sync::atomic::Ordering::Relaxed);
+                    let new_turbo_state = !state.turbo.enabled.load(std::sync::atomic::Ordering::Relaxed);
+                    state.turbo.enabled.store(new_turbo_state, std::sync::atomic::Ordering::Relaxed);
                     log::info!("Turbo mode is: {new_turbo_state}");
                 },
                 EmulatorMenuOption::Restart => state.running.store(false, std::sync::atomic::Ordering::Relaxed),
@@ -92,10 +127,10 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
             loop{
                 if let Ok(_lock) = state.state_mutex.try_lock(){
                     // Turn off turbo to have a regular speed menu
-                    let last_turbo = state.turbo.swap(false, core::sync::atomic::Ordering::Relaxed);
+                    let last_turbo = state.turbo.enabled.swap(false, core::sync::atomic::Ordering::Relaxed);
                     let selection = menu.get_menu_selection(&mut self.provider);
                     // restore turbo state
-                    state.turbo.store(last_turbo, core::sync::atomic::Ordering::Relaxed);
+                    state.turbo.enabled.store(last_turbo, core::sync::atomic::Ordering::Relaxed);
                     state.pause.store(false, std::sync::atomic::Ordering::SeqCst);
                     return selection;
                 } else {

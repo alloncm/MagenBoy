@@ -1,10 +1,10 @@
-use std::{ffi::c_void, mem::{ManuallyDrop, MaybeUninit}, sync::Arc};
+use std::{ffi::c_void, mem::{ManuallyDrop, MaybeUninit}};
 
 use crossbeam_channel::{bounded, Receiver, Sender};
 use sdl2::sys::*;
 
 use magenboy_core::{GB_FREQUENCY, apu::audio_device::*};
-use magenboy_common::audio::{AudioResampler, ResampledAudioDevice};
+use magenboy_common::{audio::{AudioResampler, ResampledAudioDevice}, EMULATOR_STATE};
 
 use crate::utils::get_sdl_error_message;
 
@@ -18,7 +18,7 @@ struct UserData{
 
 pub struct SdlAudioDevice<AR:AudioResampler>{
     resampler: AR,
-    buffers: [Arc<[Sample;BUFFER_SIZE]>; BUFFERS_NUMBER],
+    buffers: [[Sample;BUFFER_SIZE]; BUFFERS_NUMBER],
     buffer_number_index:usize,
     buffer_index:usize,
 
@@ -32,7 +32,7 @@ pub struct SdlAudioDevice<AR:AudioResampler>{
 }
 
 impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlAudioDevice<AR>{
-    fn new(frequency:i32, turbo_mul:u8)->Self{
+    fn new(frequency:i32)->Self{
         // cap of less than 2 hurts the fps
         let(s,r) = bounded(BUFFERS_NUMBER - 1);
         let data = Box::new(UserData{
@@ -42,10 +42,10 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlAudioDevice<AR>{
         });
 
         let mut device = SdlAudioDevice{
-            buffers:[Arc::new([DEFAULT_SAPMPLE; BUFFER_SIZE]); BUFFERS_NUMBER],
+            buffers: [[DEFAULT_SAPMPLE; BUFFER_SIZE]; BUFFERS_NUMBER],
             buffer_index:0,
             buffer_number_index:0,
-            resampler: AudioResampler::new(GB_FREQUENCY * turbo_mul as u32, frequency as u32),
+            resampler: AudioResampler::new(GB_FREQUENCY, frequency as u32),
             tarnsmiter: ManuallyDrop::new(s),
             userdata_ptr:Box::into_raw(data),
             device_id:0
@@ -99,6 +99,8 @@ impl<AR:AudioResampler> ResampledAudioDevice<AR> for SdlAudioDevice<AR>{
     }
 
     fn get_resampler(&mut self) ->&mut AR {
+        let factor = EMULATOR_STATE.turbo.get_factor();
+        self.resampler.set_original_frequency(GB_FREQUENCY * factor);
         &mut self.resampler
     }
 }
