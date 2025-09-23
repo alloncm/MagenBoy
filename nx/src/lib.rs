@@ -110,14 +110,14 @@ pub unsafe extern "C" fn magenboy_pause_trigger(
     gfx_cb: GfxDeviceCallback, 
     joypad_cb: JoypadProviderCallback, 
     poll_joypad_cb: PollJoypadProviderCallback
-) -> u32 {
+) -> EmulatorMenuOption {
     log::info!("Starting pause menu");
     let header: String = alloc::format!("Magenboy {VERSION}");
     let selection= render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &GAME_MENU_OPTIONS, header.as_str());
     if let EmulatorMenuOption::Turbo = selection {
         TURBO.toggle();
     }
-    return *selection as u32;
+    return *selection;
 }
 
 fn render_menu<'a, T>(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, options: &'a [MenuOption<T, &str>], header: &'a str) -> &'a T {

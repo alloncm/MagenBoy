@@ -2,7 +2,7 @@
 default_to_workspace = false
 
 [env]
-nightly_version = "nightly-2023-10-05"  # 1.73.0 toolchain nightly version
+nightly_version = "nightly-2023-11-16"  # 1.73.0 toolchain nightly version
 
 [tasks.test]
 command = "cargo"

@@ -14,3 +14,6 @@ crate-type = ["staticlib"]
 magenboy_core = { path = "../core", features = ["apu"] }
 magenboy_common = { path = "../common", features = ["alloc"] }
 log = "0.4"
+
+[build-dependencies]
+cbindgen = "0.29"
