@@ -16,4 +16,5 @@ magenboy_common = { path = "../common", features = ["alloc"] }
 log = "0.4"
 
 [build-dependencies]
+magenboy_common = {path = "../common"}
 cbindgen = "0.29"
