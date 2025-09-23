@@ -1,7 +1,7 @@
 use core::ffi::c_int;
 
-use magenboy_common::{audio::{ManualAudioResampler, AudioResampler}, joypad_menu::MenuJoypadProvider};
-use magenboy_core::{AudioDevice, GfxDevice, self, JoypadProvider, keypad::button::Button};
+use magenboy_common::{audio::{ManualAudioResampler, AudioResampler}, joypad_menu::MenuJoypadProvider, menu::Turbo};
+use magenboy_core::{AudioDevice, GfxDevice, self, JoypadProvider, keypad::button::Button, GB_FREQUENCY};
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
 pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
@@ -53,31 +53,34 @@ impl MenuJoypadProvider for NxJoypadProvider {
 
 pub type GfxDeviceCallback = unsafe extern "C" fn(buffer:*const u16) -> ();
 
-pub(crate) struct NxGfxDevice{
+pub(crate) struct NxGfxDevice<'a>{
     pub cb: GfxDeviceCallback,
-    pub turbo: u32,
-    pub frame_counter: u32,
+    pub turbo: &'a Turbo
 }
 
-impl GfxDevice for NxGfxDevice{
+impl<'a> GfxDevice for NxGfxDevice<'a>{
     fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
-        if self.frame_counter % self.turbo == 0{
+        if self.turbo.update_and_check() {
             unsafe{(self.cb)(buffer.as_ptr())}; 
         }
-        self.frame_counter = (self.frame_counter + 1) % self.turbo;
     }
 }
 
-pub type AudioDeviceCallback = unsafe extern "C" fn(buffer:*const magenboy_core::apu::audio_device::StereoSample, size:c_int) -> ();
+// Since StereoSample is repr(C, packed), we can safely transmute it to a slice of i16
+// SAFETY: StereoSample is repr(C, packed)
+pub type AudioDeviceCallback = unsafe extern "C" fn(buffer:*const magenboy_core::apu::audio_device::Sample, size:c_int) -> ();
 
-pub(crate) struct NxAudioDevice{
+pub(crate) struct NxAudioDevice<'a>{
     pub cb: AudioDeviceCallback,
     pub resampler: ManualAudioResampler,
+    pub turbo: &'a Turbo
 }
 
-impl AudioDevice for NxAudioDevice{
+impl<'a> AudioDevice for NxAudioDevice<'a>{
     fn push_buffer(&mut self, buffer:&[magenboy_core::apu::audio_device::StereoSample; magenboy_core::apu::audio_device::BUFFER_SIZE]) {
+        self.resampler.set_original_frequency(self.turbo.get_factor() * GB_FREQUENCY);
         let resampled = self.resampler.resample(buffer);
-        unsafe{(self.cb)(resampled.as_ptr(), (resampled.len() * 2) as c_int)};
+        let resampled_ptr = resampled.as_ptr() as *const magenboy_core::apu::audio_device::Sample;
+        unsafe{(self.cb)(resampled_ptr, (resampled.len() * 2) as c_int)};
     }
 }

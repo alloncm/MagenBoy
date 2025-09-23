@@ -9,10 +9,10 @@ pub struct MenuOption<T, S:AsRef<str>>{
 #[repr(u32)]
 #[derive(Debug, Clone, Copy)]
 pub enum EmulatorMenuOption{
-    Resume,
-    Turbo,
-    Restart,
-    Shutdown
+    Resume = 0,
+    Restart = 1,
+    Shutdown = 2,
+    Turbo = 3,
 }
 
 pub const GAME_MENU_OPTIONS:[MenuOption<EmulatorMenuOption, &str>; 4] = [
@@ -31,6 +31,12 @@ pub struct Turbo {
 impl Turbo {
     pub const fn new(factor: u32) -> Self {
         Self { enabled: AtomicBool::new(false), factor, counter: AtomicU32::new(0) }
+    }
+
+    pub fn toggle(&self) {
+        let new_turbo_state = !self.enabled.load(Ordering::Relaxed);
+        self.enabled.store(new_turbo_state, Ordering::Relaxed);
+        log::info!("Turbo mode is: {new_turbo_state}");
     }
 
     /// Updates the internal counter and returns true if a frame should be rendered
@@ -99,11 +105,7 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
         ) {
             match self.get_game_menu_selection(state, gfx_device, receiver){
                 EmulatorMenuOption::Resume => {},
-                EmulatorMenuOption::Turbo => {
-                    let new_turbo_state = !state.turbo.enabled.load(std::sync::atomic::Ordering::Relaxed);
-                    state.turbo.enabled.store(new_turbo_state, std::sync::atomic::Ordering::Relaxed);
-                    log::info!("Turbo mode is: {new_turbo_state}");
-                },
+                EmulatorMenuOption::Turbo => state.turbo.toggle(),
                 EmulatorMenuOption::Restart => state.running.store(false, std::sync::atomic::Ordering::Relaxed),
                 EmulatorMenuOption::Shutdown => {
                     state.running.store(false, std::sync::atomic::Ordering::Relaxed);

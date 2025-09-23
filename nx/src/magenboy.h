@@ -8,8 +8,6 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-// Define a callback type for logging.
-// Adjust the signature as needed.
 typedef void (*LogCallback)(const char* message, int len);
 typedef void (*GfxDeviceCallback)(const uint16_t* buffer);
 typedef uint64_t (*JoypadDeviceCallback)();
@@ -29,7 +27,7 @@ void magenboy_deinit(void* ctx);
 
 const char* magenboy_menu_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb, const char** roms, uint32_t roms_count);
 
-const uint32_t magenboy_pause_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb);
+uint32_t magenboy_pause_trigger(GfxDeviceCallback gfx_cb, JoypadDeviceCallback joypad_cb, PollJoypadDeviceCallback poll_cb);
 
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy instance returned by magenboy_init.
