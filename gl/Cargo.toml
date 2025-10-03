@@ -1,0 +1,12 @@
+[package]
+name = "magenboy_gl"
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glfw-sys ={ version="6.0", default-features = false, features = ["src-build", "static-link"] }
+gl = "0.14"
