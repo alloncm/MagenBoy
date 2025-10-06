@@ -7,7 +7,7 @@ const WX_OFFSET:u8 = 7;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
-pub const BUFFERS_NUMBER:usize = 2;
+pub const BUFFERS_NUMBER:usize = 1;
 
 const OAM_ENTRY_SIZE:u16 = 4;
 const OAM_MEMORY_SIZE:usize = 0xA0;

@@ -1,12 +1,28 @@
-use std::ffi::CString;
+mod render;
+mod cli;
+
+use std::{ffi::CString, ptr::null};
 
 use glfw_sys::*;
-use gl::types::*;
+use magenboy_common::mbc_handler::initialize_mbc;
+use magenboy_core::GameBoy;
 
 const SCR_WIDTH: u32 = 800;
 const SCR_HEIGHT: u32 = 600;
 
+struct DummyJoypadProvider;
+impl magenboy_core::JoypadProvider for DummyJoypadProvider{
+    fn provide(&mut self, _joypad:&mut magenboy_core::keypad::joypad::Joypad) {}
+}
+
+struct DummyAudioDevice;
+impl magenboy_core::AudioDevice for DummyAudioDevice{
+    fn push_buffer(&mut self, _buffer:&[magenboy_core::apu::audio_device::StereoSample; magenboy_core::apu::audio_device::BUFFER_SIZE]) {}
+}
+
 fn main() {
+    let args: cli::CliArgs = argh::from_env();
+    
     unsafe {
         if glfwInit() == 0 {
             println!("Failed to initialize GLFW");
@@ -43,9 +59,15 @@ fn main() {
             let name = CString::new(s).unwrap();
             match glfwGetProcAddress(name.as_ptr()) {
                 Some(p) => p as *const _,
-                None => std::ptr::null(),
+                None => null(),
             }
         });
+
+        let renderer = render::Renderer::new(window);
+
+        let mbc = initialize_mbc(&args.rom_path);
+
+        let mut gameboy = GameBoy::new_with_mode(mbc, DummyJoypadProvider, DummyAudioDevice, renderer, magenboy_core::Mode::CGB);
 
         while glfwWindowShouldClose(window) == 0 {
             // input
@@ -53,12 +75,13 @@ fn main() {
             process_input(window);
 
             // render
-            gl::ClearColor(0.7, 0.0, 0.0, 1.0);
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
-            
+
+            gameboy.cycle_frame();
+
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
-            glfwSwapBuffers(window);
             glfwPollEvents();
         }
 
