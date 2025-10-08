@@ -75,9 +75,6 @@ fn main() {
             process_input(window);
 
             // render
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-
             gameboy.cycle_frame();
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

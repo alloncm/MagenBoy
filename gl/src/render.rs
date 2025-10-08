@@ -14,6 +14,7 @@ pub struct Renderer {
     vertex_array_object: GLuint,
     vertex_buffer_object: GLuint,
     element_buffer_object: GLuint,
+    texture_id: GLuint    
 }
 
 impl Renderer{
@@ -94,7 +95,7 @@ impl Renderer{
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, 0 as *const _);
             gl::EnableVertexAttribArray(0);
             // tex coord attribute
-            gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, (2 * size_of::<GLfloat>()) as *const _);
+            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, (2 * size_of::<GLfloat>()) as *const _);
             gl::EnableVertexAttribArray(1);
 
             // note that this is allowed, the call to glVertexAttribPointer registered VBO as the vertex attribute's bound vertex buffer object so afterwards we can safely unbind
@@ -107,7 +108,21 @@ impl Renderer{
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
             // Nearest upscaling instead of linear
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, 0, gl::RGB565, gl::UNSIGNED_SHORT_5_6_5, null());
+            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, 0, gl::RGB, gl::UNSIGNED_BYTE, null());
+            let error = gl::GetError();
+            if error != gl::NO_ERROR {
+                match error {
+                    gl::INVALID_ENUM => println!("GL_INVALID_ENUM"),
+                    gl::INVALID_VALUE => println!("GL_INVALID_VALUE"),
+                    gl::INVALID_OPERATION => println!("GL_INVALID_OPERATION"),
+                    gl::STACK_OVERFLOW => println!("GL_STACK_OVERFLOW"),
+                    gl::STACK_UNDERFLOW => println!("GL_STACK_UNDERFLOW"),
+                    gl::OUT_OF_MEMORY => println!("GL_OUT_OF_MEMORY"),
+                    gl::INVALID_FRAMEBUFFER_OPERATION => println!("GL_INVALID_FRAMEBUFFER_OPERATION"),
+                    _ => println!("Unknown error"),
+                }
+                std::panic!("Error creating texture");
+            }
 
             // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
             // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
@@ -119,15 +134,30 @@ impl Renderer{
                 vertex_array_object,
                 vertex_buffer_object,
                 element_buffer_object,
+                texture_id: texture
             };
         }
     }
 
     pub fn render(&self, buffer: &[u16; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+        // Convert buffer to RGB888
+        let mut rgb_buffer = vec![0u8; SCREEN_WIDTH * SCREEN_HEIGHT * 3];
+        for (i, &pixel) in buffer.iter().enumerate() {
+            let r = ((pixel >> 11) & 0x1F) << 3;
+            let g = ((pixel >> 5) & 0x3F) << 2;
+            let b = (pixel & 0x1F) << 3;
+            rgb_buffer[i * 3 + 0] = r as u8;
+            rgb_buffer[i * 3 + 1] = g as u8;
+            rgb_buffer[i * 3 + 2] = b as u8;
+        }
         unsafe {
+            gl::ClearColor(1.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
             gl::UseProgram(self.shader_program);
             gl::BindVertexArray(self.vertex_array_object); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, gl::RGB565, gl::UNSIGNED_SHORT_5_6_5, buffer.as_ptr() as *const _);
+            gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
+            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, gl::RGB, gl::UNSIGNED_BYTE, rgb_buffer.as_ptr() as *const _);
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
             
             glfwSwapBuffers(self.window);
