@@ -108,6 +108,7 @@ impl Renderer{
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_BORDER as GLint);
             // Nearest upscaling instead of linear
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
             gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, 0, gl::RGB, gl::UNSIGNED_BYTE, null());
             let error = gl::GetError();
             if error != gl::NO_ERROR {
@@ -124,9 +125,14 @@ impl Renderer{
                 std::panic!("Error creating texture");
             }
 
-            // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-            // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-            gl::BindVertexArray(0); 
+            gl::UseProgram(shader_program);
+
+            // Probably not required on all hardware
+            let texture_name = CString::new("Texture").unwrap();
+            let uniform_location = gl::GetUniformLocation(shader_program, texture_name.as_ptr());
+            gl::Uniform1i(uniform_location, 0);
+            gl::ActiveTexture(gl::TEXTURE0);
+            gl::BindTexture(gl::TEXTURE_2D, texture);
 
             return Renderer {
                 window,
@@ -154,9 +160,7 @@ impl Renderer{
             gl::ClearColor(1.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::UseProgram(self.shader_program);
-            gl::BindVertexArray(self.vertex_array_object); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
-            gl::BindTexture(gl::TEXTURE_2D, self.texture_id);
+            // All the objects are already bound and the shader is already in use
             gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, gl::RGB, gl::UNSIGNED_BYTE, rgb_buffer.as_ptr() as *const _);
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
             
