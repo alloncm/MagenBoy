@@ -8,17 +8,27 @@ use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GfxDevice};
 const VERTEX_SHADER_SOURCE: &'static str = include_str!("vertex.glsl");
 const FRAGMENT_SHADER_SOURCE: &'static str = include_str!("fragment.glsl");
 
-pub struct Renderer {
+pub struct GlRenderer {
     window: *mut GLFWwindow,
     shader_program: GLuint,
     vertex_array_object: GLuint,
     vertex_buffer_object: GLuint,
     element_buffer_object: GLuint,
-    texture_id: GLuint    
 }
 
-impl Renderer{
-    pub fn new(window: *mut GLFWwindow) -> Renderer{
+const POS_TEX_VERTICES: [f32; 16] = [
+    1.0, 1.0, 1.0, 0.0,     // top right
+    1.0, -1.0, 1.0, 1.0,    // bottom right
+    -1.0, -1.0, 0.0, 1.0,   // bottom left
+    -1.0, 1.0, 0.0, 0.0     // top left
+]; 
+const INDICIES: [u32; 6] = [
+    0, 1, 3, // first triangle
+    1, 2, 3  // second triangle
+];
+
+impl GlRenderer{
+    pub fn new(window: *mut GLFWwindow) -> GlRenderer{
         unsafe {
             // build and compile our shader program
             // ------------------------------------
@@ -62,19 +72,6 @@ impl Renderer{
             gl::DeleteShader(vertex_shader);
             gl::DeleteShader(fragment_shader);
 
-            // set up vertex data (and buffer(s)) and configure vertex attributes
-            // ------------------------------------------------------------------
-            let pos_tex_vertices: [GLfloat; 16] = [
-                1.0, 1.0, 1.0, 1.0,     // top right
-                1.0, -1.0, 1.0, 0.0,    // bottom right
-                -1.0, -1.0, 0.0, 0.0,   // bottom left
-                -1.0, 1.0, 0.0, 1.0     // top left
-            ]; 
-            let indicies: [GLuint; 6] = [
-                0, 1, 3, // first triangle
-                1, 2, 3  // second triangle
-            ];
-
             let mut vertex_buffer_object: GLuint = 0;
             let mut vertex_array_object: GLuint = 0;
             let mut element_buffer_object: GLuint = 0;
@@ -85,10 +82,10 @@ impl Renderer{
             gl::BindVertexArray(vertex_array_object);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
-            gl::BufferData(gl::ARRAY_BUFFER, std::mem::size_of_val(&pos_tex_vertices) as GLsizeiptr, pos_tex_vertices.as_ptr() as *const _, gl::STATIC_DRAW);
+            gl::BufferData(gl::ARRAY_BUFFER, std::mem::size_of_val(&POS_TEX_VERTICES) as GLsizeiptr, POS_TEX_VERTICES.as_ptr() as *const _, gl::STATIC_DRAW);
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, element_buffer_object);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, std::mem::size_of_val(&indicies) as GLsizeiptr, indicies.as_ptr() as *const _, gl::STATIC_DRAW);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, std::mem::size_of_val(&INDICIES) as GLsizeiptr, INDICIES.as_ptr() as *const _, gl::STATIC_DRAW);
 
             let stride = (4 * std::mem::size_of::<GLfloat>()) as GLint;
             // pos attribute
@@ -109,20 +106,19 @@ impl Renderer{
             // Nearest upscaling instead of linear
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-            gl::TexImage2D(gl::TEXTURE_2D, 0, gl::RGB as _, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, 0, gl::RGB, gl::UNSIGNED_BYTE, null());
-            let error = gl::GetError();
-            if error != gl::NO_ERROR {
-                match error {
-                    gl::INVALID_ENUM => println!("GL_INVALID_ENUM"),
-                    gl::INVALID_VALUE => println!("GL_INVALID_VALUE"),
-                    gl::INVALID_OPERATION => println!("GL_INVALID_OPERATION"),
-                    gl::STACK_OVERFLOW => println!("GL_STACK_OVERFLOW"),
-                    gl::STACK_UNDERFLOW => println!("GL_STACK_UNDERFLOW"),
-                    gl::OUT_OF_MEMORY => println!("GL_OUT_OF_MEMORY"),
-                    gl::INVALID_FRAMEBUFFER_OPERATION => println!("GL_INVALID_FRAMEBUFFER_OPERATION"),
-                    _ => println!("Unknown error"),
-                }
-                std::panic!("Error creating texture");
+            gl::TexImage2D(
+                gl::TEXTURE_2D, 
+                0, 
+                gl::RGB as _, 
+                SCREEN_WIDTH as _, 
+                SCREEN_HEIGHT as _, 
+                0, 
+                gl::RGB, 
+                gl::UNSIGNED_SHORT_5_6_5, 
+                null()
+            );
+            if let Err(e) = check_gl_error(){
+                panic!("Error creating texture: {}", e);
             }
 
             gl::UseProgram(shader_program);
@@ -134,34 +130,34 @@ impl Renderer{
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, texture);
 
-            return Renderer {
+            return GlRenderer {
                 window,
                 shader_program,
                 vertex_array_object,
                 vertex_buffer_object,
                 element_buffer_object,
-                texture_id: texture
             };
         }
     }
 
     pub fn render(&self, buffer: &[u16; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        // Convert buffer to RGB888
-        let mut rgb_buffer = vec![0u8; SCREEN_WIDTH * SCREEN_HEIGHT * 3];
-        for (i, &pixel) in buffer.iter().enumerate() {
-            let r = ((pixel >> 11) & 0x1F) << 3;
-            let g = ((pixel >> 5) & 0x3F) << 2;
-            let b = (pixel & 0x1F) << 3;
-            rgb_buffer[i * 3 + 0] = r as u8;
-            rgb_buffer[i * 3 + 1] = g as u8;
-            rgb_buffer[i * 3 + 2] = b as u8;
-        }
         unsafe {
-            gl::ClearColor(1.0, 0.0, 0.0, 1.0);
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             // All the objects are already bound and the shader is already in use
-            gl::TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH as _, SCREEN_HEIGHT as _, gl::RGB, gl::UNSIGNED_BYTE, rgb_buffer.as_ptr() as *const _);
+            // Update the texture
+            gl::TexSubImage2D(
+                gl::TEXTURE_2D, 
+                0, 
+                0, 
+                0, 
+                SCREEN_WIDTH as _, 
+                SCREEN_HEIGHT as _, 
+                gl::RGB, 
+                gl::UNSIGNED_SHORT_5_6_5, 
+                buffer.as_ptr() as *const _
+            );
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
             
             glfwSwapBuffers(self.window);
@@ -169,7 +165,25 @@ impl Renderer{
     }
 }
 
-impl Drop for Renderer {
+fn check_gl_error() -> Result<(), &'static str> {
+    let error = unsafe{gl::GetError()};
+    if error != gl::NO_ERROR {
+        return Err(match error {
+            gl::INVALID_ENUM => "GL_INVALID_ENUM",
+            gl::INVALID_VALUE => "GL_INVALID_VALUE",
+            gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
+            gl::STACK_OVERFLOW => "GL_STACK_OVERFLOW",
+            gl::STACK_UNDERFLOW => "GL_STACK_UNDERFLOW",
+            gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+            gl::INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
+            _ => "Unknown error",
+        });
+    }
+
+    return Ok(());
+}
+
+impl Drop for GlRenderer {
     fn drop(&mut self) {
         unsafe {
             // optional: de-allocate all resources once they've outlived their purpose:
@@ -182,7 +196,7 @@ impl Drop for Renderer {
     }
 }
 
-impl GfxDevice for Renderer{
+impl GfxDevice for GlRenderer{
     fn swap_buffer(&mut self, buffer:&[u16; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.render(buffer);
     }

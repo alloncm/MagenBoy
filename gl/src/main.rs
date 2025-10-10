@@ -1,5 +1,6 @@
 mod render;
 mod cli;
+mod input;
 
 use std::{ffi::CString, ptr::null};
 
@@ -63,7 +64,7 @@ fn main() {
             }
         });
 
-        let renderer = render::Renderer::new(window);
+        let renderer = render::GlRenderer::new(window);
 
         let mbc = initialize_mbc(&args.rom_path);
 
