@@ -6,6 +6,8 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")] {
     pub mod logging;
     pub mod initialization;
     pub use initialization::*;
+
+    pub use log;
 }}
 
 cfg_if::cfg_if!{ if #[cfg(feature = "alloc")] {

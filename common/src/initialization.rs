@@ -32,22 +32,7 @@ pub fn init_and_run_gameboy(
         None
     };
 
-    let bootrom = bootrom_path.map_or(None, |path| {
-        match std::fs::read(&path){
-            Result::Ok(file)=>{
-                info!("found bootrom!");
-                match file.len() {
-                    GBC_BOOT_ROM_SIZE => Some(Bootrom::Gbc(file.try_into().unwrap())),
-                    GB_BOOT_ROM_SIZE => Some(Bootrom::Gb(file.try_into().unwrap())),
-                    _=> std::panic!("Error! bootrom: \"{}\" length is invalid", path)
-                }
-            }
-            Result::Err(_)=>{
-                info!("Could not find bootrom... booting directly to rom");
-                None
-            }
-        }
-    });
+    let bootrom = read_bootrom(bootrom_path);
 
     let mbc = initialize_mbc(&program_name);
 
@@ -82,4 +67,23 @@ pub fn init_and_run_gameboy(
     drop(gameboy);
     release_mbc(&program_name, mbc);
     log::info!("released the gameboy succefully");
+}
+
+pub fn read_bootrom(bootrom_path: Option<String>) -> Option<Bootrom> {
+    bootrom_path.map_or(None, |path| {
+        match std::fs::read(&path){
+            Result::Ok(file)=>{
+                info!("found bootrom!");
+                match file.len() {
+                    GBC_BOOT_ROM_SIZE => Some(Bootrom::Gbc(file.try_into().unwrap())),
+                    GB_BOOT_ROM_SIZE => Some(Bootrom::Gb(file.try_into().unwrap())),
+                    _=> std::panic!("Error! bootrom: \"{}\" length is invalid", path)
+                }
+            }
+            Result::Err(_)=>{
+                info!("Could not find bootrom... booting directly to rom");
+                None
+            }
+        }
+    })
 }

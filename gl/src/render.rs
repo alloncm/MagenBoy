@@ -1,7 +1,7 @@
 use std::{ffi::{CStr, CString}, ptr::{null, null_mut}};
 
 use gl::types::*;
-use glfw_sys::{glfwSwapBuffers, GLFWwindow};
+use glfw_sys::{glfwGetFramebufferSize, glfwSwapBuffers, GLFWwindow};
 use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GfxDevice};
 
 
@@ -15,6 +15,8 @@ pub struct GlRenderer {
     vertex_buffer_object: GLuint,
     element_buffer_object: GLuint,
 }
+
+const SCREEN_RATIO: f32 = SCREEN_HEIGHT as f32 / SCREEN_WIDTH as f32;
 
 const POS_TEX_VERTICES: [f32; 16] = [
     1.0, 1.0, 1.0, 0.0,     // top right
@@ -130,6 +132,12 @@ impl GlRenderer{
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, texture);
 
+            let (mut width, mut height) = (0, 0);
+            glfwGetFramebufferSize(window, &mut width, &mut height);
+
+            // Set initial viewport
+            framebuffer_size_callback(window, width, height);
+
             return GlRenderer {
                 window,
                 shader_program,
@@ -200,4 +208,26 @@ impl GfxDevice for GlRenderer{
     fn swap_buffer(&mut self, buffer:&[u16; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.render(buffer);
     }
+}
+
+pub unsafe extern "C" fn framebuffer_size_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
+    let width_ratio = width as f32 / SCREEN_WIDTH as f32;
+    let height_ratio = height as f32 / SCREEN_HEIGHT as f32;
+    let window_ratio = height as f32 / width as f32;
+
+    let (new_width, new_height) = if width_ratio > height_ratio {
+        let ratio = window_ratio / SCREEN_RATIO;
+        ((width as f32 * ratio) as i32, height)
+    } 
+    else if width_ratio < height_ratio {
+        let ratio = SCREEN_RATIO / window_ratio;
+        (width, (height as f32 * ratio) as i32)
+    }
+    else {
+        (width, height)
+    };
+
+    let width_gap = (width - new_width) / 2;
+    let height_gap = (height - new_height) / 2;
+    gl::Viewport(width_gap, height_gap, new_width, new_height);
 }
