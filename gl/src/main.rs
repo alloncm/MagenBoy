@@ -41,10 +41,12 @@ fn main() {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+        let header = std::format!("MagenBoy v{}", magenboy_common::VERSION);
+        let header = CString::new(header).unwrap();
         let window = glfwCreateWindow(
             DEFAULT_WINDOW_WIDTH as i32,
             DEFAULT_WINDOW_HEIGHT as i32,
-            b"LearnOpenGL\0".as_ptr() as *const i8,
+            header.as_ptr() as _,
             std::ptr::null_mut(),
             std::ptr::null_mut(),
         );
@@ -89,10 +91,8 @@ fn main() {
         };
 
         while glfwWindowShouldClose(window) == 0 {
-            // input
             process_input(window);
 
-            // render
             gameboy.cycle_frame();
 
             glfwPollEvents();
