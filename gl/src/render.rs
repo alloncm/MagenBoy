@@ -16,8 +16,6 @@ pub struct GlRenderer {
     element_buffer_object: GLuint,
 }
 
-const SCREEN_RATIO: f32 = SCREEN_HEIGHT as f32 / SCREEN_WIDTH as f32;
-
 const POS_TEX_VERTICES: [f32; 16] = [
     1.0, 1.0, 1.0, 0.0,     // top right
     1.0, -1.0, 1.0, 1.0,    // bottom right
@@ -136,7 +134,7 @@ impl GlRenderer{
             glfwGetFramebufferSize(window, &mut width, &mut height);
 
             // Set initial viewport
-            framebuffer_size_callback(window, width, height);
+            update_viewport_callback(window, width, height);
 
             return GlRenderer {
                 window,
@@ -210,20 +208,21 @@ impl GfxDevice for GlRenderer{
     }
 }
 
-pub unsafe extern "C" fn framebuffer_size_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
-    let width_ratio = width as f32 / SCREEN_WIDTH as f32;
-    let height_ratio = height as f32 / SCREEN_HEIGHT as f32;
-    let window_ratio = height as f32 / width as f32;
+pub unsafe extern "C" fn update_viewport_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
+    const GB_SCREEN_RATIO: f32 = SCREEN_HEIGHT as f32 / SCREEN_WIDTH as f32;
 
-    let (new_width, new_height) = if width_ratio > height_ratio {
-        let ratio = window_ratio / SCREEN_RATIO;
+    let window_ratio = height as f32 / width as f32;
+    let ratio = window_ratio / GB_SCREEN_RATIO;
+
+    let (new_width, new_height) = if ratio < 1.0 {
         ((width as f32 * ratio) as i32, height)
     } 
-    else if width_ratio < height_ratio {
-        let ratio = SCREEN_RATIO / window_ratio;
-        (width, (height as f32 * ratio) as i32)
+    else if ratio > 1.0 {
+        // invert ratio since it is now positive
+        (width, (height as f32 * (1.0 / ratio)) as i32)
     }
     else {
+        // exatly 1 no need to change the ratio
         (width, height)
     };
 

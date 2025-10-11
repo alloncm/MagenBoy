@@ -8,7 +8,7 @@ use glfw_sys::*;
 use magenboy_common::{logging::init_fern_logger_with_log_level, mbc_handler::initialize_mbc, read_bootrom, log};
 use magenboy_core::{GameBoy, Mode};
 
-use crate::{input::GlfwJoypadProvider, render::framebuffer_size_callback};
+use crate::{input::GlfwJoypadProvider, render::update_viewport_callback};
 
 const DEFAULT_WINDOW_WIDTH: u32 = 800;
 const DEFAULT_WINDOW_HEIGHT: u32 = 600;
@@ -56,7 +56,7 @@ fn main() {
         }
 
         glfwMakeContextCurrent(window);
-        glfwSetFramebufferSizeCallback(window, Some(framebuffer_size_callback));
+        glfwSetFramebufferSizeCallback(window, Some(update_viewport_callback));
         
         if glfwGetCurrentContext().is_null() {
             println!("Failed to get current context");
