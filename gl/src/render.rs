@@ -1,7 +1,7 @@
 use std::{ffi::{CStr, CString}, ptr::{null, null_mut}};
 
 use gl::types::*;
-use glfw_sys::{glfwGetFramebufferSize, glfwSwapBuffers, GLFWwindow};
+use glfw_sys::{glfwGetFramebufferSize, glfwSetFramebufferSizeCallback, glfwSwapBuffers, glfwSwapInterval, GLFWwindow};
 use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GfxDevice};
 
 
@@ -77,6 +77,8 @@ impl GlRenderer{
             let (mut width, mut height) = (0, 0);
             glfwGetFramebufferSize(window, &mut width, &mut height);
             update_viewport_callback(window, width, height);
+            glfwSetFramebufferSizeCallback(window, Some(update_viewport_callback));
+            glfwSwapInterval(1);
 
             return GlRenderer {
                 window,
@@ -239,7 +241,7 @@ impl GfxDevice for GlRenderer{
     }
 }
 
-pub unsafe extern "C" fn update_viewport_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
+unsafe extern "C" fn update_viewport_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
     const GB_SCREEN_RATIO: f32 = SCREEN_HEIGHT as f32 / SCREEN_WIDTH as f32;
 
     let window_ratio = height as f32 / width as f32;
