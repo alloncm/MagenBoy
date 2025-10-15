@@ -2,8 +2,8 @@ use std::ffi::{CString, c_void};
 
 use sdl2::sys::*;
 
-use magenboy_common::EMULATOR_STATE;
-use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, utils::vec2::Vec2, GfxDevice, Pixel};
+use magenboy_common::{GfxDevice, EMULATOR_STATE};
+use magenboy_core::{ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, Pixel}, utils::vec2::Vec2};
 
 use super::utils::get_sdl_error_message;
 
@@ -103,7 +103,7 @@ impl SdlGfxDevice{
         };
     }
 
-    pub fn poll_event(&self)->Option<SDL_Event>{
+    pub fn poll_event()->Option<SDL_Event>{
         unsafe{
             let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
             // updating the events for the whole app

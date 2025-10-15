@@ -1,9 +1,9 @@
 mod font;
 pub mod joypad_gfx_menu;
 
-use magenboy_core::keypad::{button::Button, joypad::Joypad, joypad_provider::JoypadProvider};
+use magenboy_core::keypad::{Button, Joypad};
 
-use crate::menu::MenuOption;
+use crate::{menu::MenuOption, JoypadProvider};
 
 pub trait MenuRenderer<T, S:AsRef<str>>{
     fn render_menu(&mut self,header:&S, menu:&[MenuOption<T, S>], selection:usize);

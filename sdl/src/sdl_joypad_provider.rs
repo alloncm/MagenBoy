@@ -1,6 +1,6 @@
 use sdl2::sys::*;
-use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider};
-use magenboy_common::joypad_menu::MenuJoypadProvider;
+use magenboy_core::keypad::{Joypad, NUM_OF_KEYS};
+use magenboy_common::{joypad_menu::MenuJoypadProvider, JoypadProvider};
 use super::utils::get_sdl_error_message;
 
 

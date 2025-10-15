@@ -63,8 +63,10 @@ impl Turbo {
 
 cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
     use std::{sync::Mutex, path::PathBuf};
-    use magenboy_core::{ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
+    
     use super::joypad_menu::{MenuJoypadProvider, joypad_gfx_menu, JoypadMenu, MenuRenderer};
+
+    use crate::{GfxDevice, JoypadProvider};
 
     pub struct MagenBoyState{
         // Use atomic bool, normal bool doesnt works on arm (probably cause of the memory model)
@@ -101,9 +103,8 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
             &mut self,
             state: &MagenBoyState,
             gfx_device: &mut GFX, 
-            receiver: crossbeam_channel::Receiver<usize>
         ) {
-            match self.get_game_menu_selection(state, gfx_device, receiver){
+            match self.get_game_menu_selection(state, gfx_device){
                 EmulatorMenuOption::Resume => {},
                 EmulatorMenuOption::Turbo => state.turbo.toggle(),
                 EmulatorMenuOption::Restart => state.running.store(false, std::sync::atomic::Ordering::Relaxed),
@@ -118,7 +119,6 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
             &mut self,
             state: &MagenBoyState,
             gfx_device: &mut GFX,
-            emulation_framebuffer_channel: crossbeam_channel::Receiver<usize>
         ) -> &EmulatorMenuOption {
             let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(gfx_device);
         
@@ -135,10 +135,6 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
                     state.turbo.enabled.store(last_turbo, core::sync::atomic::Ordering::Relaxed);
                     state.pause.store(false, std::sync::atomic::Ordering::SeqCst);
                     return selection;
-                } else {
-                    // try recv in order to clear frames from the channel 
-                    // in order to not block the emualtion thread and allow it to finish the frame
-                    let _ = emulation_framebuffer_channel.try_recv();
                 }
             }
         }
