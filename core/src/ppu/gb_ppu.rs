@@ -49,6 +49,7 @@ pub struct GbPpu {
     vblank_occurred:bool, // a way to signal the rest of the system a vblank occurred
 
     m_cycles_passed:u16,
+    m_cycles_left: u32,
     screen_buffer: FrameBuffer,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
@@ -95,6 +96,7 @@ impl GbPpu {
             vblank_occurred:false,
             screen_buffer_index:0, 
             m_cycles_passed:0,
+            m_cycles_left: 0,
             stat_triggered:false,
             trigger_stat_interrupt:false,
             bg_fetcher:BackgroundFetcher::new(),
@@ -120,6 +122,9 @@ impl GbPpu {
         self.bg_fetcher.reset();
         self.sprite_fetcher.reset();
         self.pixel_x_pos = 0;
+
+        // Trigger the vblank event
+        self.vblank_occurred = true;
     }
 
     pub fn turn_on(&mut self){
@@ -192,6 +197,8 @@ impl GbPpu {
     }
 
     fn cycle_fetcher(&mut self, m_cycles:u32, if_register:&mut u8)->u16{
+        let m_cycles = m_cycles + self.m_cycles_left;
+        self.m_cycles_left = 0;
         let mut m_cycles_counter = 0;
 
         while m_cycles_counter < m_cycles{
@@ -232,6 +239,8 @@ impl GbPpu {
                                 self.trigger_stat_interrupt = true;
                             }
                             self.vblank_occurred = true;
+                            self.m_cycles_left = m_cycles - m_cycles_counter;
+                            break;
                         }
                         else{
                             self.next_state = PpuState::OamSearch;

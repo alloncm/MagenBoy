@@ -14,7 +14,7 @@ pub struct GameBoy<'a, AD:AudioDevice, #[cfg(feature = "dbg")] DI:DebuggerInterf
 macro_rules! impl_gameboy {
     ($implementations:tt) => {
         #[cfg(feature = "dbg")]
-        impl<'a, JP:JoypadProvider, AD:AudioDevice, DUI:DebuggerInterface> GameBoy<'a, JP, AD, DUI> $implementations
+        impl<'a, AD:AudioDevice, DUI:DebuggerInterface> GameBoy<'a, AD, DUI> $implementations
         #[cfg(not(feature = "dbg"))]
         impl<'a, AD:AudioDevice> GameBoy<'a, AD> $implementations
     };

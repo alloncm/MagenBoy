@@ -5,16 +5,16 @@ mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
+use std::{env, result::Result, vec::Vec};
+
+use sdl2::sys::*;
+
 use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, menu::*, GfxDevice, JoypadProvider, EMULATOR_STATE};
 use magenboy_core::{apu::audio_device::*, keypad::NUM_OF_KEYS, GB_FREQUENCY};
-
-use std::{env, result::Result, vec::Vec};
-use sdl2::sys::*;
 
 use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlAudioDevice};
 
 const SCREEN_SCALE:usize = 4;
-use sdl2::sys::SDL_Scancode;
 const KEYBOARD_MAPPING:[SDL_Scancode; NUM_OF_KEYS] = [
     SDL_Scancode::SDL_SCANCODE_X,
     SDL_Scancode::SDL_SCANCODE_Z,
@@ -99,7 +99,7 @@ fn main() {
                             window.run(&result.0);
                         }
                     }
-                }else{
+                } else {
                     let mut joypad = Default::default();
                     joypad_provider.provide(&mut joypad);
                     let frame = gameboy.cycle_frame(joypad);
