@@ -239,6 +239,7 @@ impl GbPpu {
                                 self.trigger_stat_interrupt = true;
                             }
                             self.vblank_occurred = true;
+                            // Save the remaining cycles and return early to avoid the framebuffer being modified before rendered
                             self.m_cycles_left = m_cycles - m_cycles_counter;
                             break;
                         }
