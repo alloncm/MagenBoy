@@ -18,3 +18,9 @@ edition = "2021"
 
 [profile.release]
 lto = true  # Samller binaries and faster code
+
+# Without this profile getting stackoverflow on debug builds
+[profile.dev]
+codegen-units = 1
+opt-level = 2
+debug = true

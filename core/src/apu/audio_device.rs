@@ -1,3 +1,5 @@
+use crate::GB_FREQUENCY;
+
 use super::NUMBER_OF_CHANNELS;
 
 pub type Sample = i16;
@@ -5,7 +7,7 @@ pub const DEFAULT_SAPMPLE:Sample = 0 as Sample;
 const MAX_MASTER_VOLUME:Sample = 8;
 pub const SAMPLE_MAX: Sample = Sample::MAX / (MAX_MASTER_VOLUME * NUMBER_OF_CHANNELS as Sample);
 
-pub const BUFFER_SIZE:usize = 0x2000;
+pub const BUFFER_SIZE:usize = GB_FREQUENCY as usize / 60;
 
 #[derive(Clone, Copy)]
 #[repr(C, packed)]
