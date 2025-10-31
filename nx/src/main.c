@@ -375,14 +375,16 @@ restart:
         if ((kDown & HidNpadButton_L) != 0 && (kDown & HidNpadButton_R) != 0) {
             int shutdown = 0;
             switch (magenboy_pause_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed)) {
-                case 0: // Resume
+                case Resume:
                     break;
-                case 1: // Restart
+                case Restart:
                     printf("Restarting\n");
                     goto restart;
-                case 2: // Shutdon
+                case Shutdown:
                     printf("Shutting down\n");
                     shutdown = 1;
+                    break;
+                default:
                     break;
             }
             if (shutdown) {

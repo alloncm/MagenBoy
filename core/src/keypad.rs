@@ -1,24 +1,39 @@
-use crate::utils::bit_masks::*;
-use super::{joypad_provider::JoypadProvider, joypad::Joypad, button::Button};
+use crate::utils::bit_masks::{flip_bit_u8, BIT_4_MASK, BIT_5_MASK};
 
-
-pub struct JoypadHandler<JP:JoypadProvider>{
-    register:u8,
-    joypad:Joypad,
-    joypad_provider:JP,
+#[repr(u8)]
+pub enum Button{
+    A,
+    B,
+    Start,
+    Select,
+    Up,
+    Down,
+    Right,
+    Left
 }
 
-impl<JP:JoypadProvider> JoypadHandler<JP>{
-    pub fn new(provider: JP)->Self{
+pub const NUM_OF_KEYS: usize = 8;
+
+#[derive(Default, Clone, Copy)]
+pub struct Joypad {
+    pub buttons: [bool; NUM_OF_KEYS]
+}
+
+pub struct JoypadHandler{
+    register:u8,
+    joypad:Joypad,
+}
+
+impl JoypadHandler{
+    pub fn new()->Self{
         Self{
-            joypad_provider:provider,
             register:0xFF,
             joypad: Joypad::default()
         }
     }
 
-    pub fn poll_joypad_state(&mut self){
-        self.joypad_provider.provide(&mut self.joypad);
+    pub fn update_joypad(&mut self, joypad: Joypad) {
+        self.joypad = joypad;
     }
 
     pub fn get_register(&mut self) -> u8{

@@ -1,4 +1,4 @@
-use crate::ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice};
+use crate::ppu::gb_ppu::GbPpu;
 use super::{external_memory_bus::ExternalMemoryBus, access_bus::AccessBus};
 
 const DMA_SIZE:u16 = 0xA0;
@@ -14,7 +14,7 @@ impl OamDmaController{
     pub fn new()->Self{
         Self{dma_cycle_counter:0, enable:None, soure_address:0}
     }
-    pub fn cycle<G:GfxDevice>(&mut self, m_cycles:u32, external_bus: &mut ExternalMemoryBus, ppu:&mut GbPpu<G>)->Option<AccessBus>{
+    pub fn cycle(&mut self, m_cycles:u32, external_bus: &mut ExternalMemoryBus, ppu:&mut GbPpu) -> Option<AccessBus> {
         if let Some(bus) = self.enable{
             let cycles_to_run = core::cmp::min(self.dma_cycle_counter + m_cycles as u16, DMA_SIZE);
             match bus{

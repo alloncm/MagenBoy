@@ -14,3 +14,7 @@ crate-type = ["staticlib"]
 magenboy_core = { path = "../core", features = ["apu"] }
 magenboy_common = { path = "../common", features = ["alloc"] }
 log = "0.4"
+
+[build-dependencies]
+magenboy_common = {path = "../common"}
+cbindgen = { git = "https://github.com/alloncm/cbindgen.git", branch = "builder_with_line_endings" }

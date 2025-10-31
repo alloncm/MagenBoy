@@ -1,4 +1,4 @@
-use crate::{utils::bit_masks::BIT_7_MASK, ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice, ppu_state::PpuState}};
+use crate::{utils::bit_masks::BIT_7_MASK, ppu::{gb_ppu::GbPpu, ppu_state::PpuState}};
 
 use super::external_memory_bus::ExternalMemoryBus;
 
@@ -81,7 +81,7 @@ impl VramDmaController{
         };
     }
 
-    pub fn cycle<G:GfxDevice>(&mut self, m_cycles:u32, exteranl_memory_bus:&mut ExternalMemoryBus, ppu:&mut GbPpu<G>){
+    pub fn cycle(&mut self, m_cycles:u32, exteranl_memory_bus:&mut ExternalMemoryBus, ppu:&mut GbPpu) {
         match self.mode{
             TransferMode::Hblank=>self.handle_hblank_transfer(ppu, m_cycles, exteranl_memory_bus),
             TransferMode::GeneralPurpose=>self.handle_general_purpose_transfer(exteranl_memory_bus, ppu, m_cycles),
@@ -89,7 +89,7 @@ impl VramDmaController{
         }
     }
 
-    fn handle_general_purpose_transfer<G:GfxDevice>(&mut self, exteranl_memory_bus: &mut ExternalMemoryBus, ppu: &mut GbPpu<G>, m_cycles:u32) {
+    fn handle_general_purpose_transfer(&mut self, exteranl_memory_bus: &mut ExternalMemoryBus, ppu: &mut GbPpu, m_cycles:u32) {
         for _ in 0..m_cycles {
             for _ in 0..BYTES_TRASNFERED_PER_M_CYCLE{
                 let source_value = exteranl_memory_bus.read(self.source_address);
@@ -111,7 +111,7 @@ impl VramDmaController{
         }
     }
 
-    fn handle_hblank_transfer<G:GfxDevice>(&mut self, ppu: &mut GbPpu<G>, m_cycles: u32, exteranl_memory_bus: &mut ExternalMemoryBus) {
+    fn handle_hblank_transfer(&mut self, ppu: &mut GbPpu, m_cycles: u32, exteranl_memory_bus: &mut ExternalMemoryBus) {
         if self.last_ly.is_some_and(|v|v == ppu.ly_register) || ppu.state != PpuState::Hblank {
             return;
         }

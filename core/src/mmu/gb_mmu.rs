@@ -1,12 +1,12 @@
 use super::{access_bus::AccessBus, carts::{Mbc, CGB_FLAG_ADDRESS}, external_memory_bus::{Bootrom, ExternalMemoryBus}, interrupts_handler::InterruptRequest, io_bus::IoBus, Memory};
-use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::joypad_provider::JoypadProvider, machine::Mode, ppu::{color::Color, gfx_device::GfxDevice, ppu_state::PpuState}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}};
+use crate::{apu::{audio_device::AudioDevice, gb_apu::GbApu}, keypad::Joypad, machine::Mode, ppu::{color::Color, ppu_state::PpuState, FrameBuffer}, utils::{bit_masks::{flip_bit_u8, BIT_7_MASK}, memory_registers::*}};
 
 const HRAM_SIZE:usize = 0x7F;
 
 const BAD_READ_VALUE:u8 = 0xFF;
 
-pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
-    io_bus: IoBus<D, G, J>,
+pub struct GbMmu<'a, D:AudioDevice>{
+    io_bus: IoBus<D>,
     external_memory_bus:ExternalMemoryBus<'a>,
     occupied_access_bus:Option<AccessBus>,
     hram: [u8;HRAM_SIZE],
@@ -19,7 +19,7 @@ pub struct GbMmu<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider>{
 
 
 //DMA only locks the used bus. there 2 possible used buses: extrnal (wram, rom, sram) and video (vram)
-impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G, J>{
+impl<'a, D:AudioDevice> Memory for GbMmu<'a, D>{
     fn read(&mut self, address:u16, m_cycles:u8)->u8{
         self.cycle(m_cycles);
         let value = if let Some (bus) = &self.occupied_access_bus{
@@ -117,7 +117,7 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> Memory for GbMmu<'a, D, G
     }
 }
 
-impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
+impl<'a, D:AudioDevice> GbMmu<'a, D>{
     fn read_unprotected(&mut self, address:u16) ->u8 {
         return match address{
             0x0..=0x7FFF=>self.external_memory_bus.read(address),
@@ -167,12 +167,12 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 }
 
-impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
-    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Option<Bootrom>, apu:GbApu<D>, gfx_device:G, joypad_proider:J, mode:Mode)->Self{
+impl<'a, D:AudioDevice> GbMmu<'a, D>{
+    pub fn new(mbc:&'a mut dyn Mbc, boot_rom:Option<Bootrom>, apu:GbApu<D>, mode:Mode)->Self{
         let bootrom_missing = boot_rom.is_none();
         let cgb_reg = mbc.read_bank0(CGB_FLAG_ADDRESS as u16);
         let mut mmu = GbMmu{
-            io_bus:IoBus::new(apu, gfx_device, joypad_proider, mode),
+            io_bus:IoBus::new(apu, mode),
             external_memory_bus: ExternalMemoryBus::new(mbc, boot_rom),
             occupied_access_bus:None,
             hram:[0;HRAM_SIZE],
@@ -233,8 +233,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
         return self.io_bus.interrupt_handler.handle_interrupts(master_interrupt_enable, self.io_bus.ppu.stat_register);
     }
 
-    pub fn poll_joypad_state(&mut self){
-        self.io_bus.joypad_handler.poll_joypad_state();
+    pub fn update_joypad_state(&mut self, joypad: Joypad){
+        self.io_bus.joypad_handler.update_joypad(joypad);
     }
 
     pub fn dma_block_cpu(&self)->bool{
@@ -245,6 +245,8 @@ impl<'a, D:AudioDevice, G:GfxDevice, J:JoypadProvider> GbMmu<'a, D, G, J>{
     }
 
     pub fn consume_vblank_event(&mut self)->bool{self.io_bus.ppu.consume_vblank_event()}
+
+    pub fn consume_framebuffer(&mut self) -> &FrameBuffer {self.io_bus.ppu.consume_framebuffer()}
 
     #[cfg(feature = "dbg")]
     pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}

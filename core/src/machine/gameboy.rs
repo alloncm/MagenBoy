@@ -1,11 +1,11 @@
-use crate::{*, apu::gb_apu::GbApu, cpu::gb_cpu::GbCpu, mmu::{Memory, carts::Mbc, gb_mmu::GbMmu, external_memory_bus::Bootrom}};
+use crate::{apu::gb_apu::GbApu, cpu::gb_cpu::GbCpu, keypad::Joypad, mmu::{carts::Mbc, external_memory_bus::Bootrom, gb_mmu::GbMmu, Memory}, ppu::FrameBuffer, *};
 use super::Mode;
 #[cfg(feature = "dbg")]
 use crate::debugger::*;
 
-pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, #[cfg(feature = "dbg")] DI:DebuggerInterface>{
+pub struct GameBoy<'a, AD:AudioDevice, #[cfg(feature = "dbg")] DI:DebuggerInterface>{
     pub(crate) cpu: GbCpu,       
-    pub(crate) mmu:GbMmu<'a, AD, GFX, JP>,
+    pub(crate) mmu:GbMmu<'a, AD>,
     #[cfg(feature = "dbg")] pub(crate) debugger:Debugger<DI>
 }
 
@@ -14,15 +14,14 @@ pub struct GameBoy<'a, JP: JoypadProvider, AD:AudioDevice, GFX:GfxDevice, #[cfg(
 macro_rules! impl_gameboy {
     ($implementations:tt) => {
         #[cfg(feature = "dbg")]
-        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice, DUI:DebuggerInterface> GameBoy<'a, JP, AD, GFX, DUI> $implementations
+        impl<'a, AD:AudioDevice, DUI:DebuggerInterface> GameBoy<'a, AD, DUI> $implementations
         #[cfg(not(feature = "dbg"))]
-        impl<'a, JP:JoypadProvider, AD:AudioDevice, GFX:GfxDevice> GameBoy<'a, JP, AD, GFX> $implementations
+        impl<'a, AD:AudioDevice> GameBoy<'a, AD> $implementations
     };
 }
-pub(crate) use impl_gameboy;
 
 impl_gameboy! {{
-    pub fn new_with_mode(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, mode:Mode, #[cfg(feature = "dbg")]dui:DUI)->Self{
+    pub fn new_with_mode(mbc:&'a mut dyn Mbc, audio_device:AD, mode:Mode, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mut cpu = GbCpu::default();
         match mode{
             Mode::DMG=>{
@@ -43,13 +42,13 @@ impl_gameboy! {{
 
         return Self{
             cpu: cpu,
-            mmu: GbMmu::new(mbc, None, GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            mmu: GbMmu::new(mbc, None, GbApu::new(audio_device), mode),
             #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
         };
     }
 
-    pub fn new_with_bootrom(mbc:&'a mut dyn Mbc, joypad_provider:JP, audio_device:AD, gfx_device:GFX, bootrom:Bootrom, #[cfg(feature = "dbg")]dui:DUI)->Self{
+    pub fn new_with_bootrom(mbc:&'a mut dyn Mbc, audio_device:AD, bootrom:Bootrom, #[cfg(feature = "dbg")]dui:DUI)->Self{
         let mode = match bootrom{
             Bootrom::Gb(_) => Mode::DMG,
             Bootrom::Gbc(_) => Mode::CGB
@@ -57,20 +56,22 @@ impl_gameboy! {{
 
         return Self{
             cpu: GbCpu::default(),
-            mmu: GbMmu::new(mbc, Some(bootrom), GbApu::new(audio_device), gfx_device, joypad_provider, mode),
+            mmu: GbMmu::new(mbc, Some(bootrom), GbApu::new(audio_device), mode),
             #[cfg(feature = "dbg")]
             debugger: Debugger::new(dui),
         };
     }
 
-    pub fn cycle_frame(&mut self){
-        self.mmu.poll_joypad_state();
-
+    pub fn cycle_frame(&mut self, joypad: Joypad) -> &FrameBuffer {
+        self.mmu.update_joypad_state(joypad);
+        
         while !self.mmu.consume_vblank_event() {
             #[cfg(feature = "dbg")]
             self.run_debugger();
             self.step();
         }
+
+        return self.mmu.consume_framebuffer();
     }
 
     pub(crate) fn step(&mut self) {

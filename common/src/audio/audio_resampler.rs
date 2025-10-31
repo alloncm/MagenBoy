@@ -5,6 +5,7 @@ use magenboy_core::apu::audio_device::{Sample, AudioDevice, StereoSample, BUFFER
 pub trait AudioResampler{
     fn new(original_frequency:u32, target_frequency:u32)->Self;
     fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>;
+    fn set_original_frequency(&mut self, original_frequency:u32);
 }
 
 pub trait ResampledAudioDevice<AR:AudioResampler> : AudioDevice{
@@ -25,5 +26,5 @@ pub trait ResampledAudioDevice<AR:AudioResampler> : AudioDevice{
     fn get_audio_buffer(&mut self)->(&mut [Sample;BUFFER_SIZE], &mut usize);
     fn get_resampler(&mut self)->&mut AR;
     fn full_buffer_callback(&mut self)->Result<(), String>;
-    fn new(frequency:i32, turbo_mul:u8)->Self;
+    fn new(frequency:i32)->Self;
 }

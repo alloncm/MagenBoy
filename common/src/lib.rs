@@ -1,8 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use magenboy_core::{keypad::Joypad, ppu::FrameBuffer};
+
 cfg_if::cfg_if!{ if #[cfg(feature = "std")] {
     pub mod mbc_handler;
-    pub mod mpmc_gfx_device;
     pub mod logging;
     pub mod initialization;
     pub use initialization::*;
@@ -25,3 +26,11 @@ pub mod interpolation;
 pub mod synchronization;
 
 pub const VERSION:&str = env!("MAGENBOY_VERSION");
+
+pub trait GfxDevice {
+    fn swap_buffer(&mut self, buffer: &FrameBuffer);
+}
+
+pub trait JoypadProvider{
+    fn provide(&mut self, joypad:&mut Joypad);
+}

@@ -1,4 +1,6 @@
-use magenboy_core::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, color::{BLACK, WHITE}, color::Color};
+use magenboy_core::ppu::{color::{Color, BLACK, WHITE}, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, Pixel};
+
+use crate::GfxDevice;
 
 use super::{font::*, MenuRenderer};
 
