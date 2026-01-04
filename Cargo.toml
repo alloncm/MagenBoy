@@ -8,7 +8,6 @@ members = [
     "common", 
     "libretro",
     "nx",
-    "gl"
 ]
 
 [workspace.package]

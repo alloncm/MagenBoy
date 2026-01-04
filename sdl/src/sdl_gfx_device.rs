@@ -20,10 +20,6 @@ impl SdlWindow{
         let width = dimensions.x as i32;
         let height = dimensions.y as i32;
         unsafe{
-            if SDL_Init(SDL_INIT_VIDEO) != 0{
-                std::panic!("Init error: {}", get_sdl_error_message());
-            }
-
             let window:*mut SDL_Window = SDL_CreateWindow(
                 cs_wnd_name.as_ptr(),SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
                  width * screen_scale as i32, height * screen_scale as i32, window_flags);

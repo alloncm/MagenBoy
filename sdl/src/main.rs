@@ -1,17 +1,17 @@
 mod audio;
 mod utils;
-mod sdl_gfx_device;
+mod gl_gfx_device;
 mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_and_run_gameboy, joypad_menu::*, menu::*, mpmc_gfx_device::*, EMULATOR_STATE};
-use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::{GfxDevice, Pixel}}, GB_FREQUENCY};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*, EMULATOR_STATE};
+use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY};
 
-use std::{env, result::Result, vec::Vec};
+use std::{env, ffi::CString, ptr::null_mut, result::Result, vec::Vec};
 use sdl2::sys::*;
 
-use crate::{sdl_gfx_device::SdlGfxDevice, audio::*, SdlAudioDevice};
+use crate::{audio::*, gl_gfx_device::GlGfxDevice, utils::get_sdl_error_message, SdlAudioDevice};
 
 const TURBO_MUL:u8 = 1;
 
@@ -37,11 +37,66 @@ fn main() {
         Result::Err(error)=>std::panic!("error initing logger: {}", error)
     }
 
-    // Initialize the gfx first cause it initialize both the screen and the sdl context for the joypad
-    let mut gfx_device: SdlGfxDevice = SdlGfxDevice::new(header.as_str(), SCREEN_SCALE, TURBO_MUL,
-    check_for_terminal_feature_flag(&args, "--no-vsync"), check_for_terminal_feature_flag(&args, "--full-screen"));
+    init_sdl_subsystem(SDL_INIT_EVENTS);
+    init_sdl_subsystem(SDL_INIT_VIDEO);
+    init_sdl_subsystem(SDL_INIT_AUDIO);
+
+    let (sdl_window, sdl_gl_context) = unsafe {
+
+        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_PROFILE_MASK, SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as i32);
+
+        let window: *mut SDL_Window = SDL_CreateWindow(
+            header.as_str().as_ptr() as _,
+            SDL_WINDOWPOS_UNDEFINED_MASK as i32, 
+            SDL_WINDOWPOS_UNDEFINED_MASK as i32,
+            (SCREEN_WIDTH * SCREEN_SCALE) as i32,
+            (SCREEN_HEIGHT * SCREEN_SCALE) as i32, 
+            SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32 | SDL_WindowFlags::SDL_WINDOW_OPENGL as u32
+        );
+
+        if window == null_mut() {
+            std::panic!("Failed to create SDL window, message: {}", get_sdl_error_message());
+        }
+
+        let gl_context: SDL_GLContext = SDL_GL_CreateContext(window);
+        if gl_context == null_mut() {
+            std::panic!("Failed to get SDL GL context: message: {}", get_sdl_error_message());
+        }
+        // Enables vsync
+        SDL_GL_SetSwapInterval(1);
+
+        (window, gl_context)
+    };
 
     while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
+        let args = args.clone();
+
+        let mut width: i32 = 0;
+        let mut height: i32 = 0;
+        unsafe {
+            SDL_GetWindowSize(sdl_window, &mut width, &mut height);
+        }
+
+        let mut gfx_device = GlGfxDevice::new(width as u32, height as u32, |s|{
+            let name = CString::new(s).unwrap();
+            unsafe{SDL_GL_GetProcAddress(name.as_ptr())}
+        });
+        let mut menu_gfx_device = gfx_device.clone();
+
+        let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
+        let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
+        devices.push(Box::new(audio_device));
+        
+        if check_for_terminal_feature_flag(&args, "--file-audio"){
+            let wav_ad = WavfileAudioDevice::<ManualAudioResampler>::new(44100, GB_FREQUENCY, "output.wav");
+            devices.push(Box::new(wav_ad));
+            log::info!("Writing audio to file: output.wav");
+        }
+            
+        let audio_devices = MultiAudioDevice::new(devices);
+
         let mut provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, true);
 
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
@@ -55,74 +110,81 @@ fn main() {
 
         let mut emulation_menu = MagenBoyMenu::new(provider, header.clone());
 
-        let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
-        let mpmc_device = MpmcGfxDevice::new(s);
-
         #[cfg(feature = "dbg")]
         let (debugger_ppu_layer_sender, debugger_ppu_layer_receiver) = crossbeam_channel::bounded::<terminal_debugger::PpuLayerResult>(0);
+        let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
 
-        let args_clone = args.clone();
-        let emualation_thread = std::thread::Builder::new()
-            .name("Emualtion Thread".to_string())
-            .stack_size(0x100_0000)
-            .spawn(move || emulation_thread_main(args_clone, program_name, mpmc_device, #[cfg(feature = "dbg")]debugger_ppu_layer_sender))
-            .unwrap();
+        let mbc = initialize_mbc(&program_name);
+        
+        let mut gameboy = init_gameboy(
+            args,
+            mbc,
+            gfx_device,
+            joypad_provider,
+            audio_devices,
+            #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender)
+        );
 
-        unsafe{
-            'main:loop{
-                while let Some(event) = gfx_device.poll_event(){
-                    if event.type_ == SDL_EventType::SDL_QUIT as u32{
-                        EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
-                        break 'main;
-                    }
-                    else if event.type_ == SDL_EventType::SDL_KEYDOWN as u32 && event.key.keysym.scancode == SDL_Scancode::SDL_SCANCODE_ESCAPE{
-                        emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut gfx_device, r.clone());
+        'main: while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
+            while let Some(event) = poll_event() {
+                // SAFETY: type_ is present on all the variants so it is safe to access it
+                let event_type = unsafe {event.type_};
+
+                if event_type == SDL_EventType::SDL_QUIT as u32 {
+                    EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                    break 'main;
+                }
+                else if event_type == SDL_EventType::SDL_KEYDOWN as u32 {
+                    // SAFETY: Since event is KEYDOWN the key variant is safe to access
+                    let key_pressed = unsafe{event.key.keysym.scancode};
+                    if key_pressed == SDL_Scancode::SDL_SCANCODE_ESCAPE {
+                        emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut menu_gfx_device);
                     }
                 }
-
-                cfg_if::cfg_if! {if #[cfg(feature = "dbg")] {
-                    crossbeam_channel::select! {
-                        recv(r) -> msg => {
-                            let Ok(buffer) = msg else {break};
-                            gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
-                        },
-                        recv(debugger_ppu_layer_receiver)-> msg => {
-                            let Ok(result) = msg else {break};
-                            let mut window = sdl_gfx_device::PpuLayerWindow::new(result.1);
-                            window.run(&result.0);
-                        }
-                    }
-                }else{
-                    let Ok(buffer) = r.recv() else {break};
-                    gfx_device.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT]));
-                }}
+                else if event_type == SDL_EventType::SDL_WINDOWEVENT as u32{
+                    let mut width: i32 = 0;
+                    let mut height: i32 = 0;
+                    // SAFETY: SDL call
+                    unsafe{SDL_GetWindowSize(sdl_window, &mut width, &mut height)};
+                    GlGfxDevice::update_viewport(width, height);
+                }
             }
 
-            drop(r);
-            EMULATOR_STATE.running.store(false, std::sync::atomic::Ordering::Relaxed);
-            emualation_thread.join().unwrap();
+            gameboy.cycle_frame();
+            // SAFETY: SDL call
+            unsafe{SDL_GL_SwapWindow(sdl_window)};
         }
+
+        drop(gameboy);
+        release_mbc(&program_name, mbc);
+        log::info!("released the gameboy succefully");
     }
 
-    drop(gfx_device);
-
-    unsafe{SDL_Quit();}
+    // SAFETY: SDL calls
+    unsafe{
+        SDL_GL_DeleteContext(sdl_gl_context);
+        SDL_Quit();
+    }
 }
 
-// Receiving usize and not raw ptr cause in rust you cant pass a raw ptr to another thread
-fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, #[cfg(feature = "dbg")] debugger_sender: crossbeam_channel::Sender<terminal_debugger::PpuLayerResult>) {
-    let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
-    let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
-    devices.push(Box::new(audio_device));
-    
-    if check_for_terminal_feature_flag(&args, "--file-audio"){
-        let wav_ad = WavfileAudioDevice::<ManualAudioResampler>::new(44100, GB_FREQUENCY, "output.wav");
-        devices.push(Box::new(wav_ad));
-        log::info!("Writing audio to file: output.wav");
+fn poll_event()->Option<SDL_Event>{
+    unsafe{
+        let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
+        // updating the events for the whole app
+        SDL_PumpEvents();
+        if SDL_PollEvent(event.as_mut_ptr()) != 0{
+            return Option::Some(event.assume_init());
+        }
+        return Option::None;
     }
-        
-    let audio_devices = MultiAudioDevice::new(devices);
-    let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
-    
-    init_and_run_gameboy(args, program_name, spsc_gfx_device, joypad_provider, audio_devices, #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender));
+}
+
+fn init_sdl_subsystem(sdl_subsystem_flag: u32) {
+    // SAFETY: SDL call
+    unsafe{
+        let rv = SDL_InitSubSystem(sdl_subsystem_flag);    
+        if rv != 0 {
+            std::panic!("Failed to init subsystem, rv: {} flag: {} message: {}", rv, sdl_subsystem_flag, get_sdl_error_message());
+        }
+    }
 }
