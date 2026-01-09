@@ -1,6 +1,6 @@
 use log::info;
 
-use magenboy_core::{mmu::carts::Mbc, AudioDevice, Bootrom, GameBoy, GfxDevice, JoypadProvider, Mode, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
+use magenboy_core::{mmu::carts::Mbc, AudioDevice, Bootrom, GameBoy, Mode, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
 #[cfg(feature = "dbg")]
 use magenboy_core::debugger::DebuggerInterface;
 
@@ -20,12 +20,10 @@ pub static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
 pub fn init_gameboy<'a>(
     args: Vec<String>,
-    mbc: &'a mut dyn Mbc, 
-    gfx_device: impl GfxDevice, 
-    joypad_provider: impl JoypadProvider,
+    mbc: &'a mut dyn Mbc,
     audio_devices: impl AudioDevice,
     #[cfg(feature = "dbg")] dui: impl DebuggerInterface
-)-> GameBoy<'a, impl JoypadProvider, impl AudioDevice, impl GfxDevice>{
+)-> GameBoy<'a, impl AudioDevice>{
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         Some(get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter"))
     }else{
@@ -35,7 +33,7 @@ pub fn init_gameboy<'a>(
     let bootrom = read_bootrom(bootrom_path);
 
     let gameboy = match bootrom{
-        Some(b) => GameBoy::new_with_bootrom(mbc, joypad_provider, audio_devices, gfx_device, b, #[cfg(feature = "dbg")] dui),
+        Some(b) => GameBoy::new_with_bootrom(mbc, audio_devices, b, #[cfg(feature = "dbg")] dui),
         None => {
             let mode = if check_for_terminal_feature_flag(&args, "--mode"){
                 let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
@@ -47,7 +45,7 @@ pub fn init_gameboy<'a>(
                 log::info!("Could not find a mode flag, auto detected {}", <Mode as Into<&str>>::into(mode));
                 mode
             };
-            GameBoy::new_with_mode(mbc, joypad_provider, audio_devices, gfx_device, mode, #[cfg(feature = "dbg")] dui)
+            GameBoy::new_with_mode(mbc, audio_devices, mode, #[cfg(feature = "dbg")] dui)
         }
     };
 

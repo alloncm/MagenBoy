@@ -1,7 +1,7 @@
 mod font;
 pub mod joypad_gfx_menu;
 
-use magenboy_core::keypad::{button::Button, joypad::Joypad, joypad_provider::JoypadProvider};
+use magenboy_core::keypad::{button::Button, joypad::Joypad};
 
 use crate::menu::MenuOption;
 

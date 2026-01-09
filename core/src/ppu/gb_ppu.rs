@@ -1,13 +1,12 @@
 use core::cmp;
 
-use crate::{machine::Mode, utils::{bit_masks::*, vec2::Vec2}};
-use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, gfx_device::*, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
+use crate::{machine::Mode, utils::{bit_masks::*, vec2::Vec2}, FrameBuffer, Pixel};
+use super::{fifo::{SPRITE_WIDTH, background_fetcher::*, FIFO_SIZE, sprite_fetcher::*}, VRam, ppu_state::PpuState, attributes::SpriteAttributes, color::*};
 
 const WX_OFFSET:u8 = 7;
 
 pub const SCREEN_HEIGHT: usize = 144;
 pub const SCREEN_WIDTH: usize = 160;
-pub const BUFFERS_NUMBER:usize = 1;
 
 const OAM_ENTRY_SIZE:u16 = 4;
 const OAM_MEMORY_SIZE:usize = 0xA0;
@@ -16,7 +15,7 @@ const OAM_SEARCH_M_CYCLES_LENGTH: u16 = 80 / 4;
 const HBLANK_M_CYCLES_LENGTH: u16 = 456 / 4;
 const VBLANK_M_CYCLES_LENGTH: u16 = 4560 / 4;
 
-pub struct GbPpu<GFX: GfxDevice>{
+pub struct GbPpu {
     pub vram: VRam,
     pub oam:[u8;OAM_MEMORY_SIZE],
     pub state:PpuState,
@@ -49,10 +48,8 @@ pub struct GbPpu<GFX: GfxDevice>{
 
     vblank_occurred:bool, // a way to signal the rest of the system a vblank occurred
 
-    gfx_device: GFX,
     m_cycles_passed:u16,
-    screen_buffers: [[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
-    current_screen_buffer_index:usize,
+    screen_buffer: FrameBuffer,
     screen_buffer_index:usize,
     pixel_x_pos:u8,
     scanline_started:bool,
@@ -64,10 +61,9 @@ pub struct GbPpu<GFX: GfxDevice>{
     mode: Mode,
 }
 
-impl<GFX:GfxDevice> GbPpu<GFX>{
-    pub fn new(device:GFX, mode: Mode) -> Self {
+impl GbPpu {
+    pub fn new(mode: Mode) -> Self {
         Self{
-            gfx_device: device,
             vram: VRam::default(),
             oam: [0;OAM_MEMORY_SIZE],
             stat_register: 0,
@@ -75,8 +71,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
             lcd_control: 0,
             bg_pos: Vec2::<u8>{x:0, y:0},
             window_pos: Vec2::<u8>{x:0,y:0},
-            screen_buffers:[[0;SCREEN_HEIGHT * SCREEN_WIDTH];BUFFERS_NUMBER],
-            current_screen_buffer_index:0,
+            screen_buffer:[0;SCREEN_HEIGHT * SCREEN_WIDTH],
             bg_palette_register:0,
             bg_color_mapping:[WHITE, LIGHT_GRAY, DARK_GRAY, BLACK],
             obj_pallete_0_register:0,
@@ -114,8 +109,8 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     pub fn turn_off(&mut self){
         self.m_cycles_passed = 0;
         //This is an expensive operation!
-        unsafe{core::ptr::write_bytes(self.screen_buffers[self.current_screen_buffer_index].as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
-        self.swap_buffer();
+        unsafe{core::ptr::write_bytes(self.screen_buffer.as_mut_ptr(), 0xFF, SCREEN_HEIGHT * SCREEN_WIDTH)};
+        self.reset_buffer_index();
         self.state = PpuState::Hblank;
         self.update_stat_ppu_mode();
         self.ly_register = 0;
@@ -152,10 +147,10 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
         return last_vblank_state;
     }
 
-    fn swap_buffer(&mut self){
-        self.gfx_device.swap_buffer(&self.screen_buffers[self.current_screen_buffer_index]);
+    pub fn get_frame_buffer(&mut self) -> &FrameBuffer {&self.screen_buffer}
+
+    fn reset_buffer_index(&mut self){
         self.screen_buffer_index = 0;
-        self.current_screen_buffer_index = (self.current_screen_buffer_index + 1) % BUFFERS_NUMBER;
     }
 
     fn update_stat_register(&mut self, if_register: &mut u8) -> u32{
@@ -239,7 +234,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
                                 self.trigger_stat_interrupt = true;
                             }
                             self.vblank_occurred = true;
-                            self.swap_buffer();
+                            self.reset_buffer_index();
                         }
                         else{
                             self.next_state = PpuState::OamSearch;
@@ -453,7 +448,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 
     fn push_pixel(&mut self, pixel: Pixel) {
-        self.screen_buffers[self.current_screen_buffer_index][self.screen_buffer_index] = pixel;
+        self.screen_buffer[self.screen_buffer_index] = pixel;
         self.screen_buffer_index += 1;
     }
 
@@ -467,7 +462,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
     }
 }
 
-impl<GFX:GfxDevice> GbPpu<GFX>{
+impl GbPpu {
     pub fn set_lcdcontrol_register(&mut self, register:u8){
         if self.lcd_control & BIT_7_MASK != 0 && register & BIT_7_MASK == 0{
             self.turn_off();
@@ -633,7 +628,7 @@ impl<GFX:GfxDevice> GbPpu<GFX>{
 }
 
 #[cfg(feature = "dbg")]
-impl<GFX:GfxDevice> GbPpu<GFX>{
+impl GbPpu {
     pub fn get_layer(&self, layer: crate::debugger::PpuLayer)->Box<[Pixel; crate::debugger::PPU_BUFFER_SIZE]>{
         use crate::debugger::PpuLayer;
         use super::color::*;

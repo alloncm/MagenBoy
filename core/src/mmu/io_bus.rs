@@ -1,8 +1,8 @@
 use crate::{
     apu::{audio_device::AudioDevice, gb_apu::GbApu, *}, 
-    keypad::{joypad_handler::JoypadHandler, joypad_provider::JoypadProvider}, 
+    keypad::joypad_handler::JoypadHandler, 
     machine::Mode, 
-    ppu::{gb_ppu::GbPpu, gfx_device::GfxDevice}, 
+    ppu::gb_ppu::GbPpu, 
     timer::{gb_timer::GbTimer, timer_register_updater::*}, utils::bit_masks::BIT_2_MASK
 };
 use super::{interrupts_handler::*, io_ports::*, oam_dma_controller::OamDmaController, vram_dma_controller::VramDmaController, external_memory_bus::ExternalMemoryBus, access_bus::AccessBus};
@@ -11,14 +11,14 @@ pub const IO_PORTS_SIZE:usize = 0x80;
 const WAVE_RAM_START_INDEX:u16 = 0x30;
 const WAVE_RAM_END_INDEX:u16 = 0x3F;
 
-pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
+pub struct IoBus<AD:AudioDevice>{
     pub apu: GbApu<AD>,
     pub timer: GbTimer,
-    pub ppu:GbPpu<GFX>,
+    pub ppu:GbPpu,
     pub oam_dma_controller:OamDmaController,
     pub vram_dma_controller: VramDmaController,
     pub interrupt_handler:InterruptsHandler,
-    pub joypad_handler: JoypadHandler<JP>,
+    pub joypad_handler: JoypadHandler,
     pub speed_switch_register:u8,
     mode: Mode,
     key0_register:u8,
@@ -38,7 +38,7 @@ pub struct IoBus<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider>{
     ppu_event:Option<u32>,
 }
 
-impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
+impl<AD:AudioDevice> IoBus<AD>{
     pub fn read(&mut self, address:u16)->u8 {
 
         match address{
@@ -201,15 +201,15 @@ impl<AD:AudioDevice, GFX:GfxDevice, JP:JoypadProvider> IoBus<AD, GFX, JP>{
         }
     }
     
-    pub fn new(apu:GbApu<AD>, gfx_device:GFX, joypad_provider:JP, mode:Mode)->Self{
+    pub fn new(apu:GbApu<AD>, mode:Mode)->Self{
         Self{
             apu,
             timer:GbTimer::default(),
-            ppu:GbPpu::new(gfx_device, mode),
+            ppu:GbPpu::new(mode),
             oam_dma_controller: OamDmaController::new(),
             vram_dma_controller: VramDmaController::new(),
             interrupt_handler: InterruptsHandler::default(),
-            joypad_handler: JoypadHandler::new(joypad_provider),
+            joypad_handler: JoypadHandler::new(),
             speed_switch_register:0,
             speed_cycle_reminder:0,
             apu_cycles_counter:0,

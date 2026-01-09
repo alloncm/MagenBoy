@@ -119,8 +119,6 @@ fn main() {
         let mut gameboy = init_gameboy(
             args,
             mbc,
-            gfx_device,
-            joypad_provider,
             audio_devices,
             #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender)
         );
@@ -150,7 +148,7 @@ fn main() {
                 }
             }
 
-            gameboy.cycle_frame();
+            let buffer = gameboy.cycle_frame(joypad_provider.provide());
             // SAFETY: SDL call
             unsafe{SDL_GL_SwapWindow(sdl_window)};
         }

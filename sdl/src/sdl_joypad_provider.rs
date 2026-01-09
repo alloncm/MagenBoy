@@ -1,5 +1,5 @@
 use sdl2::sys::*;
-use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS}, joypad_provider::JoypadProvider};
+use magenboy_core::keypad::joypad::{Joypad, NUM_OF_KEYS};
 use magenboy_common::joypad_menu::MenuJoypadProvider;
 use super::utils::get_sdl_error_message;
 
@@ -16,10 +16,9 @@ impl SdlJoypadProvider{
     pub fn new(mapping: [SDL_Scancode; NUM_OF_KEYS], poll_events: bool)->Self{
         Self{mapping, poll_events}
     }
-}
 
-impl JoypadProvider for SdlJoypadProvider{
-    fn provide(&mut self, joypad:&mut Joypad) {
+    pub fn provide(&self) -> Joypad {
+        let mut joypad = Joypad::default();
         unsafe{
             if self.poll_events {
                 SDL_PumpEvents();
@@ -29,6 +28,8 @@ impl JoypadProvider for SdlJoypadProvider{
                 joypad.buttons[i] = *state.add(self.mapping[i] as usize) != 0;
             }
         }
+
+        return joypad;
     }
 }
 
@@ -46,6 +47,6 @@ impl MenuJoypadProvider for SdlJoypadProvider{
                 }
             }
         }
-        self.provide(joypad);
+        joypad.buttons = self.provide().buttons;
     }
 }

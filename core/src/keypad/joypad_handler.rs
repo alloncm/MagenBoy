@@ -1,24 +1,22 @@
 use crate::utils::bit_masks::*;
-use super::{joypad_provider::JoypadProvider, joypad::Joypad, button::Button};
+use super::{joypad::Joypad, button::Button};
 
 
-pub struct JoypadHandler<JP:JoypadProvider>{
+pub struct JoypadHandler {
     register:u8,
     joypad:Joypad,
-    joypad_provider:JP,
 }
 
-impl<JP:JoypadProvider> JoypadHandler<JP>{
-    pub fn new(provider: JP)->Self{
+impl JoypadHandler {
+    pub fn new()->Self{
         Self{
-            joypad_provider:provider,
             register:0xFF,
             joypad: Joypad::default()
         }
     }
 
-    pub fn poll_joypad_state(&mut self){
-        self.joypad_provider.provide(&mut self.joypad);
+    pub fn set_joypad_state(&mut self, joypad: Joypad){
+        self.joypad = joypad;
     }
 
     pub fn get_register(&mut self) -> u8{

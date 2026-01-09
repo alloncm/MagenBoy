@@ -2,7 +2,7 @@ use std::{ffi::{c_void, CStr, CString}, ptr::{null, null_mut}, rc::Rc};
 
 use gl::types::*;
 
-use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GfxDevice, Pixel};
+use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, Pixel};
 
 #[derive(Clone)]
 pub struct GlGfxDevice {
@@ -41,14 +41,11 @@ impl GlGfxDevice {
         let height_gap = (height - new_height) / 2;
         unsafe{gl::Viewport(width_gap, height_gap, new_width, new_height)};
     }
-}
 
-impl GfxDevice for GlGfxDevice {
-    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    pub fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.renderer.render(buffer);
     }
 }
-
 
 const VERTEX_SHADER_SOURCE: &'static str = include_str!("vertex.glsl");
 const FRAGMENT_SHADER_SOURCE: &'static str = include_str!("fragment.glsl");

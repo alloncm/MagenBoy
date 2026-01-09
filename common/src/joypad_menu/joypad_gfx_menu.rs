@@ -1,4 +1,4 @@
-use magenboy_core::ppu::{gfx_device::*, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, color::{BLACK, WHITE}, color::Color};
+use magenboy_core::{ppu::{color::{Color, BLACK, WHITE}, gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}}, Pixel};
 
 use super::{font::*, MenuRenderer};
 
@@ -8,15 +8,9 @@ const HEADER_COLOR:Color = ORANGE;
 const BACKGROUND_COLOR:Color = BLACK;
 const TEXT_COLOR:Color = WHITE;
 
-pub struct GfxDeviceMenuRenderer<'a, GFX:GfxDevice>{
-    device:&'a mut GFX
-}
+pub struct GfxDeviceMenuRenderer;
 
-impl<'a, GFX: GfxDevice> GfxDeviceMenuRenderer<'a, GFX> {
-    pub fn new(device: &'a mut GFX) -> Self { Self { device } }
-}
-
-impl<'a, GFX: GfxDevice, T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRenderer<'a, GFX>{
+impl<T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRenderer{
     fn render_menu(&mut self, header:&S, menu:&[super::MenuOption<T, S>], selection:usize) {
         let mut frame_buffer = [0 as Pixel; SCREEN_HEIGHT * SCREEN_WIDTH];
 
@@ -42,7 +36,7 @@ impl<'a, GFX: GfxDevice, T, S:AsRef<str>> MenuRenderer<T, S> for GfxDeviceMenuRe
     }
 }
 
-impl<'a, GFX:GfxDevice> GfxDeviceMenuRenderer<'a, GFX>{
+impl GfxDeviceMenuRenderer{
     fn render_string<S:AsRef<str>>(prompt: S, frame_buffer: &mut [Pixel; SCREEN_HEIGHT * SCREEN_WIDTH], frame_buffer_height_index: usize, color:Color, bg:Color) {
         let mut width_index = 0;
         for char in prompt.as_ref().as_bytes(){

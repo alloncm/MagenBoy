@@ -20,7 +20,6 @@ pub const GAME_MENU_OPTIONS:[MenuOption<EmulatorMenuOption, &str>;3] = [
 
 cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
     use std::{sync::atomic::AtomicBool, path::PathBuf};
-    use magenboy_core::{ppu::gfx_device::GfxDevice, keypad::joypad_provider::JoypadProvider};
     use super::joypad_menu::{MenuJoypadProvider, joypad_gfx_menu, JoypadMenu, MenuRenderer};
 
     pub struct MagenBoyState{
