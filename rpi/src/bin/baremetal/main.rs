@@ -8,7 +8,7 @@ use core::panic::PanicInfo;
 
 use arrayvec::ArrayString;
 
-use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRenderer}, JoypadMenu, }, menu::*, VERSION};
+use magenboy_common::{joypad_menu::{menu_renderer::{self, MenuRenderer}, JoypadMenu, }, menu::*, VERSION};
 use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::carts::Mbc};
 use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull, ResetMode, Power}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
@@ -47,7 +47,7 @@ pub extern "C" fn main()->!{
     let mut pause_menu_joypad_provider = joypad_provider.clone();
     log::info!("Initialize all drivers successfully");
 
-    let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
+    let menu_renderer = menu_renderer::MenuRenderer::new(&mut gfx);
 
     let mut menu_options:[MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255] = [Default::default(); 255];
     let menu_options_size = read_menu_options(&mut fs, &mut menu_options);
@@ -68,7 +68,7 @@ pub extern "C" fn main()->!{
 
     let menu_pin = unsafe {PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(GpioPull::PullUp)};
     let pause_menu_header:ArrayString<30> = ArrayString::try_from(format_args!("MagenBoy v{}", VERSION)).unwrap();
-    let pause_menu_renderer = GfxDeviceMenuRenderer::new(&mut pause_menu_gfx);
+    let pause_menu_renderer = MenuRenderer::new(&mut pause_menu_gfx);
     let mut pause_menu = JoypadMenu::new(&GAME_MENU_OPTIONS, pause_menu_header.as_str(), pause_menu_renderer);
     loop{
         if !menu_pin.read_state(){

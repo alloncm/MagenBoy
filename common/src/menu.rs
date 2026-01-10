@@ -19,33 +19,20 @@ pub const GAME_MENU_OPTIONS:[MenuOption<EmulatorMenuOption, &str>;3] = [
 ];
 
 cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
-    use std::{sync::atomic::AtomicBool, path::PathBuf};
-    use super::joypad_menu::{MenuJoypadProvider, joypad_gfx_menu, JoypadMenu, MenuRenderer};
+    use std::path::PathBuf;
+    use super::joypad_menu::{MenuJoypadProvider, menu_renderer, JoypadMenu, MenuRenderer};
 
-    pub struct MagenBoyState{
-        // Use atomic bool, normal bool doesnt works on arm (probably cause of the memory model)
-        pub running:AtomicBool,
-        pub exit:AtomicBool,
-    }
-
-    impl MagenBoyState{
-        pub const fn new() -> Self {
-            Self { running: AtomicBool::new(true), exit: AtomicBool::new(false) }
-        }
-    }
-
-    pub struct MagenBoyMenu<JP:JoypadProvider + MenuJoypadProvider>{
+    pub struct MagenBoyMenu {
         header:String,
-        provider:JP,
     }
 
-    impl<JP:JoypadProvider + MenuJoypadProvider> MagenBoyMenu<JP> {
-        pub fn new(provider:JP, header:String)->Self{
-            Self { provider, header }
+    impl MagenBoyMenu {
+        pub fn new(header:String)->Self{
+            Self { header }
         }
 
-        pub fn pop_game_menu<GFX:GfxDevice>(&mut self, state:&MagenBoyState, gfx_device:&mut GFX){
-            match self.get_game_menu_selection(gfx_device){
+        pub fn pop_game_menu(&mut self){
+            match self.get_game_menu_selection(){
                 EmulatorMenuOption::Resume => {},
                 EmulatorMenuOption::Restart => state.running.store(false, std::sync::atomic::Ordering::Relaxed),
                 EmulatorMenuOption::Shutdown => {
@@ -55,15 +42,15 @@ cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
             }
         }
 
-        fn get_game_menu_selection<GFX:GfxDevice>(&mut self, gfx_device:&mut GFX)->&EmulatorMenuOption{
-            let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(gfx_device);
+        fn get_game_menu_selection(&mut self)->&EmulatorMenuOption{
+            let menu_renderer = menu_renderer::MenuRenderer::new();
             let mut menu = JoypadMenu::new(&GAME_MENU_OPTIONS, &self.header, menu_renderer);  
             return menu.get_menu_selection(&mut self.provider);
         }
 
     }
 
-    pub fn get_rom_selection<MR:MenuRenderer<PathBuf, String>, JP:MenuJoypadProvider + JoypadProvider>(roms_path:&str, menu_renderer:MR, jp:&mut JP)->String{
+    pub fn get_rom_selection(roms_path:&str)->String{
         let mut menu_options = Vec::new();
         let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
         for entry in dir_entries{

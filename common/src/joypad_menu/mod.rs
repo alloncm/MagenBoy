@@ -1,63 +1,48 @@
 mod font;
-pub mod joypad_gfx_menu;
+pub mod menu_renderer;
 
-use magenboy_core::keypad::{button::Button, joypad::Joypad};
+use magenboy_core::{keypad::{button::Button, joypad::Joypad}, FrameBuffer};
 
-use crate::menu::MenuOption;
+use crate::{joypad_menu::menu_renderer::MenuRenderer, menu::MenuOption};
 
-pub trait MenuRenderer<T, S:AsRef<str>>{
-    fn render_menu(&mut self,header:&S, menu:&[MenuOption<T, S>], selection:usize);
+pub enum MenuResult<'a, T> {
+    Selection(&'a T),
+    Frame(FrameBuffer)
 }
 
-pub trait MenuJoypadProvider{
-    fn poll(&mut self, joypad:&mut Joypad);
-}
-
-pub struct JoypadMenu<'a, T, S:AsRef<str>, MR:MenuRenderer<T, S>>{
+pub struct JoypadMenu<'a, T, S:AsRef<str>>{
     header:S,
-    options: &'a [MenuOption< T, S>],
+    options: &'a [MenuOption<T, S>],
     selection: usize,
-    renderer:MR,
+    renderer: MenuRenderer
 }
 
-impl<'a, T, S: AsRef<str>, MR:MenuRenderer<T, S>> JoypadMenu<'a, T, S, MR>{
-    pub fn new(menu_options:&'a[MenuOption<T, S>], header:S, renderer:MR)->Self{
+impl<'a, T, S: AsRef<str>> JoypadMenu<'a, T, S>{
+    pub fn new(menu_options:&'a[MenuOption<T, S>], header:S)->Self{
         JoypadMenu { 
             header,
             options: menu_options,
             selection: 0,
-            renderer
+            renderer: MenuRenderer
         }
     }
 
-    pub fn get_menu_selection<JP:MenuJoypadProvider + JoypadProvider>(&mut self, provider:&mut JP)->&'a T{
-        let mut joypad = Joypad::default();
-        let mut redraw = true;
-        while !joypad.buttons[Button::A as usize]{
-            if redraw{
-                self.renderer.render_menu(&self.header,&self.options, self.selection);
-                redraw = false;
-            }
-            provider.poll(&mut joypad);
+    pub fn try_get_menu_selection(&mut self, joypad: Joypad) -> MenuResult<'a, T>{
+        if !joypad.buttons[Button::A as usize]{
             if joypad.buttons[Button::Up as usize]{
                 if self.selection > 0{
                     self.selection -= 1;
-                    redraw = true;
                 }
             }
             if joypad.buttons[Button::Down as usize]{
                 if self.selection < self.options.len() - 1{
                     self.selection += 1;
-                    redraw = true;
                 }
             }
-        }
-        
-        // Busy wait until A is released in order to not leak the button press to the emulation
-        while joypad.buttons[Button::A as usize]{
-            provider.provide(&mut joypad);
+            let menu_frame = self.renderer.render_menu(&self.header,&self.options, self.selection);
+            return MenuResult::Frame(menu_frame);
         }
 
-        return &self.options[self.selection].value;
+        return MenuResult::Selection(&self.options[self.selection].value);
     }
 }

@@ -20,7 +20,7 @@ fn main(){
         
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
-            let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
+            let menu_renderer = menu_renderer::MenuRenderer::new(&mut gfx);
             get_rom_selection(roms_path.as_str(), menu_renderer, &mut joypad_provider)
         }
         else{

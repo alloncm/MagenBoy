@@ -4,8 +4,6 @@ use magenboy_core::{mmu::carts::Mbc, AudioDevice, Bootrom, GameBoy, Mode, GBC_BO
 #[cfg(feature = "dbg")]
 use magenboy_core::debugger::DebuggerInterface;
 
-use crate::menu::MagenBoyState;
-
 pub fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
     args.len() >= 3 && args.contains(&String::from(flag))
 }
@@ -14,9 +12,6 @@ pub fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_messa
     let index = args.iter().position(|v| *v == String::from(flag)).unwrap();
     return args.get(index + 1).expect(error_message).clone();
 }
-
-// This is static and not local for the unix signal handler to access it
-pub static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
 
 pub fn init_gameboy<'a>(
     args: Vec<String>,
@@ -50,8 +45,6 @@ pub fn init_gameboy<'a>(
     };
 
     info!("initialized gameboy successfully!");
-
-    EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
 
     return gameboy;
 }

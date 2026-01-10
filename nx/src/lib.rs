@@ -9,7 +9,7 @@ mod allocator;
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
 use alloc::{vec::Vec, boxed::Box, string::String};
 
-use magenboy_common::{audio::*, joypad_menu::{joypad_gfx_menu::GfxDeviceMenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
+use magenboy_common::{audio::*, joypad_menu::{menu_renderer::MenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 
 use devices::*;
@@ -115,7 +115,7 @@ pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypa
 
 fn render_menu<'a, T>(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, options: &'a [MenuOption<T, &str>], header: &'a str) -> &'a T {
     let mut gfx_device = NxGfxDevice {cb: gfx_cb, turbo: 1, frame_counter: 0};
-    let menu_renderer = GfxDeviceMenuRenderer::new(&mut gfx_device);
+    let menu_renderer = MenuRenderer::new(&mut gfx_device);
     let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
     let mut menu = JoypadMenu::new(&options, header, menu_renderer);
     return menu.get_menu_selection(&mut provider);
