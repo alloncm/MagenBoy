@@ -1,3 +1,8 @@
+use magenboy_core::keypad::joypad::Joypad;
+
+use crate::joypad_menu::MenuResult;
+
+
 #[derive(Default, Clone, Copy)]
 pub struct MenuOption<T, S:AsRef<str>>{
     pub value:T,
@@ -20,56 +25,43 @@ pub const GAME_MENU_OPTIONS:[MenuOption<EmulatorMenuOption, &str>;3] = [
 
 cfg_if::cfg_if!{ if #[cfg(feature = "std")]{
     use std::path::PathBuf;
-    use super::joypad_menu::{MenuJoypadProvider, menu_renderer, JoypadMenu, MenuRenderer};
 
-    pub struct MagenBoyMenu {
-        header:String,
+    use super::joypad_menu::JoypadMenu;
+
+    pub struct MagenBoyMenu<'a> {
+        menu: JoypadMenu<'a, EmulatorMenuOption, &'a str>
     }
 
-    impl MagenBoyMenu {
-        pub fn new(header:String)->Self{
-            Self { header }
+    impl<'a> MagenBoyMenu<'a> {
+        pub fn new(header:&'a str)->Self{
+            Self { menu: JoypadMenu::new(&GAME_MENU_OPTIONS, header) }
         }
 
-        pub fn pop_game_menu(&mut self){
-            match self.get_game_menu_selection(){
-                EmulatorMenuOption::Resume => {},
-                EmulatorMenuOption::Restart => state.running.store(false, std::sync::atomic::Ordering::Relaxed),
-                EmulatorMenuOption::Shutdown => {
-                    state.running.store(false, std::sync::atomic::Ordering::Relaxed);
-                    state.exit.store(true, std::sync::atomic::Ordering::Relaxed);
-                },
-            }
+        pub fn get_game_menu_selection(&mut self, joypad: Joypad) -> MenuResult<'a, EmulatorMenuOption>{
+            return self.menu.try_get_menu_selection(joypad);
         }
 
-        fn get_game_menu_selection(&mut self)->&EmulatorMenuOption{
-            let menu_renderer = menu_renderer::MenuRenderer::new();
-            let mut menu = JoypadMenu::new(&GAME_MENU_OPTIONS, &self.header, menu_renderer);  
-            return menu.get_menu_selection(&mut self.provider);
-        }
-
-    }
-
-    pub fn get_rom_selection(roms_path:&str)->String{
-        let mut menu_options = Vec::new();
-        let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
-        for entry in dir_entries{
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if let Some(extension) = path.as_path().extension().and_then(std::ffi::OsStr::to_str){
-                match extension {
-                    "gb" | "gbc"=>{
-                        let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
-                        let option = MenuOption{value: path, prompt: filename};
-                        menu_options.push(option);
-                    },
-                    _=>{}
+        pub fn get_rom_selection(&self, roms_path:&str, joypad: Joypad)->String{
+            let mut menu_options = Vec::new();
+            let dir_entries = std::fs::read_dir(roms_path).expect(std::format!("Error openning the roms directory: {}",roms_path).as_str());
+            for entry in dir_entries{
+                let entry = entry.unwrap();
+                let path = entry.path();
+                if let Some(extension) = path.as_path().extension().and_then(std::ffi::OsStr::to_str){
+                    match extension {
+                        "gb" | "gbc"=>{
+                            let filename = String::from(path.file_name().expect("Error should be a file").to_str().unwrap());
+                            let option = MenuOption{value: path, prompt: filename};
+                            menu_options.push(option);
+                        },
+                        _=>{}
+                    }
                 }
             }
-        }
-        let mut menu = JoypadMenu::new(&menu_options, String::from("Choose ROM"), menu_renderer);
-        let result = menu.get_menu_selection(jp);
+            let result = self.menu.try_get_menu_selection(joypad);
 
-        return String::from(result.to_str().unwrap());
+            return String::from(result.to_str().unwrap());
+        }
+
     }
 }}

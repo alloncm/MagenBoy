@@ -19,7 +19,7 @@ pub struct JoypadMenu<'a, T, S:AsRef<str>>{
 
 impl<'a, T, S: AsRef<str>> JoypadMenu<'a, T, S>{
     pub fn new(menu_options:&'a[MenuOption<T, S>], header:S)->Self{
-        JoypadMenu { 
+        Self { 
             header,
             options: menu_options,
             selection: 0,
