@@ -5,10 +5,10 @@ mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*, EMULATOR_STATE};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*};
 use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY};
 
-use std::{env, ffi::CString, ptr::null_mut, result::Result, vec::Vec};
+use std::{env, ffi::CString, path::PathBuf, ptr::null_mut, result::Result, vec::Vec};
 use sdl2::sys::*;
 
 use crate::{audio::*, gl_gfx_device::GlGfxDevice, utils::get_sdl_error_message, SdlAudioDevice};
@@ -70,7 +70,9 @@ fn main() {
         (window, gl_context)
     };
 
-    while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
+    let mut shutdown = false;
+
+    while !shutdown {
         let args = args.clone();
 
         let mut width: i32 = 0;
@@ -83,7 +85,6 @@ fn main() {
             let name = CString::new(s).unwrap();
             unsafe{SDL_GL_GetProcAddress(name.as_ptr())}
         });
-        let mut menu_gfx_device = gfx_device.clone();
 
         let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
         let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
@@ -97,22 +98,37 @@ fn main() {
             
         let audio_devices = MultiAudioDevice::new(devices);
 
-        let mut provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, true);
+        let mut joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING);
 
         let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
-            let menu_renderer = menu_renderer::MenuRenderer::new(&mut gfx_device);
-            get_rom_selection(roms_path.as_str(), menu_renderer, &mut provider)
+
+            let rom_options = read_roms_menu_options(&roms_path);
+            let mut menu = MagenBoyMenu::new(&header, Some(&rom_options));
+            let rom_path: PathBuf;
+            loop {
+                let joypad = joypad_provider.provide();
+                match menu.get_rom_selection(joypad) {
+                    MenuResult::Selection(sel) => {
+                        rom_path = sel.clone();
+                        break;
+                    },
+                    MenuResult::Frame(frame) => {
+                        gfx_device.swap_buffer(&frame);
+                        unsafe{SDL_GL_SwapWindow(sdl_window)};
+                    },
+                }
+            }
+            rom_path
         }
         else{
-            args[1].clone()
+            PathBuf::from(args[1].clone())
         };
 
-        let mut emulation_menu = MagenBoyMenu::new(provider, header.clone());
+        let mut emulation_menu = MagenBoyMenu::new(&header, Option::None );
 
         #[cfg(feature = "dbg")]
         let (debugger_ppu_layer_sender, debugger_ppu_layer_receiver) = crossbeam_channel::bounded::<terminal_debugger::PpuLayerResult>(0);
-        let joypad_provider = sdl_joypad_provider::SdlJoypadProvider::new(KEYBOARD_MAPPING, false);
 
         let mbc = initialize_mbc(&program_name);
         
@@ -123,20 +139,21 @@ fn main() {
             #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender)
         );
 
-        'main: while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
+        let mut game_menu = false;
+        'main: loop {
             while let Some(event) = poll_event() {
                 // SAFETY: type_ is present on all the variants so it is safe to access it
                 let event_type = unsafe {event.type_};
 
                 if event_type == SDL_EventType::SDL_QUIT as u32 {
-                    EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                    shutdown = true;
                     break 'main;
                 }
                 else if event_type == SDL_EventType::SDL_KEYDOWN as u32 {
                     // SAFETY: Since event is KEYDOWN the key variant is safe to access
                     let key_pressed = unsafe{event.key.keysym.scancode};
                     if key_pressed == SDL_Scancode::SDL_SCANCODE_ESCAPE {
-                        emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut menu_gfx_device);
+                        game_menu = true;
                     }
                 }
                 else if event_type == SDL_EventType::SDL_WINDOWEVENT as u32{
@@ -147,8 +164,27 @@ fn main() {
                     GlGfxDevice::update_viewport(width, height);
                 }
             }
-
-            let buffer = gameboy.cycle_frame(joypad_provider.provide());
+            if game_menu {
+                let joypad = joypad_provider.poll();
+                match emulation_menu.get_game_menu_selection(joypad) {
+                    MenuResult::Selection(menu_option) => match menu_option {
+                        EmulatorMenuOption::Resume => {
+                            game_menu = false;
+                            continue;
+                        }
+                        EmulatorMenuOption::Restart => break 'main,
+                        EmulatorMenuOption::Shutdown => {
+                            shutdown = true;
+                            break 'main;
+                        }
+                    },
+                    MenuResult::Frame(frame) => gfx_device.swap_buffer(&frame),
+                }
+            } else {
+                let joypad = joypad_provider.provide();
+                let buffer = gameboy.cycle_frame(joypad);
+                gfx_device.swap_buffer(buffer);
+            };
             // SAFETY: SDL call
             unsafe{SDL_GL_SwapWindow(sdl_window)};
         }
