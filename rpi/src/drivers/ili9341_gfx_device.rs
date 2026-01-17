@@ -1,6 +1,4 @@
-use core::cell::OnceCell;
-
-use magenboy_core::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}};
+use magenboy_core::ppu::{gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, Pixel};
 
 use crate::peripherals::{Timer, Spi0, PERIPHERALS, OutputGpioPin};
 
@@ -176,64 +174,53 @@ impl Drop for Ili9341Contoller{
     }
 }
 
-#[derive(Clone)]
 pub struct Ili9341GfxDevice{
+    contoller: Ili9341Contoller,
+    timer: Timer,
     turbo_mul:u8,
     turbo_frame_counter:u8,
 
     frame_limiter:u32,
     frames_counter: u32,
     time_counter:core::time::Duration,
-
-    // This type is here to mark this type as not Send and not Sync
-    _unsend_unsync_marker: core::marker::PhantomData<*const ()>
 }
-
-static mut ILI9341_CONTROLLER:OnceCell<Ili9341Contoller> = OnceCell::new();
-static mut BCM_TIMER:OnceCell<Timer> = OnceCell::new();
 
 impl Ili9341GfxDevice{
     pub fn new(reset_pin_bcm:u8, led_pin_bcm:u8, turbo_mul:u8, frame_limiter:u32)->Self{
-        unsafe{
-            ILI9341_CONTROLLER.set(Ili9341Contoller::new(reset_pin_bcm, led_pin_bcm)).ok().unwrap();
-            BCM_TIMER.set(PERIPHERALS.take_timer()).ok().unwrap();
-            
+        let timer = unsafe{
+            let mut timer = PERIPHERALS.take_timer();
             // reset the timer
-            let _ = BCM_TIMER.get_mut().unwrap().tick();
-        }
+            let _ = timer.tick();
+            timer
+        };
 
         Ili9341GfxDevice {
+            contoller: Ili9341Contoller::new(reset_pin_bcm, led_pin_bcm),
+            timer,
             time_counter: core::time::Duration::ZERO,
             frames_counter:0, turbo_mul, turbo_frame_counter:0, frame_limiter,
-            _unsend_unsync_marker: core::marker::PhantomData,
         }
     }
     
     const EXPECTED_FRAME_DURATION: f64 = 1.0f64/60.0f64;
-}
-
-impl GfxDevice for Ili9341GfxDevice{
-    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    
+    pub fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.turbo_frame_counter = (self.turbo_frame_counter + 1) % self.turbo_mul;
         if self.turbo_frame_counter != 0{
             return;
         }
 
         if self.frames_counter & self.frame_limiter == 0{
-            unsafe{ILI9341_CONTROLLER.get_mut().unwrap().write_frame_buffer(&buffer)};
+            self.contoller.write_frame_buffer(&buffer);
         }
 
         // measure fps
         self.frames_counter += 1;
-        let duration = unsafe{
-            let timer = BCM_TIMER.get_mut().unwrap();
-            let mut duration = timer.tick().as_secs_f64();
-            // block for the frame duration
-            while duration < Self::EXPECTED_FRAME_DURATION{
-                duration += timer.tick().as_secs_f64();
-            }
-            duration
-        };
+        let mut duration = self.timer.tick().as_secs_f64();
+        // block for the frame duration
+        while duration < Self::EXPECTED_FRAME_DURATION{
+            duration += self.timer.tick().as_secs_f64();
+        }
         
         self.time_counter += core::time::Duration::from_secs_f64(duration);
         if self.time_counter.as_millis() > 1000{

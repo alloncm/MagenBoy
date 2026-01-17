@@ -1,7 +1,6 @@
-use std::env;
-
-use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, menu::*, mpmc_gfx_device::MpmcGfxDevice, EMULATOR_STATE};
-use magenboy_core::{ppu::{gb_ppu::{BUFFERS_NUMBER, SCREEN_WIDTH, SCREEN_HEIGHT}, gfx_device::{GfxDevice, Pixel}}, keypad::joypad_provider::JoypadProvider};
+use std::{env, path::PathBuf};
+use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*};
+use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS};
 use magenboy_rpi::{configuration::{display::*, emulation::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, BlankAudioDevice, MENU_PIN_BCM};
 
 fn main(){
@@ -14,61 +13,67 @@ fn main(){
     
     let header = std::format!("MagenBoy v{}", magenboy_common::VERSION);
 
-    let mut emulation_menu = MagenBoyMenu::new(joypad_provider.clone(), header.clone());
+    let mut shutdown = false;
 
-    while !(EMULATOR_STATE.exit.load(std::sync::atomic::Ordering::Relaxed)){
-        
-        let program_name = if check_for_terminal_feature_flag(&args, "--rom-menu"){
+    while !shutdown {
+        let args = args.clone();
+
+        let program_name: PathBuf = if check_for_terminal_feature_flag(&args, "--rom-menu"){
             let roms_path = get_terminal_feature_flag_value(&args, "--rom-menu", "Error! no roms folder specified");
-            let menu_renderer = menu_renderer::MenuRenderer::new(&mut gfx);
-            get_rom_selection(roms_path.as_str(), menu_renderer, &mut joypad_provider)
-        }
-        else{
-            args[1].clone()
-        };
-
-        let (s,r) = crossbeam_channel::bounded(BUFFERS_NUMBER - 1);
-        let mpmc_device = MpmcGfxDevice::new(s);
-
-        let joypad_clone = joypad_provider.clone();
-        let args_clone = args.clone();
-        let emualation_thread = std::thread::Builder::new().name("Emualtion Thread".to_string()).spawn(
-            move || emulation_thread_main(args_clone, program_name, mpmc_device, joypad_clone)
-        ).unwrap();
-
-        unsafe{
-            let handler = nix::sys::signal::SigHandler::Handler(sigint_handler);
-            nix::sys::signal::signal(nix::sys::signal::Signal::SIGINT, handler).unwrap();
-            let menu_pin = PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(magenboy_rpi::peripherals::GpioPull::PullUp);
-
-            loop{
-                if menu_pin.read_state() == false{
-                    emulation_menu.pop_game_menu(&EMULATOR_STATE, &mut gfx, r.clone());
-                }
-
-                match r.recv() {
-                    Result::Ok(buffer) => gfx.swap_buffer(&*(buffer as *const [Pixel; SCREEN_WIDTH * SCREEN_HEIGHT])),
-                    Result::Err(_) => break,
+            let rom_options = read_roms_menu_options(&roms_path);
+            let mut menu = MagenBoyMenu::new(&header, Some(&rom_options));
+            let rom_path: PathBuf;
+            loop {
+                let joypad = joypad_provider.provide();
+                match menu.get_rom_selection(joypad) {
+                    MenuResult::Selection(sel) => {
+                        rom_path = sel.clone(); 
+                        break; 
+                    },
+                    MenuResult::Frame(frame) => gfx.swap_buffer(&frame),
                 }
             }
-
-            drop(r);
-            EMULATOR_STATE.running.store(false, std::sync::atomic::Ordering::Relaxed);
-            emualation_thread.join().unwrap();
+            rom_path
         }
+        else{
+            PathBuf::from(args[1].clone())
+        };
+
+        let mbc = initialize_mbc(&program_name);
+
+        let mut gameboy = init_gameboy(
+            args,
+            mbc,
+            BlankAudioDevice
+        );
+
+        let mut game_menu = false;
+
+        'main: loop {
+            if game_menu {
+                let joypad = joypad_provider.poll();
+                match MagenBoyMenu::new(&header, Option::None).get_game_menu_selection(joypad) {
+                    MenuResult::Selection(menu_option) => match *menu_option {
+                        EmulatorMenuOption::Resume => { game_menu = false; continue; }
+                        EmulatorMenuOption::Restart => break 'main,
+                        EmulatorMenuOption::Shutdown => { shutdown = true; break 'main; }
+                    },
+                    MenuResult::Frame(frame) => gfx.swap_buffer(&frame),
+                }
+            } else {
+                let joypad = joypad_provider.provide();
+                let buffer = gameboy.cycle_frame(joypad);
+                gfx.swap_buffer(buffer);
+            }
+        }
+
+        drop(gameboy);
+        release_mbc(&program_name, mbc);
+        log::info!("released the gameboy succefully");
     }
 
     if check_for_terminal_feature_flag(&args, "--shutdown-rpi"){
         log::info!("Shuting down the RPi! Goodbye");
         std::process::Command::new("shutdown").arg("-h").arg("now").spawn().expect("Failed to shutdown system");
     }
-}
-
-fn emulation_thread_main(args: Vec<String>, program_name: String, spsc_gfx_device: MpmcGfxDevice, joypad_provider:impl JoypadProvider) {
-    init_gameboy(args, program_name, spsc_gfx_device, joypad_provider, BlankAudioDevice);
-}
-
-extern "C" fn sigint_handler(_:std::os::raw::c_int){
-    EMULATOR_STATE.running.store(false, std::sync::atomic::Ordering::Relaxed);
-    EMULATOR_STATE.exit.store(true, std::sync::atomic::Ordering::Relaxed);
 }

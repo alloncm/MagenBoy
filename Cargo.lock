@@ -268,11 +268,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.1"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ed27e177f16d65f0f0c22a213e17c696ace5dd64b14258b52f9417ccb52db4"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
- "cfg-if",
  "crossbeam-utils",
 ]
 
@@ -918,7 +917,6 @@ dependencies = [
  "cfg-if",
  "chrono",
  "criterion",
- "crossbeam-channel",
  "fast_image_resize",
  "fern",
  "libm",
@@ -964,7 +962,6 @@ dependencies = [
  "arrayvec",
  "bitfield-struct",
  "cfg-if",
- "crossbeam-channel",
  "libc",
  "log",
  "magenboy_common",
