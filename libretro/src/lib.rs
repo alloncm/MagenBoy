@@ -10,7 +10,7 @@ use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer}, ppu::gb_ppu::*
 use crate::{devices::*, logging::*};
 
 pub struct MagenBoyRetroCore<'a>{
-    gameboy: Option<GameBoy<'a, RetroJoypadProvider,  RetroAudioDevice, RetroGfxDevice>>,
+    gameboy: Option<GameBoy<'a,  RetroAudioDevice>>,
     save_data_fat_ptr: Option<(*mut u8, usize)>,
     video_cb: Option<VideoRefreshFn>,
     audio_cb: Option<AudioSampleBatchFn>,
@@ -87,7 +87,7 @@ pub unsafe extern "C" fn retro_load_game(game_info: *const GameInfo)->bool{
         RETRO_CORE_CTX.save_data_fat_ptr = Some((mbc.get_ram().as_mut_ptr(), mbc.get_ram().len()));
     }
     let mode = mbc.detect_preferred_mode();
-    RETRO_CORE_CTX.gameboy = Some(GameBoy::new_with_mode(mbc, RetroJoypadProvider, RetroAudioDevice::default(), RetroGfxDevice, mode));
+    RETRO_CORE_CTX.gameboy = Some(GameBoy::new_with_mode(mbc, RetroAudioDevice::default(), mode));
     
     let mut pixel_format = PixelFormat::RGB565.to_uint();
     if !(RETRO_CORE_CTX.environment_cb.unwrap())(ENVIRONMENT_SET_PIXEL_FORMAT, &mut pixel_format as *mut u32 as *mut c_void){
@@ -123,7 +123,9 @@ pub unsafe extern "C" fn retro_get_memory_size(id:c_uint)->isize{
 
 #[no_mangle]
 pub unsafe extern "C" fn retro_run(){
-    RETRO_CORE_CTX.gameboy.as_mut().unwrap().cycle_frame();
+    let joypad = RETRO_CORE_CTX.update_joypad();
+    let frame = RETRO_CORE_CTX.gameboy.as_mut().unwrap().cycle_frame(joypad);
+    RETRO_CORE_CTX.swap_buffer(frame);
     RetroAudioDevice::push_audio_buffer_to_libretro();
 }
 

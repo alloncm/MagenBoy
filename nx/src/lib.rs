@@ -9,7 +9,7 @@ mod allocator;
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
 use alloc::{vec::Vec, boxed::Box, string::String};
 
-use magenboy_common::{audio::*, joypad_menu::{menu_renderer::MenuRenderer, JoypadMenu}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
+use magenboy_common::{audio::*, joypad_menu::{menu_renderer::MenuRenderer, JoypadMenu, MenuResult}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 
 use devices::*;
@@ -55,9 +55,7 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
     // Initialize the GameBoy instance
     let gameboy = GameBoy::new_with_mode(
         mbc,
-        NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb},
         NxAudioDevice{cb: audio_cb, resampler: ManualAudioResampler::new(GB_FREQUENCY * TURBO, 48000)},
-        NxGfxDevice {cb: gfx_cb, turbo: TURBO, frame_counter: 0},
         mode,
     );
 
@@ -113,12 +111,31 @@ pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypa
     return *selection as u32;
 }
 
-fn render_menu<'a, T>(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, options: &'a [MenuOption<T, &str>], header: &'a str) -> &'a T {
+fn render_menu<'a, T>(
+    gfx_cb: GfxDeviceCallback, 
+    joypad_cb: JoypadProviderCallback, 
+    poll_joypad_cb: PollJoypadProviderCallback, 
+    options: &'a [MenuOption<T, &str>], header: &'a str
+) -> &'a T {
     let mut gfx_device = NxGfxDevice {cb: gfx_cb, turbo: 1, frame_counter: 0};
-    let menu_renderer = MenuRenderer::new(&mut gfx_device);
+    let menu_renderer: MenuRenderer;
     let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
-    let mut menu = JoypadMenu::new(&options, header, menu_renderer);
-    return menu.get_menu_selection(&mut provider);
+    let mut menu = JoypadMenu::new(&options, header);
+
+    let menu_selection: &T;
+    loop {
+        let joypad = provider.provide();
+        match menu.try_get_menu_selection(joypad) {
+            MenuResult::Selection(sel) => {
+                menu_selection = sel.clone();
+                break;
+            },
+            MenuResult::Frame(frame) => {
+                gfx_device.swap_buffer(&frame);
+            },
+        }
+    }
+    return menu_selection
 }
 
 /// SAFETY: ctx is a valid pointer to a GameBoy instance

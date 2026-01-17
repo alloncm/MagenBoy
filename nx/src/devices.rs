@@ -1,7 +1,7 @@
 use core::ffi::c_int;
 
-use magenboy_common::{audio::{ManualAudioResampler, AudioResampler}, joypad_menu::MenuJoypadProvider};
-use magenboy_core::{AudioDevice, GfxDevice, self, JoypadProvider, keypad::button::Button};
+use magenboy_common::audio::{ManualAudioResampler, AudioResampler};
+use magenboy_core::{self, keypad::{button::Button, joypad::Joypad}, AudioDevice};
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
 pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
@@ -35,19 +35,19 @@ impl NxJoypadProvider{
         joypad.buttons[Button::Right as usize]  = (joycons_state & JOYCON_RIGHT) != 0;
         joypad.buttons[Button::Left as usize]   = (joycons_state & JOYCON_LEFT) != 0;
     }
-}
-
-impl JoypadProvider for NxJoypadProvider {
-    fn provide(&mut self, joypad: &mut magenboy_core::keypad::joypad::Joypad) {
+    
+    pub fn provide(&mut self) -> Joypad {
+        let mut joypad: Joypad;
         let joycons_state = unsafe{(self.provider_cb)()};
-        Self::update_state(joypad, joycons_state);
+        Self::update_state(&mut joypad, joycons_state);
+        return joypad;
     }
-}
-
-impl MenuJoypadProvider for NxJoypadProvider {
-    fn poll(&mut self, joypad:&mut magenboy_core::keypad::joypad::Joypad) {
+    
+    pub fn poll(&mut self) -> Joypad {
+        let mut joypad: Joypad;
         let joycon_state = unsafe{(self.poll_cb)()};
-        Self::update_state(joypad, joycon_state);
+        Self::update_state(&mut joypad, joycon_state);
+        return joypad;
     }
 }
 
@@ -59,8 +59,8 @@ pub(crate) struct NxGfxDevice{
     pub frame_counter: u32,
 }
 
-impl GfxDevice for NxGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
+impl NxGfxDevice{
+    pub fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
         if self.frame_counter % self.turbo == 0{
             unsafe{(self.cb)(buffer.as_ptr())}; 
         }

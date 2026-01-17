@@ -3,24 +3,28 @@ use std::{ffi::c_void, mem::size_of};
 use libretro_sys::*;
 
 use magenboy_common::audio::*;
-use magenboy_core::{apu::audio_device::*, keypad::{button::*, joypad::*, joypad_provider::*}, ppu::{gb_ppu::*, gfx_device::*}, GB_FREQUENCY};
+use magenboy_core::{apu::audio_device::*, keypad::{button::*, joypad::*}, ppu::gb_ppu::*, FrameBuffer, Pixel, GB_FREQUENCY};
 
-use super::RETRO_CORE_CTX;
+use crate::MagenBoyRetroCore;
 
-pub struct RetroGfxDevice;
-impl GfxDevice for RetroGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        unsafe{(RETRO_CORE_CTX.video_cb.unwrap())(buffer.as_ptr() as *const c_void, SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32, SCREEN_WIDTH * size_of::<Pixel>())};
-    }
-}
-
-pub struct RetroJoypadProvider;
-impl JoypadProvider for RetroJoypadProvider{
-    fn provide(&mut self, joypad:&mut Joypad) {
+impl<'a> MagenBoyRetroCore<'a> {
+    pub fn swap_buffer(&self, frame: &FrameBuffer) {
         unsafe{
-            (RETRO_CORE_CTX.input_poll_cb.unwrap())();
+            (self.video_cb.unwrap())(
+                frame.as_ptr() as *const c_void, 
+                SCREEN_WIDTH as u32, 
+                SCREEN_HEIGHT as u32, 
+                SCREEN_WIDTH * size_of::<Pixel>()
+            )
+        };
+    }
 
-            let input_cb: unsafe extern fn(port:u32, device:u32, index:u32, id:u32) -> i16 = RETRO_CORE_CTX.input_cb.unwrap();
+    pub fn update_joypad(&self) -> Joypad {
+        let mut joypad: Joypad = Joypad::default();
+        unsafe{
+            (self.input_poll_cb.unwrap())();
+
+            let input_cb: unsafe extern fn(port:u32, device:u32, index:u32, id:u32) -> i16 = self.input_cb.unwrap();
             
             joypad.buttons[Button::A as usize]      = input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_A) != 0 || input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_X) != 0;
             joypad.buttons[Button::B as usize]      = input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_B) != 0 || input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_Y) != 0;
@@ -31,6 +35,7 @@ impl JoypadProvider for RetroJoypadProvider{
             joypad.buttons[Button::Right as usize]  = input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_RIGHT) != 0;
             joypad.buttons[Button::Left as usize]   = input_cb(0, DEVICE_JOYPAD, 0, DEVICE_ID_JOYPAD_LEFT) != 0;
         }
+        return joypad;
     }
 }
 
@@ -61,7 +66,7 @@ impl RetroAudioDevice{
         let mut remaining_frames = DYNAMIC_AUDIO_BUFFER.len();
         let mut buffer_pos_ptr = DYNAMIC_AUDIO_BUFFER.as_ptr() as *const Sample;
         while remaining_frames > 0 {
-            let uploaded_frames = (RETRO_CORE_CTX.audio_cb.unwrap())(buffer_pos_ptr, remaining_frames);
+            let uploaded_frames = (super::RETRO_CORE_CTX.audio_cb.unwrap())(buffer_pos_ptr, remaining_frames);
             remaining_frames -= uploaded_frames;
             buffer_pos_ptr = buffer_pos_ptr.add(uploaded_frames);
         }
