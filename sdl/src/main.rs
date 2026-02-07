@@ -1,17 +1,17 @@
 mod audio;
 mod utils;
-mod gl_gfx_device;
 mod sdl_joypad_provider;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*};
-use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY};
-
 use std::{env, ffi::CString, path::PathBuf, ptr::null_mut, result::Result, vec::Vec};
+
 use sdl2::sys::*;
 
-use crate::{audio::*, gl_gfx_device::GlGfxDevice, utils::get_sdl_error_message, SdlAudioDevice};
+use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*, gl_gfx_device::GlGfxDevice};
+use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY};
+
+use crate::{audio::*, utils::get_sdl_error_message, SdlAudioDevice};
 
 const TURBO_MUL:u8 = 1;
 

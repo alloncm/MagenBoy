@@ -13,11 +13,12 @@ cfg-if = "1"
 libm = "0.2.15"
 fern = {version = "0.6", optional = true}
 chrono = {version = "0.4", optional = true}
+gl = { version = "0.14", optional = true }
 
 [features]
 std = ["chrono", "fern", "alloc"]
 dbg = ["std"]
-alloc = []
+alloc = ["gl"]
 
 [dev-dependencies]
 criterion = "0.3"

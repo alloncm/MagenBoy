@@ -919,6 +919,7 @@ dependencies = [
  "criterion",
  "fast_image_resize",
  "fern",
+ "gl",
  "libm",
  "log",
  "magenboy_core",
@@ -976,7 +977,6 @@ version = "4.2.0"
 dependencies = [
  "cfg-if",
  "crossbeam-channel",
- "gl",
  "log",
  "magenboy_common",
  "magenboy_core",
