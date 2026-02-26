@@ -1,4 +1,4 @@
-use core::{ffi::{c_void, CStr}, ptr::{null, null_mut}};
+use core::{ffi::{c_void, CStr}, mem::size_of, ptr::{null, null_mut}};
 use alloc::{ffi::CString, rc::Rc};
 
 use gl::types::*;

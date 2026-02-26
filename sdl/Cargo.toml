@@ -16,7 +16,7 @@ path = "src/main.rs"
 magenboy_core = {path = "../core/", features = ["apu"]}
 magenboy_common = {path = "../common/", features = ["std"]}
 log = {version = "0.4", features = ["max_level_debug", "release_max_level_info"]}
-sdl2 = "0.38"
+sdl2 = "0.35.2"
 crossbeam-channel = "0.5"
 cfg-if = "1.0"
 wav = "1.0"
