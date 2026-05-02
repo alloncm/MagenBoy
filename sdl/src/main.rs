@@ -114,7 +114,7 @@ fn main() {
                         break;
                     },
                     MenuResult::Frame(frame) => {
-                        gfx_device.swap_buffer(&frame);
+                        gfx_device.render(&frame);
                         unsafe{SDL_GL_SwapWindow(sdl_window)};
                     },
                 }
@@ -178,12 +178,12 @@ fn main() {
                             break 'main;
                         }
                     },
-                    MenuResult::Frame(frame) => gfx_device.swap_buffer(&frame),
+                    MenuResult::Frame(frame) => gfx_device.render(&frame),
                 }
             } else {
                 let joypad = joypad_provider.provide();
                 let buffer = gameboy.cycle_frame(joypad);
-                gfx_device.swap_buffer(buffer);
+                gfx_device.render(buffer);
             };
             // SAFETY: SDL call
             unsafe{SDL_GL_SwapWindow(sdl_window)};

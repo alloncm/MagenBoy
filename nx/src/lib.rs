@@ -18,7 +18,9 @@ use logging::{LogCallback, NxLogger};
 const TURBO: u32 = 2;
 
 struct NxGbContext<'a>{
-    gb: GameBoy<'a, NxJoypadProvider, NxAudioDevice, NxGfxDevice>,
+    gb: GameBoy<'a, NxAudioDevice>,
+    joypad_device: NxJoypadProvider,
+    renderer: NxGfxDevice,
     sram_fat_pointer: (*mut u8, usize)
 }
 
@@ -41,9 +43,17 @@ pub unsafe extern "C" fn magenboy_init_logger(log_cb: LogCallback) {
 
 /// SAFETY: rom size must be the size of rom
 #[no_mangle]
-pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong, gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, 
-    poll_joypad_cb: PollJoypadProviderCallback, audio_cb:AudioDeviceCallback) -> *mut c_void {
-
+pub unsafe extern "C" fn magenboy_init(
+    rom: *const c_char,
+    rom_size: c_ulonglong,
+    gfx_cb: SwapBufferCallback,
+    gl_loader_calback: GlLoaderCallback,
+    window_width: core::ffi::c_uint,
+    window_height: core::ffi::c_uint,
+    joypad_cb: JoypadProviderCallback,
+    poll_joypad_cb: PollJoypadProviderCallback,
+    audio_cb:AudioDeviceCallback
+) -> *mut c_void {
     let rom:&[u8] = unsafe{ core::slice::from_raw_parts(rom as *const u8, rom_size as usize) };
     let mbc = machine::mbc_initializer::initialize_mbc(&rom, None);
 
@@ -59,7 +69,18 @@ pub unsafe extern "C" fn magenboy_init(rom: *const c_char, rom_size: c_ulonglong
         mode,
     );
 
-    let ctx = NxGbContext {gb: gameboy, sram_fat_pointer };
+    let joypad_provider = NxJoypadProvider{
+        poll_cb: poll_joypad_cb,
+        provider_cb: joypad_cb
+    };
+    let render_device = NxGfxDevice::new(window_width, window_height, gl_loader_calback, gfx_cb, 1);
+
+    let ctx = NxGbContext {
+        gb: gameboy,
+        renderer: render_device,
+        joypad_device: joypad_provider,
+        sram_fat_pointer
+    };
 
     // Allocate on static memory
     let gameboy = Box::new(ctx);
@@ -81,9 +102,16 @@ pub unsafe extern "C" fn magenboy_deinit(ctx: *mut c_void) {
 
 
 #[no_mangle]
-pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback, 
-    roms: *const *const c_char, roms_count: u32) -> *const c_char {
-    
+pub unsafe extern "C" fn magenboy_menu_trigger(
+    gfx_cb: SwapBufferCallback,
+    joypad_cb: JoypadProviderCallback,
+    poll_joypad_cb: PollJoypadProviderCallback,
+    gl_loader_calback: GlLoaderCallback,
+    window_width: core::ffi::c_uint,
+    window_height: core::ffi::c_uint,
+    roms: *const *const c_char,
+    roms_count: u32
+) -> *const c_char {    
     log::info!("Starting ROM menu");
 
     // SAFETY: roms is a valid c strings array
@@ -97,28 +125,54 @@ pub unsafe extern "C" fn magenboy_menu_trigger(gfx_cb: GfxDeviceCallback, joypad
         roms_vec
     };
     
-    let selection = render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &roms, "Choose ROM menu");
+    let selection = render_menu(
+        gfx_cb,
+        joypad_cb,
+        poll_joypad_cb,
+        gl_loader_calback,
+        window_width,
+        window_height,
+        &roms,
+        "Choose ROM menu"
+    );
 
     return selection.as_ptr();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn magenboy_pause_trigger(gfx_cb: GfxDeviceCallback, joypad_cb: JoypadProviderCallback, poll_joypad_cb: PollJoypadProviderCallback) -> u32 {
-    
+pub unsafe extern "C" fn magenboy_pause_trigger(
+    gfx_cb: SwapBufferCallback,
+    joypad_cb: JoypadProviderCallback,
+    poll_joypad_cb: PollJoypadProviderCallback,
+    gl_loader_calback: GlLoaderCallback,
+    window_width: core::ffi::c_uint,
+    window_height: core::ffi::c_uint,
+) -> u32 {    
     log::info!("Starting pause menu");
     let header: String = alloc::format!("Magenboy {VERSION}");
-    let selection= render_menu(gfx_cb, joypad_cb, poll_joypad_cb, &GAME_MENU_OPTIONS, header.as_str());
+    let selection= render_menu(
+        gfx_cb,
+        joypad_cb,
+        poll_joypad_cb,
+        gl_loader_calback,
+        window_width,
+        window_height,
+        &GAME_MENU_OPTIONS,
+        header.as_str()
+    );
     return *selection as u32;
 }
 
 fn render_menu<'a, T>(
-    gfx_cb: GfxDeviceCallback, 
-    joypad_cb: JoypadProviderCallback, 
-    poll_joypad_cb: PollJoypadProviderCallback, 
+    gfx_cb: SwapBufferCallback,
+    joypad_cb: JoypadProviderCallback,
+    poll_joypad_cb: PollJoypadProviderCallback,
+    gl_load_fn: GlLoaderCallback,
+    window_width: u32,
+    window_height: u32,
     options: &'a [MenuOption<T, &str>], header: &'a str
 ) -> &'a T {
-    let mut gfx_device = NxGfxDevice {cb: gfx_cb, turbo: 1, frame_counter: 0};
-    let menu_renderer: MenuRenderer;
+    let mut gfx_device = NxGfxDevice::new(window_width, window_height, gl_load_fn, gfx_cb, 1);
     let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
     let mut menu = JoypadMenu::new(&options, header);
 
@@ -143,7 +197,10 @@ fn render_menu<'a, T>(
 pub unsafe extern "C" fn magenboy_cycle_frame(ctx: *mut c_void) {
     // SAFETY: ctx is a valid pointer to a GameBoy instance
     unsafe {
-        (*(ctx as *mut NxGbContext)).gb.cycle_frame()
+        let ctx = ctx as *mut NxGbContext;
+        let joypad = (*ctx).joypad_device.provide();
+        let frame = (*ctx).gb.cycle_frame(joypad);
+        (*ctx).renderer.swap_buffer(frame);
     }
 }
 

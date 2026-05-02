@@ -8,6 +8,7 @@
 
 // Include the main libnx system header, for Switch development
 #include <switch.h>
+#include <EGL/egl.h>
 
 // Include magenboy header
 #include "magenboy.h"
@@ -52,27 +53,6 @@ static long read_rom_buffer(const char* path, u8** out_rom_buffer) {
 exit_file:
     fclose(file);
     return return_value;
-}
-
-static Framebuffer fb;
-
-static void render_buffer_cb(const uint16_t* buffer) {
-    u32 stride;
-    uint16_t* framebuffer = (uint16_t*)framebufferBegin(&fb, &stride);
-    stride /= sizeof(uint16_t);
-
-    u32 gb_width, gb_height;
-    magenboy_get_dimensions(&gb_width, &gb_height);
-
-    u32 frame_initial_width = (stride - gb_width) / 2;
-
-    for (int y = 0; y < gb_height; y++) {
-        uint16_t* dest = framebuffer + (y * stride) + frame_initial_width;
-        const uint16_t* src = buffer + (y * gb_width);
-        memcpy(dest, src, gb_width * sizeof(uint16_t));
-    }
-
-    framebufferEnd(&fb);
 }
 
 static PadState pad;
@@ -155,6 +135,95 @@ static int intiailzie_audio_buffers() {
     memset(audio_work_buffer, 0, AUDIO_BUFFER_SIZE);
 
     return 0;
+}
+
+static EGLDisplay egl_display;
+static EGLContext egl_context;
+static EGLSurface egl_surface;
+
+static void swap_buffers_cb() {
+    eglSwapBuffers(egl_display, egl_surface);
+}
+
+static int initialize_egl(NWindow *win) {
+    egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (!egl_display) {
+        printf("Could not connect to display! error: %d\n", eglGetError());
+        goto err;
+    }
+
+    eglInitialize(egl_display, NULL, NULL);
+
+    if (EGL_FALSE == eglBindAPI(EGL_OPENGL_API)) {
+        printf("Could not set API! error: %d\n", eglGetError());
+        goto err_free_display;
+    }
+
+    EGLConfig config;
+    EGLint num_configs;
+    static const EGLint framebuffer_attributes[] = {
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+        EGL_RED_SIZE, 5,
+        EGL_GREEN_SIZE, 6,
+        EGL_BLUE_SIZE, 5,
+        EGL_NONE
+    };
+    eglChooseConfig(egl_display, &framebuffer_attributes, &config, 1, &num_configs);
+    if (0 == num_configs) {
+        printf("No config found! error: %d\n", eglGetError());
+        goto err_free_display;
+    }
+
+    egl_surface = eglCreateWindowSurface(egl_display, config, win, NULL);
+    if (!egl_surface) {
+        printf("Surface creation failed! error: %d\n", eglGetError());
+        goto err_free_display;
+    }
+
+    static const EGLint context_attriubtes[] = {
+        EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+        EGL_CONTEXT_MAJOR_VERSION, 3,
+        EGL_CONTEXT_MINOR_VERSION, 3,
+        EGL_NONE
+    };
+    egl_context = eglCreateContext(egl_display, config, EGL_NO_CONTEXT, context_attriubtes);
+    if (!egl_context) {
+        printf("Context creation failed! error: %d\n", eglGetError());
+        goto err_free_surface;
+    }
+
+    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+
+    return 0;
+
+err_free_surface:
+    eglDestroySurface(egl_display, egl_context);
+    egl_surface = NULL;
+err_free_display:
+    eglTerminate(egl_display);
+    egl_display = NULL;
+err:
+    return -1;
+}
+
+static void deinit_egl()
+{
+    if (egl_display)
+    {
+        eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (egl_context)
+        {
+            eglDestroyContext(egl_display, egl_context);
+            egl_context = NULL;
+        }
+        if (egl_surface)
+        {
+            eglDestroySurface(egl_display, egl_surface);
+            egl_surface = NULL;
+        }
+        eglTerminate(egl_display);
+        egl_display = NULL;
+    }
 }
 
 static void get_timespec(struct timespec* ts) {
@@ -285,16 +354,7 @@ int main(int argc, char* argv[]) {
     float width_scale_ratio = (float)win_height / (float)gb_height;
     u32 frame_width = (u32)(gb_wifth * (float)win_width / (float)(gb_wifth * width_scale_ratio));
 
-    // Initialize the framebuffer
-    if (R_FAILED(framebufferCreate(&fb, win, frame_width, gb_height, PIXEL_FORMAT_RGB_565, 2))) {
-        printf("Failed to create framebuffer.\n");
-        goto link_exit;
-    }
-
-    if (R_FAILED(framebufferMakeLinear(&fb))) {
-        printf("Failed to make framebuffer linear.\n");
-        goto fb_exit;
-    }
+    initialize_egl(win);
 
     if (intiailzie_audio_buffers() != 0) {
         printf("Failed to initialize audio.\n");
@@ -332,7 +392,16 @@ int main(int argc, char* argv[]) {
 restart:
     int count = read_dir_filenames("roms", roms, MAX_FILENAME_SIZE, MAX_ROMS);
 
-    const char* filepath = magenboy_menu_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, (const char**)roms, count);
+    const char* filepath = magenboy_menu_trigger(
+        swap_buffers_cb,
+        get_joycon_state,
+        poll_until_joycon_pressed,
+        eglGetProcAddress,
+        frame_width,
+        win_height,
+        (const char**)roms,
+        count
+    );
     if (filepath == NULL) {
         printf("Failed to trigger ROM menu.\n");
         goto fb_exit;
@@ -350,7 +419,17 @@ restart:
     size_t found_sram_size = 0;
     int found_sram = try_load_sram(filepath, &found_sram_buffer, &found_sram_size);
 
-    void* ctx = magenboy_init(rom_buffer, file_size, render_buffer_cb, get_joycon_state, poll_until_joycon_pressed, audio_device_cb);
+    void* ctx = magenboy_init(
+        rom_buffer,
+        file_size,
+        swap_buffers_cb,
+        eglGetProcAddress,
+        frame_width,
+        win_height,
+        get_joycon_state,
+        poll_until_joycon_pressed,
+        audio_device_cb
+    );
 
     u8* sram_buffer = NULL;
     size_t sram_size = 0;
@@ -374,7 +453,15 @@ restart:
         u64 kDown = padGetButtons(&pad);
         if ((kDown & HidNpadButton_L) != 0 && (kDown & HidNpadButton_R) != 0) {
             int shutdown = 0;
-            switch (magenboy_pause_trigger(render_buffer_cb, get_joycon_state, poll_until_joycon_pressed)) {
+            int menu_option = magenboy_pause_trigger(
+                swap_buffers_cb,
+                get_joycon_state,
+                poll_until_joycon_pressed,
+                eglGetProcAddress,
+                frame_width,
+                win_height
+            );
+            switch (menu_option) {
                 case 0: // Resume
                     break;
                 case 1: // Restart
@@ -417,7 +504,7 @@ audio_buffers_exit:
     free(audio_work_buffer);
     free(audio_io_buffer);
 fb_exit:
-    framebufferClose(&fb);
+    deinit_egl();
 link_exit:
     if (nxlink_fd > 0) {
         close(nxlink_fd);
