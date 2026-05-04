@@ -1,5 +1,7 @@
 use core::ffi::{c_char, c_int, c_void};
 
+use alloc::ffi::CString;
+
 use magenboy_common::{audio::{AudioResampler, ManualAudioResampler}, gl_gfx_device::GlGfxDevice};
 use magenboy_core::{self, keypad::{button::Button, joypad::Joypad}, AudioDevice};
 
@@ -70,7 +72,8 @@ impl NxGfxDevice {
         turbo: u32
     ) -> Self {
         let gl_loader = |s: &'static str| -> *const c_void {
-            unsafe{gl_load_fn(s.as_ptr())}
+            let name = CString::new(s).unwrap();
+            unsafe{gl_load_fn(name.as_ptr())}
         };
         let renderer = GlGfxDevice::new(width, height, gl_loader);
         Self { 
