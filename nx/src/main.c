@@ -19,7 +19,7 @@ static void log_cb(const char* message, int len) {
     fwrite(message, 1, len, stdout);
 }
 
-static long read_rom_buffer(const char* path, u8** out_rom_buffer) {
+static long read_rom_buffer(const char* path, char** out_rom_buffer) {
     long return_value = -1;
     *out_rom_buffer = NULL;
 
@@ -36,7 +36,7 @@ static long read_rom_buffer(const char* path, u8** out_rom_buffer) {
     long size = ftell(file);
     rewind(file);
 
-    *out_rom_buffer = (u8*)malloc(size);
+    *out_rom_buffer = (char*)malloc(size);
     if (!out_rom_buffer) {
         perror("Failed to allocate memory for ROM");
         goto exit_file;
@@ -119,12 +119,12 @@ static void audio_device_cb(const int16_t* buffer, int size) {
 }
 
 static int intiailzie_audio_buffers() {
-    audio_work_buffer = aligned_alloc(BUFFER_ALIGNMENT, AUDIO_BUFFER_SIZE);
+    audio_work_buffer = (int16_t*)aligned_alloc(BUFFER_ALIGNMENT, AUDIO_BUFFER_SIZE);
     if (audio_work_buffer == NULL) {
         printf("Failed to allocate audio work buffer.\n");
         return -1;
     }
-    audio_io_buffer = aligned_alloc(BUFFER_ALIGNMENT, AUDIO_BUFFER_SIZE);
+    audio_io_buffer = (int16_t*)aligned_alloc(BUFFER_ALIGNMENT, AUDIO_BUFFER_SIZE);
     if (audio_io_buffer == NULL) {
         printf("Failed to allocate audio io buffer.\n");
         free(audio_work_buffer);
@@ -168,13 +168,13 @@ static int initialize_egl(NWindow *win) {
         EGL_BLUE_SIZE, 5,
         EGL_NONE
     };
-    eglChooseConfig(egl_display, &framebuffer_attributes, &config, 1, &num_configs);
+    eglChooseConfig(egl_display, framebuffer_attributes, &config, 1, &num_configs);
     if (0 == num_configs) {
         printf("No config found! error: %d\n", eglGetError());
         goto err_free_display;
     }
 
-    egl_surface = eglCreateWindowSurface(egl_display, config, win, NULL);
+    egl_surface = eglCreateWindowSurface(egl_display, config, (EGLNativeWindowType)win, NULL);
     if (!egl_surface) {
         printf("Surface creation failed! error: %d\n", eglGetError());
         goto err_free_display;
@@ -330,6 +330,7 @@ int main(int argc, char* argv[]) {
     if (nxlink_fd < 0) {
         printf("Failed to initialize NXLink: %d.\n", errno);
         socketExit();
+        goto link_exit;
     }
 
     // Configure our supported input layout: a single player with standard controller styles
@@ -396,7 +397,7 @@ restart:
         swap_buffers_cb,
         get_joycon_state,
         poll_until_joycon_pressed,
-        eglGetProcAddress,
+        (GlLoaderCallback)eglGetProcAddress,
         frame_width,
         win_height,
         (const char**)roms,
@@ -408,7 +409,7 @@ restart:
     }
 
     // Read a rom file
-    u8* rom_buffer = NULL;
+    char* rom_buffer = NULL;
     long file_size = read_rom_buffer(filepath, &rom_buffer);
     if (file_size < 0) {
         printf("Failed to read ROM file.\n");
@@ -423,7 +424,7 @@ restart:
         rom_buffer,
         file_size,
         swap_buffers_cb,
-        eglGetProcAddress,
+        (GlLoaderCallback)eglGetProcAddress,
         frame_width,
         win_height,
         get_joycon_state,
@@ -457,7 +458,7 @@ restart:
                 swap_buffers_cb,
                 get_joycon_state,
                 poll_until_joycon_pressed,
-                eglGetProcAddress,
+                (GlLoaderCallback)eglGetProcAddress,
                 frame_width,
                 win_height
             );

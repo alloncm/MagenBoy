@@ -9,7 +9,7 @@ mod allocator;
 use core::{ffi::{c_char, c_ulonglong, c_void, CStr}, panic};
 use alloc::{vec::Vec, boxed::Box, string::String};
 
-use magenboy_common::{audio::*, joypad_menu::{menu_renderer::MenuRenderer, JoypadMenu, MenuResult}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
+use magenboy_common::{audio::*, joypad_menu::{JoypadMenu, MenuResult}, menu::{MenuOption, GAME_MENU_OPTIONS}, VERSION};
 use magenboy_core::{machine, GameBoy, Mode, GB_FREQUENCY};
 
 use devices::*;
@@ -178,10 +178,10 @@ fn render_menu<'a, T>(
 
     let menu_selection: &T;
     loop {
-        let joypad = provider.provide();
+        let joypad = provider.poll();
         match menu.try_get_menu_selection(joypad) {
             MenuResult::Selection(sel) => {
-                menu_selection = sel.clone();
+                menu_selection = sel;
                 break;
             },
             MenuResult::Frame(frame) => {
