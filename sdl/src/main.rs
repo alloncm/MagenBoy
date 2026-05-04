@@ -107,6 +107,8 @@ fn main() {
             let mut menu = MagenBoyMenu::new(&header, Some(&rom_options));
             let rom_path: PathBuf;
             loop {
+                let mut menu_triggered = false;
+                handle_events(&mut shutdown, &mut menu_triggered, sdl_window);
                 let joypad = joypad_provider.provide();
                 match menu.get_rom_selection(joypad) {
                     MenuResult::Selection(sel) => {
@@ -140,29 +142,10 @@ fn main() {
         );
 
         let mut game_menu = false;
-        'main: loop {
-            while let Some(event) = poll_event() {
-                // SAFETY: type_ is present on all the variants so it is safe to access it
-                let event_type = unsafe {event.type_};
-
-                if event_type == SDL_EventType::SDL_QUIT as u32 {
-                    shutdown = true;
-                    break 'main;
-                }
-                else if event_type == SDL_EventType::SDL_KEYDOWN as u32 {
-                    // SAFETY: Since event is KEYDOWN the key variant is safe to access
-                    let key_pressed = unsafe{event.key.keysym.scancode};
-                    if key_pressed == SDL_Scancode::SDL_SCANCODE_ESCAPE {
-                        game_menu = true;
-                    }
-                }
-                else if event_type == SDL_EventType::SDL_WINDOWEVENT as u32{
-                    let mut width: i32 = 0;
-                    let mut height: i32 = 0;
-                    // SAFETY: SDL call
-                    unsafe{SDL_GetWindowSize(sdl_window, &mut width, &mut height)};
-                    GlGfxDevice::update_viewport(width, height);
-                }
+        loop {
+            handle_events(&mut shutdown, &mut game_menu, sdl_window);
+            if shutdown {
+                break;
             }
             if game_menu {
                 let joypad = joypad_provider.poll();
@@ -172,10 +155,10 @@ fn main() {
                             game_menu = false;
                             continue;
                         }
-                        EmulatorMenuOption::Restart => break 'main,
+                        EmulatorMenuOption::Restart => break,
                         EmulatorMenuOption::Shutdown => {
                             shutdown = true;
-                            break 'main;
+                            break;
                         }
                     },
                     MenuResult::Frame(frame) => gfx_device.render(&frame),
@@ -198,6 +181,32 @@ fn main() {
     unsafe{
         SDL_GL_DeleteContext(sdl_gl_context);
         SDL_Quit();
+    }
+}
+
+fn handle_events(shutdown: &mut bool, game_menu: &mut bool, sdl_window: *mut SDL_Window) {
+    while let Some(event) = poll_event() {
+        // SAFETY: type_ is present on all the variants so it is safe to access it
+        let event_type = unsafe {event.type_};
+
+        if event_type == SDL_EventType::SDL_QUIT as u32 {
+            *shutdown = true;
+            return;
+        }
+        else if event_type == SDL_EventType::SDL_KEYDOWN as u32 {
+            // SAFETY: Since event is KEYDOWN the key variant is safe to access
+            let key_pressed = unsafe{event.key.keysym.scancode};
+            if key_pressed == SDL_Scancode::SDL_SCANCODE_ESCAPE {
+                *game_menu = true;
+            }
+        }
+        else if event_type == SDL_EventType::SDL_WINDOWEVENT as u32{
+            let mut width: i32 = 0;
+            let mut height: i32 = 0;
+            // SAFETY: SDL call
+            unsafe{SDL_GetWindowSize(sdl_window, &mut width, &mut height)};
+            GlGfxDevice::update_viewport(width, height);
+        }
     }
 }
 

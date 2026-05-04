@@ -1,9 +1,11 @@
 mod font;
-pub mod menu_renderer;
+mod menu_renderer;
 
 use magenboy_core::{keypad::{button::Button, joypad::Joypad}, FrameBuffer};
 
-use crate::{joypad_menu::menu_renderer::MenuRenderer, menu::MenuOption};
+use crate::menu::MenuOption;
+
+use menu_renderer::MenuRenderer;
 
 pub enum MenuResult<'a, T> {
     Selection(&'a T),

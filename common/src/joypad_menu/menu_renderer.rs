@@ -8,7 +8,7 @@ const HEADER_COLOR:Color = ORANGE;
 const BACKGROUND_COLOR:Color = BLACK;
 const TEXT_COLOR:Color = WHITE;
 
-pub struct MenuRenderer;
+pub(super) struct MenuRenderer;
 
 impl MenuRenderer{
     pub fn render_menu<T, S:AsRef<str>>(&mut self, header:&S, menu:&[super::MenuOption<T, S>], selection:usize) -> FrameBuffer{
