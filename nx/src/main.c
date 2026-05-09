@@ -348,18 +348,14 @@ int main(int argc, char* argv[]) {
         goto scoket_exit;
     }
 
-    u32 gb_wifth, gb_height;
-    magenboy_get_dimensions(&gb_wifth, &gb_height);
-
-    // Adjusting the framebuffer width to match the window width in order to let the switch scale the image
-    float width_scale_ratio = (float)win_height / (float)gb_height;
-    u32 frame_width = (u32)(gb_wifth * (float)win_width / (float)(gb_wifth * width_scale_ratio));
-
-    initialize_egl(win);
+    if (0 != initialize_egl(win)) {
+        printf("Failed to init egl");
+        goto link_exit;
+    }
 
     if (intiailzie_audio_buffers() != 0) {
         printf("Failed to initialize audio.\n");
-        goto fb_exit;
+        goto egl_exit;
     }
     if (R_FAILED(audoutInitialize())) {
         printf("Failed to initialize audio.\n");
@@ -398,14 +394,14 @@ restart:
         get_joycon_state,
         poll_until_joycon_pressed,
         (GlLoaderCallback)eglGetProcAddress,
-        frame_width,
+        win_width,
         win_height,
         (const char**)roms,
         count
     );
     if (filepath == NULL) {
         printf("Failed to trigger ROM menu.\n");
-        goto fb_exit;
+        goto egl_exit;
     }
 
     // Read a rom file
@@ -413,7 +409,7 @@ restart:
     long file_size = read_rom_buffer(filepath, &rom_buffer);
     if (file_size < 0) {
         printf("Failed to read ROM file.\n");
-        goto fb_exit;
+        goto egl_exit;
     }
 
     u8* found_sram_buffer = NULL;
@@ -425,7 +421,7 @@ restart:
         file_size,
         swap_buffers_cb,
         (GlLoaderCallback)eglGetProcAddress,
-        frame_width,
+        win_width,
         win_height,
         get_joycon_state,
         poll_until_joycon_pressed,
@@ -454,14 +450,7 @@ restart:
         u64 kDown = padGetButtons(&pad);
         if ((kDown & HidNpadButton_L) != 0 && (kDown & HidNpadButton_R) != 0) {
             int shutdown = 0;
-            int menu_option = magenboy_pause_trigger(
-                swap_buffers_cb,
-                get_joycon_state,
-                poll_until_joycon_pressed,
-                (GlLoaderCallback)eglGetProcAddress,
-                frame_width,
-                win_height
-            );
+            int menu_option = magenboy_pause_trigger(ctx);
             switch (menu_option) {
                 case 0: // Resume
                     break;
@@ -501,18 +490,23 @@ restart:
     audoutStopAudioOut();
 audio_exit:
     audoutExit();
+    printf("Close audio\n");
 audio_buffers_exit:
     free(audio_work_buffer);
     free(audio_io_buffer);
-fb_exit:
+egl_exit:
     deinit_egl();
+    printf("Close egl\n");
 link_exit:
     if (nxlink_fd > 0) {
         close(nxlink_fd);
+        printf("CLosed nx link\n");
     }
 scoket_exit:
     if (nxlink_fd > 0) {
         socketExit();
+        printf("CLosed sockets\n");
     }
-    return 0;
+    printf("Closing MagenBoy NX port\n");
+    return EXIT_SUCCESS;
 }

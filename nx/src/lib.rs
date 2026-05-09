@@ -124,14 +124,13 @@ pub unsafe extern "C" fn magenboy_menu_trigger(
         }
         roms_vec
     };
+
+    let mut gfx_device = NxGfxDevice::new(window_width, window_height, gl_loader_calback, gfx_cb, 1);
+    let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
     
     let selection = render_menu(
-        gfx_cb,
-        joypad_cb,
-        poll_joypad_cb,
-        gl_loader_calback,
-        window_width,
-        window_height,
+        &mut provider,
+        &mut gfx_device,
         &roms,
         "Choose ROM menu"
     );
@@ -140,23 +139,16 @@ pub unsafe extern "C" fn magenboy_menu_trigger(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn magenboy_pause_trigger(
-    gfx_cb: SwapBufferCallback,
-    joypad_cb: JoypadProviderCallback,
-    poll_joypad_cb: PollJoypadProviderCallback,
-    gl_loader_calback: GlLoaderCallback,
-    window_width: core::ffi::c_uint,
-    window_height: core::ffi::c_uint,
-) -> u32 {    
+pub unsafe extern "C" fn magenboy_pause_trigger(ctx: *mut c_void,) -> u32 {
     log::info!("Starting pause menu");
     let header: String = alloc::format!("Magenboy {VERSION}");
+    let ctx = ctx as *mut NxGbContext;
+    let joypad_provider = &mut (*ctx).joypad_device;
+    let gfx_device = &mut (*ctx).renderer;
+
     let selection= render_menu(
-        gfx_cb,
-        joypad_cb,
-        poll_joypad_cb,
-        gl_loader_calback,
-        window_width,
-        window_height,
+        joypad_provider,
+        gfx_device,
         &GAME_MENU_OPTIONS,
         header.as_str()
     );
@@ -164,21 +156,16 @@ pub unsafe extern "C" fn magenboy_pause_trigger(
 }
 
 fn render_menu<'a, T>(
-    gfx_cb: SwapBufferCallback,
-    joypad_cb: JoypadProviderCallback,
-    poll_joypad_cb: PollJoypadProviderCallback,
-    gl_load_fn: GlLoaderCallback,
-    window_width: u32,
-    window_height: u32,
-    options: &'a [MenuOption<T, &str>], header: &'a str
+    joypad_provider: &mut NxJoypadProvider,
+    gfx_device: &mut NxGfxDevice,
+    options: &'a [MenuOption<T, &str>],
+    header: &'a str
 ) -> &'a T {
-    let mut gfx_device = NxGfxDevice::new(window_width, window_height, gl_load_fn, gfx_cb, 1);
-    let mut provider = NxJoypadProvider{provider_cb: joypad_cb, poll_cb: poll_joypad_cb};
     let mut menu = JoypadMenu::new(&options, header);
 
     let menu_selection: &T;
+    let mut joypad = joypad_provider.provide();
     loop {
-        let joypad = provider.poll();
         match menu.try_get_menu_selection(joypad) {
             MenuResult::Selection(sel) => {
                 menu_selection = sel;
@@ -188,6 +175,7 @@ fn render_menu<'a, T>(
                 gfx_device.swap_buffer(&frame);
             },
         }
+        joypad = joypad_provider.poll();
     }
     return menu_selection
 }
@@ -201,15 +189,6 @@ pub unsafe extern "C" fn magenboy_cycle_frame(ctx: *mut c_void) {
         let joypad = (*ctx).joypad_device.provide();
         let frame = (*ctx).gb.cycle_frame(joypad);
         (*ctx).renderer.swap_buffer(frame);
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn magenboy_get_dimensions(width: *mut u32, height: *mut u32) {
-    // SAFETY: width and height are valid pointers to uint32_t
-    unsafe {
-        *width = magenboy_core::ppu::gb_ppu::SCREEN_WIDTH as u32;
-        *height = magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT as u32;
     }
 }
 

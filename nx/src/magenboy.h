@@ -58,24 +58,14 @@ const char* magenboy_menu_trigger(SwapBufferCallback gfx_cb, JoypadProviderCallb
     uint32_t window_width, uint32_t window_height, const char** roms, uint32_t roms_count);
 
 // Trigger the pause menu
-//   gfx_cb: callback for swapping buffers
-//   joypad_cb: callback for providing joypad state
-//   poll_joypad_cb: callback for polling joypad state
-//   gl_loader_callback: OpenGL function loader
-//   window_width: width of the display window
-//   window_height: height of the display window
+//   ctx: gb context to operate on
 // Returns: menu option index as uint32_t
-uint32_t magenboy_pause_trigger(SwapBufferCallback gfx_cb, JoypadProviderCallback joypad_cb,
-    PollJoypadProviderCallback poll_joypad_cb, GlLoaderCallback gl_loader_callback,
-    uint32_t window_width, uint32_t window_height);
+uint32_t magenboy_pause_trigger(void* ctx);
 
 // Cycle a frame for the given GameBoy instance.
 //   ctx: pointer to a GameBoy context returned by magenboy_init.
 //   This function polls the joypad, cycles the emulation, and renders a frame.
 void magenboy_cycle_frame(void* ctx);
-
-// Get the GB display dimensions.
-void magenboy_get_dimensions(uint32_t* width, uint32_t* height);
 
 void magenboy_get_sram(void* ctx, uint8_t** sram_buffer, size_t* sram_size);
 
