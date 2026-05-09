@@ -132,7 +132,7 @@ static int intiailzie_audio_buffers() {
     }
 
     memset(audio_work_buffer, 0, AUDIO_BUFFER_SIZE);
-    memset(audio_work_buffer, 0, AUDIO_BUFFER_SIZE);
+    memset(audio_io_buffer, 0, AUDIO_BUFFER_SIZE);
 
     return 0;
 }
@@ -193,6 +193,9 @@ static int initialize_egl(NWindow *win) {
     }
 
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+
+    // Disable VSYNC
+    eglSwapInterval(egl_display, 0);
 
     return 0;
 
