@@ -43,7 +43,7 @@ impl GlGfxDevice {
         unsafe{gl::Viewport(width_gap, height_gap, new_width, new_height)};
     }
 
-    pub fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    pub fn render(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         self.renderer.render(buffer);
     }
 }
@@ -96,17 +96,17 @@ impl GlRenderer {
             gl::BindVertexArray(vertex_array_object);
 
             gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
-            gl::BufferData(gl::ARRAY_BUFFER, std::mem::size_of_val(&POS_TEX_VERTICES) as GLsizeiptr, POS_TEX_VERTICES.as_ptr() as *const _, gl::STATIC_DRAW);
+            gl::BufferData(gl::ARRAY_BUFFER, core::mem::size_of_val(&POS_TEX_VERTICES) as GLsizeiptr, POS_TEX_VERTICES.as_ptr() as *const _, gl::STATIC_DRAW);
 
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, element_buffer_object);
-            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, std::mem::size_of_val(&INDICIES) as GLsizeiptr, INDICIES.as_ptr() as *const _, gl::STATIC_DRAW);
+            gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, core::mem::size_of_val(&INDICIES) as GLsizeiptr, INDICIES.as_ptr() as *const _, gl::STATIC_DRAW);
 
-            let stride = std::mem::size_of::<Vertex>() as GLint;
+            let stride = core::mem::size_of::<Vertex>() as GLint;
             // pos attribute
             gl::VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, stride, 0 as *const _);
             gl::EnableVertexAttribArray(0);
             // tex coord attribute
-            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, (2 * size_of::<GLfloat>()) as *const _);
+            gl::VertexAttribPointer(1, 2, gl::FLOAT, gl::FALSE, stride, (2 * core::mem::size_of::<GLfloat>()) as *const _);
             gl::EnableVertexAttribArray(1);
 
             let texture_object = Self::allocate_texture_object();
@@ -183,7 +183,7 @@ impl GlRenderer {
         if success == 0 {
             gl::GetShaderInfoLog(shader, info_log.len() as GLint, null_mut(), info_log.as_mut_ptr());
             let info_log = CStr::from_ptr(info_log.as_ptr());
-            std::panic!("shader compilation failed {:?}", info_log);
+            core::panic!("shader compilation failed {:?}", info_log);
         }
     }
 
@@ -195,7 +195,7 @@ impl GlRenderer {
         if success == 0 {
             gl::GetProgramInfoLog(program, info_log.len() as GLint,null_mut(), info_log.as_mut_ptr());
             let info_log = CStr::from_ptr(info_log.as_ptr());
-            std::panic!("shader program link failed {:?}", info_log);
+            core::panic!("shader program link failed {:?}", info_log);
         }
     }
 

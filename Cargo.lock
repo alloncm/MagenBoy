@@ -494,18 +494,16 @@ checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
 
 [[package]]
 name = "gl"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a94edab108827d67608095e269cf862e60d920f144a5026d3dbcfd8b877fb404"
+version = "0.14.1"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
 dependencies = [
  "gl_generator",
 ]
 
 [[package]]
 name = "gl_generator"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a95dfc23a2b4a9a2f5ab41d194f8bfda3cabec42af4e39f08c339eb2a0c124d"
+version = "0.15.0"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
 dependencies = [
  "khronos_api",
  "log",
@@ -856,8 +854,7 @@ dependencies = [
 [[package]]
 name = "khronos_api"
 version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
 
 [[package]]
 name = "lazy_static"
