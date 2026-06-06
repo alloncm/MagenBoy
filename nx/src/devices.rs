@@ -3,7 +3,7 @@ use core::ffi::{c_char, c_int, c_void};
 use alloc::ffi::CString;
 
 use magenboy_common::{audio::{AudioResampler, ManualAudioResampler}, gl_gfx_device::GlGfxDevice};
-use magenboy_core::{self, keypad::{button::Button, joypad::Joypad}, AudioDevice};
+use magenboy_core::{self, keypad::{button::Button, joypad::Joypad}, AudioDevice, gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, Pixel};
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
 pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
@@ -86,9 +86,9 @@ impl NxGfxDevice {
 }
 
 impl NxGfxDevice{
-    pub fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
+    pub fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         if self.frame_counter % self.turbo == 0{
-            self.renderer.render(buffer);
+            self.renderer.render(buffer, SCREEN_WIDTH as _, SCREEN_HEIGHT as _);
             unsafe{ (self.swap_buffer_cb)() };
         }
         self.frame_counter = (self.frame_counter + 1) % self.turbo;
