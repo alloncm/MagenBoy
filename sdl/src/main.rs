@@ -130,6 +130,11 @@ fn main() {
                     MenuResult::Selection(menu_option) => match menu_option {
                         EmulatorMenuOption::Resume => {
                             game_menu = false;
+                            while joypad_provider.provide().buttons.iter().any(|b| *b) {
+                                // Wait untill the joypad is not pressed to not leak anything to the emulation
+                                // Keep polling to allow the events to refresh
+                                let _ = poll_event();
+                            }
                             continue;
                         }
                         EmulatorMenuOption::Restart => break,
