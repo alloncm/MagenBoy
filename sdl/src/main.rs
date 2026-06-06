@@ -93,7 +93,7 @@ fn main() {
                         break;
                     },
                     MenuResult::Frame(frame) => {
-                        gfx_device.render(&frame);
+                        gfx_device.render(&frame, SCREEN_WIDTH as _, SCREEN_HEIGHT as _);
                         unsafe{SDL_GL_SwapWindow(sdl_window)};
                     },
                 }
@@ -138,12 +138,12 @@ fn main() {
                             break;
                         }
                     },
-                    MenuResult::Frame(frame) => gfx_device.render(&frame),
+                    MenuResult::Frame(frame) => gfx_device.render(&frame, SCREEN_WIDTH as _, SCREEN_HEIGHT as _),
                 }
             } else {
                 let joypad = joypad_provider.provide();
                 let buffer = gameboy.cycle_frame(joypad);
-                gfx_device.render(buffer);
+                gfx_device.render(buffer, SCREEN_WIDTH as _, SCREEN_HEIGHT as _);
                 #[cfg(feature = "dbg")] 
                 {
                     let Ok(result) = debugger_ppu_layer_receiver.try_recv() else {

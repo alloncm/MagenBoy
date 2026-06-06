@@ -16,7 +16,7 @@ impl GlGfxDevice {
         Self::update_viewport(width as i32, height as i32);
         
         Self {
-            renderer: Rc::new(GlRenderer::new(width, height)),
+            renderer: Rc::new(GlRenderer::new()),
         }
     }
 
@@ -43,8 +43,8 @@ impl GlGfxDevice {
         unsafe{gl::Viewport(width_gap, height_gap, new_width, new_height)};
     }
 
-    pub fn render(&mut self, buffer:&[Pixel]) {
-        self.renderer.render(buffer);
+    pub fn render(&mut self, buffer:&[Pixel], width: u32, height: u32) {
+        self.renderer.render(buffer, width, height);
     }
 }
 
@@ -79,13 +79,10 @@ struct GlRenderer {
     vertex_buffer_object: GLuint,
     element_buffer_object: GLuint,
     texture_object: GLuint,
-
-    width: u32,
-    height: u32,
 }
 
 impl GlRenderer {
-    pub fn new(width: u32, height: u32) -> Self{
+    pub fn new() -> Self{
         unsafe {
             let shader_program = Self::link_shader_program();
 
@@ -124,14 +121,11 @@ impl GlRenderer {
                 vertex_buffer_object,
                 element_buffer_object,
                 texture_object,
-
-                height,
-                width,
             };
         }
     }
 
-    pub fn render(&self, buffer: &[Pixel]) {
+    pub fn render(&self, buffer: &[Pixel], width: u32, height: u32) {
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -143,12 +137,17 @@ impl GlRenderer {
                 0, 
                 0, 
                 0, 
-                self.width as _, 
-                self.height as _, 
+                width as _, 
+                height as _, 
                 gl::RGB, 
                 gl::UNSIGNED_SHORT_5_6_5, 
                 buffer.as_ptr() as *const _
             );
+
+            if let Err(e) = Self::check_gl_error() {
+                core::panic!("GL error after TexSubImage2D: {}", e);
+            }
+
             gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
         }
     }
