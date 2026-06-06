@@ -20,7 +20,7 @@ fn main(){
     }
     #[cfg(not(feature = "os"))]
     {
-        println!("cargo::rustc-check-cfg=cfg(rpi, values(\"4\", \"2\"))");
+        println!("cargo:rustc-check-cfg=cfg(rpi, values(\"4\", \"2\"))");
 
         let crate_manifest_path = env!("CARGO_MANIFEST_DIR");
         let ld_script_path = std::path::Path::new(crate_manifest_path).join(config::LD_SCRIPT_PATH);
