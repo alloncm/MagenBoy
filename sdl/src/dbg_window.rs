@@ -36,7 +36,7 @@ impl PpuLayerWindow{
             SDL_RaiseWindow(self.sdl_window.window_handle);
             let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
             loop{
-                self.renderer.render(buffer);
+                self.renderer.render(buffer, PPU_BUFFER_WIDTH as _, PPU_BUFFER_HEIGHT as _);
                 SDL_PumpEvents();
                 if SDL_PollEvent(event.as_mut_ptr()) != 0{
                     let event: SDL_Event = event.assume_init();
