@@ -2,15 +2,17 @@
 
 cfg_if::cfg_if!{ if #[cfg(feature = "std")] {
     pub mod mbc_handler;
-    pub mod mpmc_gfx_device;
     pub mod logging;
     pub mod initialization;
+
     pub use initialization::*;
+    pub use log;
 }}
 
 cfg_if::cfg_if!{ if #[cfg(feature = "alloc")] {
     extern crate alloc;
     
+    pub mod gl_gfx_device;
     pub mod audio{
         mod audio_resampler;
         mod manual_audio_resampler;

@@ -20,6 +20,8 @@ fn main(){
     }
     #[cfg(not(feature = "os"))]
     {
+        println!("cargo:rustc-check-cfg=cfg(rpi, values(\"4\", \"2\"))");
+
         let crate_manifest_path = env!("CARGO_MANIFEST_DIR");
         let ld_script_path = std::path::Path::new(crate_manifest_path).join(config::LD_SCRIPT_PATH);
         let ld_script_path = ld_script_path.to_str().unwrap();
@@ -41,8 +43,10 @@ fn main(){
         std::fs::write(config_file_path, config::CONFIG_TXT_CONTENT).unwrap();
 
         // Add the cfg option `rpi` with that value of the env var `RPI`
-        let rpi_version = std::env::var(config::RPI_ENV_VAR_NAME)
-            .expect(std::format!("{} env must be set", config::RPI_ENV_VAR_NAME).as_str());
+        let rpi_version = std::env::var(config::RPI_ENV_VAR_NAME).unwrap_or_else(|_| {
+            println!("cargo:warning={}", std::format!("{} env must be set, default is RPI=4 ", config::RPI_ENV_VAR_NAME));
+            String::from("4")
+        });
         println!("cargo:rustc-cfg=rpi=\"{}\"", rpi_version);
     }
 }

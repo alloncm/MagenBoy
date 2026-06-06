@@ -268,11 +268,10 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.1"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06ed27e177f16d65f0f0c22a213e17c696ace5dd64b14258b52f9417ccb52db4"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
 dependencies = [
- "cfg-if",
  "crossbeam-utils",
 ]
 
@@ -492,6 +491,24 @@ name = "gimli"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
+
+[[package]]
+name = "gl"
+version = "0.14.1"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+dependencies = [
+ "gl_generator",
+]
+
+[[package]]
+name = "gl_generator"
+version = "0.15.0"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+dependencies = [
+ "khronos_api",
+ "log",
+ "xml-rs",
+]
 
 [[package]]
 name = "half"
@@ -835,6 +852,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "khronos_api"
+version = "3.1.0"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -892,9 +914,9 @@ dependencies = [
  "cfg-if",
  "chrono",
  "criterion",
- "crossbeam-channel",
  "fast_image_resize",
  "fern",
+ "gl",
  "libm",
  "log",
  "magenboy_core",
@@ -905,7 +927,6 @@ name = "magenboy_core"
 version = "4.2.0"
 dependencies = [
  "cfg-if",
- "criterion",
  "image",
  "log",
  "reqwest",
@@ -938,7 +959,6 @@ dependencies = [
  "arrayvec",
  "bitfield-struct",
  "cfg-if",
- "crossbeam-channel",
  "libc",
  "log",
  "magenboy_common",
@@ -1376,9 +1396,9 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sdl2"
-version = "0.35.1"
+version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f035f8e87735fa3a8437292be49fe6056450f7cbb13c230b4bcd1bdd7279421f"
+checksum = "f7959277b623f1fb9e04aea73686c3ca52f01b2145f8ea16f4ff30d8b7623b1a"
 dependencies = [
  "bitflags 1.3.2",
  "lazy_static",
@@ -1388,9 +1408,9 @@ dependencies = [
 
 [[package]]
 name = "sdl2-sys"
-version = "0.35.1"
+version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94cb479353c0603785c834e2307440d83d196bf255f204f7f6741358de8d6a2f"
+checksum = "e3586be2cf6c0a8099a79a12b4084357aa9b3e0b0d7980e3b67aaf7a9d55f9f0"
 dependencies = [
  "cfg-if",
  "cmake",
@@ -2024,6 +2044,12 @@ name = "writeable"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
+
+[[package]]
+name = "xml-rs"
+version = "0.8.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fd8403733700263c6eb89f192880191f1b83e332f7a20371ddcf421c4a337c7"
 
 [[package]]
 name = "yoke"

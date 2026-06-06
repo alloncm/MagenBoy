@@ -1,32 +1,28 @@
-use std::{collections::hash_map::DefaultHasher, convert::TryInto, hash::{Hash, Hasher}, io::Read, sync::atomic::AtomicBool};
+use std::{collections::hash_map::DefaultHasher, convert::TryInto, hash::{Hash, Hasher}, io::Read};
 
-use magenboy_core::{keypad::{joypad::Joypad, joypad_provider::JoypadProvider}, machine::{Mode, gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::{external_memory_bus::Bootrom, carts::Mbc}, ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, gfx_device::*}, apu::audio_device::*};
+use magenboy_core::{keypad::joypad::Joypad, machine::{Mode, gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::{external_memory_bus::Bootrom, carts::Mbc}, ppu::{gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, FrameBuffer}, apu::audio_device::*};
 
-struct CheckHashGfxDevice<'a>{
+struct HashChecker{
     hash: u64,
     last_hash: u64,
-    found: &'a AtomicBool,
 }
-impl<'a> GfxDevice for CheckHashGfxDevice<'a>{
-    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+impl HashChecker{
+    fn check_hash(&mut self, buffer:&FrameBuffer) -> bool {
         let mut s = DefaultHasher::new();
         buffer.hash(&mut s);
         let hash = s.finish();
         if self.last_hash == hash && hash == self.hash{
-            self.found.store(true, std::sync::atomic::Ordering::Relaxed);
+            true
+        } else {
+            self.last_hash = hash;
+            false
         }
-        self.last_hash = hash;
     }
 }
 
 struct StubAudioDevice;
 impl AudioDevice for StubAudioDevice{
     fn push_buffer(&mut self, _buffer:&[StereoSample; BUFFER_SIZE]) {}
-}
-
-struct StubJoypadProvider;
-impl JoypadProvider for StubJoypadProvider{
-    fn provide(&mut self, _joypad:&mut Joypad) {}
 }
 
 #[test]
@@ -194,22 +190,19 @@ fn run_integration_test_from_url(program_url:&str, frames_to_execute:u32, expect
 
 fn run_integration_test(program:Vec<u8>, boot_rom:Option<Bootrom>, frames_to_execute:u32, expected_hash:u64, fail_message:String, mode:Option<Mode>){
     let mbc:&'static mut dyn Mbc = initialize_mbc(&program, None);
-    let found = AtomicBool::new(false);
     let mut gameboy = match boot_rom {
         Some(b)=>GameBoy::new_with_bootrom(
             mbc,
-            StubJoypadProvider{},
-            StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, b),
+            StubAudioDevice{}, b),
         None => GameBoy::new_with_mode(mbc,
-            StubJoypadProvider{},
-            StubAudioDevice{}, 
-            CheckHashGfxDevice{hash:expected_hash,last_hash: 0, found: &found}, mode.unwrap())
+            StubAudioDevice{}, mode.unwrap())
         };
 
+    let mut hash_checker = HashChecker{hash:expected_hash,last_hash: 0};
+
     for _ in 0..frames_to_execute {
-        gameboy.cycle_frame();
-        if found.load(std::sync::atomic::Ordering::Relaxed){
+        let buffer = gameboy.cycle_frame(Joypad::default());
+        if hash_checker.check_hash(buffer) {
             return;
         }
     }
@@ -238,13 +231,13 @@ fn generate_hash(){
 }
 
 fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
-    struct GetHashGfxDevice{
+    struct HashGenerator{
         last_hash:u64,
         last_hash_counter:u32,
         frames_counter:u32
     }
-    impl GfxDevice for GetHashGfxDevice{
-        fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    impl HashGenerator{
+        fn process_buffer(&mut self, buffer:&FrameBuffer) {
             if self.frames_counter < 700{
                 self.frames_counter += 1;
                 return;
@@ -276,14 +269,17 @@ fn calc_hash(rom_path:&str, boot_rom_path:Option<&str>, mode:Option<Mode>){
 
     let mbc = initialize_mbc(&program, None);
 
-    let test_gfx_device = GetHashGfxDevice{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
+    let mut test_gfx_device = HashGenerator{ last_hash: 0, last_hash_counter: 0, frames_counter: 0 };
     let mut gameboy = if let Some(boot_rom_path) = boot_rom_path{
         let boot_rom = std::fs::read(boot_rom_path).expect("Cant find bootrom");
-        GameBoy::new_with_bootrom(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device,Bootrom::Gb(boot_rom.try_into().unwrap()))
+        GameBoy::new_with_bootrom(mbc, StubAudioDevice{},Bootrom::Gb(boot_rom.try_into().unwrap()))
     }
     else{
-        GameBoy::new_with_mode(mbc, StubJoypadProvider{}, StubAudioDevice{}, test_gfx_device, mode.unwrap())
+        GameBoy::new_with_mode(mbc, StubAudioDevice{}, mode.unwrap())
     };
 
-    loop {gameboy.cycle_frame();}
+    loop {
+        let buffer = gameboy.cycle_frame(Joypad::default());
+        test_gfx_device.process_buffer(buffer);
+    }
 }

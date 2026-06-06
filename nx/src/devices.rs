@@ -1,7 +1,9 @@
-use core::ffi::c_int;
+use core::ffi::{c_char, c_int, c_void};
 
-use magenboy_common::{audio::{ManualAudioResampler, AudioResampler}, joypad_menu::MenuJoypadProvider};
-use magenboy_core::{AudioDevice, GfxDevice, self, JoypadProvider, keypad::button::Button};
+use alloc::ffi::CString;
+
+use magenboy_common::{audio::{AudioResampler, ManualAudioResampler}, gl_gfx_device::GlGfxDevice};
+use magenboy_core::{self, keypad::{button::Button, joypad::Joypad}, AudioDevice, gb_ppu::{SCREEN_WIDTH, SCREEN_HEIGHT}, Pixel};
 
 pub type JoypadProviderCallback = unsafe extern "C" fn() -> u64;
 pub type PollJoypadProviderCallback = unsafe extern "C" fn() -> u64;
@@ -35,34 +37,59 @@ impl NxJoypadProvider{
         joypad.buttons[Button::Right as usize]  = (joycons_state & JOYCON_RIGHT) != 0;
         joypad.buttons[Button::Left as usize]   = (joycons_state & JOYCON_LEFT) != 0;
     }
-}
-
-impl JoypadProvider for NxJoypadProvider {
-    fn provide(&mut self, joypad: &mut magenboy_core::keypad::joypad::Joypad) {
+    
+    pub fn provide(&mut self) -> Joypad {
+        let mut joypad: Joypad = Default::default();
         let joycons_state = unsafe{(self.provider_cb)()};
-        Self::update_state(joypad, joycons_state);
+        Self::update_state(&mut joypad, joycons_state);
+        return joypad;
     }
-}
-
-impl MenuJoypadProvider for NxJoypadProvider {
-    fn poll(&mut self, joypad:&mut magenboy_core::keypad::joypad::Joypad) {
+    
+    pub fn poll(&mut self) -> Joypad {
+        let mut joypad: Joypad = Default::default();
         let joycon_state = unsafe{(self.poll_cb)()};
-        Self::update_state(joypad, joycon_state);
+        Self::update_state(&mut joypad, joycon_state);
+        return joypad;
     }
 }
 
-pub type GfxDeviceCallback = unsafe extern "C" fn(buffer:*const u16) -> ();
+pub type SwapBufferCallback = unsafe extern "C" fn() -> ();
+pub type GlLoaderCallback = unsafe extern "C" fn(proc_name: *const c_char) -> *const c_void;
 
 pub(crate) struct NxGfxDevice{
-    pub cb: GfxDeviceCallback,
-    pub turbo: u32,
-    pub frame_counter: u32,
+    swap_buffer_cb: SwapBufferCallback,
+    turbo: u32,
+    frame_counter: u32,
+    renderer: GlGfxDevice,
 }
 
-impl GfxDevice for NxGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[magenboy_core::Pixel; magenboy_core::ppu::gb_ppu::SCREEN_HEIGHT * magenboy_core::ppu::gb_ppu::SCREEN_WIDTH]) {
+impl NxGfxDevice {
+    pub fn new(
+        width: u32,
+        height: u32,
+        gl_load_fn: GlLoaderCallback,
+        swap_buffer_cb: SwapBufferCallback, 
+        turbo: u32
+    ) -> Self {
+        let gl_loader = |s: &'static str| -> *const c_void {
+            let name = CString::new(s).unwrap();
+            unsafe{gl_load_fn(name.as_ptr())}
+        };
+        let renderer = GlGfxDevice::new(width, height, gl_loader);
+        Self { 
+            swap_buffer_cb, 
+            turbo, 
+            frame_counter: 0, 
+            renderer 
+        }
+    }
+}
+
+impl NxGfxDevice{
+    pub fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
         if self.frame_counter % self.turbo == 0{
-            unsafe{(self.cb)(buffer.as_ptr())}; 
+            self.renderer.render(buffer, SCREEN_WIDTH as _, SCREEN_HEIGHT as _);
+            unsafe{ (self.swap_buffer_cb)() };
         }
         self.frame_counter = (self.frame_counter + 1) % self.turbo;
     }

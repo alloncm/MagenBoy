@@ -1,4 +1,4 @@
-use super::gfx_device::Pixel;
+use super::Pixel;
 
 pub const WHITE:Color = Color {r: 255,g: 255,b: 255};
 pub const LIGHT_GRAY:Color = Color {r: 160,g: 160,b: 160};
