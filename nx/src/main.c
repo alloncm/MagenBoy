@@ -209,8 +209,7 @@ err:
     return -1;
 }
 
-static void deinit_egl()
-{
+static void deinit_egl() {
     if (egl_display)
     {
         eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -333,7 +332,6 @@ int main(int argc, char* argv[]) {
     if (nxlink_fd < 0) {
         printf("Failed to initialize NXLink: %d.\n", errno);
         socketExit();
-        goto link_exit;
     }
 
     // Configure our supported input layout: a single player with standard controller styles
@@ -348,7 +346,7 @@ int main(int argc, char* argv[]) {
     u32 win_width, win_height;
     if (R_FAILED(nwindowGetDimensions(win, &win_width, &win_height))) {
         printf("Failed to get window dimensions.\n");
-        goto scoket_exit;
+        goto link_exit;
     }
 
     if (0 != initialize_egl(win)) {
@@ -504,9 +502,6 @@ link_exit:
     if (nxlink_fd > 0) {
         close(nxlink_fd);
         printf("CLosed nx link\n");
-    }
-scoket_exit:
-    if (nxlink_fd > 0) {
         socketExit();
         printf("CLosed sockets\n");
     }
