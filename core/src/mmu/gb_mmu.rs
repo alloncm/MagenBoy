@@ -248,7 +248,7 @@ impl<'a, D:AudioDevice> GbMmu<'a, D>{
     pub fn get_frame_buffer(&mut self) -> &FrameBuffer {self.io_bus.ppu.get_frame_buffer()}
 
     #[cfg(feature = "dbg")]
-    pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu<G>{&self.io_bus.ppu}
+    pub fn get_ppu(&self)->&crate::ppu::gb_ppu::GbPpu{&self.io_bus.ppu}
 
     #[cfg(feature = "dbg")]
     pub fn dbg_read(&mut self, address:u16)->u8{self.read_unprotected(address)}

@@ -1,17 +1,20 @@
 mod audio;
 mod utils;
 mod sdl_joypad_provider;
+mod window;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
+#[cfg(feature = "dbg")]
+mod dbg_window;
 
-use std::{env, ffi::CString, path::PathBuf, ptr::null_mut, result::Result, vec::Vec};
+use std::{env, ffi::CString, path::PathBuf, result::Result, vec::Vec};
 
 use sdl2::sys::*;
 
 use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*, gl_gfx_device::GlGfxDevice};
-use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY};
+use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY, utils::vec2::Vec2};
 
-use crate::{audio::*, utils::get_sdl_error_message, SdlAudioDevice};
+use crate::{audio::*, utils::get_sdl_error_message, SdlAudioDevice, window::SdlWindow};
 
 const TURBO_MUL:u8 = 1;
 
@@ -41,34 +44,8 @@ fn main() {
     init_sdl_subsystem(SDL_INIT_VIDEO);
     init_sdl_subsystem(SDL_INIT_AUDIO);
 
-    let (sdl_window, sdl_gl_context) = unsafe {
-
-        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_MINOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GLattr::SDL_GL_CONTEXT_PROFILE_MASK, SDL_GLprofile::SDL_GL_CONTEXT_PROFILE_CORE as i32);
-
-        let window: *mut SDL_Window = SDL_CreateWindow(
-            header.as_str().as_ptr() as _,
-            SDL_WINDOWPOS_UNDEFINED_MASK as i32, 
-            SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-            (SCREEN_WIDTH * SCREEN_SCALE) as i32,
-            (SCREEN_HEIGHT * SCREEN_SCALE) as i32, 
-            SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32 | SDL_WindowFlags::SDL_WINDOW_OPENGL as u32
-        );
-
-        if window == null_mut() {
-            std::panic!("Failed to create SDL window, message: {}", get_sdl_error_message());
-        }
-
-        let gl_context: SDL_GLContext = SDL_GL_CreateContext(window);
-        if gl_context == null_mut() {
-            std::panic!("Failed to get SDL GL context: message: {}", get_sdl_error_message());
-        }
-        // Enables vsync
-        SDL_GL_SetSwapInterval(1);
-
-        (window, gl_context)
-    };
+    let window = SdlWindow::new(header.clone(), Vec2{x: SCREEN_WIDTH, y: SCREEN_HEIGHT}, SCREEN_SCALE);
+    let sdl_window = window.window_handle;
 
     let mut shutdown = false;
 
@@ -138,7 +115,7 @@ fn main() {
             args,
             mbc,
             audio_devices,
-            #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_sender)
+            #[cfg(feature = "dbg")] terminal_debugger::TerminalDebugger::new(debugger_ppu_layer_sender)
         );
 
         let mut game_menu = false;
@@ -167,6 +144,14 @@ fn main() {
                 let joypad = joypad_provider.provide();
                 let buffer = gameboy.cycle_frame(joypad);
                 gfx_device.render(buffer);
+                #[cfg(feature = "dbg")] 
+                {
+                    let Ok(result) = debugger_ppu_layer_receiver.try_recv() else {
+                        break
+                    };
+                    let mut window = dbg_window::PpuLayerWindow::new(gfx_device.clone(), result.1);
+                    window.run(&result.0);
+                }
             };
             // SAFETY: SDL call
             unsafe{SDL_GL_SwapWindow(sdl_window)};
@@ -179,7 +164,6 @@ fn main() {
 
     // SAFETY: SDL calls
     unsafe{
-        SDL_GL_DeleteContext(sdl_gl_context);
         SDL_Quit();
     }
 }

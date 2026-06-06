@@ -16,7 +16,7 @@ impl GlGfxDevice {
         Self::update_viewport(width as i32, height as i32);
         
         Self {
-            renderer: Rc::new(GlRenderer::new()),
+            renderer: Rc::new(GlRenderer::new(width, height)),
         }
     }
 
@@ -43,7 +43,7 @@ impl GlGfxDevice {
         unsafe{gl::Viewport(width_gap, height_gap, new_width, new_height)};
     }
 
-    pub fn render(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    pub fn render(&mut self, buffer:&[Pixel]) {
         self.renderer.render(buffer);
     }
 }
@@ -79,10 +79,13 @@ struct GlRenderer {
     vertex_buffer_object: GLuint,
     element_buffer_object: GLuint,
     texture_object: GLuint,
+
+    width: u32,
+    height: u32,
 }
 
 impl GlRenderer {
-    pub fn new() -> Self{
+    pub fn new(width: u32, height: u32) -> Self{
         unsafe {
             let shader_program = Self::link_shader_program();
 
@@ -120,12 +123,15 @@ impl GlRenderer {
                 vertex_array_object,
                 vertex_buffer_object,
                 element_buffer_object,
-                texture_object
+                texture_object,
+
+                height,
+                width,
             };
         }
     }
 
-    pub fn render(&self, buffer: &[u16; SCREEN_HEIGHT * SCREEN_WIDTH]) {
+    pub fn render(&self, buffer: &[Pixel]) {
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -137,8 +143,8 @@ impl GlRenderer {
                 0, 
                 0, 
                 0, 
-                SCREEN_WIDTH as _, 
-                SCREEN_HEIGHT as _, 
+                self.width as _, 
+                self.height as _, 
                 gl::RGB, 
                 gl::UNSIGNED_SHORT_5_6_5, 
                 buffer.as_ptr() as *const _
