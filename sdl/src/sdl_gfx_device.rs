@@ -1,158 +1,61 @@
-use std::ffi::{CString, c_void};
+use std::{ffi::CString, time::Instant, ptr};
+
 use sdl2::sys::*;
-use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, utils::vec2::Vec2, GfxDevice, Pixel};
-use super::utils::get_sdl_error_message;
 
-// The bit order is high bits -> low bits as opposed to RGB555 in the gbdev docs which is low -> high.
-// Using 565 since Pixel also uses this more convenient format
-const SDL_PIXEL_FORMAT:u32 = SDL_PixelFormatEnum::SDL_PIXELFORMAT_RGB565 as u32;
+use magenboy_common::gl_gfx_device::GlGfxDevice;
+use magenboy_core::Pixel;
 
-struct SdlWindow{
-    _window_name: CString,
-    window: *mut SDL_Window,
-    renderer: *mut SDL_Renderer,
-    texture: *mut SDL_Texture,
+pub struct SdlGfxDevice {
+    gl_gfx_device: GlGfxDevice,
+    sdl_window_handle: ptr::NonNull<SDL_Window>,
+    frames_counter: u32,
+    timer: Instant
 }
 
-impl SdlWindow{
-    fn new(window_name:&str, dimensions: Vec2<usize>, screen_scale: usize, disable_vsync:bool, window_flags:u32)->Self{
-        let cs_wnd_name = CString::new(window_name).unwrap();
-        let width = dimensions.x as i32;
-        let height = dimensions.y as i32;
-        unsafe{
-            if SDL_Init(SDL_INIT_VIDEO) != 0{
-                std::panic!("Init error: {}", get_sdl_error_message());
-            }
+impl SdlGfxDevice {
+    pub fn new(window_handle: ptr::NonNull<SDL_Window>) -> Self{
+        let mut width: i32 = 0;
+        let mut height: i32 = 0;
+        // SAFETY: SDL call
+        // window parameter is not null
+        unsafe {
+            // Enables vsync
+            SDL_GL_SetSwapInterval(1);
+            SDL_GetWindowSize(window_handle.as_ptr(), &mut width, &mut height);
+        }
 
-            let window:*mut SDL_Window = SDL_CreateWindow(
-                cs_wnd_name.as_ptr(),SDL_WINDOWPOS_UNDEFINED_MASK as i32, SDL_WINDOWPOS_UNDEFINED_MASK as i32,
-                 width * screen_scale as i32, height * screen_scale as i32, window_flags);
+        let gl_gfx_device = GlGfxDevice::new(width as u32, height as u32, |s|{
+            let name = CString::new(s).unwrap();
+            unsafe{SDL_GL_GetProcAddress(name.as_ptr())}
+        });
 
-            let mut render_flags = SDL_RendererFlags::SDL_RENDERER_ACCELERATED as u32;
-            if !disable_vsync{
-                render_flags |= SDL_RendererFlags::SDL_RENDERER_PRESENTVSYNC as u32;
-            }
+        Self { gl_gfx_device, sdl_window_handle: window_handle, frames_counter: 0, timer: Instant::now() }
+    }
 
-            let renderer: *mut SDL_Renderer = SDL_CreateRenderer(window, -1, render_flags);
-
-            if SDL_RenderSetLogicalSize(renderer, width , height) != 0{
-                std::panic!("Error while setting logical rendering\nError:{}", get_sdl_error_message());
-            }
-            
-            let texture: *mut SDL_Texture = SDL_CreateTexture(renderer, SDL_PIXEL_FORMAT,SDL_TextureAccess::SDL_TEXTUREACCESS_STREAMING as i32, width, height);
-
-            SDL_SetWindowMinimumSize(window, width, height);
+    pub fn render(&mut self, buffer:&[Pixel], width: u32, height: u32) {
+        self.gl_gfx_device.render(buffer, width, height);
         
-            return Self{_window_name: cs_wnd_name, window, renderer, texture};
-        }
-    }
+        // SAFETY: SDL call
+        // window parameter is not null
+        unsafe{SDL_GL_SwapWindow(self.sdl_window_handle.as_ptr())};
 
-    fn render(&self, buffer: &[Pixel]) {
-        unsafe{
-            let mut pixels: *mut c_void = std::ptr::null_mut();
-            let mut length: std::os::raw::c_int = 0;
-            SDL_LockTexture(self.texture, std::ptr::null(), &mut pixels, &mut length);
-            std::ptr::copy_nonoverlapping(buffer.as_ptr(),pixels as *mut Pixel,  buffer.len());
-            SDL_UnlockTexture(self.texture);
-    
-            // Clear renderer for cases where the window could be resized
-            SDL_RenderClear(self.renderer);
-            SDL_RenderCopy(self.renderer, self.texture, std::ptr::null(), std::ptr::null());
-            SDL_RenderPresent(self.renderer);
-        }
-    }
-}
-
-impl Drop for SdlWindow{
-    fn drop(&mut self) {
-        unsafe{
-            SDL_DestroyTexture(self.texture);
-            SDL_DestroyRenderer(self.renderer);
-            SDL_DestroyWindow(self.window);
-        }
-    }
-}
-
-pub struct SdlGfxDevice{
-    sdl_window:SdlWindow,
-    discard:u8,
-    turbo_mul:u8,
-}
-
-impl SdlGfxDevice{
-    pub fn new(window_name:&str, screen_scale: usize, turbo_mul:u8, disable_vsync:bool, full_screen:bool)->Self{
+        // measure fps
+        self.frames_counter += 1;
+        let duration = self.timer.elapsed();
         
-        let window_flags = if full_screen{                
-            // Hide cursor
-            unsafe{SDL_ShowCursor(0);}
-            SDL_WindowFlags::SDL_WINDOW_FULLSCREEN_DESKTOP as u32
-        }
-        else{
-            SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32
-        };
-        
-        return Self{discard:0, turbo_mul, sdl_window: SdlWindow::new(window_name, Vec2{x:SCREEN_WIDTH, y:SCREEN_HEIGHT}, screen_scale, disable_vsync, window_flags)};
-    }
-
-    pub fn poll_event(&self)->Option<SDL_Event>{
-        unsafe{
-            let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
-            // updating the events for the whole app
-            SDL_PumpEvents();
-            if SDL_PollEvent(event.as_mut_ptr()) != 0{
-                return Option::Some(event.assume_init());
-            }
-            return Option::None;
+        if duration.as_millis() > 1000{
+            log::debug!("FPS: {}", self.frames_counter);
+            self.frames_counter = 0;
+            self.timer = Instant::now();
         }
     }
-}
 
-impl GfxDevice for SdlGfxDevice{
-    fn swap_buffer(&mut self, buffer:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {
-        self.discard = (self.discard + 1) % self.turbo_mul;
-        if self.discard != 0{
-            return;
-        }
-        self.sdl_window.render(buffer);
-    }
-}
+    pub fn update_viewport(&mut self) {
+        let mut width: i32 = 0;
+        let mut height: i32 = 0;
+        // SAFETY: params are initialized
+        unsafe{SDL_GetWindowSize(self.sdl_window_handle.as_ptr(), &mut width, &mut height)};
 
-#[cfg(feature = "dbg")]
-pub struct PpuLayerWindow{
-    sdl_window: SdlWindow
-}
-
-#[cfg(feature = "dbg")]
-impl PpuLayerWindow{
-    pub fn new(layer:magenboy_core::debugger::PpuLayer)->Self{
-        use magenboy_core::debugger::{PpuLayer, PPU_BUFFER_HEIGHT, PPU_BUFFER_WIDTH};
-
-        let layer_name = match layer{
-            PpuLayer::Background => "Background",
-            PpuLayer::Window => "Window",
-            PpuLayer::Sprites => "Sprites"
-        };
-
-        let name = std::format!("Ppu {} debugger", layer_name);
-        
-        let window_flags = SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32 | SDL_WindowFlags::SDL_WINDOW_ALWAYS_ON_TOP as u32;
-        return Self { sdl_window: SdlWindow::new(&name, Vec2 { x: PPU_BUFFER_WIDTH, y: PPU_BUFFER_HEIGHT }, 1, false, window_flags)};
-    }
-
-    pub fn run(&mut self, buffer:&[Pixel;magenboy_core::debugger::PPU_BUFFER_SIZE]){
-        unsafe{
-            SDL_RaiseWindow(self.sdl_window.window);
-            let mut event: std::mem::MaybeUninit<SDL_Event> = std::mem::MaybeUninit::uninit();
-            loop{
-                self.sdl_window.render(buffer);
-                SDL_PumpEvents();
-                if SDL_PollEvent(event.as_mut_ptr()) != 0{
-                    let event: SDL_Event = event.assume_init();
-                    if event.type_ == SDL_EventType::SDL_WINDOWEVENT as u32 && event.window.event == SDL_WindowEventID::SDL_WINDOWEVENT_CLOSE as u8{
-                        break;
-                    }
-                }
-            }   
-        }
+        GlGfxDevice::update_viewport(width, height);
     }
 }

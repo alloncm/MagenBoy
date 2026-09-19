@@ -1,9 +1,4 @@
-use magenboy_core::{mmu::{vram_dma_controller::VramDmaController, external_memory_bus::*, carts::Mbc}, ppu::{gb_ppu::*, gfx_device::*, ppu_state::PpuState}, machine::Mode};
-
-struct StubGfxDevice;
-impl GfxDevice for StubGfxDevice{
-    fn swap_buffer(&mut self, _:&[Pixel; SCREEN_HEIGHT * SCREEN_WIDTH]) {}
-}
+use magenboy_core::{mmu::{vram_dma_controller::VramDmaController, external_memory_bus::*, carts::Mbc}, ppu::{gb_ppu::*, ppu_state::PpuState}, machine::Mode};
 
 const MEMORY_SIZE:usize = 0x1000;
 
@@ -23,7 +18,7 @@ impl Mbc for EmptyMbc{
 #[test]
 fn vram_dma_transfer_test(){
     let mut controller = VramDmaController::new();
-    let mut ppu = GbPpu::new(StubGfxDevice, Mode::CGB);
+    let mut ppu = GbPpu::new(Mode::CGB);
     let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
     let mut memory = ExternalMemoryBus::new(&mut mbc, None);
     let dma_len_reg = 100;
@@ -44,7 +39,7 @@ fn vram_dma_transfer_test(){
 #[test]
 fn vram_hblank_dma_transfer_test<'a>(){
     let mut controller = VramDmaController::new();
-    let mut ppu = GbPpu::new(StubGfxDevice, Mode::CGB);
+    let mut ppu = GbPpu::new(Mode::CGB);
     let mut mbc = EmptyMbc{memory:[22;MEMORY_SIZE]};
     let mut memory = ExternalMemoryBus::new(&mut mbc, None);
     let dma_len_reg = 100;

@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use magenboy_core::apu::audio_device::{BUFFER_SIZE, StereoSample};
+use magenboy_core::apu::audio_device::StereoSample;
 
 use super::audio_resampler::AudioResampler;
 
@@ -47,26 +47,24 @@ impl AudioResampler for ManualAudioResampler{
         }
     }
 
-    fn resample(&mut self, buffer:&[StereoSample; BUFFER_SIZE])->Vec<StereoSample>{
-        let mut output = Vec::new();
-        for sample in buffer.into_iter(){
-            self.sampling_buffer.push(sample.clone());
-            self.sampling_counter += 1;
-    
-            if self.sampling_counter == self.skip_to_use {
-                let interpolated_sample = StereoSample::interpolate(&self.sampling_buffer);
-                self.sampling_counter = 0;
-                self.sampling_buffer.clear();
+    fn resample(&mut self, sample: StereoSample)-> Option<StereoSample> {
+        let mut output = None;
+        self.sampling_buffer.push(sample.clone());
+        self.sampling_counter += 1;
 
-                output.push(interpolated_sample);
-                if self.reminder_counter >= 1.0{
-                    self.skip_to_use = self.alternate_to_skip;
-                    self.reminder_counter -= 1.0;
-                }
-                else{
-                    self.skip_to_use = self.to_skip;
-                    self.reminder_counter += self.reminder_steps;
-                }
+        if self.sampling_counter == self.skip_to_use {
+            let interpolated_sample = StereoSample::interpolate(&self.sampling_buffer);
+            self.sampling_counter = 0;
+            self.sampling_buffer.clear();
+
+            output = Some(interpolated_sample);
+            if self.reminder_counter >= 1.0{
+                self.skip_to_use = self.alternate_to_skip;
+                self.reminder_counter -= 1.0;
+            }
+            else{
+                self.skip_to_use = self.to_skip;
+                self.reminder_counter += self.reminder_steps;
             }
         }
 

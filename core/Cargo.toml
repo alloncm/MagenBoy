@@ -14,11 +14,6 @@ apu = []
 dbg = []
 
 [dev-dependencies]
-criterion = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "default-tls"] }
 zip = { version = "2.3", default-features = false, features = ["deflate"] }
 image = { version = "0.25", default-features = false, features = ["bmp"] }
-
-[[bench]]
-name = "lib_gb_bench"
-harness = false

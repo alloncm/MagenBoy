@@ -23,8 +23,6 @@ pub struct GbApu<Device: AudioDevice>{
     pub nr50_register:u8, // The register orignal raw value
     pub nr51_register:u8, // The register orignal raw value
 
-    audio_buffer:[StereoSample;BUFFER_SIZE],
-    current_m_cycle:u32,
     device:Device,
 }
 
@@ -36,8 +34,6 @@ impl<Device: AudioDevice> GbApu<Device>{
             wave_channel:Channel::<WaveSampleProducer>::new(WaveSampleProducer::default()),
             tone_channel: Channel::<SquareSampleProducer>::new(SquareSampleProducer::new()),
             noise_channel: Channel::<NoiseSampleProducer>::new(NoiseSampleProducer::default()),
-            audio_buffer:crate::utils::create_array(StereoSample::const_defualt),
-            current_m_cycle:0,
             device:device,
             right_terminal: SoundTerminal::default(),
             left_terminal: SoundTerminal::default(),
@@ -63,24 +59,16 @@ impl<Device: AudioDevice> GbApu<Device>{
                 let left_sample = self.left_terminal.mix_terminal_samples(&samples);
                 let right_sample = self.right_terminal.mix_terminal_samples(&samples);
             
-                self.audio_buffer[self.current_m_cycle as usize].left_sample = left_sample;
-                self.audio_buffer[self.current_m_cycle as usize].right_sample = right_sample;
-                
-                self.current_m_cycle += 1;
-
-                self.push_buffer_if_full();
+                self.device.push_sample(StereoSample{left_sample, right_sample});
             }
         }
         else{
             for _ in 0..m_cycles_passed{
-                self.audio_buffer[self.current_m_cycle as usize] = StereoSample::const_defualt();
-                self.current_m_cycle += 1;
-
-                self.push_buffer_if_full();
+                self.device.push_sample(StereoSample::const_defualt());
             }
         }
 
-        return BUFFER_SIZE as u32 - self.current_m_cycle;
+        return 1;
     }
 
     pub fn reset(&mut self){
@@ -91,13 +79,6 @@ impl<Device: AudioDevice> GbApu<Device>{
         self.frame_sequencer.reset();
         self.nr50_register = 0;
         self.nr51_register = 0;
-    }
-
-    fn push_buffer_if_full(&mut self){
-        if self.current_m_cycle as usize >= BUFFER_SIZE{
-            self.current_m_cycle = 0;
-            self.device.push_buffer(&self.audio_buffer);
-        }
     }
 
     fn update_channels_for_frame_squencer(&mut self, tick:TickType){

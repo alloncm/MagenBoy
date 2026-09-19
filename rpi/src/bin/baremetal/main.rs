@@ -8,7 +8,7 @@ use core::panic::PanicInfo;
 
 use arrayvec::ArrayString;
 
-use magenboy_common::{joypad_menu::{joypad_gfx_menu::{self, GfxDeviceMenuRenderer}, JoypadMenu, }, menu::*, VERSION};
+use magenboy_common::{joypad_menu::{JoypadMenu, MenuResult}, menu::*, VERSION};
 use magenboy_core::{machine::{gameboy::GameBoy, mbc_initializer::initialize_mbc}, mmu::carts::Mbc};
 use magenboy_rpi::{drivers::*, peripherals::{PERIPHERALS, GpioPull, ResetMode, Power}, configuration::{display::*, joypad::button_to_bcm_pin, emulation::*}, MENU_PIN_BCM, delay};
 
@@ -42,18 +42,28 @@ pub extern "C" fn main()->!{
 
     let mut fs = Fat32Fs::new();
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
-    let mut pause_menu_gfx = gfx.clone();
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
     let mut pause_menu_joypad_provider = joypad_provider.clone();
     log::info!("Initialize all drivers successfully");
 
-    let menu_renderer = joypad_gfx_menu::GfxDeviceMenuRenderer::new(&mut gfx);
-
     let mut menu_options:[MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255] = [Default::default(); 255];
     let menu_options_size = read_menu_options(&mut fs, &mut menu_options);
 
-    let mut menu = JoypadMenu::new(&menu_options[0..menu_options_size], ArrayString::from("Choose ROM").unwrap(), menu_renderer);
-    let selected_rom = menu.get_menu_selection(&mut joypad_provider);
+    let mut menu = JoypadMenu::new(&menu_options[0..menu_options_size], ArrayString::from("Choose ROM").unwrap());
+    let selected_rom: &FileEntry;
+    loop {
+        let joypad = joypad_provider.provide();
+        match menu.try_get_menu_selection(joypad) {
+            MenuResult::Selection(sel) => {
+                selected_rom = sel;
+                break;
+            },
+            MenuResult::Frame(frame) => {
+                gfx.swap_buffer(&frame);
+            },
+        }
+    }
+
     log::info!("Selected ROM: {}", selected_rom.get_name());
     
     // SAFETY: Only ref to this static mut var
@@ -63,29 +73,38 @@ pub extern "C" fn main()->!{
     let mbc = initialize_mbc(&rom[0..selected_rom.size as usize], save_data);
     let mode = mbc.detect_preferred_mode();
 
-    let mut gameboy = GameBoy::new_with_mode(mbc, joypad_provider, magenboy_rpi::BlankAudioDevice, gfx, mode);
+    let mut gameboy = GameBoy::new_with_mode(mbc, magenboy_rpi::BlankAudioDevice, mode);
     log::info!("Initialized gameboy!");
 
     let menu_pin = unsafe {PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(GpioPull::PullUp)};
     let pause_menu_header:ArrayString<30> = ArrayString::try_from(format_args!("MagenBoy v{}", VERSION)).unwrap();
-    let pause_menu_renderer = GfxDeviceMenuRenderer::new(&mut pause_menu_gfx);
-    let mut pause_menu = JoypadMenu::new(&GAME_MENU_OPTIONS, pause_menu_header.as_str(), pause_menu_renderer);
+    let mut pause_menu = JoypadMenu::new(&GAME_MENU_OPTIONS, pause_menu_header.as_str());
+    let mut pause_menu_active = false;
     loop{
-        if !menu_pin.read_state(){
-            log::info!("Open pause menu");
-            match pause_menu.get_menu_selection(&mut pause_menu_joypad_provider){
-                EmulatorMenuOption::Resume => {},
-                EmulatorMenuOption::Restart => {
-                    log::info!("Resetting system");
-                    reset_system(mbc, fs, power_manager, ResetMode::Partition0, selected_rom);
-                }
-                EmulatorMenuOption::Shutdown => {
-                    log::info!("Shuting down system");
-                    reset_system(mbc, fs, power_manager, ResetMode::Halt, selected_rom);
-                }
-            }
+        if !menu_pin.read_state() {
+            pause_menu_active = true;
         }
-        gameboy.cycle_frame();
+        if pause_menu_active {
+            let joypad = joypad_provider.poll();
+            match pause_menu.try_get_menu_selection(joypad) {
+                MenuResult::Selection(selection) => match selection {
+                    EmulatorMenuOption::Resume => pause_menu_active = false,
+                    EmulatorMenuOption::Restart => {
+                        log::info!("Resetting system");
+                        reset_system(mbc, fs, power_manager, ResetMode::Partition0, selected_rom);
+                    }
+                    EmulatorMenuOption::Shutdown => {
+                        log::info!("Shuting down system");
+                        reset_system(mbc, fs, power_manager, ResetMode::Halt, selected_rom);
+                    }
+                },
+                MenuResult::Frame(frame) => gfx.swap_buffer(&frame),
+            }
+        } else {
+            let joypad = joypad_provider.provide();
+            let frame = gameboy.cycle_frame(joypad);
+            gfx.swap_buffer(frame);
+        }
     }
 }
 
@@ -95,7 +114,7 @@ fn reset_system<'a>(mbc: &'a mut dyn Mbc, mut fs: Fat32Fs, mut power_manager: Po
 
     // delaying the reset operation so other low level tasks will have enough time to finish (like uart transmission)
     delay::wait_ms(100);
-    power_manager.reset(mode);
+    power_manager.reset(mode)
 }
 
 fn try_read_save_file(selected_rom: &FileEntry, mut fs: &mut Fat32Fs) -> Option<&'static [u8]> {

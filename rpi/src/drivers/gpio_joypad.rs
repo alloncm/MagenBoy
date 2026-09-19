@@ -1,4 +1,4 @@
-use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS},joypad_provider::JoypadProvider, button::Button};
+use magenboy_core::keypad::{joypad::{Joypad, NUM_OF_KEYS}, button::Button};
 
 use crate::peripherals::{PERIPHERALS, GpioPull, Trigger, InputGpioPin};
 
@@ -27,23 +27,23 @@ impl GpioJoypadProvider{
             return p;
         })};
     }
-}
-
-impl JoypadProvider for GpioJoypadProvider{
-    fn provide(&mut self, joypad:&mut Joypad){
+    
+    pub fn provide(&mut self) -> Joypad {
+        let mut joypad = Joypad::default();
         for i in 0..joypad.buttons.len(){
             joypad.buttons[i] = self.input_pins[i].read_state();
         }
+        return joypad;
     }
-}
-
-impl magenboy_common::joypad_menu::MenuJoypadProvider for GpioJoypadProvider {
-    fn poll(&mut self, joypad:&mut Joypad) {
+    
+    pub fn poll(&mut self) -> Joypad {
         let gpio = unsafe{PERIPHERALS.get_gpio()};
         gpio.poll_interrupts(&self.input_pins,false);
-        
+        let mut joypad = Joypad::default();
         for i in 0..joypad.buttons.len(){
             joypad.buttons[i] = self.input_pins[i].read_state();
         }
+
+        return joypad;
     }
 }
