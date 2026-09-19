@@ -55,9 +55,11 @@ impl Default for RetroAudioDevice{
 }
 
 impl AudioDevice for RetroAudioDevice{
-    fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
-        let mut resampled = self.resampler.resample(buffer);
-        unsafe{DYNAMIC_AUDIO_BUFFER.append(&mut resampled)};
+    fn push_sample(&mut self, sample:StereoSample) {
+        let Some(sample) = self.resampler.resample(sample) else {
+            return;
+        };
+        unsafe{DYNAMIC_AUDIO_BUFFER.push(sample)};
     }
 }
 

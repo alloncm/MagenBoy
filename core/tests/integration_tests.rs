@@ -22,7 +22,7 @@ impl HashChecker{
 
 struct StubAudioDevice;
 impl AudioDevice for StubAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[StereoSample; BUFFER_SIZE]) {}
+    fn push_sample(&mut self, _sample: StereoSample) {}
 }
 
 #[test]

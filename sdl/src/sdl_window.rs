@@ -1,4 +1,4 @@
-use std::{ptr::null_mut, ffi::CString};
+use std::{ptr::{null_mut, NonNull}, ffi::CString};
 
 use magenboy_core::utils::vec2::Vec2;
 
@@ -7,7 +7,7 @@ use sdl2::sys::*;
 use crate::utils::get_sdl_error_message;
 
 pub struct SdlWindow {
-    pub(crate) window_handle: *mut SDL_Window,
+    window_handle: std::ptr::NonNull<SDL_Window>,
     gl_context: SDL_GLContext,
 }
 
@@ -37,16 +37,18 @@ impl SdlWindow {
             if gl_context == null_mut() {
                 std::panic!("Failed to get SDL GL context: message: {}", get_sdl_error_message());
             }
-            // Enables vsync
-            SDL_GL_SetSwapInterval(1);
 
             (window, gl_context)
         };
 
         return Self{
             gl_context: sdl_gl_context,
-            window_handle: sdl_window,
+            window_handle: NonNull::new(sdl_window).unwrap(),
         };
+    }
+
+    pub fn get_sdl_window_handle(&self) -> NonNull<SDL_Window> {
+        self.window_handle
     }
 }
 
@@ -54,7 +56,7 @@ impl Drop for SdlWindow {
     fn drop(&mut self) {
         unsafe{
             SDL_GL_DeleteContext(self.gl_context);
-            SDL_DestroyWindow(self.window_handle);
+            SDL_DestroyWindow(self.window_handle.as_ptr());
         }
     }
 }

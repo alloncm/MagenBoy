@@ -1,20 +1,21 @@
 mod audio;
 mod utils;
 mod sdl_joypad_provider;
-mod window;
+mod sdl_gfx_device;
+mod sdl_window;
 #[cfg(feature = "dbg")]
 mod terminal_debugger;
 #[cfg(feature = "dbg")]
 mod dbg_window;
 
-use std::{env, ffi::CString, path::PathBuf, result::Result, vec::Vec};
+use std::{env, path::PathBuf, result::Result, vec::Vec};
 
 use sdl2::sys::*;
 
-use magenboy_common::{audio::{ManualAudioResampler, ResampledAudioDevice}, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*, gl_gfx_device::GlGfxDevice};
+use magenboy_common::{audio::ManualAudioResampler, check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*};
 use magenboy_core::{apu::audio_device::*, keypad::joypad::NUM_OF_KEYS, ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, GB_FREQUENCY, utils::vec2::Vec2};
 
-use crate::{audio::*, utils::get_sdl_error_message, SdlAudioDevice, window::SdlWindow};
+use crate::{audio::*, utils::get_sdl_error_message, SdlAudioDevice, sdl_window::SdlWindow, sdl_gfx_device::SdlGfxDevice};
 
 const TURBO_MUL:u8 = 1;
 
@@ -45,23 +46,13 @@ fn main() {
     init_sdl_subsystem(SDL_INIT_AUDIO);
 
     let window = SdlWindow::new(header.clone(), Vec2{x: SCREEN_WIDTH, y: SCREEN_HEIGHT}, SCREEN_SCALE);
-    let sdl_window = window.window_handle;
+    let sdl_window = window.get_sdl_window_handle();
+    let mut gfx_device = SdlGfxDevice::new(sdl_window);
 
     let mut shutdown = false;
 
     while !shutdown {
         let args = args.clone();
-
-        let mut width: i32 = 0;
-        let mut height: i32 = 0;
-        unsafe {
-            SDL_GetWindowSize(sdl_window, &mut width, &mut height);
-        }
-
-        let mut gfx_device = GlGfxDevice::new(width as u32, height as u32, |s|{
-            let name = CString::new(s).unwrap();
-            unsafe{SDL_GL_GetProcAddress(name.as_ptr())}
-        });
 
         let mut devices: Vec::<Box::<dyn AudioDevice>> = Vec::new();
         let audio_device = SdlAudioDevice::<ManualAudioResampler>::new(44100, TURBO_MUL);
@@ -85,7 +76,7 @@ fn main() {
             let rom_path: PathBuf;
             loop {
                 let mut menu_triggered = false;
-                handle_events(&mut shutdown, &mut menu_triggered, sdl_window);
+                handle_events(&mut shutdown, &mut menu_triggered, &mut gfx_device);
                 let joypad = joypad_provider.provide();
                 match menu.get_rom_selection(joypad) {
                     MenuResult::Selection(sel) => {
@@ -94,7 +85,6 @@ fn main() {
                     },
                     MenuResult::Frame(frame) => {
                         gfx_device.render(&frame, SCREEN_WIDTH as _, SCREEN_HEIGHT as _);
-                        unsafe{SDL_GL_SwapWindow(sdl_window)};
                     },
                 }
             }
@@ -120,7 +110,7 @@ fn main() {
 
         let mut game_menu = false;
         loop {
-            handle_events(&mut shutdown, &mut game_menu, sdl_window);
+            handle_events(&mut shutdown, &mut game_menu, &mut gfx_device);
             if shutdown {
                 break;
             }
@@ -158,8 +148,6 @@ fn main() {
                     window.run(&result.0);
                 }
             };
-            // SAFETY: SDL call
-            unsafe{SDL_GL_SwapWindow(sdl_window)};
         }
 
         drop(gameboy);
@@ -173,7 +161,7 @@ fn main() {
     }
 }
 
-fn handle_events(shutdown: &mut bool, game_menu: &mut bool, sdl_window: *mut SDL_Window) {
+fn handle_events(shutdown: &mut bool, game_menu: &mut bool, gfx_device: &mut SdlGfxDevice) {
     while let Some(event) = poll_event() {
         // SAFETY: type_ is present on all the variants so it is safe to access it
         let event_type = unsafe {event.type_};
@@ -190,11 +178,7 @@ fn handle_events(shutdown: &mut bool, game_menu: &mut bool, sdl_window: *mut SDL
             }
         }
         else if event_type == SDL_EventType::SDL_WINDOWEVENT as u32{
-            let mut width: i32 = 0;
-            let mut height: i32 = 0;
-            // SAFETY: SDL call
-            unsafe{SDL_GetWindowSize(sdl_window, &mut width, &mut height)};
-            GlGfxDevice::update_viewport(width, height);
+            gfx_device.update_viewport();
         }
     }
 }
