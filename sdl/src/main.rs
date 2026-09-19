@@ -8,7 +8,7 @@ mod terminal_debugger;
 #[cfg(feature = "dbg")]
 mod dbg_window;
 
-use std::{env, path::PathBuf, result::Result, vec::Vec};
+use std::{env, path::PathBuf, result::Result, vec::Vec, time::Duration};
 
 use sdl2::sys::*;
 
@@ -33,6 +33,7 @@ const KEYBOARD_MAPPING:[SDL_Scancode; NUM_OF_KEYS] = [
 ];
 
 fn main() {
+    let target_frame_time: Duration = Duration::from_secs_f64(1.0 / 60.0);
     let header = std::format!("MagenBoy v{}", magenboy_common::VERSION);
     let args: Vec<String> = env::args().collect();  
     
@@ -110,6 +111,7 @@ fn main() {
 
         let mut game_menu = false;
         loop {
+            let frame_start_time = std::time::Instant::now();
             handle_events(&mut shutdown, &mut game_menu, &mut gfx_device);
             if shutdown {
                 break;
@@ -146,6 +148,11 @@ fn main() {
                     };
                     let mut window = dbg_window::PpuLayerWindow::new(gfx_device.clone(), result.1);
                     window.run(&result.0);
+                }
+                let duration = frame_start_time.elapsed();
+                // Extra 10%
+                if target_frame_time.saturating_sub(duration) > (target_frame_time / 10) {
+                    std::thread::sleep(target_frame_time - duration)
                 }
             };
         }
