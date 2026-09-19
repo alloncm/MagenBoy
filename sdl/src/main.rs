@@ -144,9 +144,9 @@ fn main() {
                 #[cfg(feature = "dbg")] 
                 {
                     let Ok(result) = debugger_ppu_layer_receiver.try_recv() else {
-                        break
+                        continue
                     };
-                    let mut window = dbg_window::PpuLayerWindow::new(gfx_device.clone(), result.1);
+                    let mut window = dbg_window::PpuLayerWindow::new(result.1);
                     window.run(&result.0);
                 }
                 let duration = frame_start_time.elapsed();
