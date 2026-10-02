@@ -495,7 +495,7 @@ checksum = "40ecd4077b5ae9fd2e9e169b102c6c330d0605168eb0e8bf79952b256dbefffd"
 [[package]]
 name = "gl"
 version = "0.14.1"
-source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#410528a5710e7683c6a8107d7b2abb9b35303360"
 dependencies = [
  "gl_generator",
 ]
@@ -503,7 +503,7 @@ dependencies = [
 [[package]]
 name = "gl_generator"
 version = "0.15.0"
-source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#410528a5710e7683c6a8107d7b2abb9b35303360"
 dependencies = [
  "khronos_api",
  "log",
@@ -854,7 +854,7 @@ dependencies = [
 [[package]]
 name = "khronos_api"
 version = "3.1.0"
-source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#af7598ed9a7a58f824031313f3d5932bce71f7a9"
+source = "git+https://github.com/alloncm/gl-rs.git?branch=no_std#410528a5710e7683c6a8107d7b2abb9b35303360"
 
 [[package]]
 name = "lazy_static"
