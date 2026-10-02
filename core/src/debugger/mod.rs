@@ -114,7 +114,7 @@ pub struct PpuInfo{
 }
 
 impl PpuInfo{
-    fn new<GFX:GfxDevice>(ppu:&GbPpu<GFX>)->Self{
+    fn new(ppu:&GbPpu)->Self{
         Self { 
             ppu_state: ppu.state, lcdc: ppu.lcd_control, stat: ppu.stat_register, 
             ly: ppu.ly_register, window_pos: ppu.window_pos, background_pos: ppu.bg_pos,

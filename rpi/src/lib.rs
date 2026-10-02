@@ -16,5 +16,5 @@ pub const MENU_PIN_BCM:u8 = 3; // This pin is the turn on pin on thr RPI
 
 pub struct BlankAudioDevice;
 impl AudioDevice for BlankAudioDevice{
-    fn push_buffer(&mut self, _buffer:&[StereoSample; BUFFER_SIZE]) {}
+    fn push_sample(&mut self, _sample: StereoSample) {}
 }

@@ -20,8 +20,11 @@ impl<AR:AudioResampler> WavfileAudioDevice<AR>{
 }
 
 impl<AR:AudioResampler> AudioDevice for WavfileAudioDevice<AR>{
-    fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
-        self.samples_buffer.append(self.resampler.resample(buffer).as_mut());
+    fn push_sample(&mut self, sample: StereoSample) {
+        let Some(sample) = self.resampler.resample(sample) else {
+            return;
+        };
+        self.samples_buffer.push(sample);
     }
 }
 

@@ -1,10 +1,8 @@
 use log::info;
 
-use magenboy_core::{AudioDevice, Bootrom, GameBoy, JoypadProvider, Mode, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
+use magenboy_core::{mmu::carts::Mbc, AudioDevice, Bootrom, GameBoy, Mode, GBC_BOOT_ROM_SIZE, GB_BOOT_ROM_SIZE};
 #[cfg(feature = "dbg")]
 use magenboy_core::debugger::DebuggerInterface;
-
-use crate::{mbc_handler::{initialize_mbc, release_mbc}, menu::MagenBoyState, mpmc_gfx_device::MpmcGfxDevice};        
 
 pub fn check_for_terminal_feature_flag(args:&Vec::<String>, flag:&str)->bool{
     args.len() >= 3 && args.contains(&String::from(flag))
@@ -15,24 +13,71 @@ pub fn get_terminal_feature_flag_value(args:&Vec<String>, flag:&str, error_messa
     return args.get(index + 1).expect(error_message).clone();
 }
 
-// This is static and not local for the unix signal handler to access it
-pub static EMULATOR_STATE:MagenBoyState = MagenBoyState::new();
-
-pub fn init_and_run_gameboy(
-    args: Vec<String>,
-    program_name: String, 
-    spsc_gfx_device: MpmcGfxDevice, 
-    joypad_provider: impl JoypadProvider,
-    audio_devices: impl AudioDevice,
-    #[cfg(feature = "dbg")] dui: impl DebuggerInterface
-){
+fn get_bootrom_and_mode(args: &Vec<String>, mbc: &mut dyn Mbc) -> (Option<Bootrom>, Mode) {
     let bootrom_path = if check_for_terminal_feature_flag(&args, "--bootrom"){
         Some(get_terminal_feature_flag_value(&args, "--bootrom", "Error! you must specify a value for the --bootrom parameter"))
     }else{
         None
     };
 
-    let bootrom = bootrom_path.map_or(None, |path| {
+    let bootrom = read_bootrom(bootrom_path);
+
+    let mode = match &bootrom {
+        Some(Bootrom::Gb(_)) => Mode::DMG,
+        Some(Bootrom::Gbc(_)) => Mode::CGB,
+        None => {
+            if check_for_terminal_feature_flag(&args, "--mode"){
+                let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
+                mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode).as_str())
+            }
+            else{
+                let mode = mbc.detect_preferred_mode();
+                log::info!("Could not find a mode flag, auto detected {}", <Mode as Into<&str>>::into(mode));
+                mode
+            }
+        }
+    };
+
+    return (bootrom, mode);
+}
+
+#[cfg(not(feature = "dbg"))]
+pub fn init_gameboy<'a, A: AudioDevice>(
+    args: Vec<String>,
+    mbc: &'a mut dyn Mbc,
+    audio_devices: A,
+) -> GameBoy<'a, A> {
+    let (bootrom, mode) = get_bootrom_and_mode(&args, mbc);
+
+    let gameboy = match bootrom{
+        Some(b) => GameBoy::new_with_bootrom(mbc, audio_devices, b),
+        None => GameBoy::new_with_mode(mbc, audio_devices, mode)
+    };
+
+    info!("initialized gameboy successfully!");
+    return gameboy;
+}
+
+#[cfg(feature = "dbg")]
+pub fn init_gameboy<'a, A: AudioDevice, D: DebuggerInterface>(
+    args: Vec<String>,
+    mbc: &'a mut dyn Mbc,
+    audio_devices: A,
+    dui: D,
+) -> GameBoy<'a, A, D> {
+    let (bootrom, mode) = get_bootrom_and_mode(&args, mbc);
+
+    let gameboy = match bootrom{
+        Some(b) => GameBoy::new_with_bootrom(mbc, audio_devices, b, dui),
+        None => GameBoy::new_with_mode(mbc, audio_devices, mode, dui)
+    };
+
+    info!("initialized gameboy successfully!");
+    return gameboy;
+}
+
+pub fn read_bootrom(bootrom_path: Option<String>) -> Option<Bootrom> {
+    bootrom_path.map_or(None, |path| {
         match std::fs::read(&path){
             Result::Ok(file)=>{
                 info!("found bootrom!");
@@ -47,39 +92,5 @@ pub fn init_and_run_gameboy(
                 None
             }
         }
-    });
-
-    let mbc = initialize_mbc(&program_name);
-
-    let mut gameboy = match bootrom{
-        Some(b) => GameBoy::new_with_bootrom(mbc, joypad_provider, audio_devices, spsc_gfx_device, b, #[cfg(feature = "dbg")] dui),
-        None => {
-            let mode = if check_for_terminal_feature_flag(&args, "--mode"){
-                let mode = get_terminal_feature_flag_value(&args, "--mode", "Error: Must specify a mode");
-                let mode = mode.as_str().try_into().expect(format!("Error! mode cannot be: {}", mode).as_str());
-                mode
-            }
-            else{
-                let mode = mbc.detect_preferred_mode();
-                log::info!("Could not find a mode flag, auto detected {}", <Mode as Into<&str>>::into(mode));
-                mode
-            };
-            GameBoy::new_with_mode(mbc, joypad_provider, audio_devices, spsc_gfx_device, mode, #[cfg(feature = "dbg")] dui)
-        }
-    };
-
-    info!("initialized gameboy successfully!");
-
-    EMULATOR_STATE.running.store(true, std::sync::atomic::Ordering::Relaxed);
-    while EMULATOR_STATE.running.load(std::sync::atomic::Ordering::Relaxed){
-        if !EMULATOR_STATE.pause.load(std::sync::atomic::Ordering::SeqCst){
-            // Locking the state mutex in order to signal the menu that we are cycling a frame now
-            let state = &EMULATOR_STATE;
-            let _mutex_ctx = state.state_mutex.lock().unwrap();
-            gameboy.cycle_frame();
-        }
-    }
-    drop(gameboy);
-    release_mbc(&program_name, mbc);
-    log::info!("released the gameboy succefully");
+    })
 }

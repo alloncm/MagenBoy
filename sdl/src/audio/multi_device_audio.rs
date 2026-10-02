@@ -11,9 +11,9 @@ impl MultiAudioDevice{
 }
 
 impl AudioDevice for MultiAudioDevice{
-    fn push_buffer(&mut self, buffer:&[StereoSample; BUFFER_SIZE]) {
+    fn push_sample(&mut self, sample:StereoSample) {
         for device in self.devices.iter_mut(){
-            device.push_buffer(buffer);
+            device.push_sample(sample);
         }
     }
 }

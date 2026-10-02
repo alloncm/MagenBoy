@@ -16,29 +16,6 @@ args = ["build", "--release", "--package", "magenboy_sdl"]
 command = "cargo"
 args = ["build", "--release", "--package", "magenboy_sdl", "--features", "dbg"]
 
-[tasks.sdl.linux]
-args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features"]
-dependencies = ["install_sdl2_linux"]
-
-[tasks.sdl_dbg.linux]
-args = ["build", "--release", "--package", "magenboy_sdl", "--no-default-features", "--features", "dbg"]
-dependencies = ["install_sdl2_linux"]
-
-[tasks.install_sdl2_linux]
-script = [
-"""
-# returns early if the package was already installed and install it otherwise. The first
-# argument is the package name to be checked (and installed if not already).
-# other arguments are passed to apt-get
-try_install() {
-    dpkg -l "$1" | grep -q ^ii && return 0
-    sudo apt-get -y install "$@"
-    return 0
-}
-try_install libsdl2-dev
-"""
-]
-
 [tasks.rpios]
 install_crate = {crate_name = "cross", binary = "cross", test_arg = "-h"}
 install_crate_args=["--locked", "--version", "0.2.5"]
@@ -87,6 +64,14 @@ dependencies = ["add_android_target"]
 command = "rustup"
 args = ["target", "add", "aarch64-linux-android"]
 
+[tasks.build_mabenboy_nx]
+private = true
+toolchain = "${nightly_version}"
+command = "cargo"
+args = ["build", "--release", "--package", "magenboy_nx", "--target", "aarch64-nintendo-switch-freestanding", "-Z", "build-std=core,compiler_builtins,alloc", "-Z", "build-std-features=compiler-builtins-mem"]
+dependencies = ["nightly-install", "install_rust_src"]
+
 [tasks.nx]
 command = "docker"
-args = ["build", "--progress=plain", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=.", "--build-arg", "NIGHTLY=${nightly_version}"]
+args = ["build", ".", "--file", "nx/Dockerfile", "--target", "export", "--output=." ]
+dependencies = ["build_mabenboy_nx"]

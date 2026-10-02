@@ -14,7 +14,7 @@ jobs:
     strategy: 
       fail-fast: false  # Allow the other job to continue running
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:  
@@ -40,7 +40,7 @@ jobs:
 
     # For some reason the other installation causing this to fail (some error about not finding glibc) so this should come first
     - name: Build rpi os
-      if: ${{ matrix.os == 'ubuntu-latest' }}  # This fails on windows since it does not have docker installed
+      if: ${{ matrix.os == 'ubuntu-24.04' }}  # This fails on windows since it does not have docker installed
       run: cargo make rpios
       
     - name: Build rpi baremetal
