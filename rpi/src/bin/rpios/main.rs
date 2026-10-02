@@ -1,6 +1,5 @@
 use std::{env, path::PathBuf};
 use magenboy_common::{check_for_terminal_feature_flag, get_terminal_feature_flag_value, init_gameboy, joypad_menu::*, mbc_handler::{initialize_mbc, release_mbc}, menu::*};
-use magenboy_core::{ppu::gb_ppu::{SCREEN_HEIGHT, SCREEN_WIDTH}, apu::audio_device::*, keypad::joypad::NUM_OF_KEYS};
 use magenboy_rpi::{configuration::{display::*, emulation::*, joypad::*}, drivers::*, peripherals::PERIPHERALS, BlankAudioDevice, MENU_PIN_BCM};
 
 fn main(){
@@ -48,6 +47,9 @@ fn main(){
         );
 
         let mut game_menu = false;
+        let menu_pin = unsafe{
+            PERIPHERALS.get_gpio().take_pin(MENU_PIN_BCM).into_input(magenboy_rpi::peripherals::GpioPull::PullUp)
+        };
 
         'main: loop {
             if game_menu {
@@ -64,6 +66,7 @@ fn main(){
                 let joypad = joypad_provider.provide();
                 let buffer = gameboy.cycle_frame(joypad);
                 gfx.swap_buffer(buffer);
+                game_menu = menu_pin.read_state();
             }
         }
 

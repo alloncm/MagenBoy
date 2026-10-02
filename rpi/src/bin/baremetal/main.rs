@@ -43,7 +43,6 @@ pub extern "C" fn main()->!{
     let mut fs = Fat32Fs::new();
     let mut gfx = Ili9341GfxDevice::new(RESET_PIN_BCM, LED_PIN_BCM, TURBO, FRAME_LIMITER);
     let mut joypad_provider = GpioJoypadProvider::new(button_to_bcm_pin);
-    let mut pause_menu_joypad_provider = joypad_provider.clone();
     log::info!("Initialize all drivers successfully");
 
     let mut menu_options:[MenuOption<FileEntry, ArrayString<{FileEntry::FILENAME_SIZE}>>; 255] = [Default::default(); 255];
